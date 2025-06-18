@@ -1,0 +1,87 @@
+{
+  "name": "srs-writer-plugin",
+  "displayName": "SRS Writer",
+  "description": "AI-powered Software Requirements Specification writer for VSCode",
+  "version": "0.1.0",
+  "publisher": "srs-writer-team",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/srs-writer-team/srs-writer-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/srs-writer-team/srs-writer-plugin/issues"
+  },
+  "homepage": "https://github.com/srs-writer-team/srs-writer-plugin#readme",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "srs-writer",
+        "name": "srs-writer",
+        "description": "Generate comprehensive SRS documents from simple requirements",
+        "isSticky": true
+      }
+    ],
+    "commands": [
+      {
+        "command": "srs-writer.help",
+        "title": "SRS Writer: Help"
+      },
+      {
+        "command": "srs-writer.runFullTestSuite",
+        "title": "SRS Writer: Run Full Test Suite"
+      },
+      {
+        "command": "srs-writer.runPerformanceTests",
+        "title": "SRS Writer: Run Performance Tests"
+      },
+      {
+        "command": "srs-writer.runEndToEndTests",
+        "title": "SRS Writer: Run End-to-End Tests"
+      },
+      {
+        "command": "srs-writer.showTestHelp",
+        "title": "SRS Writer: Show Test Help"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn build:prod",
+    "build": "webpack --mode development",
+    "build:prod": "webpack --mode production",
+    "watch": "webpack --mode development --watch",
+    "test": "jest",
+    "lint": "eslint src --ext ts",
+    "lint:fix": "eslint src --ext ts --fix",
+    "clean": "rimraf dist",
+    "dev": "yarn watch"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.x",
+    "@types/js-yaml": "^4.0.9",
+    "@types/marked": "^5.x",
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.x",
+    "@typescript-eslint/parser": "^6.x",
+    "eslint": "^8.x",
+    "jest": "^29.x",
+    "rimraf": "^5.x",
+    "ts-jest": "^29.x",
+    "ts-loader": "^9.x",
+    "typescript": "^5.x",
+    "webpack": "^5.x",
+    "webpack-cli": "^5.x"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "marked": "^9.x"
+  }
+}
