@@ -1,107 +1,34 @@
-import { SRSParser } from '../../parser/srs-parser';
+/**
+ * 🚫 DEPRECATED - 此测试文件已废弃
+ * 
+ * 原因：SRSParser已被重构为工具架构：
+ * - documentGeneratorTools: 生成完整SRS报告
+ * - documentImporterTools: 从Markdown导入解析
+ * 
+ * 新的测试应该针对具体的工具进行，而不是整个解析器类。
+ */
+
+// import { SRSParser } from '../../parser/srs-parser';  // 已删除
 import { ParseOptions } from '../../types';
 
 /**
- * 性能测试套件
+ * SRS解析器性能测试套件
+ * 测试解析器在各种负载下的性能表现
  */
-describe('SRS Parser Performance Tests', () => {
-    let parser: SRSParser;
-    
+describe('SRSParser Performance Tests (DEPRECATED)', () => {
+
+    // let parser: SRSParser;  // 已删除
+
     beforeEach(() => {
-        parser = new SRSParser();
+        // parser = new SRSParser();  // 已删除
     });
 
-    /**
-     * 测试大型文档解析性能
-     */
-    test('should parse large YAML document within acceptable time', async () => {
-        const largeYamlContent = generateLargeYamlContent(1000); // 1000个需求
-        const options: ParseOptions = {
-            outputFormat: 'yaml',
-            includeMetadata: true
-        };
-
-        const startTime = Date.now();
-        const result = await parser.parse(largeYamlContent, options);
-        const endTime = Date.now();
-        
-        const parseTime = endTime - startTime;
-        
-        expect(result).toBeDefined();
-        expect(Object.keys(result).length).toBeGreaterThan(0);
-        expect(parseTime).toBeLessThan(5000); // 应在5秒内完成
-    });
-
-    /**
-     * 测试Markdown解析性能
-     */
-    test('should parse large Markdown document efficiently', async () => {
-        const largeMarkdownContent = generateLargeMarkdownContent(500); // 500个章节
-        const options: ParseOptions = {
-            outputFormat: 'yaml',
-            includeMetadata: false
-        };
-
-        const startTime = Date.now();
-        const result = await parser.parse(largeMarkdownContent, options);
-        const endTime = Date.now();
-        
-        const parseTime = endTime - startTime;
-        
-        expect(result).toBeDefined();
-        expect(parseTime).toBeLessThan(3000); // 应在3秒内完成
-    });
-
-    /**
-     * 测试内存使用情况
-     */
-    test('should not cause memory leak during multiple parse operations', async () => {
-        const yamlContent = generateMediumYamlContent(100);
-        const options: ParseOptions = {
-            outputFormat: 'yaml',
-            includeMetadata: true
-        };
-
-        // 执行多次解析操作
-        for (let i = 0; i < 50; i++) {
-            const result = await parser.parse(yamlContent, options);
-            expect(result).toBeDefined();
-        }
-
-        // 如果存在内存泄漏，这个测试可能会失败或变慢
+    test.skip('DEPRECATED: 此测试已废弃 - 解析器已重构为工具架构', () => {
+        // 此测试已废弃，因为SRSParser已被重构为工具架构
         expect(true).toBe(true);
     });
 
-    /**
-     * 性能基准测试
-     */
-    test('performance benchmark for different document sizes', async () => {
-        const sizes = [10, 50, 100, 200, 500];
-        const results: Array<{size: number, time: number}> = [];
-
-        for (const size of sizes) {
-            const content = generateLargeYamlContent(size);
-            const options: ParseOptions = {
-                outputFormat: 'yaml',
-                includeMetadata: true
-            };
-
-            const startTime = Date.now();
-            await parser.parse(content, options);
-            const endTime = Date.now();
-            
-            const parseTime = endTime - startTime;
-            results.push({ size, time: parseTime });
-        }
-
-        // 输出性能基准结果
-        console.table(results);
-        
-        // 验证性能是否在合理范围内
-        results.forEach(result => {
-            expect(result.time).toBeLessThan(result.size * 10); // 每个需求不超过10ms
-        });
-    });
+    // 原有的所有测试都被跳过，因为测试目标不再存在
 });
 
 /**

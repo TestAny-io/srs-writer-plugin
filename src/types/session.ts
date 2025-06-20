@@ -1,24 +1,20 @@
 /**
- * v1.2 会话管理相关类型定义
+ * v2.0 会话管理相关类型定义 - 工具代理模式简化版
  */
-
-import { UserIntentType } from './index';
 
 export interface SessionContext {
   projectName: string | null;
   baseDir: string | null;
-  lastIntent: UserIntentType | null;
   activeFiles: string[];
   metadata: {
     srsVersion: string;      // SRS文档版本号，如"v1.0", "v1.1"
     created: string;         // ISO 8601 时间戳
     lastModified: string;    // ISO 8601 时间戳
-    version: string;         // 会话格式版本号，如"1.2"
+    version: string;         // 会话格式版本号，如"2.0"
   };
 }
 
 export interface RuleContext {
-  intent: UserIntentType;   // 从Orchestrator传来的意图（类型安全）
   sessionData: SessionContext;  // 当前会话状态
   userInput: string;        // 原始用户输入
   preparedContext?: any;    // Strategy预处理的上下文（可选）
@@ -38,11 +34,13 @@ export interface OrchestratorCapabilities {
 }
 
 /**
- * 会话管理器接口 - v1.2 修正版（全异步）
+ * 会话管理器接口 - v2.0 简化版（全异步，移除意图管理）
  * 
  * ⚠️ 重要架构修正：所有方法都必须是异步的
  * 原因：SessionManager需要与文件系统交互，而文件I/O在Node.js/VSCode环境中
  * 必须使用异步操作，否则会阻塞VSCode主线程导致UI卡死
+ * 
+ * 🚀 v2.0 变更：移除 lastIntent 管理，简化为纯粹的项目会话状态管理
  */
 export interface ISessionManager {
   /**

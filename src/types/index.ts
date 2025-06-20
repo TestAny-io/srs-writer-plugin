@@ -113,25 +113,15 @@ export interface IAICommunicator {
 }
 
 /**
- * 解析器模块的接口 - v1.0 (最终版)
+ * 🚫 DEPRECATED - ISRSParser接口已废弃
+ * 
+ * 原因：SRSParser已被重构为分层工具架构：
+ * - documentGeneratorTools: 生成完整SRS报告
+ * - documentImporterTools: 从Markdown导入解析
+ * 
+ * 新的解析功能通过工具执行器调用具体工具实现。
  */
-export interface ISRSParser {
-  /**
-   * 解析母文档，生成所有最终文件。
-   * 必须实现"优雅降级"：即使部分内容解析失败，也应尽力返回成功解析的部分，
-   * 并将错误信息包含在返回结果的'writer_log.json'中。
-   * @param motherDocumentContent AI生成的母文档字符串
-   * @param options 解析选项，用于未来扩展
-   * @returns Promise<ParsedArtifacts> 包含所有成功生成的文件和日志的对象
-   */
-  parse(motherDocumentContent: string, options?: ParseOptions): Promise<ParsedArtifacts>;
-
-  /**
-   * 为未来的Web Worker实现预留的异步接口。
-   * MVP阶段无需实现此方法。
-   */
-  parseAsync?(motherDocumentContent: string, options?: ParseOptions): Promise<ParsedArtifacts>;
-}
+// export interface ISRSParser - 已废弃
 
 /**
  * 文件系统管理模块的接口

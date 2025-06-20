@@ -2,10 +2,8 @@ import * as vscode from 'vscode';
 import { SRSChatParticipant } from './chat/srs-chat-participant';
 import { SessionManager } from './core/session-manager';
 import { Orchestrator } from './core/orchestrator';
-import { ArchitectureSpike } from './test/spike/architecture-spike';
 import { Logger } from './utils/logger';
 import { ErrorHandler } from './utils/error-handler';
-import { TestCommands } from './test/test-commands';
 import { COMMANDS } from './constants';
 
 let chatParticipant: SRSChatParticipant;
@@ -132,41 +130,22 @@ function registerV13Commands(context: vscode.ExtensionContext): void {
         }
     });
     
-    // 架构验证命令
+    // 架构验证命令 (v2.0: 已迁移到新工具架构)
     const architectureValidationCommand = vscode.commands.registerCommand(
         'srs-writer.runArchitectureSpike', 
         async () => {
-            const spike = new ArchitectureSpike();
-            
-            const progressOptions = {
-                location: vscode.ProgressLocation.Notification,
-                title: '🧪 运行架构验证',
-                cancellable: false
-            };
-            
-            await vscode.window.withProgress(progressOptions, async (progress) => {
-                progress.report({ message: '正在验证混合智能架构...' });
-                
-                try {
-                    const results = await spike.runFullValidation();
-                    
-                    const statusIcon = results.overallSuccess ? '🎉' : '💥';
-                    const statusText = results.overallSuccess ? 'PASS' : 'FAIL';
-                    
-                    const summary = `${statusIcon} 架构验证 ${statusText}\n\n` +
-                        `🎯 AI路由准确率: ${results.aiRoutingAccuracy}%\n` +
-                        `🔗 架构链路: ${results.architectureChainComplete ? '✅' : '❌'}\n` +
-                        `🛡️ 错误处理: ${results.errorHandlingRobust ? '✅' : '❌'}\n` +
-                        `⚡ 性能基线: ${results.performanceBaseline.averageMs}ms`;
-                    
-                    if (results.overallSuccess) {
-                        vscode.window.showInformationMessage(summary);
-                    } else {
-                        vscode.window.showWarningMessage(summary);
-                    }
-                    
-                } catch (error) {
-                    vscode.window.showErrorMessage(`架构验证失败: ${error}`);
+            vscode.window.showInformationMessage(
+                '🚀 架构已升级到v2.0工具代理模式！\n\n' +
+                '新架构特点：\n' +
+                '• 🤖 智能工具代理\n' +
+                '• 🔧 分层工具架构\n' +
+                '• 📚 文档生成与导入工具\n' +
+                '• 🎯 对话式规划循环\n\n' +
+                '请使用 @srs-writer 在聊天中体验新架构！',
+                '了解更多'
+            ).then(selection => {
+                if (selection === '了解更多') {
+                    vscode.commands.executeCommand('srs-writer.help');
                 }
             });
         }
@@ -281,7 +260,7 @@ export function deactivate() {
     try {
         // 清理Chat Participant会话
         if (chatParticipant) {
-            chatParticipant.cleanupExpiredSessions();
+            // 已移除过期会话清理功能 - 现在由 SessionManager 自动处理
         }
         
         // 保存会话状态

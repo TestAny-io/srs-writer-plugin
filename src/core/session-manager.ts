@@ -6,8 +6,8 @@ import { ISessionManager, SessionContext } from '../types/session';
 import { Logger } from '../utils/logger';
 
 /**
- * 会话管理器
- * 负责管理用户的项目会话状态
+ * 会话管理器 v2.0 - 工具代理模式简化版
+ * 负责管理用户的项目会话状态（纯粹的项目状态，不再管理意图历史）
  */
 export class SessionManager implements ISessionManager {
     private logger = Logger.getInstance();
@@ -29,14 +29,14 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 获取当前会话（v1.2异步版本）
+     * 获取当前会话（v2.0异步版本）
      */
     public async getCurrentSession(): Promise<SessionContext | null> {
         return this.currentSession;
     }
 
     /**
-     * 更新当前会话 - v1.2异步原子更新版本
+     * 更新当前会话 - v2.0异步原子更新版本（简化：移除意图管理）
      */
     public async updateSession(updates: Partial<SessionContext>): Promise<void> {
         if (!this.currentSession) {
@@ -44,7 +44,7 @@ export class SessionManager implements ISessionManager {
             return;
         }
 
-        // 🔧 v1.2修复：确保原子更新，避免状态覆盖
+        // 🔧 v2.0修复：确保原子更新，避免状态覆盖
         const previousSession = { ...this.currentSession };
         
         try {
@@ -55,11 +55,12 @@ export class SessionManager implements ISessionManager {
                 metadata: {
                     ...previousSession.metadata,
                     ...(updates.metadata || {}),
-                    lastModified: new Date().toISOString()
+                    lastModified: new Date().toISOString(),
+                    version: '2.0' // 确保版本号更新为2.0
                 }
             };
 
-            // 🔧 v1.2改进：只记录实际变更的字段，减少日志噪音
+            // 🔧 v2.0改进：只记录实际变更的字段，减少日志噪音
             const changedFields = this.getChangedFields(previousSession, updates);
             if (changedFields.length > 0) {
                 this.logger.info(`Session updated - changed fields: ${changedFields.join(', ')}`);
@@ -70,13 +71,13 @@ export class SessionManager implements ISessionManager {
                 await this.saveSessionToFile();
             } catch (error) {
                 this.logger.error('Failed to save session after update', error as Error);
-                // 🔧 v1.2新增：保存失败时回滚状态
+                // 🔧 v2.0新增：保存失败时回滚状态
                 this.currentSession = previousSession;
                 throw error;
             }
             
         } catch (error) {
-            // 🔧 v1.2新增：更新失败时回滚状态
+            // 🔧 v2.0新增：更新失败时回滚状态
             this.logger.error('Failed to update session, rolling back', error as Error);
             this.currentSession = previousSession;
             throw error;
@@ -84,7 +85,7 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 创建新会话 - v1.2异步版本
+     * 创建新会话 - v2.0异步版本（简化：移除意图管理）
      */
     public async createNewSession(projectName?: string): Promise<SessionContext> {
         const now = new Date().toISOString();
@@ -92,13 +93,12 @@ export class SessionManager implements ISessionManager {
         this.currentSession = {
             projectName: projectName || null,
             baseDir: projectName ? path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', projectName) : null,
-            lastIntent: null,
             activeFiles: [],
             metadata: {
-                srsVersion: 'v1.0',  // 新增：SRS文档版本号
+                srsVersion: 'v1.0',  // SRS文档版本号
                 created: now,
                 lastModified: now,
-                version: '1.2'       // 会话格式版本号
+                version: '2.0'       // 会话格式版本号更新为2.0
             }
         };
 
@@ -116,7 +116,7 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 清理会话 - v1.2异步版本
+     * 清理会话 - v2.0异步版本
      */
     public async clearSession(): Promise<void> {
         this.currentSession = null;
@@ -269,15 +269,15 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 获取会话状态摘要（v1.2异步版本，保持接口一致性）
+     * 获取会话状态摘要（v2.0异步版本，简化版本）
      */
     public async getSessionSummary(): Promise<string> {
         if (!this.currentSession) {
             return 'No active session';
         }
 
-        const { projectName, lastIntent, activeFiles } = this.currentSession;
-        return `Project: ${projectName || 'unnamed'}, Last Intent: ${lastIntent || 'none'}, Files: ${activeFiles.length}`;
+        const { projectName, activeFiles } = this.currentSession;
+        return `Project: ${projectName || 'unnamed'}, Files: ${activeFiles.length}`;
     }
 
     /**

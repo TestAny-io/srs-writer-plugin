@@ -1,4 +1,14 @@
-import { SRSParser } from '../../parser/srs-parser';
+/**
+ * 🚫 DEPRECATED - 此性能测试文件已废弃
+ * 
+ * 原因：SRSParser已被重构为工具架构：
+ * - documentGeneratorTools: 生成完整SRS报告
+ * - documentImporterTools: 从Markdown导入解析
+ * 
+ * 新的性能测试应该针对具体的工具进行测试。
+ */
+
+// import { SRSParser } from '../../parser/srs-parser';  // 已删除
 import { AICommunicator } from '../../core/ai-communicator';
 import { Logger } from '../../utils/logger';
 import { TestCases, PerformanceBenchmarks } from '../fixtures/test-cases';
@@ -8,7 +18,6 @@ import { TestCases, PerformanceBenchmarks } from '../fixtures/test-cases';
  */
 export class PerformanceTest {
     private logger = Logger.getInstance();
-    private srsParser = new SRSParser();
     private aiCommunicator = new AICommunicator();
     private performanceResults: PerformanceResult[] = [];
 
@@ -16,18 +25,18 @@ export class PerformanceTest {
      * 运行所有性能测试
      */
     public async runPerformanceTests(): Promise<PerformanceTestReport> {
-        this.logger.info('⚡ Starting Performance Tests...');
+        console.log('⚠️  此性能测试已废弃 - SRSParser已重构为工具架构');
         
-        await this.testParsingPerformance();
-        await this.testMemoryUsage();
-        await this.testConcurrentPerformance();
-        await this.testStressLoad();
-
-        const needsWebWorker = this.evaluateWebWorkerNeed();
-        const report = this.generatePerformanceReport();
-        report.webWorkerRecommendation = needsWebWorker;
-
-        return report;
+        return {
+            totalTests: 0,
+            passed: 0,
+            failed: 0,
+            averageParseTime: 0,
+            totalTime: 0,
+            results: [],
+            recommendations: ['迁移到新的工具架构测试'],
+            summary: 'DEPRECATED: 测试已废弃，请使用新的工具架构测试'
+        };
     }
 
     private async testParsingPerformance(): Promise<void> {
@@ -38,7 +47,7 @@ export class PerformanceTest {
 
                 for (let i = 0; i < 3; i++) {
                     const startTime = performance.now();
-                    await this.srsParser.parse(motherDocument);
+                    // await this.srsParser.parse(motherDocument);  // 已废弃
                     parseTimes.push(performance.now() - startTime);
                 }
 
@@ -124,19 +133,25 @@ export class PerformanceTest {
         const totalTests = this.performanceResults.length;
         
         return {
-            summary: {
-                totalTests,
-                passedTests,
-                failedTests: totalTests - passedTests,
-                passRate: totalTests > 0 ? (passedTests / totalTests) * 100 : 0
-            },
-            categoryStats: this.calculateCategoryStats(),
+            totalTests,
+            passed: passedTests,
+            failed: totalTests - passedTests,
+            averageParseTime: this.calculateAverageParseTime(),
+            totalTime: this.calculateTotalTime(),
             results: this.performanceResults,
-            optimizationSuggestions: this.generateOptimizationSuggestions(),
-            webWorkerRecommendation: false,
-            benchmarks: PerformanceBenchmarks,
-            timestamp: new Date().toISOString()
+            recommendations: this.generateOptimizationSuggestions(),
+            summary: `DEPRECATED: 测试已废弃，请使用新的工具架构测试`
         };
+    }
+
+    private calculateAverageParseTime(): number {
+        const validResults = this.performanceResults.filter(r => r.avgTime >= 0);
+        return validResults.reduce((sum, r) => sum + r.avgTime, 0) / validResults.length;
+    }
+
+    private calculateTotalTime(): number {
+        const validResults = this.performanceResults.filter(r => r.avgTime >= 0);
+        return validResults.reduce((sum, r) => sum + r.avgTime, 0);
     }
 
     private calculateCategoryStats(): CategoryStats[] {
@@ -175,7 +190,7 @@ export class PerformanceTest {
         
         if (failedTests.length > 0) {
             suggestions.push('检测到性能问题，建议进行优化');
-            suggestions.push('- 考虑优化SRSParser的解析算法');
+            // suggestions.push('- 考虑优化SRSParser的解析算法');  // 已废弃
             suggestions.push('- 实现Web Worker以避免阻塞主线程');
         } else {
             suggestions.push('✅ 所有性能测试通过，无需立即优化');
@@ -208,16 +223,12 @@ interface CategoryStats {
 }
 
 interface PerformanceTestReport {
-    summary: {
-        totalTests: number;
-        passedTests: number;
-        failedTests: number;
-        passRate: number;
-    };
-    categoryStats: CategoryStats[];
+    totalTests: number;
+    passed: number;
+    failed: number;
+    averageParseTime: number;
+    totalTime: number;
     results: PerformanceResult[];
-    optimizationSuggestions: string[];
-    webWorkerRecommendation: boolean;
-    benchmarks: typeof PerformanceBenchmarks;
-    timestamp: string;
+    recommendations: string[];
+    summary: string;
 }
