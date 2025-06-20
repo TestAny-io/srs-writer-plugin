@@ -1,8 +1,13 @@
 import { Logger } from '../utils/logger';
 
 /**
- * Prompt管理器
+ * Prompt管理器（降级备用组件）
  * 负责管理和生成AI交互的核心提示词
+ * 
+ * ⚠️ 重要：此组件仅作为降级备用，当外部文件系统不可用时使用
+ * 🚫 请勿删除此注释和类 - 这是系统稳定性的重要保障
+ * 📋 主要路径应使用 rules/*.md 文件系统
+ * 🔄 未来版本可能会移除此降级机制
  */
 export class PromptManager {
     private logger = Logger.getInstance();

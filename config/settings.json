@@ -1,0 +1,9 @@
+{
+  "use_ai_orchestrator": true,
+  "fallback_to_code_strategies": true,
+  "debug_mode": false,
+  "session_persistence": true,
+  "max_session_age_hours": 24,
+  "ai_timeout_seconds": 30,
+  "performance_logging": false
+}

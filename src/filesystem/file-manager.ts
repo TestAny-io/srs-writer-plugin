@@ -29,17 +29,50 @@ export class FileManager implements IFileSystemManager {
             const projectDirUri = vscode.Uri.joinPath(workspaceFolder.uri, baseDir);
             await this.ensureDirectoryExists(projectDirUri);
 
-            // 写入所有文件
+            // 写入所有文件（使用Promise.allSettled实现优雅降级）
             const writePromises = Object.entries(artifacts).map(([fileName, content]) =>
                 this.writeFile(projectDirUri, fileName, content)
             );
 
-            await Promise.all(writePromises);
+            const results = await Promise.allSettled(writePromises);
 
-            this.logger.info(`Successfully wrote ${Object.keys(artifacts).length} files to ${baseDir}`);
+            // 分析写入结果
+            const successCount = results.filter(r => r.status === 'fulfilled').length;
+            const artifactKeys = Object.keys(artifacts);
+            const failedFiles = results
+                .map((result, index) => ({ result, index }))
+                .filter(item => item.result.status === 'rejected')
+                .map(item => ({
+                    fileName: artifactKeys[item.index],
+                    error: (item.result as PromiseRejectedResult).reason.message
+                }));
 
-            // 显示成功消息并提供打开选项
-            await this.showSuccessMessage(projectDirUri, baseDir);
+            // 记录结果
+            if (failedFiles.length > 0) {
+                this.logger.error(`Failed to write ${failedFiles.length} files: ${failedFiles.map(f => f.fileName).join(', ')}`);
+                
+                // 显示部分成功的警告消息
+                const failedFileNames = failedFiles.map(f => f.fileName).join(', ');
+                await vscode.window.showWarningMessage(
+                    `⚠️ 部分文件写入失败: ${failedFileNames}。已成功创建 ${successCount} 个文件。`,
+                    '查看详情', '忽略'
+                ).then(async (action) => {
+                    if (action === '查看详情') {
+                        // 显示详细错误信息
+                        const detailMessage = failedFiles.map(f => `${f.fileName}: ${f.error}`).join('\n');
+                        await vscode.window.showErrorMessage(`文件写入失败详情:\n${detailMessage}`);
+                    }
+                });
+                
+                // 即使部分失败，如果有成功的文件，仍然提供后续操作
+                if (successCount > 0) {
+                    await this.showSuccessMessage(projectDirUri, baseDir, true, successCount, artifactKeys.length);
+                }
+            } else {
+                this.logger.info(`Successfully wrote all ${artifactKeys.length} files to ${baseDir}`);
+                // 显示完全成功的消息
+                await this.showSuccessMessage(projectDirUri, baseDir, false, successCount, artifactKeys.length);
+            }
 
         } catch (error) {
             this.logger.error('Failed to write artifacts', error as Error);
@@ -96,11 +129,22 @@ export class FileManager implements IFileSystemManager {
     /**
      * 显示成功消息并提供后续操作选项
      */
-    private async showSuccessMessage(projectDirUri: vscode.Uri, baseDir: string): Promise<void> {
+    private async showSuccessMessage(
+        projectDirUri: vscode.Uri, 
+        baseDir: string, 
+        isPartialSuccess: boolean = false, 
+        successCount: number = 0, 
+        totalCount: number = 0
+    ): Promise<void> {
         const actions = ['打开文件夹', '查看SRS.md', '忽略'];
         
+        // 根据是否为部分成功显示不同的消息
+        const message = isPartialSuccess 
+            ? `⚠️ SRS文档部分生成成功：${successCount}/${totalCount} 个文件已创建到 "${baseDir}" 目录。`
+            : `🎉 SRS文档已成功生成到 "${baseDir}" 目录！`;
+        
         const selectedAction = await vscode.window.showInformationMessage(
-            `🎉 SRS文档已成功生成到 "${baseDir}" 目录！`,
+            message,
             ...actions
         );
 

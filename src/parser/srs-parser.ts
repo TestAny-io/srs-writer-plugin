@@ -80,44 +80,73 @@ export class SRSParser implements ISRSParser {
             });
         }
 
-        // 检查必要的分隔符
-        const requiredSections = [
-            '--- SOFTWARE REQUIREMENTS SPECIFICATION ---',
-            '--- FUNCTIONAL REQUIREMENTS ---',
-            '--- NON-FUNCTIONAL REQUIREMENTS ---'
+        // v1.2更新：检查必要的分隔符（支持新旧两种格式）
+        const requiredSectionsNew = [
+            '### --- SOFTWARE_REQUIREMENTS_SPECIFICATION_CONTENT ---',
+            '### --- AI_CLASSIFICATION_DECISION ---'
         ];
 
-        for (const section of requiredSections) {
-            if (!content.includes(section)) {
-                this.warnings.push({
-                    severity: ErrorSeverity.HIGH,
-                    message: `Missing required section: ${section}`,
-                    section: 'validation'
-                });
-            }
+        const requiredSectionsOld = [
+            '--- SOFTWARE REQUIREMENTS SPECIFICATION ---',
+            '--- FUNCTIONAL REQUIREMENTS ---'
+        ];
+
+        // 检查是否包含新格式或旧格式的分隔符
+        const hasNewFormat = requiredSectionsNew.some(section => content.includes(section));
+        const hasOldFormat = requiredSectionsOld.some(section => content.includes(section));
+
+        if (!hasNewFormat && !hasOldFormat) {
+            this.warnings.push({
+                severity: ErrorSeverity.HIGH,
+                message: 'No recognized section format found (neither new nor old format)',
+                section: 'validation'
+            });
         }
+
+        this.logger.info(`Document format detected: ${hasNewFormat ? 'new' : 'old'} format`);
     }
 
     /**
-     * 解析主SRS文档
+     * 解析主SRS文档（v1.2更新：支持新旧格式）
      */
     private async parseSRSMainDocument(content: string, artifacts: ParsedArtifacts): Promise<void> {
         try {
             this.logger.info('Parsing main SRS document');
             
-            const srsStart = content.indexOf('--- SOFTWARE REQUIREMENTS SPECIFICATION ---');
-            const functionalStart = content.indexOf('--- FUNCTIONAL REQUIREMENTS ---');
+            // v1.2：支持新旧两种格式
+            const newFormatStart = content.indexOf('### --- SOFTWARE_REQUIREMENTS_SPECIFICATION_CONTENT ---');
+            const oldFormatStart = content.indexOf('--- SOFTWARE REQUIREMENTS SPECIFICATION ---');
             
-            if (srsStart === -1) {
-                throw new Error('SRS main document section not found');
+            let srsStart = -1;
+            let startMarker = '';
+            let endMarker = '';
+            
+            if (newFormatStart !== -1) {
+                // 新格式
+                srsStart = newFormatStart;
+                startMarker = '### --- SOFTWARE_REQUIREMENTS_SPECIFICATION_CONTENT ---';
+                endMarker = '### ---'; // 查找下一个新格式块
+            } else if (oldFormatStart !== -1) {
+                // 旧格式
+                srsStart = oldFormatStart;
+                startMarker = '--- SOFTWARE REQUIREMENTS SPECIFICATION ---';
+                endMarker = '---'; // 查找下一个旧格式块
+            } else {
+                throw new Error('SRS main document section not found in either format');
             }
 
-            const srsEnd = functionalStart !== -1 ? functionalStart : content.length;
+            // 查找结束位置
+            let srsEnd = content.length;
+            const nextBlockStart = content.indexOf(endMarker, srsStart + startMarker.length);
+            if (nextBlockStart !== -1) {
+                srsEnd = nextBlockStart;
+            }
+
             const srsContent = content.substring(srsStart, srsEnd);
 
             // 处理SRS内容，移除分隔符
             const cleanSrsContent = srsContent
-                .replace('--- SOFTWARE REQUIREMENTS SPECIFICATION ---', '')
+                .replace(startMarker, '')
                 .trim();
 
             artifacts['SRS.md'] = cleanSrsContent;
@@ -135,35 +164,41 @@ export class SRSParser implements ISRSParser {
     }
 
     /**
-     * 解析功能需求
+     * 解析功能需求（v1.2更新：从SRS主文档内容中提取）
      */
     private async parseFunctionalRequirements(content: string, artifacts: ParsedArtifacts): Promise<void> {
         try {
-            this.logger.info('Parsing functional requirements');
+            this.logger.info('Parsing functional requirements from SRS content');
             
-            const startMarker = '--- FUNCTIONAL REQUIREMENTS ---';
-            const endMarker = '--- NON-FUNCTIONAL REQUIREMENTS ---';
+            // 1. 先提取SRS主文档内容
+            const srsContent = this.extractSRSContentFromMother(content);
             
-            const startIndex = content.indexOf(startMarker);
-            const endIndex = content.indexOf(endMarker);
-            
-            if (startIndex === -1) {
+            if (!srsContent) {
                 this.warnings.push({
                     severity: ErrorSeverity.HIGH,
-                    message: 'Functional requirements section not found',
+                    message: 'Could not extract SRS content for functional requirements parsing',
                     section: 'functional_requirements'
                 });
                 return;
             }
 
-            const endIdx = endIndex !== -1 ? endIndex : content.length;
-            const frContent = content.substring(startIndex + startMarker.length, endIdx).trim();
+            // 2. 在SRS内容中查找功能需求章节（支持中英文）
+            const frTable = this.extractFRTableFromSRS(srsContent);
             
-            // 使用YAML生成器处理功能需求
-            const yamlContent = this.yamlGenerator.generateFunctionalRequirementsYaml(frContent);
+            if (!frTable) {
+                this.warnings.push({
+                    severity: ErrorSeverity.HIGH,
+                    message: 'Functional requirements table not found in SRS content',
+                    section: 'functional_requirements'
+                });
+                return;
+            }
+
+            // 3. 转换表格为YAML
+            const yamlContent = this.convertFRTableToYaml(frTable);
             artifacts['fr.yaml'] = yamlContent;
             
-            this.logger.info('Functional requirements parsed successfully');
+            this.logger.info('Functional requirements parsed successfully from SRS content');
 
         } catch (error) {
             this.errors.push({
@@ -179,35 +214,41 @@ export class SRSParser implements ISRSParser {
     }
 
     /**
-     * 解析非功能性需求
+     * 解析非功能性需求（v1.2更新：从SRS主文档内容中提取）
      */
     private async parseNonFunctionalRequirements(content: string, artifacts: ParsedArtifacts): Promise<void> {
         try {
-            this.logger.info('Parsing non-functional requirements');
+            this.logger.info('Parsing non-functional requirements from SRS content');
             
-            const startMarker = '--- NON-FUNCTIONAL REQUIREMENTS ---';
-            const endMarker = '--- GLOSSARY ---';
+            // 1. 先提取SRS主文档内容
+            const srsContent = this.extractSRSContentFromMother(content);
             
-            const startIndex = content.indexOf(startMarker);
-            const endIndex = content.indexOf(endMarker);
-            
-            if (startIndex === -1) {
+            if (!srsContent) {
                 this.warnings.push({
                     severity: ErrorSeverity.HIGH,
-                    message: 'Non-functional requirements section not found',
+                    message: 'Could not extract SRS content for non-functional requirements parsing',
                     section: 'non_functional_requirements'
                 });
                 return;
             }
 
-            const endIdx = endIndex !== -1 ? endIndex : content.length;
-            const nfrContent = content.substring(startIndex + startMarker.length, endIdx).trim();
+            // 2. 在SRS内容中查找非功能需求章节（支持中英文）
+            const nfrTable = this.extractNFRTableFromSRS(srsContent);
             
-            // 使用YAML生成器处理非功能需求
-            const yamlContent = this.yamlGenerator.generateNonFunctionalRequirementsYaml(nfrContent);
+            if (!nfrTable) {
+                this.warnings.push({
+                    severity: ErrorSeverity.HIGH,
+                    message: 'Non-functional requirements table not found in SRS content',
+                    section: 'non_functional_requirements'
+                });
+                return;
+            }
+
+            // 3. 转换表格为YAML
+            const yamlContent = this.convertNFRTableToYaml(nfrTable);
             artifacts['nfr.yaml'] = yamlContent;
             
-            this.logger.info('Non-functional requirements parsed successfully');
+            this.logger.info('Non-functional requirements parsed successfully from SRS content');
 
         } catch (error) {
             this.errors.push({
@@ -223,35 +264,41 @@ export class SRSParser implements ISRSParser {
     }
 
     /**
-     * 解析术语表
+     * 解析术语表（v1.2更新：从SRS主文档内容中提取）
      */
     private async parseGlossary(content: string, artifacts: ParsedArtifacts): Promise<void> {
         try {
-            this.logger.info('Parsing glossary');
+            this.logger.info('Parsing glossary from SRS content');
             
-            const startMarker = '--- GLOSSARY ---';
-            const endMarker = '--- QUESTIONS FOR CLARIFICATION ---';
+            // 1. 先提取SRS主文档内容
+            const srsContent = this.extractSRSContentFromMother(content);
             
-            const startIndex = content.indexOf(startMarker);
-            const endIndex = content.indexOf(endMarker);
-            
-            if (startIndex === -1) {
+            if (!srsContent) {
                 this.warnings.push({
                     severity: ErrorSeverity.MEDIUM,
-                    message: 'Glossary section not found',
+                    message: 'Could not extract SRS content for glossary parsing',
                     section: 'glossary'
                 });
                 return;
             }
 
-            const endIdx = endIndex !== -1 ? endIndex : content.length;
-            const glossaryContent = content.substring(startIndex + startMarker.length, endIdx).trim();
+            // 2. 在SRS内容中查找术语表章节（支持中英文）
+            const glossaryTable = this.extractGlossaryTableFromSRS(srsContent);
             
-            // 使用YAML生成器处理术语表
-            const yamlContent = this.yamlGenerator.generateGlossaryYaml(glossaryContent);
+            if (!glossaryTable) {
+                this.warnings.push({
+                    severity: ErrorSeverity.MEDIUM,
+                    message: 'Glossary table not found in SRS content',
+                    section: 'glossary'
+                });
+                return;
+            }
+
+            // 3. 转换表格为YAML
+            const yamlContent = this.convertGlossaryTableToYaml(glossaryTable);
             artifacts['glossary.yaml'] = yamlContent;
             
-            this.logger.info('Glossary parsed successfully');
+            this.logger.info('Glossary parsed successfully from SRS content');
 
         } catch (error) {
             this.errors.push({
@@ -264,29 +311,49 @@ export class SRSParser implements ISRSParser {
     }
 
     /**
-     * 解析分类决策
+     * 解析分类决策（v1.2更新：支持新旧格式）
      */
     private async parseClassificationDecision(content: string, artifacts: ParsedArtifacts): Promise<void> {
         try {
             this.logger.info('Parsing classification decision');
             
-            const startMarker = '--- AI CLASSIFICATION DECISION ---';
-            const endMarker = '--- SOFTWARE REQUIREMENTS SPECIFICATION ---';
+            // v1.2：支持新旧两种格式
+            const newFormatStart = content.indexOf('### --- AI_CLASSIFICATION_DECISION ---');
+            const oldFormatStart = content.indexOf('--- AI CLASSIFICATION DECISION ---');
             
-            const startIndex = content.indexOf(startMarker);
-            const endIndex = content.indexOf(endMarker);
+            let startIndex = -1;
+            let startMarker = '';
+            let endMarker = '';
             
-            if (startIndex === -1) {
+            if (newFormatStart !== -1) {
+                // 新格式
+                startIndex = newFormatStart;
+                startMarker = '### --- AI_CLASSIFICATION_DECISION ---';
+                endMarker = '### ---'; // 查找下一个新格式块
+            } else if (oldFormatStart !== -1) {
+                // 旧格式  
+                startIndex = oldFormatStart;
+                startMarker = '--- AI CLASSIFICATION DECISION ---';
+                endMarker = '---'; // 查找下一个旧格式块
+            } else {
                 this.warnings.push({
                     severity: ErrorSeverity.LOW,
-                    message: 'Classification decision section not found',
+                    message: 'Classification decision section not found in either format',
                     section: 'classification'
                 });
                 return;
             }
 
-            const endIdx = endIndex !== -1 ? endIndex : content.length;
-            const classificationContent = content.substring(startIndex, endIdx).trim();
+            // 查找结束位置
+            let endIndex = content.length;
+            const nextBlockStart = content.indexOf(endMarker, startIndex + startMarker.length);
+            if (nextBlockStart !== -1) {
+                endIndex = nextBlockStart;
+            }
+
+            const classificationContent = content.substring(startIndex, endIndex)
+                .replace(startMarker, '')
+                .trim();
             
             artifacts['classification_decision.md'] = classificationContent;
             this.logger.info('Classification decision parsed successfully');
@@ -302,32 +369,52 @@ export class SRSParser implements ISRSParser {
     }
 
     /**
-     * 解析待澄清问题
+     * 解析待澄清问题（v1.2更新：支持新旧格式）
      */
     private async parseQuestionsForClarification(content: string, artifacts: ParsedArtifacts): Promise<void> {
         try {
             this.logger.info('Parsing questions for clarification');
             
-            const startMarker = '--- QUESTIONS FOR CLARIFICATION ---';
-            const endMarker = '--- PARSING METADATA ---';
+            // v1.2：支持新旧两种格式
+            const newFormatStart = content.indexOf('### --- QUESTIONS_AND_SUGGESTIONS_CONTENT ---');
+            const oldFormatStart = content.indexOf('--- QUESTIONS FOR CLARIFICATION ---');
             
-            const startIndex = content.indexOf(startMarker);
-            const endIndex = content.indexOf(endMarker);
+            let startIndex = -1;
+            let startMarker = '';
+            let endMarker = '';
             
-            if (startIndex === -1) {
+            if (newFormatStart !== -1) {
+                // 新格式
+                startIndex = newFormatStart;
+                startMarker = '### --- QUESTIONS_AND_SUGGESTIONS_CONTENT ---';
+                endMarker = '### ---'; // 查找下一个新格式块
+            } else if (oldFormatStart !== -1) {
+                // 旧格式
+                startIndex = oldFormatStart;
+                startMarker = '--- QUESTIONS FOR CLARIFICATION ---';
+                endMarker = '---'; // 查找下一个旧格式块
+            } else {
                 this.warnings.push({
                     severity: ErrorSeverity.LOW,
-                    message: 'Questions for clarification section not found',
+                    message: 'Questions section not found in either format',
                     section: 'questions'
                 });
                 return;
             }
 
-            const endIdx = endIndex !== -1 ? endIndex : content.length;
-            const questionsContent = content.substring(startIndex, endIdx).trim();
+            // 查找结束位置
+            let endIndex = content.length;
+            const nextBlockStart = content.indexOf(endMarker, startIndex + startMarker.length);
+            if (nextBlockStart !== -1) {
+                endIndex = nextBlockStart;
+            }
+
+            const questionsContent = content.substring(startIndex, endIndex)
+                .replace(startMarker, '')
+                .trim();
             
-            artifacts['questions_for_clarification.md'] = questionsContent;
-            this.logger.info('Questions for clarification parsed successfully');
+            artifacts['questions_and_suggestions.md'] = questionsContent;
+            this.logger.info('Questions and suggestions parsed successfully');
 
         } catch (error) {
             this.errors.push({
@@ -382,5 +469,246 @@ export class SRSParser implements ISRSParser {
             criticalErrors: this.errors.filter(e => e.severity === ErrorSeverity.CRITICAL).length,
             lastParsed: new Date().toISOString()
         };
+    }
+
+    /**
+     * v1.2新增：从母文档中提取SRS主文档内容
+     */
+    private extractSRSContentFromMother(motherContent: string): string | null {
+        try {
+            // 支持新旧两种格式
+            const newFormat = /^### --- SOFTWARE_REQUIREMENTS_SPECIFICATION_CONTENT ---$(.*?)^### --- [A-Z_]+ ---$/gms;
+            const oldFormat = /^--- SOFTWARE REQUIREMENTS SPECIFICATION ---(.*?)^--- [A-Z\s]+ ---$/gms;
+            
+            let match = motherContent.match(newFormat);
+            if (!match) {
+                match = motherContent.match(oldFormat);
+            }
+            
+            if (!match) {
+                this.logger.warn('无法从母文档中提取SRS主文档内容');
+                return null;
+            }
+            
+            return match[1].trim();
+        } catch (error) {
+            this.logger.error('提取SRS内容失败', error as Error);
+            return null;
+        }
+    }
+
+    /**
+     * v1.2新增：从SRS内容中提取功能需求表格
+     */
+    private extractFRTableFromSRS(srsContent: string): string | null {
+        try {
+            // 查找功能需求章节（支持中英文）
+            const patterns = [
+                /## 3\.\s*功能需求.*?\n((?:\|.*?\|\n)+)/s,
+                /## 3\.\s*Functional Requirements.*?\n((?:\|.*?\|\n)+)/s,
+                /##\s*功能需求.*?\n((?:\|.*?\|\n)+)/s,
+                /##\s*Functional Requirements.*?\n((?:\|.*?\|\n)+)/s
+            ];
+
+            for (const pattern of patterns) {
+                const match = srsContent.match(pattern);
+                if (match && match[1]) {
+                    this.logger.info('成功找到功能需求表格');
+                    return match[1].trim();
+                }
+            }
+
+            this.logger.warn('在SRS内容中未找到功能需求表格');
+            return null;
+        } catch (error) {
+            this.logger.error('提取功能需求表格失败', error as Error);
+            return null;
+        }
+    }
+
+    /**
+     * v1.2新增：从SRS内容中提取非功能需求表格
+     */
+    private extractNFRTableFromSRS(srsContent: string): string | null {
+        try {
+            // 查找非功能需求章节（支持中英文）
+            const patterns = [
+                /## 4\.\s*非功能性需求.*?\n((?:\|.*?\|\n)+)/s,
+                /## 4\.\s*Non-Functional Requirements.*?\n((?:\|.*?\|\n)+)/s,
+                /##\s*非功能性需求.*?\n((?:\|.*?\|\n)+)/s,
+                /##\s*Non-Functional Requirements.*?\n((?:\|.*?\|\n)+)/s
+            ];
+
+            for (const pattern of patterns) {
+                const match = srsContent.match(pattern);
+                if (match && match[1]) {
+                    this.logger.info('成功找到非功能需求表格');
+                    return match[1].trim();
+                }
+            }
+
+            this.logger.warn('在SRS内容中未找到非功能需求表格');
+            return null;
+        } catch (error) {
+            this.logger.error('提取非功能需求表格失败', error as Error);
+            return null;
+        }
+    }
+
+    /**
+     * v1.2新增：从SRS内容中提取术语表
+     */
+    private extractGlossaryTableFromSRS(srsContent: string): string | null {
+        try {
+            // 查找术语表章节（支持中英文）
+            const patterns = [
+                /##\s*.*?术语表.*?\n((?:\|.*?\|\n)+)/s,
+                /##\s*.*?Glossary.*?\n((?:\|.*?\|\n)+)/s,
+                /##\s*.*?词汇表.*?\n((?:\|.*?\|\n)+)/s
+            ];
+
+            for (const pattern of patterns) {
+                const match = srsContent.match(pattern);
+                if (match && match[1]) {
+                    this.logger.info('成功找到术语表');
+                    return match[1].trim();
+                }
+            }
+
+            this.logger.warn('在SRS内容中未找到术语表');
+            return null;
+        } catch (error) {
+            this.logger.error('提取术语表失败', error as Error);
+            return null;
+        }
+    }
+
+    /**
+     * v1.2新增：将功能需求表格转换为YAML
+     */
+    private convertFRTableToYaml(tableContent: string): string {
+        try {
+            const requirements: any[] = [];
+            const lines = tableContent.split('\n').filter(line => line.trim() && !line.includes('---'));
+
+            for (let i = 1; i < lines.length; i++) { // 跳过表头
+                const line = lines[i];
+                const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+                
+                if (cells.length >= 4) {
+                    requirements.push({
+                        id: cells[0] || '',
+                        name: cells[1] || '',
+                        priority: cells[2] || '',
+                        description: cells[3] || '',
+                        acceptance_criteria: cells[4] || '',
+                        notes: cells[5] || ''
+                    });
+                }
+            }
+
+            const yamlData = {
+                functional_requirements: requirements,
+                metadata: {
+                    extracted_from: 'SRS main document',
+                    extraction_time: new Date().toISOString(),
+                    total_count: requirements.length
+                }
+            };
+
+            return yaml.dump(yamlData, { 
+                sortKeys: false, 
+                lineWidth: 120,
+                noRefs: true 
+            });
+        } catch (error) {
+            this.logger.error('转换功能需求表格为YAML失败', error as Error);
+            return `# 功能需求解析失败\n# Error: ${(error as Error).message}\nfunctional_requirements: []`;
+        }
+    }
+
+    /**
+     * v1.2新增：将非功能需求表格转换为YAML
+     */
+    private convertNFRTableToYaml(tableContent: string): string {
+        try {
+            const requirements: any[] = [];
+            const lines = tableContent.split('\n').filter(line => line.trim() && !line.includes('---'));
+
+            for (let i = 1; i < lines.length; i++) { // 跳过表头
+                const line = lines[i];
+                const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+                
+                if (cells.length >= 4) {
+                    requirements.push({
+                        id: cells[0] || '',
+                        category: cells[1] || '',
+                        priority: cells[2] || '',
+                        description: cells[3] || '',
+                        metrics: cells[4] || '',
+                        notes: cells[5] || ''
+                    });
+                }
+            }
+
+            const yamlData = {
+                non_functional_requirements: requirements,
+                metadata: {
+                    extracted_from: 'SRS main document',
+                    extraction_time: new Date().toISOString(),
+                    total_count: requirements.length
+                }
+            };
+
+            return yaml.dump(yamlData, { 
+                sortKeys: false, 
+                lineWidth: 120,
+                noRefs: true 
+            });
+        } catch (error) {
+            this.logger.error('转换非功能需求表格为YAML失败', error as Error);
+            return `# 非功能需求解析失败\n# Error: ${(error as Error).message}\nnon_functional_requirements: []`;
+        }
+    }
+
+    /**
+     * v1.2新增：将术语表转换为YAML
+     */
+    private convertGlossaryTableToYaml(tableContent: string): string {
+        try {
+            const terms: any[] = [];
+            const lines = tableContent.split('\n').filter(line => line.trim() && !line.includes('---'));
+
+            for (let i = 1; i < lines.length; i++) { // 跳过表头
+                const line = lines[i];
+                const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+                
+                if (cells.length >= 2) {
+                    terms.push({
+                        term: cells[0] || '',
+                        definition: cells[1] || '',
+                        notes: cells[2] || ''
+                    });
+                }
+            }
+
+            const yamlData = {
+                terms: terms,
+                metadata: {
+                    extracted_from: 'SRS main document',
+                    extraction_time: new Date().toISOString(),
+                    total_count: terms.length
+                }
+            };
+
+            return yaml.dump(yamlData, { 
+                sortKeys: false, 
+                lineWidth: 120,
+                noRefs: true 
+            });
+        } catch (error) {
+            this.logger.error('转换术语表为YAML失败', error as Error);
+            return `# 术语表解析失败\n# Error: ${(error as Error).message}\nterms: []`;
+        }
     }
 }

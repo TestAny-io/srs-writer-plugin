@@ -5,8 +5,13 @@ import { ErrorHandler } from '../utils/error-handler';
 import { PromptManager } from './prompt-manager';
 
 /**
- * AI通信管理器
+ * AI通信管理器（降级备用组件）
  * 负责与VSCode Language Model API的交互
+ * 
+ * ⚠️ 重要：此组件仅作为降级备用，当直接VSCode API调用不可用时使用
+ * 🚫 请勿删除此注释和类 - 这是系统稳定性的重要保障
+ * 📋 主要路径应使用 SpecialistExecutor 直接调用 VSCode API
+ * 🔄 未来版本可能会移除此降级机制
  */
 export class AICommunicator implements IAICommunicator {
     private logger = Logger.getInstance();
@@ -155,6 +160,63 @@ export class AICommunicator implements IAICommunicator {
         } catch (error) {
             this.logger.error('Failed to get model info', error as Error);
             return 'Unknown';
+        }
+    }
+
+    /**
+     * 执行.mdc规则文件 - v1.3最终版
+     * @param ruleContent 填充好的规则内容
+     * @param model 用户在UI上选择的、由外部传入的模型实例
+     * @returns Promise<string> AI的响应结果
+     */
+    public async executeRule(ruleContent: string, model?: vscode.LanguageModelChat): Promise<string> {
+        this.logger.info(`Executing rule with user-selected model: ${model?.name || 'fallback'}`);
+        
+        try {
+            let selectedModel: vscode.LanguageModelChat;
+            
+            if (model) {
+                // 使用用户选择的模型
+                selectedModel = model;
+                this.logger.info(`Using user-selected model: ${model.name}`);
+            } else {
+                // 降级方案：如果没有传入模型，则自动选择
+                const models = await vscode.lm.selectChatModels();
+                if (models.length === 0) {
+                    throw new Error('No language models available for rule execution.');
+                }
+                selectedModel = models[0];
+                this.logger.warn(`No model provided, using fallback: ${selectedModel.name}`);
+            }
+
+            // 直接使用传入的model实例发送请求
+            const messages = [
+                vscode.LanguageModelChatMessage.User(ruleContent)
+            ];
+
+            const requestOptions: vscode.LanguageModelChatRequestOptions = {
+                justification: 'Execute SRS Writer rule for intelligent content generation'
+            };
+
+            // 发送请求
+            const response = await selectedModel.sendRequest(messages, requestOptions);
+            
+            // 收集响应
+            let result = '';
+            for await (const fragment of response.text) {
+                result += fragment;
+            }
+
+            if (!result.trim()) {
+                throw new Error('Rule execution returned empty response');
+            }
+
+            this.logger.info(`Rule executed successfully with ${selectedModel.name}, response length: ${result.length}`);
+            return result;
+
+        } catch (error) {
+            this.logger.error(`Failed to execute rule with model ${model?.name || 'unknown'}`, error as Error);
+            throw error;
         }
     }
 }

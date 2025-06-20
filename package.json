@@ -1,9 +1,9 @@
 {
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
-  "description": "AI-powered Software Requirements Specification writer for VSCode",
-  "version": "0.1.0",
-  "publisher": "srs-writer-team",
+  "description": "AI-powered Software Requirements Specification writer for VSCode with Hybrid Intelligence Architecture",
+  "version": "0.3.0",
+  "publisher": "testany-co",
   "repository": {
     "type": "git",
     "url": "https://github.com/srs-writer-team/srs-writer-plugin.git"
@@ -25,14 +25,52 @@
       {
         "id": "srs-writer",
         "name": "srs-writer",
-        "description": "Generate comprehensive SRS documents from simple requirements",
-        "isSticky": true
+        "description": "Intelligent SRS document generator with natural language understanding",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "create",
+            "description": "Create a new SRS document"
+          },
+          {
+            "name": "edit",
+            "description": "Edit existing SRS document"
+          },
+          {
+            "name": "lint",
+            "description": "Check document quality"
+          },
+          {
+            "name": "help",
+            "description": "Show help information"
+          }
+        ]
       }
     ],
     "commands": [
       {
         "command": "srs-writer.help",
         "title": "SRS Writer: Help"
+      },
+      {
+        "command": "srs-writer.status",
+        "title": "SRS Writer: Show Status"
+      },
+      {
+        "command": "srs-writer.editMode",
+        "title": "SRS Writer: Enter Edit Mode"
+      },
+      {
+        "command": "srs-writer.clearSession",
+        "title": "SRS Writer: Clear Session"
+      },
+      {
+        "command": "srs-writer.runArchitectureSpike",
+        "title": "SRS Writer: Run Architecture Validation"
+      },
+      {
+        "command": "srs-writer.toggleAIMode",
+        "title": "SRS Writer: Toggle AI/Fallback Mode"
       },
       {
         "command": "srs-writer.runFullTestSuite",
@@ -58,10 +96,12 @@
     "build:prod": "webpack --mode production",
     "watch": "webpack --mode development --watch",
     "test": "jest",
+    "test:spike": "jest --testPathPattern=spike",
     "lint": "eslint src --ext ts",
     "lint:fix": "eslint src --ext ts --fix",
     "clean": "rimraf dist",
-    "dev": "yarn watch"
+    "dev": "yarn watch",
+    "validate:architecture": "node -e \"console.log('Architecture validation would run here')\""
   },
   "devDependencies": {
     "@types/jest": "^29.x",
@@ -71,6 +111,7 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.x",
     "@typescript-eslint/parser": "^6.x",
+    "copy-webpack-plugin": "^11.x",
     "eslint": "^8.x",
     "jest": "^29.x",
     "rimraf": "^5.x",
@@ -81,6 +122,7 @@
     "webpack-cli": "^5.x"
   },
   "dependencies": {
+    "@vscode/chat-extension-utils": "^0.0.0-alpha.5",
     "js-yaml": "^4.1.0",
     "marked": "^9.x"
   }
