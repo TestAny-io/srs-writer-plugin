@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode with Hybrid Intelligence Architecture",
-  "version": "1.3.0",
+  "version": "1.3.11",
   "publisher": "testany-co",
   "repository": {
     "type": "git",
@@ -20,6 +20,12 @@
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
+  "files": [
+    "dist",
+    "rules",
+    "LICENSE",
+    "README.md"
+  ],
   "contributes": {
     "chatParticipants": [
       {
@@ -98,7 +104,6 @@
           "default": true,
           "description": "启用AI智能工具代理（新架构）"
         },
-
         "srs-writer.knowledge.localPaths": {
           "type": "array",
           "items": {
@@ -144,6 +149,7 @@
   "dependencies": {
     "@vscode/chat-extension-utils": "^0.0.0-alpha.5",
     "js-yaml": "^4.1.0",
+    "jsonrepair": "^3.12.0",
     "marked": "^9.x"
   }
 }

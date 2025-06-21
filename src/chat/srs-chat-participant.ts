@@ -4,21 +4,31 @@ import { Logger } from '../utils/logger';
 import { CHAT_PARTICIPANT_ID } from '../constants';
 import { Orchestrator } from '../core/orchestrator';
 import { SessionManager } from '../core/session-manager';
+import { SRSAgentEngine } from '../core/srsAgentEngine';
+import { toolExecutor } from '../core/toolExecutor';
 
 /**
- * SRS聊天参与者 v2.0 - AI智能工具代理架构
+ * SRS聊天参与者 v4.0 - 持久化智能引擎架构
+ * 
+ * 🚀 核心修复：解决"金鱼智能代理"问题
+ * - 实现会话级引擎持久化
+ * - 引擎注册表管理多会话
+ * - 状态记忆跨交互保持
  * 
  * 架构原则：
- * - 专注职责：只负责UI交互和结果渲染
- * - 轻量化：移除所有业务逻辑，完全委托给Orchestrator
- * - 智能桥梁：VSCode Chat UI与Orchestrator之间的完美适配器
+ * - 引擎持久化：每个会话一个长生命周期引擎
+ * - 状态保持：智能判断新任务vs用户响应
+ * - 透明代理：完全委托给持久化的SRSAgentEngine
  */
 export class SRSChatParticipant {
     private logger = Logger.getInstance();
     
-    // 只有两个核心依赖：Orchestrator和SessionManager
+    // 核心依赖组件
     private orchestrator: Orchestrator;
     private sessionManager: SessionManager;
+    
+    // 🚀 新架构：引擎注册表 - 支持多会话并发
+    private engineRegistry: Map<string, SRSAgentEngine> = new Map();
     
     constructor() {
         this.orchestrator = new Orchestrator();
@@ -26,7 +36,7 @@ export class SRSChatParticipant {
         
         // 自动初始化会话管理
         this.sessionManager.autoInitialize().catch(error => {
-            this.logger.error('Failed to auto-initialize session manager', error);
+            this.logger.error('Failed to auto-initialize session manager', error as Error);
         });
     }
 
@@ -85,13 +95,14 @@ export class SRSChatParticipant {
     }
 
     /**
-     * 核心请求处理逻辑 - v2.0提炼版本
+     * 核心请求处理逻辑 - v4.0持久化引擎版本
      * 
+     * 🚀 架构修复：解决"金鱼智能代理"问题
      * 职责：
      * 1. 验证AI模型
      * 2. 获取会话上下文  
-     * 3. 委托Orchestrator处理
-     * 4. 渲染结构化结果
+     * 3. 获取或创建持久化的SRSAgentEngine
+     * 4. 智能判断是新任务还是用户响应
      */
     private async processRequestCore(
         prompt: string,
@@ -99,98 +110,99 @@ export class SRSChatParticipant {
         stream: vscode.ChatResponseStream,
         token: vscode.CancellationToken
     ): Promise<void> {
+        // 🐛 DEBUG: 记录接收到的prompt参数
+        this.logger.info(`🔍 [DEBUG] processRequestCore received prompt: "${prompt}"`);
+        
         // 检查用户选择的模型
         if (!model) {
             stream.markdown('⚠️ **未找到AI模型**\n\n请在Chat界面的下拉菜单中选择AI模型。');
             return;
         }
         
-        stream.progress('🧠 AI 代理正在思考...');
+        stream.progress('🧠 AI 智能引擎启动中...');
         
         // 1. 获取会话上下文
         const sessionContext = await this.getOrCreateSessionContext();
 
         if (token.isCancellationRequested) { return; }
 
-        // 2. 将所有工作委托给Orchestrator
-        const orchestratorResponse = await this.orchestrator.processUserInput(
-            prompt,
-            sessionContext,
-            model
-        );
+        // 2. 生成稳定的会话ID
+        const sessionId = this.getSessionId(sessionContext);
+
+        // 3. 获取或创建持久化的SRSAgentEngine实例
+        const agentEngine = this.getOrCreateEngine(sessionId, stream, sessionContext, model);
 
         if (token.isCancellationRequested) { return; }
 
-        // 3. 渲染Orchestrator返回的结构化结果
-        this.renderOrchestratorResult(orchestratorResponse.result, stream);
+        // 4. 🚀 关键修复：正确的状态判断和分发
+        const isAwaitingUser = agentEngine.isAwaitingUser();
+        const engineState = agentEngine.getState();
+        
+        // 🐛 DEBUG: 记录状态判断的详细信息
+        this.logger.info(`🔍 [DEBUG] Engine state before task dispatch:`);
+        this.logger.info(`🔍 [DEBUG] - isAwaitingUser: ${isAwaitingUser}`);
+        this.logger.info(`🔍 [DEBUG] - engine.stage: ${engineState.stage}`);
+        this.logger.info(`🔍 [DEBUG] - engine.currentTask: "${engineState.currentTask}"`);
+        this.logger.info(`🔍 [DEBUG] - prompt to process: "${prompt}"`);
+        
+        if (isAwaitingUser) {
+            // 这是用户对等待中交互的响应
+            this.logger.info(`📥 Processing user response for session: ${sessionId}`);
+            await agentEngine.handleUserResponse(prompt);
+        } else {
+            // 这是新任务，开始执行（不创建新引擎！）
+            this.logger.info(`🚀 Starting new task for session: ${sessionId}`);
+            await agentEngine.executeTask(prompt);
+        }
     }
 
     /**
-     * 渲染Orchestrator结构化结果 - v2.0新功能
+     * 🚀 核心方法：获取或创建持久化的引擎实例
      * 
-     * 将Orchestrator返回的丰富信息优雅地展示给用户
+     * 这是解决"金鱼智能代理"问题的关键方法
      */
-    private renderOrchestratorResult(result: any, stream: vscode.ChatResponseStream): void {
-        if (!result) {
-            stream.markdown('未能生成有效响应。');
-            return;
+    private getOrCreateEngine(
+        sessionId: string, 
+        stream: vscode.ChatResponseStream,
+        sessionContext: SessionContext,
+        model: vscode.LanguageModelChat
+    ): SRSAgentEngine {
+        let engine = this.engineRegistry.get(sessionId);
+        
+        if (!engine) {
+            // 🚀 只在真正需要时创建新引擎
+            engine = new SRSAgentEngine(stream, sessionContext, model);
+            engine.setDependencies(this.orchestrator, toolExecutor);
+            this.engineRegistry.set(sessionId, engine);
+            this.logger.info(`🧠 Created new persistent engine for session: ${sessionId}`);
+        } else {
+            // 🚀 复用现有引擎，只更新当前交互的参数
+            engine.updateStreamAndModel(stream, model);
+            this.logger.info(`♻️  Reusing existing engine for session: ${sessionId}`);
         }
-
-        // 渲染总结
-        if (result.summary) {
-            stream.markdown(`### 🤖 AI 代理工作总结\n\n${result.summary}\n\n`);
+        
+        return engine;
+    }
+    
+    /**
+     * 🚀 生成稳定的会话ID
+     * 
+     * 基于工作区路径和项目名生成会话标识符
+     */
+    private getSessionId(sessionContext: SessionContext): string {
+        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || 'default';
+        const projectName = sessionContext.projectName || 'default';
+        
+        // 创建稳定且简洁的会话ID
+        const baseId = `${workspacePath}-${projectName}`;
+        
+        // 如果路径过长，创建哈希以避免问题
+        if (baseId.length > 100) {
+            const crypto = require('crypto');
+            return crypto.createHash('md5').update(baseId).digest('hex').slice(0, 16);
         }
-
-        // 如果有最终答案，优先展示
-        if (result.finalAnswer) {
-            stream.markdown(`### ✅ 任务完成\n\n${result.finalAnswer.summary}\n\n`);
-            
-            if (result.finalAnswer.achievements && result.finalAnswer.achievements.length > 0) {
-                stream.markdown('**完成的工作：**\n');
-                result.finalAnswer.achievements.forEach((achievement: string, index: number) => {
-                    stream.markdown(`${index + 1}. ${achievement}\n`);
-                });
-                stream.markdown('\n');
-            }
-            
-            if (result.finalAnswer.nextSteps && result.finalAnswer.nextSteps.length > 0) {
-                stream.markdown('**建议的后续步骤：**\n');
-                result.finalAnswer.nextSteps.forEach((step: string, index: number) => {
-                    stream.markdown(`${index + 1}. ${step}\n`);
-                });
-                stream.markdown('\n');
-            }
-        }
-
-        // 渲染元数据
-        stream.markdown('---');
-        const details = [
-            `**模式**: ${result.mode || '未知'}`,
-            `**迭代次数**: ${result.iterations || 'N/A'}`,
-            `**执行工具总数**: ${result.totalToolsExecuted || 0}`,
-            `**成功/失败**: ${result.successful || 0} / ${result.failed || 0}`
-        ];
-        stream.markdown(details.join(' | '));
-        stream.markdown('\n\n');
-
-        // 如果有详细的工具执行日志，选择性展示
-        if (result.details && result.details.length > 0) {
-            const hasFailures = result.details.some((toolResult: any) => !toolResult.success);
-            
-            if (hasFailures) {
-                // 只有在有失败时才显示详细日志
-                let log = '#### 详细执行日志\n\n';
-                const failedTools = result.details.filter((toolResult: any) => !toolResult.success);
-                
-                failedTools.forEach((toolResult: any, index: number) => {
-                    log += `❌ **${toolResult.toolName}** 执行失败\n`;
-                    if (toolResult.error) {
-                        log += `   - **错误**: ${toolResult.error}\n`;
-                    }
-                });
-                stream.markdown(log);
-            }
-        }
+        
+        return baseId.replace(/[^a-zA-Z0-9-_]/g, '_'); // 清理特殊字符
     }
 
     /**
@@ -253,6 +265,8 @@ export class SRSChatParticipant {
         }
 
         if (newPrompt) {
+            // 🐛 DEBUG: 记录转换后的提示词
+            this.logger.info(`🔍 [DEBUG] Slash command '${command}' converted to prompt: "${newPrompt}"`);
             // 直接调用核心逻辑，而不是递归调用handleChatRequest
             await this.processRequestCore(newPrompt, request.model, stream, token);
         }
@@ -321,16 +335,23 @@ export class SRSChatParticipant {
     public async getStatus(): Promise<string> {
         try {
             const sessionContext = await this.getOrCreateSessionContext();
-            const orchestratorStatus = this.orchestrator.getStatus();
+            const sessionId = this.getSessionId(sessionContext);
+            const orchestratorStatus = await this.orchestrator.getStatus();
             
             return [
-                '=== SRS Chat Participant v2.0 Status ===',
+                '=== SRS Chat Participant v4.0 Status ===',
+                `Architecture: 智能状态机 + 分层工具执行`,
                 `Current Project: ${sessionContext.projectName || 'None'}`,
                 `Base Directory: ${sessionContext.baseDir || 'None'}`,
                 `Active Files: ${sessionContext.activeFiles.length}`,
+                `Agent Engine: ${this.engineRegistry.has(sessionId) ? 'Active' : 'Inactive'}`,
+                `Engine State: ${this.engineRegistry.has(sessionId) ? this.engineRegistry.get(sessionId)?.getState().stage : 'None'}`,
+                `Awaiting User: ${this.engineRegistry.has(sessionId) ? this.engineRegistry.get(sessionId)?.isAwaitingUser() : false}`,
                 `Orchestrator Status: ${orchestratorStatus.aiMode ? 'Active' : 'Inactive'}`,
                 `Available Tools: ${orchestratorStatus.availableTools.length}`,
-                `Session Version: ${sessionContext.metadata.version}`
+                `Session Version: ${sessionContext.metadata.version}`,
+                `Session ID: ${sessionId}`,
+                `Active Sessions: ${this.engineRegistry.size}`
             ].join('\n');
         } catch (error) {
             return `Status Error: ${error}`;

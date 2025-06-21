@@ -2,29 +2,97 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Extension",
+            "name": "运行插件 (Run Extension)",
             "type": "extensionHost",
             "request": "launch",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}"
             ],
             "outFiles": [
-                "${workspaceFolder}/out/**/*.js"
+                "${workspaceFolder}/dist/**/*.js"
             ],
-            "preLaunchTask": "${workspaceFolder}/npm: watch"
+            "preLaunchTask": "build:dev",
+            "presentation": {
+                "hidden": false,
+                "group": "development",
+                "order": 1
+            }
         },
         {
-            "name": "Extension Tests",
+            "name": "运行插件 (监视模式)",
+            "type": "extensionHost",
+            "request": "launch",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/dist/**/*.js"
+            ],
+            "preLaunchTask": "watch",
+            "presentation": {
+                "hidden": false,
+                "group": "development",
+                "order": 2
+            }
+        },
+        {
+            "name": "运行插件测试",
             "type": "extensionHost",
             "request": "launch",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}",
-                "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
+                "--extensionTestsPath=${workspaceFolder}/dist/test/suite/index"
             ],
             "outFiles": [
-                "${workspaceFolder}/out/test/**/*.js"
+                "${workspaceFolder}/dist/**/*.js"
             ],
-            "preLaunchTask": "npm: watch"
+            "preLaunchTask": "build:dev",
+            "presentation": {
+                "hidden": false,
+                "group": "testing",
+                "order": 1
+            }
+        },
+        {
+            "name": "调试当前文件",
+            "type": "node",
+            "request": "launch",
+            "program": "${file}",
+            "outFiles": [
+                "${workspaceFolder}/dist/**/*.js"
+            ],
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "presentation": {
+                "hidden": false,
+                "group": "development",
+                "order": 3
+            }
+        },
+        {
+            "name": "附加到运行中的插件",
+            "type": "node",
+            "request": "attach",
+            "port": 9229,
+            "timeout": 30000,
+            "presentation": {
+                "hidden": false,
+                "group": "advanced",
+                "order": 1
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "🚀 开发模式 (Extension + Watch)",
+            "configurations": ["运行插件 (监视模式)"],
+            "stopAll": true,
+            "presentation": {
+                "hidden": false,
+                "group": "development",
+                "order": 1
+            }
         }
     ]
 } 

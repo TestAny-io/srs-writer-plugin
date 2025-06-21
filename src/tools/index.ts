@@ -46,7 +46,7 @@ import {
 } from './internal/systemTools';
 
 /**
- * 工具定义接口
+ * 工具定义接口 - v3.0 智能分类增强版
  */
 export interface ToolDefinition {
     name: string;
@@ -56,6 +56,10 @@ export interface ToolDefinition {
     category?: string;
     deprecated?: boolean;
     experimental?: boolean;
+    // 🚀 新增：智能分类属性
+    interactionType?: 'autonomous' | 'confirmation' | 'interactive';
+    riskLevel?: 'low' | 'medium' | 'high';
+    requiresConfirmation?: boolean;
 }
 
 /**
@@ -100,6 +104,9 @@ class ToolRegistry {
     private implementations: Map<string, Function> = new Map();
     private categories: Map<string, ToolCategory> = new Map();
     private usage: Map<string, number> = new Map();
+    
+    // 🔧 新增：缓存失效监听器机制
+    private cacheInvalidationListeners: Array<() => void> = [];
 
     constructor() {
         this.initialize();
@@ -232,7 +239,7 @@ class ToolRegistry {
             console.log(`[ToolRegistry] Tool '${toolName}' executed successfully`);
             return result;
         } catch (error) {
-            console.error(`[ToolRegistry] Tool '${toolName}' execution failed:`, error);
+            console.error(`[ToolRegistry] Tool '${toolName}' execution failed:`, (error as Error).message || error);
             throw error;
         }
     }
@@ -330,26 +337,119 @@ class ToolRegistry {
 
         return list;
     }
+
+    // ============================================================================
+    // 🔧 缓存失效监听器机制 - 解决Orchestrator工具缓存问题
+    // ============================================================================
+
+    /**
+     * 注册缓存失效监听器
+     */
+    public onCacheInvalidation(listener: () => void): void {
+        this.cacheInvalidationListeners.push(listener);
+        console.log(`[ToolRegistry] Cache invalidation listener registered. Total listeners: ${this.cacheInvalidationListeners.length}`);
+    }
+
+    /**
+     * 移除缓存失效监听器
+     */
+    public offCacheInvalidation(listener: () => void): void {
+        const index = this.cacheInvalidationListeners.indexOf(listener);
+        if (index > -1) {
+            this.cacheInvalidationListeners.splice(index, 1);
+            console.log(`[ToolRegistry] Cache invalidation listener removed. Total listeners: ${this.cacheInvalidationListeners.length}`);
+        }
+    }
+
+    /**
+     * 通知所有监听器缓存需要失效
+     */
+    private notifyCacheInvalidation(): void {
+        if (this.cacheInvalidationListeners.length > 0) {
+            console.log(`[ToolRegistry] Notifying ${this.cacheInvalidationListeners.length} cache invalidation listeners`);
+            this.cacheInvalidationListeners.forEach(listener => {
+                try {
+                    listener();
+                        } catch (error) {
+            console.error('[ToolRegistry] Error in cache invalidation listener:', (error as Error).message || error);
+                }
+            });
+        }
+    }
+
+    /**
+     * 🔧 动态注册新工具（触发缓存失效）
+     */
+    public registerTool(definition: ToolDefinition, implementation?: Function): void {
+        this.definitions.set(definition.name, definition);
+        
+        if (implementation) {
+            this.implementations.set(definition.name, implementation);
+        }
+        
+        this.usage.set(definition.name, 0);
+        
+        console.log(`[ToolRegistry] Tool '${definition.name}' registered dynamically`);
+        
+        // 🚀 关键：触发缓存失效通知
+        this.notifyCacheInvalidation();
+    }
+
+    /**
+     * 🔧 移除工具（触发缓存失效）
+     */
+    public unregisterTool(toolName: string): boolean {
+        const removed = this.definitions.delete(toolName);
+        this.implementations.delete(toolName);
+        this.usage.delete(toolName);
+        
+        if (removed) {
+            console.log(`[ToolRegistry] Tool '${toolName}' unregistered`);
+            
+            // 🚀 关键：触发缓存失效通知
+            this.notifyCacheInvalidation();
+        }
+        
+        return removed;
+    }
+
+    /**
+     * 🔧 更新工具定义（触发缓存失效）
+     */
+    public updateToolDefinition(toolName: string, updates: Partial<ToolDefinition>): boolean {
+        const existing = this.definitions.get(toolName);
+        if (!existing) {
+            return false;
+        }
+        
+        const updated = { ...existing, ...updates };
+        this.definitions.set(toolName, updated);
+        
+        console.log(`[ToolRegistry] Tool '${toolName}' definition updated`);
+        
+        // 🚀 关键：触发缓存失效通知
+        this.notifyCacheInvalidation();
+        
+        return true;
+    }
 }
 
 // 全局工具注册表实例
 export const toolRegistry = new ToolRegistry();
 
-// 便捷导出
-export const {
-    getAllDefinitions,
-    getToolsByLayer,
-    getToolsByCategory,
-    getImplementation,
-    executeTool,
-    hasTool,
-    getToolDefinition,
-    getAllCategories,
-    getStats,
-    getUsageStats,
-    generateToolInventoryText,
-    generateCompactToolList
-} = toolRegistry;
+// 便捷导出 - 修复 this 上下文绑定
+export const getAllDefinitions = () => toolRegistry.getAllDefinitions();
+export const getToolsByLayer = (layer: any) => toolRegistry.getToolsByLayer(layer);
+export const getToolsByCategory = (categoryName: string) => toolRegistry.getToolsByCategory(categoryName);
+export const getImplementation = (toolName: string) => toolRegistry.getImplementation(toolName);
+export const executeTool = (toolName: string, params: any) => toolRegistry.executeTool(toolName, params);
+export const hasTool = (toolName: string) => toolRegistry.hasTool(toolName);
+export const getToolDefinition = (toolName: string) => toolRegistry.getToolDefinition(toolName);
+export const getAllCategories = () => toolRegistry.getAllCategories();
+export const getStats = () => toolRegistry.getStats();
+export const getUsageStats = () => toolRegistry.getUsageStats();
+export const generateToolInventoryText = () => toolRegistry.generateToolInventoryText();
+export const generateCompactToolList = () => toolRegistry.generateCompactToolList();
 
 // 向后兼容的导出
 export {

@@ -54,13 +54,21 @@ export interface BatchExecutionOptions {
 export class ToolExecutor {
     private executionCount = 0;
     private lastExecutionTime: Date | null = null;
+    // 🚀 添加工具定义缓存，避免重复日志打印
+    private toolDefinitionsCache: any[] | null = null;
 
     /**
      * 获取所有可用工具的定义（用于AI工具调用）
-     * 🚀 升级：现在直接从工具注册表获取
+     * 🚀 修复：添加缓存机制，避免重复日志打印
      */
     getAvailableTools() {
+        if (this.toolDefinitionsCache) {
+            // 使用缓存，不打印日志
+            return this.toolDefinitionsCache;
+        }
+        
         const allDefinitions = getAllDefinitions();
+        this.toolDefinitionsCache = allDefinitions;
         logger.info(`🛠️ Retrieved ${allDefinitions.length} tool definitions for AI`);
         return allDefinitions;
     }
@@ -266,6 +274,7 @@ export class ToolExecutor {
     resetStats() {
         this.executionCount = 0;
         this.lastExecutionTime = null;
+        this.toolDefinitionsCache = null; // 🚀 清理工具定义缓存
         logger.info('🔄 Tool execution statistics reset');
     }
 }

@@ -42,6 +42,10 @@ module.exports = {
         {
           from: 'config',
           to: 'config'
+        },
+        {
+          from: 'rules',
+          to: 'rules'
         }
       ]
     })

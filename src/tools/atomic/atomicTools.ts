@@ -37,7 +37,11 @@ export const readFileToolDefinition = {
             }
         },
         required: ["path"]
-    }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'autonomous',
+    riskLevel: 'low',
+    requiresConfirmation: false
 };
 
 export async function readFile(args: { path: string }): Promise<{ success: boolean; content?: string; error?: string }> {
@@ -79,7 +83,11 @@ export const writeFileToolDefinition = {
             }
         },
         required: ["path", "content"]
-    }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'confirmation',
+    riskLevel: 'medium',
+    requiresConfirmation: true
 };
 
 export async function writeFile(args: { path: string; content: string }): Promise<{ success: boolean; error?: string }> {
@@ -173,24 +181,37 @@ export async function appendTextToFile(args: {
 }
 
 /**
- * 创建目录
+ * 🚀 智能目录创建工具：创建目录并自动管理项目状态
+ * 核心价值：解决AI创建项目目录后SessionManager状态不一致的问题
+ * 智能检测：当创建的目录看起来像项目时，自动更新会话状态
  */
 export const createDirectoryToolDefinition = {
     name: "createDirectory",
-    description: "Create a new directory",
+    description: "Create a new directory (automatically detects and registers new projects)",
     parameters: {
         type: "object",
         properties: {
             path: {
                 type: "string",
                 description: "Directory path relative to workspace root"
+            },
+            isProjectDirectory: {
+                type: "boolean",
+                description: "Whether this is a project root directory (optional, auto-detected)"
             }
         },
         required: ["path"]
     }
 };
 
-export async function createDirectory(args: { path: string }): Promise<{ success: boolean; error?: string }> {
+export async function createDirectory(args: { 
+    path: string; 
+    isProjectDirectory?: boolean 
+}): Promise<{ 
+    success: boolean; 
+    error?: string;
+    projectRegistered?: boolean;
+}> {
     try {
         const workspaceFolder = getCurrentWorkspaceFolder();
         if (!workspaceFolder) {
@@ -201,12 +222,80 @@ export async function createDirectory(args: { path: string }): Promise<{ success
         await vscode.workspace.fs.createDirectory(dirUri);
         
         logger.info(`✅ Created directory: ${args.path}`);
-        return { success: true };
+        
+        // 🚀 智能项目检测：检测是否是项目目录
+        const shouldRegisterAsProject = args.isProjectDirectory ?? _isLikelyProjectDirectory(args.path);
+        let projectRegistered = false;
+        
+        if (shouldRegisterAsProject) {
+            try {
+                // 动态导入SessionManager以避免循环依赖
+                const { SessionManager } = await import('../../core/session-manager');
+                const sessionManager = new SessionManager();
+                
+                // 获取当前会话，如果没有项目则更新为新创建的项目
+                const currentSession = await sessionManager.getCurrentSession();
+                if (!currentSession?.projectName) {
+                    const projectName = _extractProjectNameFromPath(args.path);
+                    const baseDir = workspaceFolder.uri.fsPath + '/' + args.path;
+                    
+                    if (currentSession) {
+                        // 更新现有会话
+                        await sessionManager.updateSession({
+                            projectName,
+                            baseDir
+                        });
+                    } else {
+                        // 创建新会话
+                        await sessionManager.createNewSession(projectName);
+                        await sessionManager.updateSession({ baseDir });
+                    }
+                    
+                    projectRegistered = true;
+                    logger.info(`🎯 Auto-registered new project: ${projectName}`);
+                }
+            } catch (sessionError) {
+                logger.warn(`Failed to update session for new project: ${sessionError}`);
+                // 即使会话更新失败，目录创建仍然成功
+            }
+        }
+        
+        return { 
+            success: true, 
+            projectRegistered 
+        };
     } catch (error) {
         const errorMsg = `Failed to create directory ${args.path}: ${(error as Error).message}`;
         logger.error(errorMsg);
         return { success: false, error: errorMsg };
     }
+}
+
+/**
+ * 🔧 内部函数：检测路径是否像项目目录
+ */
+function _isLikelyProjectDirectory(path: string): boolean {
+    // 项目特征检测
+    const projectIndicators = [
+        'project',
+        'srs-',
+        '项目',
+        'webapp',
+        'app',
+        'system',
+        '系统'
+    ];
+    
+    const pathLower = path.toLowerCase();
+    return projectIndicators.some(indicator => pathLower.includes(indicator));
+}
+
+/**
+ * 🔧 内部函数：从路径中提取项目名
+ */
+function _extractProjectNameFromPath(path: string): string {
+    // 移除前导斜杠，取最后一段作为项目名
+    return path.replace(/^\/+/, '').split('/').pop() || path;
 }
 
 /**
@@ -272,7 +361,11 @@ export const deleteFileToolDefinition = {
             }
         },
         required: ["path"]
-    }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'confirmation',
+    riskLevel: 'high',
+    requiresConfirmation: true
 };
 
 export async function deleteFile(args: { path: string }): Promise<{ success: boolean; error?: string }> {
@@ -704,7 +797,11 @@ export const askQuestionToolDefinition = {
             }
         },
         required: ["question"]
-    }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'interactive',
+    riskLevel: 'low',
+    requiresConfirmation: false
 };
 
 export async function askQuestion(args: { question: string; placeholder?: string }): Promise<{ 
@@ -733,51 +830,67 @@ export async function askQuestion(args: { question: string; placeholder?: string
 }
 
 /**
- * 让用户从选项中选择
+ * 🚀 智能响应工具：在聊天中直接提供建议和解释（替代弹出选择框）
+ * 核心价值：保持聊天连续性，让AI做出智能决策而不是打断用户
+ * 使用场景：当AI需要向用户说明情况并建议下一步行动时
  */
-export const askForChoiceToolDefinition = {
-    name: "askForChoice",
-    description: "Show the user a list of options to choose from",
+export const suggestNextActionToolDefinition = {
+    name: "suggestNextAction",
+    description: "Provide intelligent suggestions and explanations directly in chat (replaces intrusive choice dialogs)",
     parameters: {
         type: "object",
         properties: {
-            question: {
+            situation: {
                 type: "string",
-                description: "Question to ask the user"
+                description: "Current situation or context that needs to be explained to the user"
             },
-            options: {
+            recommendation: {
+                type: "string",
+                description: "AI's intelligent recommendation for the next action"
+            },
+            reasoning: {
+                type: "string",
+                description: "Brief explanation of why this recommendation makes sense"
+            },
+            alternatives: {
                 type: "array",
-                items: {
-                    type: "string"
-                },
-                description: "List of options for the user to choose from"
+                items: { type: "string" },
+                description: "Optional: other possible actions the user could consider"
             }
         },
-        required: ["question", "options"]
+        required: ["situation", "recommendation", "reasoning"]
     }
 };
 
-export async function askForChoice(args: { question: string; options: string[] }): Promise<{ 
+export async function suggestNextAction(args: { 
+    situation: string;
+    recommendation: string;
+    reasoning: string;
+    alternatives?: string[];
+}): Promise<{ 
     success: boolean; 
-    choice?: string; 
-    cancelled?: boolean 
+    suggestion: string;
 }> {
     try {
-        const choice = await vscode.window.showQuickPick(args.options, {
-            placeHolder: args.question
-        });
+        // 构建智能建议响应
+        let suggestion = `**当前情况：** ${args.situation}\n\n`;
+        suggestion += `**我的建议：** ${args.recommendation}\n\n`;
+        suggestion += `**原因：** ${args.reasoning}`;
         
-        if (choice === undefined) {
-            logger.info(`❌ User cancelled choice: ${args.question}`);
-            return { success: true, cancelled: true };
+        if (args.alternatives && args.alternatives.length > 0) {
+            suggestion += '\n\n**其他选项：**\n';
+            args.alternatives.forEach((alt, index) => {
+                suggestion += `${index + 1}. ${alt}\n`;
+            });
+            suggestion += '\n如果你希望尝试其他方案，请告诉我你的想法。';
         }
         
-        logger.info(`✅ User made choice: ${args.question} → ${choice}`);
-        return { success: true, choice };
+        logger.info(`✅ AI provided intelligent suggestion: ${args.recommendation}`);
+        return { success: true, suggestion };
     } catch (error) {
-        const errorMsg = `Failed to ask for choice: ${(error as Error).message}`;
+        const errorMsg = `Failed to provide suggestion: ${(error as Error).message}`;
         logger.error(errorMsg);
-        return { success: false };
+        return { success: false, suggestion: '抱歉，无法提供建议。' };
     }
 }
 
@@ -876,7 +989,11 @@ export const finalAnswerToolDefinition = {
             }
         },
         required: ["summary", "result"]
-    }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'autonomous',
+    riskLevel: 'low',
+    requiresConfirmation: false
 };
 
 export async function finalAnswer(args: {
@@ -940,7 +1057,7 @@ export const atomicToolDefinitions = [
     showInformationMessageToolDefinition,
     showWarningMessageToolDefinition,
     askQuestionToolDefinition,
-    askForChoiceToolDefinition,
+    suggestNextActionToolDefinition,  // 🚀 改进：智能建议替代弹出选择
     showProgressIndicatorToolDefinition,  // 🚀 新增：用户体验增强
     
     // 系统控制工具 (关键基础设施)
@@ -972,7 +1089,7 @@ export const atomicToolImplementations = {
     showInformationMessage,
     showWarningMessage,
     askQuestion,
-    askForChoice,
+    suggestNextAction,  // 🚀 改进：智能建议替代弹出选择
     showProgressIndicator,
     
     // 系统控制

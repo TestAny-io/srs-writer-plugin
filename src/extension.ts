@@ -82,7 +82,7 @@ function registerV13Commands(context: vscode.ExtensionContext): void {
     // 状态命令
     const statusCommand = vscode.commands.registerCommand('srs-writer.status', async () => {
         const session = await sessionManager.getCurrentSession();
-        const orchestratorStatus = orchestrator.getStatus();
+        const orchestratorStatus = await orchestrator.getStatus();
         
         const statusMessage = `
 🤖 SRS Writer v1.3 状态\n
@@ -153,7 +153,7 @@ function registerV13Commands(context: vscode.ExtensionContext): void {
     
     // AI模式切换命令
     const toggleAIModeCommand = vscode.commands.registerCommand('srs-writer.toggleAIMode', async () => {
-        const currentStatus = orchestrator.getStatus();
+        const currentStatus = await orchestrator.getStatus();
         const newMode = !currentStatus.aiMode;
         
         orchestrator.setAIMode(newMode);
@@ -221,23 +221,24 @@ function createEnhancedStatusBar(): vscode.StatusBarItem {
         100
     );
     
-    // 更新状态栏显示（v1.2异步版本）
+    // 更新状态栏显示（v1.3修复版本：避免缓存过度调用）
     const updateStatusBar = async () => {
         try {
             const session = await sessionManager?.getCurrentSession();
-            const orchestratorStatus = orchestrator?.getStatus();
+            // 🚀 修复：正确使用异步调用，避免缓存过度调用
+            const orchestratorStatus = await orchestrator?.getStatus();
             
             if (session?.projectName) {
                 statusBarItem.text = `$(notebook-kernel) SRS: ${session.projectName}`;
-                statusBarItem.tooltip = `SRS Writer v1.2\n项目: ${session.projectName}\nAI模式: ${orchestratorStatus?.aiMode ? '启用' : '禁用'}\n点击查看状态`;
+                statusBarItem.tooltip = `SRS Writer v1.3\n项目: ${session.projectName}\nAI模式: ${orchestratorStatus?.aiMode ? '启用' : '禁用'}\n点击查看状态`;
             } else {
                 statusBarItem.text = '$(notebook-kernel) SRS Writer';
-                statusBarItem.tooltip = 'SRS Writer v1.2 - 智能助手\n点击查看状态';
+                statusBarItem.tooltip = 'SRS Writer v1.3 - 智能助手\n点击查看状态';
             }
         } catch (error) {
             // 静默处理错误，避免频繁的错误弹窗
             statusBarItem.text = '$(notebook-kernel) SRS Writer';
-            statusBarItem.tooltip = 'SRS Writer v1.2 - 智能助手（状态获取失败）';
+            statusBarItem.tooltip = 'SRS Writer v1.3 - 智能助手（状态获取失败）';
         }
     };
     
@@ -266,7 +267,7 @@ export function deactivate() {
         // 保存会话状态
         if (sessionManager) {
             sessionManager.saveSessionToFile().catch(error => {
-                logger.error('Failed to save session during deactivation', error);
+                logger.error('Failed to save session during deactivation', error as Error);
             });
         }
         
@@ -275,6 +276,6 @@ export function deactivate() {
         
         logger.info('SRS Writer Plugin v1.2 deactivated successfully');
     } catch (error) {
-        console.error('Error during SRS Writer Plugin v1.2 deactivation:', error);
+        console.error('Error during SRS Writer Plugin v1.2 deactivation:', (error as Error).message || error);
     }
 } 
