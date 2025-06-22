@@ -521,3 +521,21 @@ export interface ErrorDetail {
  } as const;
 
  export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
+
+/**
+ * 工具调用者类型 - 用于分布式访问控制
+ */
+export enum CallerType {
+    // Orchestrator AI 的不同模式
+    ORCHESTRATOR_TOOL_EXECUTION = 'orchestrator:TOOL_EXECUTION',
+    ORCHESTRATOR_KNOWLEDGE_QA = 'orchestrator:KNOWLEDGE_QA', 
+    ORCHESTRATOR_GENERAL_CHAT = 'orchestrator:GENERAL_CHAT',
+    
+    // Specialist AI (统一类型，未来可细分为不同专家)
+    SPECIALIST = 'specialist',
+    
+    // 无AI的代码层级 (理论上不需要，但保留用于完整性)
+    DOCUMENT = 'document',
+    ATOMIC = 'atomic', 
+    INTERNAL = 'internal'
+}

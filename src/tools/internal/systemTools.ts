@@ -7,6 +7,8 @@
  * - 流程管理：控制对话流程、任务边界、系统状态
  */
 
+import { CallerType } from '../../types/index';
+
 /**
  * 最终答案结构
  */
@@ -39,6 +41,57 @@ export interface SystemStatus {
  * 系统内部工具定义
  */
 export const systemToolDefinitions = [
+    {
+        name: 'ragRetrieval',
+        description: `Multi-layer RAG (Retrieval-Augmented Generation) orchestrator tool. 
+        
+This is a fat tool that intelligently coordinates different knowledge sources in order of priority:
+1. Enterprise RAG system (if configured) - highest priority
+2. Local plugin knowledge base (templates/, knowledge/) - medium priority  
+3. Internet search via VSCode Copilot - fallback option
+
+Use this tool when you need relevant knowledge to:
+- Make intelligent expert routing decisions
+- Generate high-quality SRS content
+- Answer domain-specific questions
+- Find templates and best practices
+
+The tool automatically determines the best retrieval strategy based on query type and available sources.`,
+        parameters: {
+            type: 'object',
+            properties: {
+                query: {
+                    type: 'string',
+                    description: 'Search query for knowledge retrieval'
+                },
+                domain: {
+                    type: 'string',
+                    description: 'Business domain context (e.g., "financial_services", "healthcare", "e-commerce")'
+                },
+                layerPreference: {
+                    type: 'string',
+                    enum: ['enterprise', 'builtin', 'internet', 'auto'],
+                    description: 'Preferred knowledge source layer (default: auto)'
+                },
+                maxResults: {
+                    type: 'number',
+                    description: 'Maximum total results to return across all sources (default: 10)'
+                },
+                contextType: {
+                    type: 'string',
+                    enum: ['routing', 'content_generation', 'qa', 'templates'],
+                    description: 'Type of context this knowledge will be used for (default: routing)'
+                }
+            },
+            required: ['query']
+        },
+        // 🚀 访问控制：所有AI层都可以使用RAG检索
+        accessibleBy: [
+            CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 执行模式中的知识增强
+            CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 知识问答的核心工具
+            CallerType.SPECIALIST                     // 专家内容生成支持
+        ]
+    },
     {
         name: 'finalAnswer',
         description: `Provide the final answer and mark task completion. REQUIRED when you have completed all user requests.
@@ -73,7 +126,12 @@ Usage: Call this when you have successfully completed the user's request, whethe
                 }
             },
             required: ['summary', 'achievements', 'nextSteps']
-        }
+        },
+        // 🚀 访问控制：只有执行任务的AI可以标记完成
+        accessibleBy: [
+            CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 主要任务完成
+            CallerType.SPECIALIST                     // 专家任务完成
+        ]
     },
     {
         name: 'reportProgress',
@@ -123,9 +181,191 @@ Usage: Call this when you have successfully completed the user's request, whethe
 ];
 
 /**
+ * RAG检索结果接口
+ */
+export interface RAGResult {
+    content: string;
+    source: string;
+    relevanceScore?: number;
+    metadata?: {
+        filePath?: string;
+        url?: string;
+        confidence?: number;
+        excerpts?: string[];
+    };
+}
+
+/**
+ * RAG检索响应接口
+ */
+export interface RAGResponse {
+    success: boolean;
+    results: RAGResult[];
+    strategy: string;
+    sources: string[];
+    error?: string;
+    metadata: {
+        query: string;
+        totalResults: number;
+        executionTime: number;
+        layersUsed: string[];
+    };
+}
+
+/**
  * 系统内部工具实现
  */
 export const systemToolImplementations = {
+    
+    /**
+     * 多层RAG检索编排工具 - 胖工具实现
+     */
+    ragRetrieval: async (params: {
+        query: string;
+        domain?: string;
+        layerPreference?: 'enterprise' | 'builtin' | 'internet' | 'auto';
+        maxResults?: number;
+        contextType?: 'routing' | 'content_generation' | 'qa' | 'templates';
+    }): Promise<RAGResponse> => {
+        const startTime = Date.now();
+        const maxResults = params.maxResults || 10;
+        const layerPreference = params.layerPreference || 'auto';
+        const contextType = params.contextType || 'routing';
+        
+        console.log(`[RAG] Starting retrieval for: "${params.query}" (${contextType})`);
+        
+        const allResults: RAGResult[] = [];
+        const layersUsed: string[] = [];
+        const sources: string[] = [];
+        
+        try {
+            // 动态导入原子层工具执行器
+            const { atomicToolImplementations } = await import('../atomic/atomicTools');
+            
+            // Layer 1: 企业RAG系统 (最高优先级)
+            if (layerPreference === 'auto' || layerPreference === 'enterprise') {
+                try {
+                    const enterpriseResult = await atomicToolImplementations.enterpriseRAGCall({
+                        query: params.query,
+                        domain: params.domain,
+                        maxResults: Math.min(maxResults, 5)
+                    });
+                    
+                    if (enterpriseResult.success && enterpriseResult.results) {
+                        layersUsed.push('enterprise');
+                        sources.push('Enterprise RAG');
+                        
+                        const formattedResults = enterpriseResult.results.map(item => ({
+                            content: item.content,
+                            source: 'enterprise_rag',
+                            relevanceScore: item.confidence,
+                            metadata: {
+                                confidence: item.confidence,
+                                ...item.metadata
+                            }
+                        }));
+                        
+                        allResults.push(...formattedResults);
+                        
+                        // 如果企业RAG有高质量结果，可能不需要继续其他层
+                        const highQualityResults = formattedResults.filter(r => 
+                            (r.relevanceScore || 0) > 0.8
+                        );
+                        
+                        if (highQualityResults.length >= 3) {
+                            console.log(`[RAG] Enterprise RAG provided ${highQualityResults.length} high-quality results, skipping other layers`);
+                            return _formatRAGResponse(allResults, layersUsed, sources, params.query, startTime);
+                        }
+                    }
+                } catch (enterpriseError) {
+                    console.log(`[RAG] Enterprise RAG failed: ${enterpriseError}, falling back to other layers`);
+                }
+            }
+            
+            // Layer 2: 本地知识库 (中等优先级)
+            if ((layerPreference === 'auto' || layerPreference === 'builtin') && allResults.length < maxResults) {
+                try {
+                    const builtinResult = await atomicToolImplementations.readLocalKnowledge({
+                        query: params.query,
+                        maxResults: maxResults - allResults.length
+                    });
+                    
+                    if (builtinResult.success && builtinResult.results) {
+                        layersUsed.push('builtin');
+                        sources.push('Local Knowledge Base');
+                        
+                        const formattedResults = builtinResult.results.map(item => ({
+                            content: item.content,
+                            source: 'local_knowledge',
+                            relevanceScore: item.relevanceScore,
+                            metadata: {
+                                filePath: item.filePath,
+                                excerpts: item.excerpts
+                            }
+                        }));
+                        
+                        allResults.push(...formattedResults);
+                    }
+                } catch (builtinError) {
+                    console.log(`[RAG] Local knowledge search failed: ${builtinError}`);
+                }
+            }
+            
+            // Layer 3: 互联网搜索 (兜底方案)
+            if ((layerPreference === 'auto' || layerPreference === 'internet') && allResults.length < maxResults) {
+                try {
+                    const searchType = _determineInternetSearchType(contextType);
+                    const internetResult = await atomicToolImplementations.internetSearch({
+                        query: params.query,
+                        maxResults: Math.min(maxResults - allResults.length, 3),
+                        searchType
+                    });
+                    
+                    if (internetResult.success && internetResult.results) {
+                        layersUsed.push('internet');
+                        sources.push('Internet Search');
+                        
+                        const formattedResults = internetResult.results.map(item => ({
+                            content: item.snippet,
+                            source: 'internet_search',
+                            relevanceScore: 0.5, // 默认相关性
+                            metadata: {
+                                url: item.url,
+                                title: item.title
+                            }
+                        }));
+                        
+                        allResults.push(...formattedResults);
+                    }
+                } catch (internetError) {
+                    console.log(`[RAG] Internet search failed: ${internetError}`);
+                }
+            }
+            
+            // 按相关性排序并限制结果数量
+            const sortedResults = allResults
+                .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0))
+                .slice(0, maxResults);
+            
+            return _formatRAGResponse(sortedResults, layersUsed, sources, params.query, startTime);
+            
+        } catch (error) {
+            console.error(`[RAG] Retrieval failed: ${error}`);
+            return {
+                success: false,
+                results: [],
+                strategy: 'failed',
+                sources: [],
+                error: (error as Error).message,
+                metadata: {
+                    query: params.query,
+                    totalResults: 0,
+                    executionTime: Date.now() - startTime,
+                    layersUsed: []
+                }
+            };
+        }
+    },
     
     /**
      * 提供最终答案并标记任务完成
@@ -221,4 +461,52 @@ export const systemToolsCategory = {
     description: 'Internal tools for system control, task completion signaling, and status management',
     tools: systemToolDefinitions.map(tool => tool.name),
     layer: 'internal'
-}; 
+};
+
+// ============================================================================
+// 🔧 RAG辅助函数
+// ============================================================================
+
+/**
+ * 格式化RAG响应结果
+ */
+function _formatRAGResponse(
+    results: RAGResult[], 
+    layersUsed: string[], 
+    sources: string[], 
+    query: string, 
+    startTime: number
+): RAGResponse {
+    const strategy = layersUsed.length > 1 ? 'multi-layer' : layersUsed[0] || 'none';
+    
+    return {
+        success: true,
+        results,
+        strategy,
+        sources,
+        metadata: {
+            query,
+            totalResults: results.length,
+            executionTime: Date.now() - startTime,
+            layersUsed
+        }
+    };
+}
+
+/**
+ * 根据上下文类型确定互联网搜索类型
+ */
+function _determineInternetSearchType(
+    contextType: 'routing' | 'content_generation' | 'qa' | 'templates'
+): 'general' | 'technical' | 'documentation' {
+    switch (contextType) {
+        case 'content_generation':
+        case 'templates':
+            return 'documentation';
+        case 'qa':
+            return 'technical';
+        case 'routing':
+        default:
+            return 'general';
+    }
+} 

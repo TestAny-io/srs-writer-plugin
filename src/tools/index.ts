@@ -3,8 +3,8 @@
  * 
  * 架构升级：
  * ├── 🟡 原子层 (atomic/): 基于VSCode API的基础工具 (18个)
- * ├── 🟠 模块层 (specialist/): 业务逻辑工具 (模块化组合)
- * ├── 🔴 文档层 (document/): 复合操作工具 (文档生成与导入)
+ * ├── 🟠 专家层 (specialist/): 专家工具 (专家规则)
+ * ├── 🔴 文档层 (document/): 文档操作工具 (文档具体内容生成、编辑与导入)
  * └── 🟣 内部层 (internal/): 系统控制工具 (finalAnswer等)
  * 
  * 设计原则：
@@ -22,10 +22,16 @@ import {
 } from './atomic/atomicTools';
 
 import { 
+    specialistToolDefinitions, 
+    specialistToolImplementations,
+    specialistToolsCategory 
+} from './specialist/specialistTools';
+
+import { 
     requirementToolDefinitions, 
     requirementToolImplementations,
     requirementToolsCategory 
-} from './specialist/requirementTools';
+} from './document/requirementTools';
 
 import { 
     documentGeneratorToolDefinitions, 
@@ -45,8 +51,11 @@ import {
     systemToolsCategory 
 } from './internal/systemTools';
 
+// 导入访问控制类型
+import { CallerType } from '../types/index';
+
 /**
- * 工具定义接口 - v3.0 智能分类增强版
+ * 工具定义接口 - v3.0 智能分类增强版 + 分布式访问控制
  */
 export interface ToolDefinition {
     name: string;
@@ -60,6 +69,8 @@ export interface ToolDefinition {
     interactionType?: 'autonomous' | 'confirmation' | 'interactive';
     riskLevel?: 'low' | 'medium' | 'high';
     requiresConfirmation?: boolean;
+    // 🚀 新增：分布式访问控制
+    accessibleBy?: CallerType[];
 }
 
 /**
@@ -124,11 +135,11 @@ class ToolRegistry {
             'atomic'
         );
 
-        // 注册模块层工具
+        // 注册专家层工具
         this.registerToolsFromCategory(
-            requirementToolDefinitions,
-            requirementToolImplementations,
-            requirementToolsCategory,
+            specialistToolDefinitions,
+            specialistToolImplementations,
+            specialistToolsCategory,
             'specialist'
         );
 
@@ -145,6 +156,14 @@ class ToolRegistry {
             documentImporterToolDefinitions,
             documentImporterToolImplementations,
             documentImporterToolsCategory,
+            'document'
+        );
+
+        // 注册文档层工具 - 需求管理
+        this.registerToolsFromCategory(
+            requirementToolDefinitions,
+            requirementToolImplementations,
+            requirementToolsCategory,
             'document'
         );
 
@@ -455,6 +474,8 @@ export const generateCompactToolList = () => toolRegistry.generateCompactToolLis
 export {
     atomicToolDefinitions,
     atomicToolImplementations,
+    specialistToolDefinitions,
+    specialistToolImplementations,
     requirementToolDefinitions,
     requirementToolImplementations,
     documentGeneratorToolDefinitions,

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Logger } from '../utils/logger';
 import { SessionContext } from '../types/session';
-import { AIPlan, AIResponseMode } from '../types/index';
+import { AIPlan, AIResponseMode, CallerType } from '../types/index';
 import { toolExecutor } from './toolExecutor';
 
 // 导入拆分后的模块
@@ -224,10 +224,11 @@ export class Orchestrator {
   }
 
   /**
-   * 🚀 新增：一个按需加载并缓存工具的方法
+   * 🚀 获取工具定义（向后兼容）
    */
-  public async getTools(): Promise<{ definitions: any[], jsonSchema: string }> {
-    return await this.toolCacheManager.getTools();
+  public async getTools(caller?: CallerType): Promise<{ definitions: any[], jsonSchema: string }> {
+    // 默认使用 TOOL_EXECUTION 模式，拥有最高权限（向后兼容）
+    return await this.toolCacheManager.getTools(caller || CallerType.ORCHESTRATOR_TOOL_EXECUTION);
   }
 
   /**

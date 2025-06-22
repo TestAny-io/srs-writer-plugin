@@ -50,6 +50,10 @@ export class ContextManager {
         historyItems.push(`- Skipped: ${step.toolName} (duplicate)`);
       } else if (step.type === 'forced_response') {
         historyItems.push(`- System: ${step.content}`);
+      } else if (step.type === 'result' && step.content) {
+        // Include content from 'result' steps, which includes new task markers
+        // and other general results recorded by the system.
+        historyItems.push(`- System Note: ${step.content}`);
       }
     });
 

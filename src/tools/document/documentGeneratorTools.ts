@@ -9,6 +9,7 @@
 import * as vscode from 'vscode';
 import * as yaml from 'js-yaml';
 import { Logger } from '../../utils/logger';
+import { CallerType } from '../../types';
 
 /**
  * 工具定义
@@ -36,6 +37,32 @@ export const documentGeneratorToolDefinitions = [
                 }
             },
             required: ['projectPath']
+        },
+        // 🚀 新增：分布式访问控制
+        accessibleBy: [CallerType.SPECIALIST, CallerType.DOCUMENT],
+        // 🚀 新增：调用指南
+        callingGuide: {
+            whenToUse: "当需要生成完整的、适合打印或分享的SRS报告文档时",
+            prerequisites: "项目目录必须存在，建议项目中有基本的SRS相关文件（SRS.md, fr.yaml等）",
+            inputRequirements: {
+                projectPath: "必需：项目根目录路径",
+                outputFileName: "可选：输出文件名，默认为 'SRS_Report.md'",
+                includeMetadata: "可选：是否包含生成元数据，默认为 true"
+            },
+            internalWorkflow: [
+                "1. 读取主要SRS文档（SRS.md）",
+                "2. 读取各个YAML文件（fr.yaml, nfr.yaml, glossary.yaml）",
+                "3. 调用 generateSectionFromYaml 转换各个章节",
+                "4. 读取其他支持文件（classification_decision.md等）",
+                "5. 组装完整报告内容",
+                "6. 添加生成元数据",
+                "7. 写入最终报告文件"
+            ],
+            commonPitfalls: [
+                "如果项目文件不完整，不会报错，会生成基础模板",
+                "输出文件会覆盖同名文件",
+                "大型项目生成的报告可能很长"
+            ]
         }
     },
     {
@@ -55,6 +82,29 @@ export const documentGeneratorToolDefinitions = [
                 }
             },
             required: ['yamlFilePath', 'sectionType']
+        },
+        // 🚀 新增：分布式访问控制
+        accessibleBy: [CallerType.DOCUMENT],
+        // 🚀 新增：调用指南
+        callingGuide: {
+            whenToUse: "当需要将YAML格式的数据转换为Markdown表格时，通常在生成报告过程中内部调用",
+            prerequisites: "YAML文件必须存在且格式正确",
+            inputRequirements: {
+                yamlFilePath: "必需：YAML文件的完整路径",
+                sectionType: "必需：章节类型，必须是 'functional_requirements'、'non_functional_requirements' 或 'glossary' 之一"
+            },
+            internalWorkflow: [
+                "1. 读取指定路径的YAML文件",
+                "2. 解析YAML内容为结构化数据",
+                "3. 根据sectionType调用对应的Markdown生成函数",
+                "4. 返回格式化的Markdown表格内容",
+                "5. 如果文件不存在，返回警告信息"
+            ],
+            commonPitfalls: [
+                "sectionType 必须与YAML文件内容结构匹配",
+                "YAML文件格式错误会导致解析失败",
+                "文件不存在时会返回警告而不是错误"
+            ]
         }
     }
 ];

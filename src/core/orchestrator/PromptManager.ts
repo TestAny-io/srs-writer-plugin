@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import { Logger } from '../../utils/logger';
 import { SessionContext } from '../../types/session';
+import { CallerType } from '../../types/index';
 
 /**
  * 提示词管理器 - 负责模板加载和提示词生成
@@ -13,14 +14,14 @@ export class PromptManager {
   /**
    * 🚀 构建自适应工具规划提示词（v3.0版本：基于orchestrator.md模板）
    * 
-   * Code Review优化：支持分离的上下文参数
+   * Code Review优化：支持分离的上下文参数 + 访问控制
    */
   public async buildAdaptiveToolPlanningPrompt(
     userInput: string,
     sessionContext: SessionContext,
     historyContext: string,
     toolResultsContext: string,
-    getTools: () => Promise<{ definitions: any[], jsonSchema: string }>,
+    getTools: (caller?: any) => Promise<{ definitions: any[], jsonSchema: string }>,
     retrieveRelevantKnowledge: (userInput: string, sessionContext: SessionContext) => Promise<string | null>
   ): Promise<string> {
     // 1. 读取 orchestrator.md 模板文件
@@ -35,8 +36,9 @@ export class PromptManager {
     }
 
     // 2. 准备所有需要动态注入的数据
-    // 🚀 关键修改：调用新的缓存方法
-    const { jsonSchema: toolsJsonSchema } = await getTools();
+    // 🚀 智能检测：根据用户输入选择合适的工具集
+    const callerType = this.detectIntentType(userInput);
+    const { jsonSchema: toolsJsonSchema } = await getTools(callerType);
     const relevantKnowledge = await retrieveRelevantKnowledge(userInput, sessionContext);
 
     // 3. 执行"邮件合并"，替换所有占位符
@@ -53,6 +55,47 @@ export class PromptManager {
     finalPrompt = finalPrompt.replace('{{RELEVANT_KNOWLEDGE}}', relevantKnowledge || 'No specific knowledge retrieved.');
 
     return finalPrompt;
+  }
+
+  /**
+   * 🚀 智能意图检测：根据用户输入选择合适的 CallerType
+   */
+  private detectIntentType(userInput: string): CallerType {
+    const input = userInput.toLowerCase();
+    
+    // 检测知识问答类型的输入
+    const knowledgePatterns = [
+      /^(how|what|why|when|where|which)/,
+      /如何|怎么|什么是|为什么|怎样/,
+      /best practices?|最佳实践/,
+      /guidance|指导|建议/,
+      /explanation|解释|说明/
+    ];
+    
+    // 检测一般闲聊类型的输入
+    const chatPatterns = [
+      /^(hi|hello|hey|thanks|thank you)/,
+      /^(你好|谢谢|感谢)/,
+      /weather|天气/,
+      /how are you|你好吗/,
+      /^(good morning|good afternoon|good evening)/
+    ];
+    
+    // 优先检测闲聊
+    if (chatPatterns.some(pattern => pattern.test(input))) {
+      this.logger.info(`🤖 Detected GENERAL_CHAT intent: ${userInput}`);
+      return CallerType.ORCHESTRATOR_GENERAL_CHAT;
+    }
+    
+    // 然后检测知识问答
+    if (knowledgePatterns.some(pattern => pattern.test(input))) {
+      this.logger.info(`🧠 Detected KNOWLEDGE_QA intent: ${userInput}`);
+      return CallerType.ORCHESTRATOR_KNOWLEDGE_QA;
+    }
+    
+    // 默认为工具执行模式
+    this.logger.info(`🛠️ Detected TOOL_EXECUTION intent: ${userInput}`);
+    return CallerType.ORCHESTRATOR_TOOL_EXECUTION;
   }
 
   /**

@@ -2,9 +2,10 @@ import * as yaml from 'js-yaml';
 import { Logger } from '../../utils/logger';
 import * as AtomicTools from '../atomic/atomicTools';
 import { marked } from 'marked';
+import { CallerType } from '../../types';
 
 /**
- * 需求管理专家工具模块
+ * 需求管理文档工具模块
  * 
  * 设计理念：
  * 🧠 AI交互层：面向意图的"胖工具"，AI只看到高层业务操作
@@ -318,6 +319,31 @@ export const addNewRequirementToolDefinition = {
             }
         },
         required: ["projectPath", "requirement"]
+    },
+    // 🚀 新增：分布式访问控制
+    accessibleBy: [CallerType.SPECIALIST, CallerType.DOCUMENT],
+    // 🚀 新增：调用指南
+    callingGuide: {
+        whenToUse: "当需要向现有项目添加新的功能需求时",
+        prerequisites: "项目必须已存在 SRS.md 文件，建议先调用 ragRetrieval 获取需求编写最佳实践",
+        inputRequirements: {
+            projectPath: "必需：项目目录路径，如 'my-ecommerce-project'",
+            requirement: "必需：包含 name(需求名称)、priority(优先级)、description(详细描述)、acceptance_criteria(验收标准) 的完整需求对象"
+        },
+        internalWorkflow: [
+            "1. 验证项目状态和 SRS.md 文件存在性",
+            "2. 创建备份文件以确保事务安全",
+            "3. 读取现有功能需求列表",
+            "4. 生成新的需求ID (FR-XXX格式)",
+            "5. 同时更新 fr.yaml 和 SRS.md 中的功能需求表格",
+            "6. 原子性提交或自动回滚"
+        ],
+        commonPitfalls: [
+            "不要在项目不存在时调用此工具",
+            "确保 requirement 对象包含所有必需字段",
+            "priority 必须是 '高'、'中'、'低' 之一",
+            "description 和 acceptance_criteria 应该具体且可衡量"
+        ]
     }
 };
 
@@ -420,6 +446,27 @@ export const listRequirementsToolDefinition = {
             }
         },
         required: ["projectPath"]
+    },
+    // 🚀 新增：分布式访问控制
+    accessibleBy: [CallerType.SPECIALIST, CallerType.DOCUMENT, CallerType.ORCHESTRATOR_TOOL_EXECUTION],
+    // 🚀 新增：调用指南
+    callingGuide: {
+        whenToUse: "当需要查看项目现有功能需求列表时，通常用于编辑前的状态检查",
+        prerequisites: "项目目录必须存在，不要求 SRS.md 必须存在（会返回空列表）",
+        inputRequirements: {
+            projectPath: "必需：项目目录路径，如 'my-project'"
+        },
+        internalWorkflow: [
+            "1. 尝试读取项目中的 fr.yaml 文件",
+            "2. 解析 YAML 格式的功能需求数据",
+            "3. 返回结构化的需求列表",
+            "4. 如果文件不存在则返回空列表"
+        ],
+        commonPitfalls: [
+            "不要假设返回的列表一定不为空",
+            "projectPath 必须是有效的目录路径",
+            "返回的需求对象包含 id、name、priority、description 等字段"
+        ]
     }
 };
 
@@ -480,8 +527,8 @@ export const requirementToolImplementations = {
  * 需求工具分类信息
  */
 export const requirementToolsCategory = {
-    name: 'Requirement Management Tools',
-    description: 'Specialist tools for functional requirements management in SRS projects',
+    name: 'Document-Level Requirement Tools',
+    description: 'Document-level tools for functional requirements management in SRS projects',
     tools: requirementToolDefinitions.map(tool => tool.name),
-    layer: 'specialist'
+    layer: 'document'
 }; 

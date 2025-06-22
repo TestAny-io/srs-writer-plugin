@@ -5,5 +5,33 @@
   "session_persistence": true,
   "max_session_age_hours": 24,
   "ai_timeout_seconds": 30,
-  "performance_logging": false
+  "performance_logging": false,
+  "rag": {
+    "enterprise": {
+      "enabled": false,
+      "endpoint": "",
+      "apiKey": "",
+      "timeout_seconds": 10,
+      "max_retries": 3
+    },
+    "builtin": {
+      "enabled": true,
+      "knowledge_paths": ["templates/", "knowledge/"],
+      "file_extensions": [".md", ".yml", ".yaml", ".json"],
+      "max_results_per_query": 10
+    },
+    "internet": {
+      "enabled": true,
+      "provider": "vscode-copilot",
+      "fallback_enabled": true,
+      "max_results_per_query": 3,
+      "search_timeout_seconds": 15
+    },
+    "strategy": {
+      "default_layer_preference": "auto",
+      "enterprise_quality_threshold": 0.8,
+      "builtin_quality_threshold": 0.3,
+      "enable_multi_layer_fusion": true
+    }
+  }
 }
