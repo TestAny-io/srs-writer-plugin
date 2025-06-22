@@ -3,7 +3,7 @@
 <div align="center">
 
 ![SRS Writer Logo](https://img.shields.io/badge/SRS-Writer-blue?style=for-the-badge&logo=visual-studio-code)
-[![Version](https://img.shields.io/badge/Version-1.3.11-blue.svg?style=for-the-badge)](https://github.com/srs-writer-team/srs-writer-plugin)
+[![Version](https://img.shields.io/badge/Version-1.4.0-blue.svg?style=for-the-badge)](https://github.com/srs-writer-team/srs-writer-plugin)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![VSCode](https://img.shields.io/badge/VSCode-1.85+-blue?style=for-the-badge&logo=visual-studio-code)](https://code.visualstudio.com/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green?style=for-the-badge&logo=node.js)](https://nodejs.org/)
@@ -21,11 +21,11 @@
 SRS Writer is a production-ready VSCode extension featuring a sophisticated AI agent capable of autonomous software requirements engineering. Built with a four-layer tool architecture and conversational intelligence, it transforms natural language discussions into comprehensive, professional-grade SRS documentation.
 
 **Current Capabilities:**
-- **27 Specialized Tools** across 4 architectural layers
+- **33 Specialized Tools** across 4 architectural layers
 - **Autonomous Task Execution** with intelligent planning and recovery
 - **Professional SRS Generation** following IEEE standards
 - **Persistent Session Management** maintaining project context
-- **Modular Architecture** with 15 specialized modules
+- **Modular Architecture** with 17 specialized modules
 
 ## ✨ Core Features
 
@@ -36,16 +36,18 @@ SRS Writer is a production-ready VSCode extension featuring a sophisticated AI a
 - **Tool Classification**: Smart risk assessment and confirmation workflows
 - **Loop Detection**: Intelligent recovery from execution loops and edge cases
 - **Progress Tracking**: Real-time task progress with transparent status reporting
+- **Context Management**: Dynamic context window optimization and state persistence
+- **User Interaction Handling**: Smart user input processing and response management
 
 ### 🏗️ Four-Layer Tool Architecture
 
-**Production-grade tool ecosystem with 27 specialized tools:**
+**Production-grade tool ecosystem with 33 specialized tools:**
 
 ```
-🟡 Atomic Layer (18 tools)    - VSCode API operations
-🟠 Specialist Layer (2 tools) - Business logic operations  
-🔴 Document Layer (4 tools)   - Complex document workflows
-🟣 Internal Layer (3 tools)   - System control and management
+🟡 Atomic Layer (19 tools)    - VSCode API operations
+🟠 Specialist Layer (4 tools) - Business logic operations  
+🔴 Document Layer (6 tools)   - Complex document workflows
+🟣 Internal Layer (4 tools)   - System control and management
 ```
 
 ### 📋 Professional Document Generation
@@ -163,10 +165,11 @@ flowchart TB
 
 | Component | Purpose | Lines of Code | Key Features |
 |-----------|---------|---------------|--------------|
-| **Orchestrator** | AI planning and task routing | 405 | Multi-modal execution, intelligent triage |
-| **SRS Agent Engine** | Autonomous task execution | 491 | Loop detection, error recovery, state management |
-| **Context Manager** | Memory and history management | 174 | Session persistence, context optimization |
-| **Tool Executor** | Tool dispatch and coordination | - | Risk assessment, confirmation workflows |
+| **Orchestrator** | AI planning and task routing | 402 | Multi-modal execution, intelligent triage |
+| **SRS Agent Engine** | Autonomous task execution | 503 | Loop detection, error recovery, state management |
+| **Specialist Executor** | Business logic coordination | 552 | Rule-based execution, specialist tool management |
+| **Context Manager** | Memory and history management | - | Session persistence, context optimization |
+| **Tool Executor** | Tool dispatch and coordination | 333 | Risk assessment, confirmation workflows |
 
 ### Modular Design Principles
 
@@ -180,22 +183,26 @@ flowchart TB
 ### Tool Distribution by Layer
 
 ```
-Total Tools: 27
-├── 🟡 Atomic Layer: 18 tools (66.7%)
-│   ├── File Operations: readFile, writeFile, createDirectory, listFiles
-│   ├── Editor Integration: insertText, replaceText, getUserSelection
-│   └── User Interaction: askQuestion, showProgressIndicator, suggestNextAction
+Total Tools: 33
+├── 🟡 Atomic Layer: 19 tools (57.6%)
+│   ├── File Operations: readFile, writeFile, appendTextToFile, createDirectory, listFiles, deleteFile, renameFile
+│   ├── Editor Integration: insertText, replaceText, getUserSelection, openAndShowFile, openAndSelectRange
+│   ├── Knowledge Retrieval: readLocalKnowledge, internetSearch, enterpriseRAGCall
+│   └── User Interaction: askQuestion, showProgressIndicator, suggestNextAction, showInformationMessage, showWarningMessage
 │
-├── 🟠 Specialist Layer: 2 tools (7.4%)
+├── 🟠 Specialist Layer: 4 tools (12.1%)
+│   ├── SRS Management: createComprehensiveSRS, editSRSDocument
+│   ├── Quality Assurance: classifyProjectComplexity, lintSRSDocument
+│   └── [Expansion Ready: Plugin architecture supports dynamic tool loading]
+│
+├── 🔴 Document Layer: 6 tools (18.2%)
 │   ├── Requirements Management: addNewRequirement, listRequirements
-│   └── [Expansion Planned: 15+ additional specialist tools]
+│   ├── Document Generation: generateFullSrsReport, generateSectionFromYaml
+│   └── Document Import: importFromMarkdown, parseMarkdownTable
 │
-├── 🔴 Document Layer: 4 tools (14.8%)
-│   ├── Generation: generateFullSrsReport, generateSectionFromYaml
-│   └── Import: importFromMarkdown, parseMarkdownTable
-│
-└── 🟣 Internal Layer: 3 tools (11.1%)
+└── 🟣 Internal Layer: 4 tools (12.1%)
     ├── Task Control: finalAnswer, reportProgress
+    ├── Knowledge Retrieval: ragRetrieval
     └── System Status: getSystemStatus
 ```
 
@@ -205,19 +212,17 @@ Total Tools: 27
 - **Interaction Modes**: Autonomous, confirmation-required, or interactive
 - **Usage Analytics**: Real-time monitoring and performance tracking
 - **Dynamic Registration**: Hot-reload capability for new tools
+- **Access Control**: Distributed security model with caller-based permissions
+- **Performance Monitoring**: Real-time tool execution analytics and optimization
 
 ### High-Value Tool Examples
 
 ```typescript
 // Specialist Layer - Business Intelligence
-await addNewRequirement({
-    projectPath: "my-project",
-    requirement: {
-        name: "User Authentication",
-        priority: "高",
-        description: "Secure login with multi-factor authentication",
-        acceptance_criteria: "Users can login with email/password + SMS verification"
-    }
+await createComprehensiveSRS({
+    projectName: "E-commerce Platform",
+    description: "Full-featured online store with payment processing",
+    includeTemplate: true
 });
 
 // Document Layer - Professional Output  
@@ -232,6 +237,17 @@ await createDirectory({
     path: "new-project-folder",
     isProjectDirectory: true  // Automatically updates session context
 });
+
+// Document Layer - Requirements Management
+await addNewRequirement({
+    projectPath: "my-project",
+    requirement: {
+        name: "User Authentication",
+        priority: "高",
+        description: "Secure login with multi-factor authentication",
+        acceptance_criteria: "Users can login with email/password + SMS verification"
+    }
+});
 ```
 
 ## 📊 Current Status & Metrics
@@ -241,8 +257,8 @@ await createDirectory({
 <div align="center">
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue)
-![Architecture](https://img.shields.io/badge/Modules-15-green)
-![Tools](https://img.shields.io/badge/Tools-27-brightgreen)
+![Architecture](https://img.shields.io/badge/Modules-17-green)
+![Tools](https://img.shields.io/badge/Tools-33-brightgreen)
 ![Coverage](https://img.shields.io/badge/Test_Coverage-85%25-green)
 
 </div>
@@ -267,25 +283,37 @@ await createDirectory({
 srs-writer-plugin/
 ├── 📦 src/                          # Source code (TypeScript)
 │   ├── 🎯 core/                     # Core intelligence modules
-│   │   ├── orchestrator.ts          # Main AI orchestrator (405 lines)
-│   │   ├── srsAgentEngine.ts        # Autonomous agent engine (491 lines)
-│   │   ├── engine/                  # Engine sub-modules (6 files)
-│   │   └── orchestrator/            # Orchestrator sub-modules (7 files)
+│   │   ├── orchestrator.ts          # Main AI orchestrator (402 lines)
+│   │   ├── srsAgentEngine.ts        # Autonomous agent engine (503 lines)
+│   │   ├── specialistExecutor.ts    # Specialist coordination (552 lines)
+│   │   ├── engine/                  # Engine sub-modules (7 files)
+│   │   └── orchestrator/            # Orchestrator sub-modules (8 files)
 │   ├── 🔧 tools/                    # Four-layer tool architecture
-│   │   ├── atomic/                  # VSCode API tools (18 tools)
-│   │   ├── specialist/              # Business logic tools (2 tools)
-│   │   ├── document/                # Document processing tools (4 tools)
-│   │   └── internal/                # System control tools (3 tools)
+│   │   ├── atomic/                  # VSCode API tools (19 tools)
+│   │   ├── specialist/              # Business logic tools (4 tools)
+│   │   ├── document/                # Document processing tools (6 tools)
+│   │   └── internal/                # System control tools (4 tools)
 │   ├── 💬 chat/                     # VSCode chat integration
-│   ├── 📄 parser/                   # Document processing
+│   ├── 🔍 parser/                   # Document processing (markdown, YAML)
 │   ├── 🗂️ filesystem/               # File management
+│   ├── ✅ quality/                  # Quality assurance and linting
+│   ├── 🧪 test/                     # Test suites and fixtures
+│   ├── 🔧 utils/                    # Utility functions (logger, error handler)
 │   └── 🎨 types/                    # TypeScript definitions
 ├── 📋 rules/                        # AI behavior rules
-│   ├── orchestrator.md              # Main orchestrator rules
-│   └── specialists/                 # Task-specific rules (6 files)
+│   ├── orchestrator.md              # Main orchestrator rules (310 lines)
+│   └── specialists/                 # Task-specific rules (9 files)
 ├── ⚙️ config/                       # Configuration files
-├── 📚 docs/                         # Documentation
-└── 🧪 tests/                        # Test suites
+├── 📚 docs/                         # Architecture and implementation guides
+│   ├── ai-response-format-standard.md
+│   ├── model-configuration.md
+│   ├── tool-access-control-matrix.md
+│   └── specialist-tool-calling-implementation.md
+├── 📄 templates/                    # SRS templates and samples
+└── 🧪 src/test/                     # Comprehensive test suites
+    ├── integration/                 # End-to-end testing
+    ├── performance/                 # Performance benchmarks
+    └── fixtures/                    # Test data and cases
 ```
 
 ## 💬 Usage Patterns
@@ -407,16 +435,17 @@ yarn test:architecture
 ### User Documentation
 
 - [Quick Start Guide](docs/quick-start.md) - Get running in minutes
-- [Tool Reference](工具架构报告.md) - Complete tool ecosystem overview
-- [Architecture Guide](docs/architecture-v1.3.md) - System design deep dive
-- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [Tool Architecture Report](工具架构报告.md) - Complete tool ecosystem overview
+- [AI Response Format Standard](docs/ai-response-format-standard.md) - Response structure guidelines
+- [Model Configuration](docs/model-configuration.md) - AI model setup and tuning
+- [Tool Access Control Matrix](docs/tool-access-control-matrix.md) - Security and permissions
 
 ### Developer Resources
 
-- [Contributing Guide](CONTRIBUTING.md) - How to contribute effectively
-- [Architecture Testing](docs/spike-testing-guide.md) - Design validation methods
+- [Orchestrator Rules](rules/orchestrator.md) - AI decision engine guidelines (310 lines)
+- [Specialist Implementation](docs/specialist-tool-calling-implementation.md) - Business logic patterns
 - [Tool Development](docs/tool-development.md) - Adding new tools
-- [Performance Guidelines](docs/performance.md) - Optimization best practices
+- [Architecture Testing](docs/spike-testing-guide.md) - Design validation methods
 
 ### API Reference
 
@@ -426,20 +455,22 @@ yarn test:architecture
 
 ## 🗺️ Roadmap & Vision
 
-### Current Capabilities (v1.3.11)
+### Current Capabilities (v1.4.0)
 
-- ✅ **Production-Ready Core**: Stable 4-layer architecture with 27 tools
+- ✅ **Production-Ready Core**: Stable 4-layer architecture with 33 tools
 - ✅ **Autonomous Agent**: Self-organizing task execution with error recovery
 - ✅ **Professional Output**: IEEE-compliant SRS generation
 - ✅ **Enterprise Features**: Session management, progress tracking, validation
+- ✅ **Enhanced Tool Ecosystem**: Extended atomic layer with 19 tools
+- ✅ **Specialist Intelligence**: 4 business logic tools for complex operations
 
 ### Next Phase: Tool Ecosystem Expansion
 
-**Priority 1: Specialist Layer Enhancement**
-- Requirements analysis and validation tools
-- Project management and structure tools  
-- Quality assurance and testing tools
-- **Target**: 15+ additional specialist tools
+**Priority 1: Advanced Intelligence Features**
+- Context-aware requirement suggestions
+- Automatic consistency checking and gap detection
+- Multi-language SRS generation support
+- **Target**: Enhanced AI capabilities with domain expertise
 
 **Priority 2: Integration & Automation**
 - Git integration for version control
@@ -447,11 +478,11 @@ yarn test:architecture
 - Third-party tool connectivity (JIRA, Azure DevOps)
 - **Target**: Seamless development workflow integration
 
-**Priority 3: Advanced Intelligence**
-- Context-aware requirement suggestions
-- Automatic consistency checking and gap detection
-- Multi-language SRS generation support
-- **Target**: Enhanced AI capabilities with domain expertise
+**Priority 3: Tool Ecosystem Expansion**
+- Advanced requirements analysis and validation tools
+- Project management and structure tools  
+- Enhanced quality assurance and testing tools
+- **Target**: Comprehensive professional toolset
 
 ### Long-term Vision
 
@@ -481,7 +512,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 *Transforming natural language into professional documentation since 2024*
 
-**Current Version: 1.3.11** | **Tools: 27** | **Modules: 15** | **Architecture: 4-Layer**
+**Current Version: 1.4.0** | **Tools: 33** | **Modules: 17** | **Architecture: 4-Layer**
 
 [⬆️ Back to top](#srs-writer---ai-powered-requirements-engineering)
 
