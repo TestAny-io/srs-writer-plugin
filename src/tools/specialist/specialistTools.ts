@@ -53,7 +53,7 @@ export async function createComprehensiveSRS(args: {
     projectName?: string;
     sessionData?: any;
     model?: vscode.LanguageModelChat;
-}): Promise<{ success: boolean; result?: string; error?: string }> {
+}): Promise<{ success: boolean; result?: string; error?: string; needsChatInteraction?: boolean; chatQuestion?: string; resumeContext?: any }> {
     try {
         logger.info(`🧠 [SPECIALIST] Creating comprehensive SRS for: ${args.userInput}`);
         
@@ -72,11 +72,45 @@ export async function createComprehensiveSRS(args: {
         
         const result = await specialistExecutor.executeSpecialist('100_create_srs', context, args.model);
         
-        logger.info(`✅ [SPECIALIST] SRS creation completed, length: ${result.length}`);
-        return {
-            success: true,
-            result: result
-        };
+        // 🚀 新增：解析specialist返回的JSON结果
+        try {
+            const parsedResult = JSON.parse(result);
+            
+            // 🚀 新增：处理需要聊天交互的情况
+            if (parsedResult.needsChatInteraction) {
+                logger.info(`💬 [SPECIALIST] SRS creation needs chat interaction: ${parsedResult.chatQuestion}`);
+                return {
+                    success: true,
+                    result: parsedResult.chatQuestion, // 将问题返回给聊天系统
+                    needsChatInteraction: true,
+                    chatQuestion: parsedResult.chatQuestion,
+                    resumeContext: parsedResult.resumeContext
+                };
+            }
+            
+            // 🚀 处理正常完成的情况
+            if (parsedResult.completed) {
+                logger.info(`✅ [SPECIALIST] SRS creation completed successfully: ${parsedResult.summary}`);
+                return {
+                    success: true,
+                    result: parsedResult.summary
+                };
+            } else {
+                logger.warn(`⚠️ [SPECIALIST] SRS creation partially completed: ${parsedResult.summary}`);
+                return {
+                    success: parsedResult.partialCompletion || false,
+                    result: parsedResult.summary
+                };
+            }
+        } catch (parseError) {
+            // 🔄 兼容性：如果不是JSON格式，按原来的方式处理
+            logger.info(`✅ [SPECIALIST] SRS creation completed (legacy format), length: ${result.length}`);
+            return {
+                success: true,
+                result: result
+            };
+        }
+        
     } catch (error) {
         logger.error(`❌ [SPECIALIST] SRS creation failed`, error as Error);
         return {

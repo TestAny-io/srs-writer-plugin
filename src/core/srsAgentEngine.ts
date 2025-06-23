@@ -5,12 +5,13 @@ import { AIPlan, AIResponseMode, ToolExecutionResult, createToolExecutionResult,
 import { toolRegistry, ToolDefinition } from '../tools/index';
 
 // 导入拆分后的模块
-import { AgentState, ExecutionStep, InteractionRequest, ToolCallResult } from './engine/AgentState';
+import { AgentState, ExecutionStep, InteractionRequest, ToolCallResult, SpecialistResumeContext } from './engine/AgentState';
 import { UserInteractionHandler } from './engine/UserInteractionHandler';
 import { ToolClassifier } from './engine/ToolClassifier';
 import { ToolExecutionHandler } from './engine/ToolExecutionHandler';
 import { LoopDetector } from './engine/LoopDetector';
 import { ContextManager } from './engine/ContextManager';
+import { SpecialistExecutor } from './specialistExecutor';
 
 /**
  * SRS Agent Engine - 智能执行引擎架构
@@ -176,6 +177,112 @@ export class SRSAgentEngine {
     // 记录用户交互
     this.recordExecution('user_interaction', `用户回复: ${response}`, true);
     
+    // 🚀 关键修复：检查是否需要恢复specialist执行
+    if (this.state.resumeContext) {
+      this.logger.info(`🔄 Resuming specialist execution with user response: ${response}`);
+      
+      try {
+        // 创建specialist executor实例
+        const specialistExecutor = new SpecialistExecutor();
+        
+        // 准备恢复上下文，添加用户回复
+        const resumeContextWithResponse = {
+          ...this.state.resumeContext,
+          userResponse: response
+        };
+        
+        this.stream.markdown(`🔄 **正在恢复专家任务执行...**\n\n`);
+        
+        // 调用specialist恢复方法
+        const result = await specialistExecutor.resumeSpecialistExecution(
+          resumeContextWithResponse,
+          this.selectedModel
+        );
+        
+        // 解析specialist的恢复结果
+        try {
+          const parsedResult = JSON.parse(result);
+          
+          // 🚀 检查是否又需要用户交互
+          if (parsedResult.needsChatInteraction) {
+            this.logger.info(`💬 Specialist needs another chat interaction: ${parsedResult.chatQuestion}`);
+            
+            // 更新resumeContext
+            this.state.resumeContext = {
+              ruleId: parsedResult.resumeContext?.ruleId || this.state.resumeContext.ruleId,
+              context: parsedResult.resumeContext?.context || this.state.resumeContext.context,
+              currentIteration: parsedResult.currentIteration || this.state.resumeContext.currentIteration,
+              conversationHistory: parsedResult.conversationHistory || this.state.resumeContext.conversationHistory,
+              toolExecutionResults: parsedResult.toolExecutionResults || this.state.resumeContext.toolExecutionResults,
+              pendingPlan: parsedResult.pendingPlan || this.state.resumeContext.pendingPlan
+            };
+            
+            // 设置新的交互状态
+            this.state.pendingInteraction = {
+              type: 'input',
+              message: parsedResult.chatQuestion,
+              toolCall: interaction.toolCall,
+              originalResult: parsedResult
+            };
+            
+            // 显示新问题
+            this.stream.markdown(`💬 **${parsedResult.chatQuestion}**\n\n`);
+            this.stream.markdown(`请在下方输入您的回答...\n\n`);
+            
+            return; // 继续等待用户输入
+          }
+          
+          // 🚀 Specialist执行完成
+          if (parsedResult.completed) {
+            this.logger.info(`✅ Specialist execution completed: ${parsedResult.summary}`);
+            
+            this.stream.markdown(`✅ **任务完成**\n\n`);
+            this.stream.markdown(`${parsedResult.summary}\n\n`);
+            
+            if (parsedResult.resumedFromUserInteraction) {
+              this.stream.markdown(`🎯 专家任务在您的协助下成功完成！\n\n`);
+            }
+            
+            // 清除状态
+            this.state.resumeContext = undefined;
+            this.state.pendingInteraction = undefined;
+            this.state.stage = 'completed';
+            
+            this.recordExecution('result', parsedResult.summary, true);
+            this.displayExecutionSummary();
+            return;
+          }
+          
+          // 🚀 Specialist部分完成
+          this.stream.markdown(`⚠️ **任务部分完成**\n\n`);
+          this.stream.markdown(`${parsedResult.summary}\n\n`);
+          
+        } catch (parseError) {
+          // 如果不是JSON格式，按文本处理
+          this.stream.markdown(`✅ **专家任务恢复完成**\n\n`);
+          this.stream.markdown(`${result}\n\n`);
+        }
+        
+        // 清除状态
+        this.state.resumeContext = undefined;
+        this.state.pendingInteraction = undefined;
+        this.state.stage = 'completed';
+        
+        this.recordExecution('result', '专家任务恢复执行完成', true);
+        this.displayExecutionSummary();
+        return;
+        
+      } catch (error) {
+        this.logger.error('恢复specialist执行失败', error as Error);
+        this.stream.markdown(`❌ 恢复任务执行时出现错误: ${(error as Error).message}\n\n`);
+        
+        // 清除错误状态，回退到正常交互处理
+        this.state.resumeContext = undefined;
+        this.logger.info('Falling back to normal interaction handling');
+      }
+    }
+    
+    // 🚀 原有的交互处理逻辑（作为fallback或者非specialist的交互）
     try {
         let shouldReturnToWaiting = false;
         
@@ -231,6 +338,7 @@ export class SRSAgentEngine {
     
     // 清除交互状态
     this.state.pendingInteraction = undefined;
+    this.state.resumeContext = undefined; // 🚀 确保清除resumeContext
     this.state.stage = 'executing';
     
     // 继续执行
@@ -329,15 +437,31 @@ export class SRSAgentEngine {
               await this.handleConfirmationTool(toolCall, classification);
               return; // 等待用户确认
             } else {
-              // 风险评估后允许自动执行
-              await this.handleAutonomousTool(toolCall);
+              // 🚀 新增：特殊处理specialist工具的用户交互需求
+              if (toolCall.name === 'createComprehensiveSRS' || toolCall.name.includes('specialist')) {
+                const result = await this.handleSpecialistTool(toolCall);
+                if (result?.needsUserInteraction) {
+                  return; // 暂停执行，等待用户响应
+                }
+              } else {
+                // 风险评估后允许自动执行
+                await this.handleAutonomousTool(toolCall);
+              }
             }
             break;
             
           case 'autonomous':
           default:
-            // 自主工具：直接执行
-            await this.handleAutonomousTool(toolCall);
+            // 🚀 新增：特殊处理specialist工具的用户交互需求
+            if (toolCall.name === 'createComprehensiveSRS' || toolCall.name.includes('specialist')) {
+              const result = await this.handleSpecialistTool(toolCall);
+              if (result?.needsUserInteraction) {
+                return; // 暂停执行，等待用户响应
+              }
+            } else {
+              // 自主工具：直接执行
+              await this.handleAutonomousTool(toolCall);
+            }
             break;
         }
       }
@@ -464,7 +588,8 @@ export class SRSAgentEngine {
       this.state,
       (toolName, args) => this.loopDetector.hasRecentToolExecution(toolName, args, this.state.executionHistory),
       this.recordExecution.bind(this),
-      this.toolExecutor
+      this.toolExecutor,
+      this.selectedModel
     );
   }
 
@@ -505,7 +630,128 @@ export class SRSAgentEngine {
       toolCall,
       this.stream,
       this.recordExecution.bind(this),
-      this.toolExecutor
+      this.toolExecutor,
+      this.selectedModel
     );
+  }
+
+  // 🚀 新增：特殊处理specialist工具的用户交互需求
+  private async handleSpecialistTool(toolCall: { name: string; args: any }): Promise<{ needsUserInteraction: boolean } | undefined> {
+    this.stream.markdown(`🧠 **执行专家工具**: ${toolCall.name}\n`);
+    
+    const startTime = Date.now();
+    this.recordExecution('tool_call', `开始执行专家工具: ${toolCall.name}`, undefined, toolCall.name, undefined, toolCall.args);
+    
+    try {
+      const result = await this.toolExecutor.executeTool(
+        toolCall.name, 
+        toolCall.args,
+        undefined,  // caller 参数
+        this.selectedModel  // model 参数
+      );
+      
+      const duration = Date.now() - startTime;
+      
+      // 🚀 关键：检查是否需要用户交互
+      if (result.success && result.result && typeof result.result === 'object') {
+        // 尝试解析result.result（可能是JSON字符串）
+        let parsedResult = result.result;
+        if (typeof result.result === 'string') {
+          try {
+            parsedResult = JSON.parse(result.result);
+          } catch (parseError) {
+            // 如果不是JSON，保持原样
+            parsedResult = result.result;
+          }
+        }
+        
+        // 检查是否需要聊天交互
+        if (parsedResult.needsChatInteraction) {
+          this.logger.info(`💬 Specialist tool ${toolCall.name} needs chat interaction: ${parsedResult.chatQuestion}`);
+          
+          // 🚀 保存resumeContext到引擎状态
+          this.state.resumeContext = {
+            ruleId: parsedResult.resumeContext?.ruleId || 'unknown',
+            context: parsedResult.resumeContext?.context || {},
+            currentIteration: parsedResult.currentIteration || 0,
+            conversationHistory: parsedResult.conversationHistory || [],
+            toolExecutionResults: parsedResult.toolExecutionResults || [],
+            pendingPlan: parsedResult.pendingPlan || {}
+          };
+          
+          // 设置等待用户输入状态
+          this.state.stage = 'awaiting_user';
+          this.state.pendingInteraction = {
+            type: 'input',
+            message: parsedResult.chatQuestion,
+            toolCall: toolCall,
+            originalResult: parsedResult
+          };
+          
+          // 在聊天中显示问题
+          this.stream.markdown(`💬 **${parsedResult.chatQuestion}**\n\n`);
+          this.stream.markdown(`请在下方输入您的回答...\n\n`);
+          
+          this.recordExecution(
+            'user_interaction',
+            `专家工具 ${toolCall.name} 需要用户交互: ${parsedResult.chatQuestion}`,
+            true,
+            toolCall.name,
+            parsedResult,
+            toolCall.args,
+            duration
+          );
+          
+          return { needsUserInteraction: true };
+        }
+      }
+      
+      // 正常处理（无用户交互需求）
+      this.stream.markdown(`✅ **${toolCall.name}** 执行成功 (${duration}ms)\n`);
+      if (result.result) {
+        let outputText: string;
+        if (typeof result.result === 'string') {
+          outputText = result.result;
+        } else {
+          try {
+            outputText = JSON.stringify(result.result, null, 2);
+          } catch (serializeError) {
+            outputText = `[输出序列化失败: ${(serializeError as Error).message}]`;
+          }
+        }
+        this.stream.markdown(`\`\`\`json\n${outputText}\n\`\`\`\n\n`);
+      }
+      
+      this.recordExecution(
+        'tool_call', 
+        `${toolCall.name} 执行成功`, 
+        true, 
+        toolCall.name, 
+        result, 
+        toolCall.args,
+        duration
+      );
+      
+      return { needsUserInteraction: false };
+      
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMsg = (error as Error).message;
+      
+      this.stream.markdown(`❌ **${toolCall.name}** 执行失败 (${duration}ms): ${errorMsg}\n\n`);
+      
+      this.recordExecution(
+        'tool_call', 
+        `${toolCall.name} 执行失败: ${errorMsg}`, 
+        false, 
+        toolCall.name, 
+        { error: errorMsg, stack: (error as Error).stack }, 
+        toolCall.args,
+        duration,
+        'EXECUTION_FAILED'
+      );
+      
+      return { needsUserInteraction: false };
+    }
   }
 }

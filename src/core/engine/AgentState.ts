@@ -8,6 +8,20 @@ export interface AgentState {
   pendingInteraction?: InteractionRequest;
   iterationCount: number;
   maxIterations: number;
+  resumeContext?: SpecialistResumeContext;
+}
+
+/**
+ * 专家恢复上下文接口 - 用于恢复specialist执行状态
+ */
+export interface SpecialistResumeContext {
+  ruleId: string;
+  context: any;
+  currentIteration: number;
+  conversationHistory: string[];
+  toolExecutionResults: string[];
+  pendingPlan: any;
+  userResponse?: string; // 用户的回复内容
 }
 
 /**
@@ -37,6 +51,7 @@ export interface InteractionRequest {
   options?: string[];
   timeout?: number;
   toolCall?: { name: string; args: any };
+  originalResult?: any; // 🚀 新增：保存原始工具结果，用于聊天交互
 }
 
 /**

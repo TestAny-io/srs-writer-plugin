@@ -28,6 +28,9 @@ export class ConversationalExecutor {
     formatToolResults: (toolResults: any[]) => string,
     callerType?: CallerType // 🚀 新增：调用者类型用于访问控制
   ): Promise<{ intent: string; result?: any }> {
+    // 🔍 调试：检查 executeConversationalPlanning 接收到的 selectedModel
+    this.logger.info(`🔍 [DEBUG] executeConversationalPlanning started with selectedModel: ${!!selectedModel}, name: ${selectedModel?.name}, type: ${typeof selectedModel}`);
+    
     const conversationHistory: Array<{
       role: 'user' | 'ai' | 'system';
       content: string;
@@ -62,10 +65,33 @@ export class ConversationalExecutor {
       // 🚀 先执行所有非 finalAnswer 的工具
       if (otherToolCalls.length > 0) {
         this.logger.info(`🔧 Executing ${otherToolCalls.length} tools before final answer in iteration ${currentIteration}`);
-        const iterationResults = await this.executeToolCalls(otherToolCalls, callerType);
+        const iterationResults = await this.executeToolCalls(otherToolCalls, callerType, selectedModel);
         
         allExecutionResults.push(...iterationResults);
         totalToolsExecuted += otherToolCalls.length;
+        
+        // 🚀 新增：检查是否有工具需要聊天交互
+        const chatInteractionNeeded = iterationResults.find(result => 
+          result.result?.needsChatInteraction === true
+        );
+        
+        if (chatInteractionNeeded) {
+          this.logger.info(`💬 Tool needs chat interaction: ${chatInteractionNeeded.result.chatQuestion}`);
+          
+          return {
+            intent: 'chat_interaction_needed',
+            result: {
+              mode: 'chat_interaction',
+              question: chatInteractionNeeded.result.chatQuestion,
+              summary: `我正在为您创建SRS文档。现在需要您的确认：\n\n${chatInteractionNeeded.result.chatQuestion}`,
+              toolName: chatInteractionNeeded.toolName,
+              iterations: currentIteration,
+              totalToolsExecuted,
+              conversationHistory: conversationHistory.length,
+              resumeContext: chatInteractionNeeded.result.resumeContext
+            }
+          };
+        }
         
         // 将执行结果添加到对话历史中
         const resultsContent = formatToolResults(iterationResults);
@@ -85,7 +111,16 @@ export class ConversationalExecutor {
       // 🚀 现在处理 finalAnswer（如果存在）
       if (finalAnswerCall) {
         this.logger.info('🎯 AI called finalAnswer tool - task completion detected');
-        const finalResult = await toolExecutor.executeTool('finalAnswer', finalAnswerCall.args);
+        
+        // 🔍 调试：检查 finalAnswer 调用时的 selectedModel
+        this.logger.info(`🔍 [DEBUG] finalAnswer call - selectedModel: ${!!selectedModel}, type: ${typeof selectedModel}`);
+        
+        const finalResult = await toolExecutor.executeTool(
+          'finalAnswer', 
+          finalAnswerCall.args, 
+          callerType,  // caller 参数
+          selectedModel  // model 参数
+        );
         
         return {
           intent: 'task_completed',
@@ -107,10 +142,33 @@ export class ConversationalExecutor {
       if (otherToolCalls.length === 0 && !finalAnswerCall) {
         // 这是旧逻辑的兼容性处理
         this.logger.info(`🔧 Executing ${currentPlan.tool_calls.length} tools in iteration ${currentIteration}`);
-        const iterationResults = await this.executeToolCalls(currentPlan.tool_calls, callerType);
+        const iterationResults = await this.executeToolCalls(currentPlan.tool_calls, callerType, selectedModel);
         
         allExecutionResults.push(...iterationResults);
         totalToolsExecuted += currentPlan.tool_calls.length;
+        
+        // 🚀 新增：检查是否有工具需要聊天交互
+        const chatInteractionNeeded = iterationResults.find(result => 
+          result.result?.needsChatInteraction === true
+        );
+        
+        if (chatInteractionNeeded) {
+          this.logger.info(`💬 Tool needs chat interaction: ${chatInteractionNeeded.result.chatQuestion}`);
+          
+          return {
+            intent: 'chat_interaction_needed',
+            result: {
+              mode: 'chat_interaction',
+              question: chatInteractionNeeded.result.chatQuestion,
+              summary: `我已经创建了功能需求部分。现在需要您的确认：\n\n${chatInteractionNeeded.result.chatQuestion}`,
+              toolName: chatInteractionNeeded.toolName,
+              iterations: currentIteration,
+              totalToolsExecuted,
+              conversationHistory: conversationHistory.length,
+              resumeContext: chatInteractionNeeded.result.resumeContext
+            }
+          };
+        }
         
         // 将执行结果添加到对话历史中
         const resultsContent = formatToolResults(iterationResults);
@@ -173,17 +231,28 @@ export class ConversationalExecutor {
   /**
    * 执行工具调用 - 使用新的工具执行器 + 访问控制
    */
-  private async executeToolCalls(toolCalls: Array<{ name: string; args: any }>, caller?: CallerType): Promise<any[]> {
+  private async executeToolCalls(
+    toolCalls: Array<{ name: string; args: any }>, 
+    caller?: CallerType,
+    selectedModel?: vscode.LanguageModelChat  // 🚀 新增：model 参数
+  ): Promise<any[]> {
+    // 🔍 调试：检查参数传递
+    this.logger.info(`🔍 [DEBUG] executeToolCalls called with selectedModel: ${!!selectedModel}, type: ${typeof selectedModel}`);
+    
     const results = [];
 
     for (const toolCall of toolCalls) {
       try {
         this.logger.info(`🔧 Executing tool: ${toolCall.name}`);
         
+        // 🔍 调试：在每次工具调用前检查 selectedModel
+        this.logger.info(`🔍 [DEBUG] About to call ${toolCall.name} with selectedModel: ${!!selectedModel}`);
+        
         const result = await toolExecutor.executeTool(
           toolCall.name,
           toolCall.args,
-          caller
+          caller,
+          selectedModel  // 🚀 新增：传递 model 参数
         );
         
         results.push({

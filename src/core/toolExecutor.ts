@@ -20,6 +20,7 @@ import {
     generateToolInventoryText,
     getStats
 } from '../tools/index';
+import * as vscode from 'vscode';
 
 const logger = Logger.getInstance();
 
@@ -76,9 +77,14 @@ export class ToolExecutor {
 
     /**
      * 执行单个工具
-     * 🚀 升级：使用新的统一工具执行接口 + 访问控制
+     * 🚀 升级：使用新的统一工具执行接口 + 访问控制 + model 参数支持
      */
-    async executeTool(toolName: string, args: any, caller?: CallerType): Promise<any> {
+    async executeTool(
+        toolName: string, 
+        args: any, 
+        caller?: CallerType,
+        selectedModel?: vscode.LanguageModelChat  // 🚀 新增：支持专家工具的 model 参数
+    ): Promise<any> {
         const startTime = Date.now();
         this.executionCount++;
         this.lastExecutionTime = new Date();
@@ -103,8 +109,21 @@ export class ToolExecutor {
                 }
             }
 
+            // 🚀 新增：为专家工具添加 model 参数
+            const toolArgs = { ...args };
+            
+            // 🔍 调试：检查工具定义和 layer 属性
+            logger.info(`🔍 [DEBUG] Tool: ${toolName}, layer: ${toolDefinition.layer}, hasModel: ${!!selectedModel}`);
+            
+            if (selectedModel && toolDefinition.layer === 'specialist') {
+                toolArgs.model = selectedModel;
+                logger.info(`🧠 Added model parameter for specialist tool: ${toolName}`);
+            } else {
+                logger.info(`🔍 [DEBUG] Condition failed - selectedModel: ${!!selectedModel}, layer: ${toolDefinition.layer}`);
+            }
+
             // 执行工具
-            const result = await toolRegistry.executeTool(toolName, args);
+            const result = await toolRegistry.executeTool(toolName, toolArgs);
             
             const duration = Date.now() - startTime;
             logger.info(`✅ Tool ${toolName} executed successfully in ${duration}ms`);
@@ -144,14 +163,18 @@ export class ToolExecutor {
      * 并行执行多个工具
      * 🚀 新功能：支持多工具并行执行，提升性能
      */
-    async executeToolsParallel(toolCalls: Array<{ name: string; args: any }>): Promise<any[]> {
+    async executeToolsParallel(
+        toolCalls: Array<{ name: string; args: any }>,
+        caller?: CallerType,
+        selectedModel?: vscode.LanguageModelChat  // 🚀 新增：model 参数支持
+    ): Promise<any[]> {
         logger.info(`🔄 Executing ${toolCalls.length} tools in parallel`);
         
         const startTime = Date.now();
         
         try {
             const promises = toolCalls.map(toolCall => 
-                this.executeTool(toolCall.name, toolCall.args)
+                this.executeTool(toolCall.name, toolCall.args, caller, selectedModel)
             );
             
             const results = await Promise.all(promises);
@@ -175,7 +198,9 @@ export class ToolExecutor {
      */
     async executeToolsBatch(
         toolCalls: Array<{ name: string; args: any }>, 
-        options: BatchExecutionOptions = {}
+        options: BatchExecutionOptions = {},
+        caller?: CallerType,
+        selectedModel?: vscode.LanguageModelChat  // 🚀 新增：model 参数支持
     ): Promise<any[]> {
         const strategy = options.strategy || BatchFailureStrategy.CONTINUE_ON_FAILURE;
         const verbose = options.verbose !== false; // 默认为 true
@@ -194,7 +219,7 @@ export class ToolExecutor {
                 logger.info(`📝 Executing tool ${i + 1}/${toolCalls.length}: ${toolCall.name}`);
             }
             
-            const result = await this.executeTool(toolCall.name, toolCall.args);
+            const result = await this.executeTool(toolCall.name, toolCall.args, caller, selectedModel);
             results.push(result);
             
             // 根据失败策略处理执行结果
@@ -307,8 +332,13 @@ export const toolExecutor = new ToolExecutor();
 /**
  * 快速执行单个工具的便捷函数
  */
-export async function executeTool(toolName: string, args: any, caller?: CallerType) {
-    return await toolExecutor.executeTool(toolName, args, caller);
+export async function executeTool(
+    toolName: string, 
+    args: any, 
+    caller?: CallerType,
+    selectedModel?: vscode.LanguageModelChat
+) {
+    return await toolExecutor.executeTool(toolName, args, caller, selectedModel);
 }
 
 /**
@@ -333,12 +363,26 @@ export function searchTools(query: string) {
 }
 
 /**
+ * 并行执行工具的便捷函数
+ * 🚀 增强：支持访问控制和模型参数的便捷函数
+ */
+export async function executeToolsParallel(
+    toolCalls: Array<{ name: string; args: any }>,
+    caller?: CallerType,
+    selectedModel?: vscode.LanguageModelChat
+) {
+    return await toolExecutor.executeToolsParallel(toolCalls, caller, selectedModel);
+}
+
+/**
  * 批量执行工具的便捷函数
  * 🚀 新增：支持失败策略配置的便捷函数
  */
 export async function executeToolsBatch(
     toolCalls: Array<{ name: string; args: any }>,
-    options?: BatchExecutionOptions
+    options?: BatchExecutionOptions,
+    caller?: CallerType,
+    selectedModel?: vscode.LanguageModelChat
 ) {
-    return await toolExecutor.executeToolsBatch(toolCalls, options);
+    return await toolExecutor.executeToolsBatch(toolCalls, options, caller, selectedModel);
 }

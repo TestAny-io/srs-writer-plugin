@@ -70,11 +70,11 @@ export async function showWarningMessage(args: { message: string }): Promise<{ s
 // ============================================================================
 
 /**
- * 询问用户输入
+ * 询问用户输入 - 🚀 支持Chat环境智能交互
  */
 export const askQuestionToolDefinition = {
     name: "askQuestion",
-    description: "Ask the user for text input via an input box",
+    description: "Ask the user for text input - automatically adapts to chat environment or traditional VSCode input box",
     parameters: {
         type: "object",
         properties: {
@@ -84,7 +84,7 @@ export const askQuestionToolDefinition = {
             },
             placeholder: {
                 type: "string",
-                description: "Placeholder text for the input box (optional)"
+                description: "Placeholder text for the input box (optional, only used in traditional VSCode mode)"
             }
         },
         required: ["question"]
@@ -98,25 +98,83 @@ export const askQuestionToolDefinition = {
 export async function askQuestion(args: { question: string; placeholder?: string }): Promise<{ 
     success: boolean; 
     answer?: string; 
-    cancelled?: boolean 
+    cancelled?: boolean;
+    needsChatInteraction?: boolean;
+    chatQuestion?: string;
 }> {
     try {
-        const answer = await vscode.window.showInputBox({
-            prompt: args.question,
-            placeHolder: args.placeholder
-        });
+        // 🚀 新增：检测是否在Chat环境中
+        const inChatEnvironment = isInChatEnvironment();
         
-        if (answer === undefined) {
-            logger.info(`❌ User cancelled question: ${args.question}`);
-            return { success: true, cancelled: true };
+        if (inChatEnvironment) {
+            // 🚀 Chat环境：返回特殊状态，让聊天系统处理用户交互
+            logger.info(`💬 [CHAT MODE] Requesting user interaction in chat: ${args.question}`);
+            return {
+                success: true,
+                needsChatInteraction: true,
+                chatQuestion: args.question,
+                answer: undefined // 将由聊天系统填充
+            };
+        } else {
+            // 🔄 传统VSCode环境：使用原来的输入框方式
+            logger.info(`🖥️ [VSCODE MODE] Using traditional input box: ${args.question}`);
+            const answer = await vscode.window.showInputBox({
+                prompt: args.question,
+                placeHolder: args.placeholder
+            });
+            
+            if (answer === undefined) {
+                logger.info(`❌ User cancelled question: ${args.question}`);
+                return { success: true, cancelled: true };
+            }
+            
+            logger.info(`✅ User answered question: ${args.question} → ${answer}`);
+            return { success: true, answer };
         }
-        
-        logger.info(`✅ User answered question: ${args.question} → ${answer}`);
-        return { success: true, answer };
     } catch (error) {
         const errorMsg = `Failed to ask question: ${(error as Error).message}`;
         logger.error(errorMsg);
         return { success: false };
+    }
+}
+
+/**
+ * 🚀 新增：检测是否在Chat环境中
+ */
+function isInChatEnvironment(): boolean {
+    try {
+        // 方法1：检查调用栈中是否包含Chat相关的类
+        const stack = new Error().stack || '';
+        const chatIndicators = [
+            'SRSChatParticipant',
+            'ChatParticipant',
+            'specialistExecutor',
+            'ConversationalExecutor',
+            'chat-participant'
+        ];
+        
+        const hasCharIndicator = chatIndicators.some(indicator => 
+            stack.includes(indicator)
+        );
+        
+        if (hasCharIndicator) {
+            return true;
+        }
+        
+        // 方法2：检查是否有Chat相关的环境标识
+        // 这可以通过specialistExecutor或其他Chat组件设置
+        const chatContext = (global as any).__SRS_CHAT_CONTEXT__;
+        if (chatContext) {
+            return true;
+        }
+        
+        // 方法3：默认假设在Chat环境中（因为大部分情况下都是通过Chat调用的）
+        // 如果需要更精确的检测，可以通过参数传递或其他方式
+        return true; // 🚀 暂时默认为Chat环境，可以根据需要调整
+        
+    } catch (error) {
+        logger.warn(`Failed to detect chat environment: ${(error as Error).message}`);
+        return false; // 检测失败时使用传统模式
     }
 }
 

@@ -2,9 +2,11 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode with Hybrid Intelligence Architecture",
-  "version": "1.4.4-debug-6",
+  "version": "1.5.0",
   "publisher": "testany-co",
-  "enabledApiProposals": ["languageModelTools"],
+  "enabledApiProposals": [
+    "languageModelTools"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/srs-writer-team/srs-writer-plugin.git"
@@ -78,12 +80,18 @@
             },
             "searchType": {
               "type": "string",
-              "enum": ["general", "technical", "documentation"],
+              "enum": [
+                "general",
+                "technical",
+                "documentation"
+              ],
               "description": "Type of search to perform (default: general)",
               "default": "general"
             }
           },
-          "required": ["query"]
+          "required": [
+            "query"
+          ]
         }
       },
       {
@@ -110,7 +118,9 @@
               "default": 5
             }
           },
-          "required": ["query"]
+          "required": [
+            "query"
+          ]
         }
       },
       {
@@ -129,15 +139,27 @@
             },
             "searchPaths": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "Paths to search in (default: ['templates/', 'knowledge/'])",
-              "default": ["templates/", "knowledge/"]
+              "default": [
+                "templates/",
+                "knowledge/"
+              ]
             },
             "fileExtensions": {
-              "type": "array", 
-              "items": { "type": "string" },
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
               "description": "File extensions to include (default: ['.md', '.yml', '.yaml', '.json'])",
-              "default": [".md", ".yml", ".yaml", ".json"]
+              "default": [
+                ".md",
+                ".yml",
+                ".yaml",
+                ".json"
+              ]
             },
             "maxResults": {
               "type": "integer",
@@ -145,7 +167,9 @@
               "default": 10
             }
           },
-          "required": ["query"]
+          "required": [
+            "query"
+          ]
         }
       }
     ],
@@ -225,6 +249,7 @@
     "validate:architecture": "node -e \"console.log('Architecture validation would run here')\""
   },
   "devDependencies": {
+    "@cs-au-dk/jelly": "^0.10.0",
     "@types/jest": "^29.x",
     "@types/js-yaml": "^4.0.9",
     "@types/marked": "^5.x",
@@ -233,6 +258,7 @@
     "@typescript-eslint/eslint-plugin": "^6.x",
     "@typescript-eslint/parser": "^6.x",
     "copy-webpack-plugin": "^11.x",
+    "dependency-cruiser": "^16.10.3",
     "eslint": "^8.x",
     "jest": "^29.x",
     "rimraf": "^5.x",

@@ -107,8 +107,11 @@ export class Orchestrator {
           // 检查是否有有效的工具调用
           if (initialPlan.tool_calls && initialPlan.tool_calls.length > 0) {
             try {
+              // 🔍 调试：检查传递给 ConversationalExecutor 的 selectedModel
+              this.logger.info(`🔍 [DEBUG] Orchestrator calling executeConversationalPlanning with selectedModel: ${!!selectedModel}, name: ${selectedModel?.name}`);
+              
               // 🚀 对话式执行：多轮思维链 + 自我修正
-              return await this.conversationalExecutor.executeConversationalPlanning(
+              const executionResult = await this.conversationalExecutor.executeConversationalPlanning(
                 userInput,
                 sessionContext,
                 selectedModel,
@@ -117,6 +120,25 @@ export class Orchestrator {
                 this.formatToolResults.bind(this), // 传递格式化器方法
                 CallerType.ORCHESTRATOR_TOOL_EXECUTION // 工具执行模式
               );
+              
+              // 🚀 新增：处理聊天交互需求
+              if (executionResult.intent === 'chat_interaction_needed') {
+                this.logger.info(`💬 Chat interaction needed: ${executionResult.result.question}`);
+                return {
+                  intent: 'user_interaction_required',
+                  result: {
+                    mode: 'chat_question',
+                    question: executionResult.result.question,
+                    summary: executionResult.result.summary,
+                    response: executionResult.result.summary, // 在聊天中显示的响应
+                    thought: `任务进行中，需要用户确认：${executionResult.result.question}`,
+                    awaitingUserResponse: true,
+                    resumeContext: executionResult.result.resumeContext
+                  }
+                };
+              }
+              
+              return executionResult;
             } catch (error) {
               // 🚀 降级策略：TOOL_EXECUTION 失败时降级到 KNOWLEDGE_QA
               this.logger.warn(`TOOL_EXECUTION failed, falling back to KNOWLEDGE_QA mode: ${(error as Error).message}`);

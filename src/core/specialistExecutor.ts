@@ -40,47 +40,134 @@ export class SpecialistExecutor {
         this.logger.info(`Executing specialist: ${ruleId} with model: ${model.name}`);
 
         try {
-            // 从对应的专家文件加载提示词
-            const prompt = await this.loadSpecialistPrompt(ruleId, context);
-            
-            // 🚀 新增：获取 Specialist 可用的工具
-            const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
-            const toolsForVSCode = this.convertToolsToVSCodeFormat(toolsInfo.definitions);
-            
-            const messages = [
-                vscode.LanguageModelChatMessage.User(prompt)
-            ];
+            // 🚀 新增：专家执行循环状态管理
+            let conversationHistory: string[] = [];
+            let toolExecutionResults: string[] = [];
+            let maxIterations = 10; // 防止无限循环
+            let currentIteration = 0;
+            let isCompleted = false;
 
-            const requestOptions: vscode.LanguageModelChatRequestOptions = {
-                justification: `Execute SRS specialist rule: ${ruleId}`
-            };
+            while (!isCompleted && currentIteration < maxIterations) {
+                currentIteration++;
+                this.logger.info(`🔄 Specialist iteration ${currentIteration}/${maxIterations} for rule: ${ruleId}`);
 
-            // 🚀 新增：如果有可用工具，提供给 AI
-            if (toolsForVSCode.length > 0) {
-                requestOptions.toolMode = vscode.LanguageModelChatToolMode.Required;
-                requestOptions.tools = toolsForVSCode;
+                // 从对应的专家文件加载提示词
+                const prompt = await this.loadSpecialistPrompt(ruleId, context, conversationHistory, toolExecutionResults);
+                
+                // 🚀 获取 Specialist 可用的工具
+                const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
+                const toolsForVSCode = this.convertToolsToVSCodeFormat(toolsInfo.definitions);
+                
+                const messages = [
+                    vscode.LanguageModelChatMessage.User(prompt)
+                ];
+
+                const requestOptions: vscode.LanguageModelChatRequestOptions = {
+                    justification: `Execute SRS specialist rule: ${ruleId} (iteration ${currentIteration})`
+                };
+
+                // 🚀 如果有可用工具，提供给 AI
+                if (toolsForVSCode.length > 0) {
+                    requestOptions.tools = toolsForVSCode;
+                }
+
+                const response = await model.sendRequest(messages, requestOptions);
+                
+                // 处理流式文本响应
+                let result = '';
+                for await (const fragment of response.text) {
+                    result += fragment;
+                }
+
+                if (!result.trim()) {
+                    throw new Error(`Specialist ${ruleId} returned empty response in iteration ${currentIteration}`);
+                }
+
+                this.logger.info(`🧠 Specialist ${ruleId} iteration ${currentIteration} response length: ${result.length}`);
+
+                // 🚀 新增：解析AI返回的工具调用计划
+                const aiPlan = this.parseAIToolPlan(result);
+                
+                if (!aiPlan || !aiPlan.tool_calls || aiPlan.tool_calls.length === 0) {
+                    this.logger.warn(`⚠️ No tool calls found in specialist response for iteration ${currentIteration}`);
+                    // 将AI响应添加到历史，继续下一轮
+                    conversationHistory.push(`AI Response (iteration ${currentIteration}): ${result}`);
+                    continue;
+                }
+
+                // 🚀 新增：执行AI规划的工具调用
+                const toolCallResults = await this.executeToolCallsFromPlan(aiPlan.tool_calls);
+                
+                // 🚀 新增：检查是否需要聊天交互（askQuestion工具的特殊处理）
+                const chatInteractionNeeded = toolCallResults.find(result => 
+                    result.toolName === 'askQuestion' && 
+                    result.success && 
+                    result.result?.needsChatInteraction
+                );
+                
+                if (chatInteractionNeeded) {
+                    this.logger.info(`💬 Specialist ${ruleId} needs chat interaction: ${chatInteractionNeeded.result.chatQuestion}`);
+                    
+                    // 🚀 返回特殊状态，让聊天系统处理用户交互
+                    return JSON.stringify({
+                        needsChatInteraction: true,
+                        chatQuestion: chatInteractionNeeded.result.chatQuestion,
+                        currentIteration: currentIteration,
+                        conversationHistory: conversationHistory,
+                        toolExecutionResults: toolExecutionResults,
+                        pendingPlan: aiPlan,
+                        resumeContext: {
+                            ruleId: ruleId,
+                            context: context,
+                            // 保存当前状态以便后续恢复
+                        }
+                    });
+                }
+                
+                // 🚀 新增：检查是否调用了 finalAnswer（任务完成信号）
+                const finalAnswerCall = aiPlan.tool_calls.find(call => call.name === 'finalAnswer');
+                if (finalAnswerCall) {
+                    this.logger.info(`🎯 Specialist ${ruleId} completed task with finalAnswer in iteration ${currentIteration}`);
+                    isCompleted = true;
+                    
+                    // 返回最终答案的摘要
+                    const finalResult = toolCallResults.find(result => result.toolName === 'finalAnswer');
+                    if (finalResult && finalResult.success) {
+                        return JSON.stringify({
+                            completed: true,
+                            summary: finalResult.result?.summary || 'Task completed successfully',
+                            iterations: currentIteration,
+                            totalToolsExecuted: toolCallResults.length
+                        });
+                    }
+                }
+
+                // 🚀 新增：将工具执行结果添加到历史中
+                const resultsText = toolCallResults.map(result => 
+                    `Tool: ${result.toolName}, Success: ${result.success}, Result: ${JSON.stringify(result.result)}`
+                ).join('\n');
+                
+                conversationHistory.push(`AI Plan (iteration ${currentIteration}): ${JSON.stringify(aiPlan)}`);
+                toolExecutionResults.push(`Tool Results (iteration ${currentIteration}):\n${resultsText}`);
             }
 
-            const response = await model.sendRequest(messages, requestOptions);
-            
-            // 🚀 VSCode工具调用机制说明：
-            // VSCode使用声明式工具注册机制，工具通过vscode.lm.registerTool注册
-            // LLM会根据requestOptions.tools中的工具定义自动决定调用哪些工具
-            // 我们的callingGuide系统通过注入提示词来指导LLM智能选择工具
-            // 无需手动处理response.toolCalls（VSCode API没有这个属性）
-            
-            // 处理流式文本响应
-            let result = '';
-            for await (const fragment of response.text) {
-                result += fragment;
+            // 🚀 如果达到最大迭代次数但未完成，返回部分完成状态
+            if (currentIteration >= maxIterations && !isCompleted) {
+                this.logger.warn(`⚠️ Specialist ${ruleId} reached max iterations (${maxIterations}) without explicit completion`);
+                return JSON.stringify({
+                    completed: false,
+                    summary: `Specialist completed ${currentIteration} iterations but did not explicitly signal completion`,
+                    iterations: currentIteration,
+                    partialCompletion: true
+                });
             }
 
-            if (!result.trim()) {
-                throw new Error(`Specialist ${ruleId} returned empty response`);
-            }
-
-            this.logger.info(`Specialist ${ruleId} executed successfully, response length: ${result.length}`);
-            return result;
+            // 🚀 正常完成情况的默认返回
+            return JSON.stringify({
+                completed: true,
+                summary: `Specialist ${ruleId} completed successfully`,
+                iterations: currentIteration
+            });
 
         } catch (error) {
             this.logger.error(`Failed to execute specialist ${ruleId}`, error as Error);
@@ -91,7 +178,7 @@ export class SpecialistExecutor {
     /**
      * 从rules/specialists/目录加载专家提示词
      */
-    private async loadSpecialistPrompt(ruleId: string, context: any): Promise<string> {
+    private async loadSpecialistPrompt(ruleId: string, context: any, conversationHistory: string[], toolExecutionResults: string[]): Promise<string> {
         try {
             // 根据ruleId确定文件名
             const fileName = this.getSpecialistFileName(ruleId);
@@ -119,14 +206,14 @@ export class SpecialistExecutor {
             
             if (!specialistPath) {
                 this.logger.warn(`Specialist prompt file not found: ${fileName}. Tried paths: ${possiblePaths.join(', ')}`);
-                return this.buildPromptForSpecialist(ruleId, context); // 降级到硬编码版本
+                return this.buildPromptForSpecialist(ruleId, context, conversationHistory, toolExecutionResults); // 降级到硬编码版本
             }
             
             // 读取文件内容
             let promptTemplate = fs.readFileSync(specialistPath, 'utf8');
             
             // 替换模板变量
-            promptTemplate = this.replaceTemplateVariables(promptTemplate, context);
+            promptTemplate = this.replaceTemplateVariables(promptTemplate, context, conversationHistory, toolExecutionResults);
             
             this.logger.info(`Loaded specialist prompt from: ${specialistPath}`);
             return promptTemplate;
@@ -134,7 +221,7 @@ export class SpecialistExecutor {
         } catch (error) {
             this.logger.error(`Failed to load specialist prompt file for ${ruleId}`, error as Error);
             // 降级到硬编码版本
-            return this.buildPromptForSpecialist(ruleId, context);
+            return this.buildPromptForSpecialist(ruleId, context, conversationHistory, toolExecutionResults);
         }
     }
 
@@ -158,7 +245,7 @@ export class SpecialistExecutor {
     /**
      * 替换提示词模板中的变量
      */
-    private replaceTemplateVariables(promptTemplate: string, context: any): string {
+    private replaceTemplateVariables(promptTemplate: string, context: any, conversationHistory?: string[], toolExecutionResults?: string[]): string {
         const userInput = context.userInput || '';
         const projectName = context.sessionData?.projectName || null;
         const hasActiveProject = !!projectName;
@@ -178,7 +265,19 @@ export class SpecialistExecutor {
             result = result.replace(/\{\{ACTIVE_FILES\}\}/g, JSON.stringify(context.sessionData.activeFiles || []));
         }
         
-        // 🚀 新增：注入工具调用指南
+        // 🚀 新增：对话历史和工具执行结果
+        const conversationHistoryText = conversationHistory && conversationHistory.length > 0 
+            ? conversationHistory.join('\n\n') 
+            : 'No previous conversation history.';
+        
+        const toolResultsText = toolExecutionResults && toolExecutionResults.length > 0 
+            ? toolExecutionResults.join('\n\n') 
+            : 'No previous tool execution results.';
+        
+        result = result.replace(/\{\{CONVERSATION_HISTORY\}\}/g, conversationHistoryText);
+        result = result.replace(/\{\{TOOL_RESULTS_CONTEXT\}\}/g, toolResultsText);
+        
+        // 🚀 注入工具调用指南
         result = this.injectToolCallingGuides(result);
         
         return result;
@@ -271,22 +370,22 @@ export class SpecialistExecutor {
      * 📋 主要路径应使用 rules/specialists/*.md 文件
      * 🔄 未来版本可能会移除此降级机制
      */
-    private buildPromptForSpecialist(ruleId: string, context: any): string {
+    private buildPromptForSpecialist(ruleId: string, context: any, conversationHistory: string[], toolExecutionResults: string[]): string {
         const userInput = context.userInput || '';
         const projectName = context.sessionData?.projectName || null;
 
         switch (ruleId) {
             case '100_create_srs':
-                return this.buildCreateSRSPrompt(userInput, context);
+                return this.buildCreateSRSPrompt(userInput, context, conversationHistory, toolExecutionResults);
             
             case '200_edit_srs':
-                return this.buildEditSRSPrompt(userInput, context, projectName);
+                return this.buildEditSRSPrompt(userInput, context, projectName, conversationHistory, toolExecutionResults);
             
             case 'help_response':
-                return this.buildHelpPrompt(userInput);
+                return this.buildHelpPrompt(userInput, conversationHistory, toolExecutionResults);
             
             default:
-                return this.buildGenericPrompt(ruleId, userInput, context);
+                return this.buildGenericPrompt(ruleId, userInput, context, conversationHistory, toolExecutionResults);
         }
     }
 
@@ -298,7 +397,7 @@ export class SpecialistExecutor {
      * 📋 主要路径应使用 rules/specialists/100_create_srs.md 文件
      * 🔄 未来版本可能会移除此降级机制
      */
-    private buildCreateSRSPrompt(userInput: string, context: any): string {
+    private buildCreateSRSPrompt(userInput: string, context: any, conversationHistory: string[], toolExecutionResults: string[]): string {
         return `# Role
 You are a professional SRS (Software Requirements Specification) writer with expertise in creating comprehensive technical documentation.
 
@@ -356,7 +455,7 @@ Generate the complete SRS document now:`;
      * 📋 主要路径应使用 rules/specialists/200_edit_srs.md 文件
      * 🔄 未来版本可能会移除此降级机制
      */
-    private buildEditSRSPrompt(userInput: string, context: any, projectName: string | null): string {
+    private buildEditSRSPrompt(userInput: string, context: any, projectName: string | null, conversationHistory: string[], toolExecutionResults: string[]): string {
         return `# Role
 You are a professional SRS editor specializing in modifying existing Software Requirements Specification documents.
 
@@ -392,7 +491,7 @@ Process this edit request now:`;
      * 📋 主要路径应使用 rules/specialists/help_response.md 文件
      * 🔄 未来版本可能会移除此降级机制
      */
-    private buildHelpPrompt(userInput: string): string {
+    private buildHelpPrompt(userInput: string, conversationHistory: string[], toolExecutionResults: string[]): string {
         return `# SRS Writer Assistant Help
 
 You are helping a user with the SRS Writer VSCode extension. Here are the available commands and features:
@@ -426,7 +525,7 @@ Provide specific help based on their question above.`;
      * 📋 主要路径应使用 rules/specialists/ 目录下的对应.md文件
      * 🔄 未来版本可能会移除此降级机制
      */
-    private buildGenericPrompt(ruleId: string, userInput: string, context: any): string {
+    private buildGenericPrompt(ruleId: string, userInput: string, context: any, conversationHistory: string[], toolExecutionResults: string[]): string {
         return `# SRS Writing Assistant
 
 You are a helpful assistant for Software Requirements Specification writing.
@@ -485,6 +584,389 @@ Please provide appropriate assistance based on the user's request.`;
             description: tool.description,
             parameters: tool.parameters
         }));
+    }
+
+    /**
+     * 🚀 更新：解析AI返回的工具调用计划 - 健壮版本
+     * 
+     * 这个方法能够处理各种可能的AI输出格式污染：
+     * - 前后缀文本噪音
+     * - Markdown代码块包装
+     * - 多个JSON对象（取第一个有效的）
+     * - 格式错误的换行和空格
+     */
+    private parseAIToolPlan(aiResponse: string): { tool_calls: Array<{ name: string; args: any }> } | null {
+        this.logger.info(`🔍 [DEBUG] Parsing AI response, length: ${aiResponse.length}`);
+        
+        try {
+            // 🚀 方法1：直接解析（最快路径）
+            const directParsed = JSON.parse(aiResponse.trim());
+            if (directParsed && directParsed.tool_calls && Array.isArray(directParsed.tool_calls)) {
+                this.logger.info(`✅ Direct JSON parse successful, found ${directParsed.tool_calls.length} tool calls`);
+                return directParsed;
+            }
+        } catch (error) {
+            // 直接解析失败，继续尝试其他方法
+            this.logger.debug('Direct JSON parse failed, trying extraction methods');
+        }
+
+        try {
+            // 🚀 方法2：使用健壮的JSON提取函数
+            const extracted = this.extractAndParseJson(aiResponse);
+            if (extracted && extracted.tool_calls && Array.isArray(extracted.tool_calls)) {
+                this.logger.info(`✅ Robust JSON extraction successful, found ${extracted.tool_calls.length} tool calls`);
+                return extracted;
+            }
+        } catch (error) {
+            this.logger.debug(`Robust extraction failed: ${(error as Error).message}`);
+        }
+
+        try {
+            // 🚀 方法3：Markdown代码块提取（兼容性）
+            const jsonMatch = aiResponse.match(/```json\s*(.*?)\s*```/s);
+            if (jsonMatch) {
+                const extracted = this.extractAndParseJson(jsonMatch[1]);
+                if (extracted && extracted.tool_calls && Array.isArray(extracted.tool_calls)) {
+                    this.logger.info(`✅ Markdown block extraction successful, found ${extracted.tool_calls.length} tool calls`);
+                    return extracted;
+                }
+            }
+        } catch (error) {
+            this.logger.debug(`Markdown block extraction failed: ${(error as Error).message}`);
+        }
+
+        try {
+            // 🚀 方法4：多JSON对象检测和提取
+            const multipleJsons = this.extractMultipleJsonObjects(aiResponse);
+            for (const jsonObj of multipleJsons) {
+                if (jsonObj && jsonObj.tool_calls && Array.isArray(jsonObj.tool_calls)) {
+                    this.logger.info(`✅ Multiple JSON extraction successful, found ${jsonObj.tool_calls.length} tool calls`);
+                    return jsonObj;
+                }
+            }
+        } catch (error) {
+            this.logger.debug(`Multiple JSON extraction failed: ${(error as Error).message}`);
+        }
+
+        // 🚀 所有方法都失败时的详细错误日志
+        this.logger.error('=== AI RESPONSE PARSING FAILED ===');
+        this.logger.error(`Response length: ${aiResponse.length}`);
+        this.logger.error(`Response preview (first 500 chars): ${aiResponse.substring(0, 500)}`);
+        this.logger.error(`Response preview (last 500 chars): ${aiResponse.substring(Math.max(0, aiResponse.length - 500))}`);
+        this.logger.error('AI response does not contain valid tool_calls format');
+        
+        return null;
+    }
+
+    /**
+     * 🚀 新增：健壮的JSON提取和解析函数
+     * 
+     * 基于用户提供的算法，能够处理更多边缘情况
+     */
+    private extractAndParseJson(rawText: string): any {
+        // 1. 寻找 JSON 的开始和结束位置
+        //    我们假设 JSON 对象总是以 '{' 开始，以 '}' 结束
+        const firstBrace = rawText.indexOf('{');
+        const lastBrace = rawText.lastIndexOf('}');
+
+        if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+            // 如果找不到有效的 JSON 结构，就抛出错误
+            throw new Error("No valid JSON object found in the response.");
+        }
+
+        // 2. 提取出可能是 JSON 的部分
+        const jsonString = rawText.substring(firstBrace, lastBrace + 1);
+
+        // 3. 尝试解析
+        try {
+            return JSON.parse(jsonString);
+        } catch (error) {
+            this.logger.error("--- JSON PARSE FAILED ---");
+            this.logger.error("Original Text: " + rawText);
+            this.logger.error("Extracted Substring: " + jsonString);
+            this.logger.error("Parse Error: " + String(error));
+            throw new Error("Failed to parse the extracted JSON string.");
+        }
+    }
+
+    /**
+     * 🚀 新增：多JSON对象检测和提取
+     * 
+     * 处理AI返回多个JSON对象的情况，找到第一个有效的
+     */
+    private extractMultipleJsonObjects(rawText: string): any[] {
+        const results: any[] = [];
+        let searchIndex = 0;
+
+        while (searchIndex < rawText.length) {
+            const nextBrace = rawText.indexOf('{', searchIndex);
+            if (nextBrace === -1) break;
+
+            // 找到匹配的右括号
+            let braceCount = 0;
+            let endIndex = nextBrace;
+            
+            for (let i = nextBrace; i < rawText.length; i++) {
+                if (rawText[i] === '{') {
+                    braceCount++;
+                } else if (rawText[i] === '}') {
+                    braceCount--;
+                    if (braceCount === 0) {
+                        endIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            if (braceCount === 0) {
+                // 找到了完整的JSON对象
+                const jsonCandidate = rawText.substring(nextBrace, endIndex + 1);
+                try {
+                    const parsed = JSON.parse(jsonCandidate);
+                    results.push(parsed);
+                } catch (error) {
+                    // 这个候选对象不是有效JSON，继续寻找
+                    this.logger.debug(`Invalid JSON candidate: ${jsonCandidate.substring(0, 100)}...`);
+                }
+                searchIndex = endIndex + 1;
+            } else {
+                // 没有找到匹配的右括号
+                break;
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 🚀 新增：执行工具调用计划中的工具
+     */
+    private async executeToolCallsFromPlan(toolCalls: Array<{ name: string; args: any }>): Promise<Array<{
+        toolName: string;
+        success: boolean;
+        result?: any;
+        error?: string;
+    }>> {
+        const results = [];
+
+        for (const toolCall of toolCalls) {
+            try {
+                this.logger.info(`🔧 Executing planned tool: ${toolCall.name} with args: ${JSON.stringify(toolCall.args)}`);
+                
+                // 🚀 使用工具注册表执行工具
+                const { toolRegistry } = await import('../tools/index');
+                const result = await toolRegistry.executeTool(toolCall.name, toolCall.args);
+                
+                results.push({
+                    toolName: toolCall.name,
+                    success: true,
+                    result: result
+                });
+                
+                this.logger.info(`✅ Tool ${toolCall.name} executed successfully`);
+                
+            } catch (error) {
+                this.logger.error(`❌ Tool ${toolCall.name} execution failed: ${(error as Error).message}`);
+                results.push({
+                    toolName: toolCall.name,
+                    success: false,
+                    error: (error as Error).message
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 🚀 新增：从用户交互中恢复specialist执行
+     * 
+     * 这个方法用于处理specialist在等待用户输入后的状态恢复
+     */
+    public async resumeSpecialistExecution(
+        resumeContext: {
+            ruleId: string;
+            context: any;
+            currentIteration: number;
+            conversationHistory: string[];
+            toolExecutionResults: string[];
+            pendingPlan: any;
+            userResponse: string;
+        },
+        model: vscode.LanguageModelChat
+    ): Promise<string> {
+        this.logger.info(`🔄 Resuming specialist ${resumeContext.ruleId} from iteration ${resumeContext.currentIteration}`);
+        
+        try {
+            // 恢复执行状态
+            const { ruleId, context, currentIteration, conversationHistory, toolExecutionResults, pendingPlan, userResponse } = resumeContext;
+            
+            // 将用户回复添加到对话历史中
+            const updatedConversationHistory = [...conversationHistory];
+            updatedConversationHistory.push(`User Response: ${userResponse}`);
+            
+            // 🚀 关键：更新askQuestion工具的参数，包含用户回复
+            const updatedPlan = { ...pendingPlan };
+            if (updatedPlan.tool_calls) {
+                updatedPlan.tool_calls = updatedPlan.tool_calls.map((toolCall: any) => {
+                    if (toolCall.name === 'askQuestion') {
+                        // askQuestion工具已经执行完成，现在继续执行其他工具
+                        return null; // 标记为跳过
+                    }
+                    return toolCall;
+                }).filter((toolCall: any) => toolCall !== null);
+            }
+            
+            // 🚀 执行剩余的工具调用（如果有的话）
+            let toolCallResults: Array<{
+                toolName: string;
+                success: boolean;
+                result?: any;
+                error?: string;
+            }> = [];
+            
+            if (updatedPlan.tool_calls && updatedPlan.tool_calls.length > 0) {
+                toolCallResults = await this.executeToolCallsFromPlan(updatedPlan.tool_calls);
+            }
+            
+            // 🚀 将用户回复和工具执行结果添加到上下文中
+            const updatedToolExecutionResults = [...toolExecutionResults];
+            updatedToolExecutionResults.push(`User Response Processing:\nUser said: ${userResponse}`);
+            
+            if (toolCallResults.length > 0) {
+                const resultsText = toolCallResults.map(result => 
+                    `Tool: ${result.toolName}, Success: ${result.success}, Result: ${JSON.stringify(result.result)}`
+                ).join('\n');
+                updatedToolExecutionResults.push(`Resumed Tool Results:\n${resultsText}`);
+            }
+            
+            // 🚀 继续specialist的执行循环
+            let maxIterations = 10;
+            let isCompleted = false;
+            let newIteration = currentIteration;
+            
+            while (!isCompleted && newIteration < maxIterations) {
+                newIteration++;
+                this.logger.info(`🔄 Specialist ${ruleId} resumed iteration ${newIteration}/${maxIterations}`);
+                
+                // 生成下一轮的提示词，包含用户回复
+                const prompt = await this.loadSpecialistPrompt(ruleId, context, updatedConversationHistory, updatedToolExecutionResults);
+                
+                // 🚀 获取 Specialist 可用的工具
+                const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
+                const toolsForVSCode = this.convertToolsToVSCodeFormat(toolsInfo.definitions);
+                
+                const messages = [
+                    vscode.LanguageModelChatMessage.User(prompt)
+                ];
+
+                const requestOptions: vscode.LanguageModelChatRequestOptions = {
+                    justification: `Resume SRS specialist rule: ${ruleId} (iteration ${newIteration})`
+                };
+
+                if (toolsForVSCode.length > 0) {
+                    requestOptions.tools = toolsForVSCode;
+                }
+
+                const response = await model.sendRequest(messages, requestOptions);
+                
+                let result = '';
+                for await (const fragment of response.text) {
+                    result += fragment;
+                }
+
+                if (!result.trim()) {
+                    throw new Error(`Specialist ${ruleId} returned empty response in resumed iteration ${newIteration}`);
+                }
+
+                this.logger.info(`🧠 Specialist ${ruleId} resumed iteration ${newIteration} response length: ${result.length}`);
+
+                // 解析AI返回的工具调用计划
+                const aiPlan = this.parseAIToolPlan(result);
+                
+                if (!aiPlan || !aiPlan.tool_calls || aiPlan.tool_calls.length === 0) {
+                    this.logger.info(`✅ No more tool calls in resumed iteration ${newIteration} - task may be completed`);
+                    break;
+                }
+
+                // 执行AI规划的工具调用
+                const iterationResults = await this.executeToolCallsFromPlan(aiPlan.tool_calls);
+                
+                // 检查是否调用了 finalAnswer（任务完成信号）
+                const finalAnswerCall = aiPlan.tool_calls.find(call => call.name === 'finalAnswer');
+                if (finalAnswerCall) {
+                    this.logger.info(`🎯 Specialist ${ruleId} completed task with finalAnswer in resumed iteration ${newIteration}`);
+                    isCompleted = true;
+                    
+                    const finalResult = iterationResults.find(result => result.toolName === 'finalAnswer');
+                    if (finalResult && finalResult.success) {
+                        return JSON.stringify({
+                            completed: true,
+                            summary: finalResult.result?.summary || `Task completed successfully after user interaction`,
+                            iterations: newIteration,
+                            totalToolsExecuted: iterationResults.length,
+                            resumedFromUserInteraction: true
+                        });
+                    }
+                }
+                
+                // 🚀 重要：检查是否又需要用户交互
+                const newChatInteractionNeeded = iterationResults.find(result => 
+                    result.toolName === 'askQuestion' && 
+                    result.success && 
+                    result.result?.needsChatInteraction
+                );
+                
+                if (newChatInteractionNeeded) {
+                    this.logger.info(`💬 Specialist ${ruleId} needs another chat interaction: ${newChatInteractionNeeded.result.chatQuestion}`);
+                    
+                    return JSON.stringify({
+                        needsChatInteraction: true,
+                        chatQuestion: newChatInteractionNeeded.result.chatQuestion,
+                        currentIteration: newIteration,
+                        conversationHistory: updatedConversationHistory,
+                        toolExecutionResults: updatedToolExecutionResults,
+                        pendingPlan: aiPlan,
+                        resumeContext: {
+                            ruleId: ruleId,
+                            context: context,
+                        }
+                    });
+                }
+                
+                // 将执行结果添加到历史中
+                const iterationResultsText = iterationResults.map(result => 
+                    `Tool: ${result.toolName}, Success: ${result.success}, Result: ${JSON.stringify(result.result)}`
+                ).join('\n');
+                
+                updatedConversationHistory.push(`AI Plan (resumed iteration ${newIteration}): ${JSON.stringify(aiPlan)}`);
+                updatedToolExecutionResults.push(`Tool Results (resumed iteration ${newIteration}):\n${iterationResultsText}`);
+            }
+            
+            // 如果达到最大迭代次数但未完成
+            if (newIteration >= maxIterations && !isCompleted) {
+                this.logger.warn(`⚠️ Specialist ${ruleId} reached max iterations (${maxIterations}) in resumed execution`);
+                return JSON.stringify({
+                    completed: false,
+                    summary: `Specialist completed ${newIteration} iterations (including resume) but did not explicitly signal completion`,
+                    iterations: newIteration,
+                    partialCompletion: true,
+                    resumedFromUserInteraction: true
+                });
+            }
+            
+            // 正常完成
+            return JSON.stringify({
+                completed: true,
+                summary: `Specialist ${ruleId} completed successfully after user interaction`,
+                iterations: newIteration,
+                resumedFromUserInteraction: true
+            });
+            
+        } catch (error) {
+            this.logger.error(`Failed to resume specialist ${resumeContext.ruleId}`, error as Error);
+            throw error;
+        }
     }
 
     // 🚀 VSCode工具调用实现说明：

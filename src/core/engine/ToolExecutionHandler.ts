@@ -28,7 +28,8 @@ export class ToolExecutionHandler {
       errorCode?: string,
       retryCount?: number
     ) => void,
-    toolExecutor?: any
+    toolExecutor?: any,
+    selectedModel?: any  // 🚀 新增：selectedModel 参数
   ): Promise<void> {
     // 🚀 架构师新增：重复检测机制
     const recentExecution = hasRecentToolExecution(toolCall.name, toolCall.args);
@@ -52,8 +53,40 @@ export class ToolExecutionHandler {
     recordExecution('tool_call', `开始执行工具: ${toolCall.name}`, undefined, toolCall.name, undefined, toolCall.args);
     
     try {
-      const result = await this.executeTool(toolCall, toolExecutor);
+      const result = await this.executeTool(toolCall, toolExecutor, selectedModel);  // 🚀 修复：传递 selectedModel
       const duration = Date.now() - startTime;
+      
+      // 🚀 新增：检查工具是否需要聊天交互（特别是askQuestion工具）
+      if (result.success && result.output && typeof result.output === 'object' && 
+          'needsChatInteraction' in result.output && (result.output as any).needsChatInteraction) {
+        const chatOutput = result.output as any; // 类型断言以访问聊天交互属性
+        this.logger.info(`💬 Tool ${toolCall.name} needs chat interaction: ${chatOutput.chatQuestion}`);
+        
+        // 设置引擎状态为等待用户输入
+        state.stage = 'awaiting_user';
+        state.pendingInteraction = {
+          type: 'input',
+          message: chatOutput.chatQuestion,
+          toolCall: toolCall,
+          originalResult: result.output
+        };
+        
+        // 在聊天中显示问题
+        stream.markdown(`💬 **${chatOutput.chatQuestion}**\n\n`);
+        stream.markdown(`请在下方输入您的回答...\n\n`);
+        
+        recordExecution(
+          'user_interaction',
+          `工具 ${toolCall.name} 需要聊天交互: ${chatOutput.chatQuestion}`,
+          true,
+          toolCall.name,
+          result.output,
+          toolCall.args,
+          duration
+        );
+        
+        return; // 暂停执行，等待用户回复
+      }
       
       // 流式显示执行结果
       stream.markdown(`✅ **${toolCall.name}** 执行成功 (${duration}ms)\n`);
@@ -204,13 +237,14 @@ export class ToolExecutionHandler {
       errorCode?: string,
       retryCount?: number
     ) => void,
-    toolExecutor?: any
+    toolExecutor?: any,
+    selectedModel?: any  // 🚀 新增：selectedModel 参数
   ): Promise<void> {
     stream.markdown(`🎯 **AI给出最终答案**\n\n`);
     
     const startTime = Date.now();
     try {
-      const result = await this.executeTool(toolCall, toolExecutor);
+      const result = await this.executeTool(toolCall, toolExecutor, selectedModel);  // 🚀 修复：传递 selectedModel
       const duration = Date.now() - startTime;
       
       // 🚀 修复：使用正确的字段名 result.output
@@ -269,13 +303,23 @@ export class ToolExecutionHandler {
   /**
    * 执行工具 - 调用ToolExecutor 🚀 Code Review优化版本
    */
-  private async executeTool(toolCall: { name: string; args: any }, toolExecutor?: any): Promise<ToolCallResult> {
+  private async executeTool(
+    toolCall: { name: string; args: any }, 
+    toolExecutor?: any,
+    selectedModel?: any  // 🚀 新增：selectedModel 参数
+  ): Promise<ToolCallResult> {
     if (!toolExecutor) {
       throw new Error('ToolExecutor未初始化');
     }
     
     try {
-      const result = await toolExecutor.executeTool(toolCall.name, toolCall.args);
+      // 🚀 修复：传递 selectedModel 参数给 ToolExecutor
+      const result = await toolExecutor.executeTool(
+        toolCall.name, 
+        toolCall.args,
+        undefined,  // caller 参数
+        selectedModel  // 🚀 新增：selectedModel 参数
+      );
       
       return {
         success: result.success || false,
