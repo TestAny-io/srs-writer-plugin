@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
 import { SessionContext } from '../../types/session';
 import { toolExecutor } from '../toolExecutor';
-import { AIPlan } from '../../types/index';
+import { AIPlan, CallerType } from '../../types/index';
 
 /**
  * 对话式执行器 - 负责思维链和对话式规划循环
@@ -25,7 +25,8 @@ export class ConversationalExecutor {
       historyContext: string,
       toolResultsContext: string
     ) => Promise<AIPlan>,
-    formatToolResults: (toolResults: any[]) => string
+    formatToolResults: (toolResults: any[]) => string,
+    callerType?: CallerType // 🚀 新增：调用者类型用于访问控制
   ): Promise<{ intent: string; result?: any }> {
     const conversationHistory: Array<{
       role: 'user' | 'ai' | 'system';
@@ -61,7 +62,7 @@ export class ConversationalExecutor {
       // 🚀 先执行所有非 finalAnswer 的工具
       if (otherToolCalls.length > 0) {
         this.logger.info(`🔧 Executing ${otherToolCalls.length} tools before final answer in iteration ${currentIteration}`);
-        const iterationResults = await this.executeToolCalls(otherToolCalls);
+        const iterationResults = await this.executeToolCalls(otherToolCalls, callerType);
         
         allExecutionResults.push(...iterationResults);
         totalToolsExecuted += otherToolCalls.length;
@@ -106,7 +107,7 @@ export class ConversationalExecutor {
       if (otherToolCalls.length === 0 && !finalAnswerCall) {
         // 这是旧逻辑的兼容性处理
         this.logger.info(`🔧 Executing ${currentPlan.tool_calls.length} tools in iteration ${currentIteration}`);
-        const iterationResults = await this.executeToolCalls(currentPlan.tool_calls);
+        const iterationResults = await this.executeToolCalls(currentPlan.tool_calls, callerType);
         
         allExecutionResults.push(...iterationResults);
         totalToolsExecuted += currentPlan.tool_calls.length;
@@ -170,9 +171,9 @@ export class ConversationalExecutor {
   }
 
   /**
-   * 执行工具调用 - 使用新的工具执行器
+   * 执行工具调用 - 使用新的工具执行器 + 访问控制
    */
-  private async executeToolCalls(toolCalls: Array<{ name: string; args: any }>): Promise<any[]> {
+  private async executeToolCalls(toolCalls: Array<{ name: string; args: any }>, caller?: CallerType): Promise<any[]> {
     const results = [];
 
     for (const toolCall of toolCalls) {
@@ -181,7 +182,8 @@ export class ConversationalExecutor {
         
         const result = await toolExecutor.executeTool(
           toolCall.name,
-          toolCall.args
+          toolCall.args,
+          caller
         );
         
         results.push({

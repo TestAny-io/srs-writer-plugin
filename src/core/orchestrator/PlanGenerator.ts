@@ -50,7 +50,7 @@ export class PlanGenerator {
       // 在失败时，返回一个安全的、无害的默认规划
       return {
         thought: 'Error during planning, defaulting to safe response.',
-        response_mode: AIResponseMode.GENERAL_CHAT,
+        response_mode: AIResponseMode.KNOWLEDGE_QA,
         direct_response: '抱歉，我在思考时遇到了一些问题。能请您换一种方式提问吗？',
         tool_calls: []
       };
@@ -82,7 +82,7 @@ export class PlanGenerator {
       // 返回一个安全的降级规划
       return {
         thought: 'Failed to parse the AI\'s response, defaulting to safe response.',
-        response_mode: AIResponseMode.GENERAL_CHAT,
+        response_mode: AIResponseMode.KNOWLEDGE_QA,
         direct_response: '抱歉，我生成的响应格式似乎有些问题。能请您再试一次吗？',
         tool_calls: []
       };

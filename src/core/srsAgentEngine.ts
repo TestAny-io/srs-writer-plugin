@@ -266,14 +266,22 @@ export class SRSAgentEngine {
     this.recordExecution('thought', plan.thought);
     
     // 3. 检查响应模式
-    if (plan.response_mode === AIResponseMode.GENERAL_CHAT || plan.response_mode === AIResponseMode.KNOWLEDGE_QA) {
-      // 直接响应模式
+    if (plan.response_mode === AIResponseMode.KNOWLEDGE_QA) {
+      // 🚀 修复：KNOWLEDGE_QA现在支持工具调用
       if (plan.direct_response) {
+        // 有直接回复，显示并完成
         this.stream.markdown(`💬 **AI回复**: ${plan.direct_response}\n\n`);
         this.recordExecution('result', plan.direct_response, true);
+        this.state.stage = 'completed';
+        return;
+      } else if (plan.tool_calls && plan.tool_calls.length > 0) {
+        // 没有直接回复但有工具调用，继续执行工具（如知识检索）
+        // 不要return，让代码继续到工具执行部分
+      } else {
+        // 既没有回复也没有工具调用，任务完成
+        this.state.stage = 'completed';
+        return;
       }
-      this.state.stage = 'completed';
-      return;
     }
     
     // 4. 工具执行模式 - 🚀 使用增强的智能分类系统
@@ -399,7 +407,7 @@ export class SRSAgentEngine {
       // 返回安全的降级计划
       return {
         thought: '规划生成失败，使用降级策略',
-        response_mode: AIResponseMode.GENERAL_CHAT,
+                    response_mode: AIResponseMode.KNOWLEDGE_QA,
         direct_response: '抱歉，我在规划时遇到了问题。能请您换一种方式提问吗？',
         tool_calls: []
       };

@@ -1,8 +1,8 @@
 import * as yaml from 'js-yaml';
 import { Logger } from '../../utils/logger';
-import * as AtomicTools from '../atomic/atomicTools';
 import { marked } from 'marked';
 import { CallerType } from '../../types';
+import { readFile, writeFile, deleteFile } from '../atomic';
 
 /**
  * 需求管理文档工具模块
@@ -45,7 +45,7 @@ async function _createRequirementId(existingRequirements: any[]): Promise<string
  */
 async function _getExistingRequirements(projectPath: string): Promise<{ success: boolean; requirements: any[]; content?: string }> {
     const frYamlPath = `${projectPath}/fr.yaml`;
-    const frResult = await AtomicTools.readFile({ path: frYamlPath });
+    const frResult = await readFile({ path: frYamlPath });
     
     if (!frResult.success) {
         return { success: true, requirements: [] }; // 新项目，没有现有需求
@@ -77,7 +77,7 @@ async function _saveRequirementsToYAML(projectPath: string, requirements: any[])
         lineWidth: -1
     });
     
-    await AtomicTools.writeFile({ path: frYamlPath, content: updatedYaml });
+    await writeFile({ path: frYamlPath, content: updatedYaml });
     logger.info(`✅ Saved ${requirements.length} requirements to ${frYamlPath}`);
 }
 
@@ -111,7 +111,7 @@ function _generateRequirementsMarkdownTable(requirements: any[]): string {
  */
 async function _updateRequirementsInSRS(projectPath: string, requirements: any[]): Promise<void> {
     const srsPath = `${projectPath}/SRS.md`;
-    const srsResult = await AtomicTools.readFile({ path: srsPath });
+    const srsResult = await readFile({ path: srsPath });
     
     if (!srsResult.success) {
         throw new Error(`无法读取SRS.md文件: ${srsPath}`);
@@ -120,7 +120,7 @@ async function _updateRequirementsInSRS(projectPath: string, requirements: any[]
     const newTable = _generateRequirementsMarkdownTable(requirements);
     const updatedContent = _updateFunctionalRequirementsTableInMarkdown(srsResult.content!, newTable);
     
-    await AtomicTools.writeFile({ path: srsPath, content: updatedContent });
+    await writeFile({ path: srsPath, content: updatedContent });
     logger.info(`✅ Updated functional requirements table in ${srsPath}`);
 }
 
@@ -227,17 +227,17 @@ async function _createBackupFiles(projectPath: string): Promise<{ frBackup?: str
     const backups: { frBackup?: string; srsBackup?: string } = {};
     
     // 备份fr.yaml（如果存在）
-    const frResult = await AtomicTools.readFile({ path: `${projectPath}/fr.yaml` });
+    const frResult = await readFile({ path: `${projectPath}/fr.yaml` });
     if (frResult.success) {
         backups.frBackup = `${projectPath}/fr.yaml.backup.${timestamp}`;
-        await AtomicTools.writeFile({ path: backups.frBackup, content: frResult.content! });
+        await writeFile({ path: backups.frBackup, content: frResult.content! });
     }
     
     // 备份SRS.md
-    const srsResult = await AtomicTools.readFile({ path: `${projectPath}/SRS.md` });
+    const srsResult = await readFile({ path: `${projectPath}/SRS.md` });
     if (srsResult.success) {
         backups.srsBackup = `${projectPath}/SRS.md.backup.${timestamp}`;
-        await AtomicTools.writeFile({ path: backups.srsBackup, content: srsResult.content! });
+        await writeFile({ path: backups.srsBackup, content: srsResult.content! });
     }
     
     return backups;
@@ -249,19 +249,19 @@ async function _createBackupFiles(projectPath: string): Promise<{ frBackup?: str
 async function _rollbackFromBackups(projectPath: string, backups: { frBackup?: string; srsBackup?: string }): Promise<void> {
     try {
         if (backups.frBackup) {
-            const backupResult = await AtomicTools.readFile({ path: backups.frBackup });
+            const backupResult = await readFile({ path: backups.frBackup });
             if (backupResult.success) {
-                await AtomicTools.writeFile({ path: `${projectPath}/fr.yaml`, content: backupResult.content! });
-                await AtomicTools.deleteFile({ path: backups.frBackup });
+                await writeFile({ path: `${projectPath}/fr.yaml`, content: backupResult.content! });
+                await deleteFile({ path: backups.frBackup });
                 logger.info(`🔄 Rolled back fr.yaml from backup`);
             }
         }
         
         if (backups.srsBackup) {
-            const backupResult = await AtomicTools.readFile({ path: backups.srsBackup });
+            const backupResult = await readFile({ path: backups.srsBackup });
             if (backupResult.success) {
-                await AtomicTools.writeFile({ path: `${projectPath}/SRS.md`, content: backupResult.content! });
-                await AtomicTools.deleteFile({ path: backups.srsBackup });
+                await writeFile({ path: `${projectPath}/SRS.md`, content: backupResult.content! });
+                await deleteFile({ path: backups.srsBackup });
                 logger.info(`🔄 Rolled back SRS.md from backup`);
             }
         }
@@ -325,7 +325,7 @@ export const addNewRequirementToolDefinition = {
     // 🚀 新增：调用指南
     callingGuide: {
         whenToUse: "当需要向现有项目添加新的功能需求时",
-        prerequisites: "项目必须已存在 SRS.md 文件，建议先调用 ragRetrieval 获取需求编写最佳实践",
+        prerequisites: "项目必须已存在 SRS.md 文件，建议先调用 customRAGRetrieval 或 readLocalKnowledge 获取需求编写最佳实践",
         inputRequirements: {
             projectPath: "必需：项目目录路径，如 'my-ecommerce-project'",
             requirement: "必需：包含 name(需求名称)、priority(优先级)、description(详细描述)、acceptance_criteria(验收标准) 的完整需求对象"
@@ -365,7 +365,7 @@ export async function addNewRequirement(args: {
     
     try {
         // 1. 验证项目状态
-        const srsResult = await AtomicTools.readFile({ path: `${projectPath}/SRS.md` });
+        const srsResult = await readFile({ path: `${projectPath}/SRS.md` });
         if (!srsResult.success) {
             return {
                 success: false,
@@ -400,8 +400,8 @@ export async function addNewRequirement(args: {
         await _updateRequirementsInSRS(projectPath, updatedRequirements);
 
         // 7. 清理备份
-        if (backups.frBackup) await AtomicTools.deleteFile({ path: backups.frBackup });
-        if (backups.srsBackup) await AtomicTools.deleteFile({ path: backups.srsBackup });
+        if (backups.frBackup) await deleteFile({ path: backups.frBackup });
+        if (backups.srsBackup) await deleteFile({ path: backups.srsBackup });
 
         logger.info(`🎉 [AI TOOL SUCCESS] Requirement ${newRequirementId} added successfully`);
         

@@ -9,6 +9,7 @@
  */
 
 import { Logger } from '../utils/logger';
+import { CallerType } from '../types/index';
 import { 
     toolRegistry,
     getAllDefinitions,
@@ -75,9 +76,9 @@ export class ToolExecutor {
 
     /**
      * 执行单个工具
-     * 🚀 升级：使用新的统一工具执行接口
+     * 🚀 升级：使用新的统一工具执行接口 + 访问控制
      */
-    async executeTool(toolName: string, args: any): Promise<any> {
+    async executeTool(toolName: string, args: any, caller?: CallerType): Promise<any> {
         const startTime = Date.now();
         this.executionCount++;
         this.lastExecutionTime = new Date();
@@ -90,6 +91,16 @@ export class ToolExecutor {
             if (!toolDefinition) {
                 const availableTools = getAllDefinitions().map(t => t.name).join(', ');
                 throw new Error(`Unknown tool: ${toolName}. Available tools: ${availableTools}`);
+            }
+
+            // 🚀 新增：访问控制验证
+            if (caller) {
+                const { ToolAccessController } = await import('./orchestrator/ToolAccessController');
+                const accessController = new ToolAccessController();
+                
+                if (!accessController.validateAccess(caller, toolName)) {
+                    throw new Error(`🚫 Access denied: ${caller} cannot access tool: ${toolName}`);
+                }
             }
 
             // 执行工具
@@ -296,8 +307,8 @@ export const toolExecutor = new ToolExecutor();
 /**
  * 快速执行单个工具的便捷函数
  */
-export async function executeTool(toolName: string, args: any) {
-    return await toolExecutor.executeTool(toolName, args);
+export async function executeTool(toolName: string, args: any, caller?: CallerType) {
+    return await toolExecutor.executeTool(toolName, args, caller);
 }
 
 /**

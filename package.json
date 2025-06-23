@@ -2,8 +2,9 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode with Hybrid Intelligence Architecture",
-  "version": "1.4.0",
+  "version": "1.4.4-debug-6",
   "publisher": "testany-co",
+  "enabledApiProposals": ["languageModelTools"],
   "repository": {
     "type": "git",
     "url": "https://github.com/srs-writer-team/srs-writer-plugin.git"
@@ -18,7 +19,9 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "files": [
     "dist",
@@ -51,6 +54,99 @@
             "description": "Show help information"
           }
         ]
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "internet_search",
+        "displayName": "Internet Search",
+        "toolReferenceName": "internetSearch",
+        "canBeReferencedInPrompt": true,
+        "modelDescription": "Search the internet for current information using available search providers. Returns structured results with titles, URLs, snippets, and sources.",
+        "userDescription": "Use this tool to search the web for real-time information, news, technical documentation, and general knowledge.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query for internet search"
+            },
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of search results (default: 5)",
+              "default": 5
+            },
+            "searchType": {
+              "type": "string",
+              "enum": ["general", "technical", "documentation"],
+              "description": "Type of search to perform (default: general)",
+              "default": "general"
+            }
+          },
+          "required": ["query"]
+        }
+      },
+      {
+        "name": "custom_rag_retrieval",
+        "displayName": "Knowledge Retrieval",
+        "toolReferenceName": "customRAGRetrieval",
+        "canBeReferencedInPrompt": true,
+        "modelDescription": "Retrieve information from enterprise/custom RAG knowledge base system for domain-specific queries.",
+        "userDescription": "Search internal knowledge bases and enterprise documentation systems.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query for knowledge retrieval"
+            },
+            "domain": {
+              "type": "string",
+              "description": "Business domain context (e.g., 'financial_services', 'healthcare', 'e-commerce')"
+            },
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 5)",
+              "default": 5
+            }
+          },
+          "required": ["query"]
+        }
+      },
+      {
+        "name": "read_local_knowledge",
+        "displayName": "Local Knowledge Search",
+        "toolReferenceName": "readLocalKnowledge",
+        "canBeReferencedInPrompt": true,
+        "modelDescription": "Search and read local knowledge files from templates/ and knowledge/ directories in the workspace.",
+        "userDescription": "Find relevant templates, examples, and documentation from your local project files.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query to find relevant knowledge files"
+            },
+            "searchPaths": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Paths to search in (default: ['templates/', 'knowledge/'])",
+              "default": ["templates/", "knowledge/"]
+            },
+            "fileExtensions": {
+              "type": "array", 
+              "items": { "type": "string" },
+              "description": "File extensions to include (default: ['.md', '.yml', '.yaml', '.json'])",
+              "default": [".md", ".yml", ".yaml", ".json"]
+            },
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of files to return (default: 10)",
+              "default": 10
+            }
+          },
+          "required": ["query"]
+        }
       }
     ],
     "commands": [

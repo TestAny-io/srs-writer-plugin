@@ -201,7 +201,7 @@ export const addNewRequirementToolDefinition = {
 | `addNewRequirement` | document | 添加功能需求 | 需求管理 |
 | `listRequirements` | document | 列出现有需求 | 状态检查 |
 | `generateFullSrsReport` | document | 生成完整报告 | 文档生成 |
-| `ragRetrieval` | internal | 知识检索 | 内容增强 |
+| `customRAGRetrieval` | atomic | 企业知识检索 | 内容增强 |
 | `readFile` | atomic | 读取文件 | 文档检查 |
 | `writeFile` | atomic | 写入文件 | 文档创建 |
 | `finalAnswer` | internal | 任务完成 | 流程结束 |
@@ -210,7 +210,7 @@ export const addNewRequirementToolDefinition = {
 测试结果确认各调用者的工具访问权限：
 - **SPECIALIST**: 6个工具 ✅
 - **ORCHESTRATOR_TOOL_EXECUTION**: 4个工具 ✅  
-- **ORCHESTRATOR_KNOWLEDGE_QA**: 1个工具 (仅 ragRetrieval) ✅
+- **ORCHESTRATOR_KNOWLEDGE_QA**: 3个工具 (customRAGRetrieval, readLocalKnowledge, internetSearch) ✅
 - **ORCHESTRATOR_GENERAL_CHAT**: 1个工具 (仅 readFile) ✅
 
 ## 📋 使用指南
@@ -223,7 +223,7 @@ export const addNewRequirementToolDefinition = {
 
 ## 工作流程
 1. **知识检索阶段**
-   - 调用 ragRetrieval 获取相关知识和模板
+   - 调用 customRAGRetrieval 或 readLocalKnowledge 获取相关知识和模板
    
 2. **内容生成阶段**
    - 基于检索到的知识生成完整内容
@@ -239,7 +239,7 @@ export const addNewRequirementToolDefinition = {
 {
   "tool_calls": [
     {
-      "name": "ragRetrieval",
+      "name": "customRAGRetrieval",
       "args": {
         "query": "{{USER_INPUT}} 相关最佳实践",
         "contextType": "content_generation"

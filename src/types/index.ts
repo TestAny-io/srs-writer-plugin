@@ -7,12 +7,11 @@ import { SessionContext } from './session';
 // === Orchestrator v3.0 智能分诊相关类型定义 ===
 
 /**
- * AI响应模式枚举 - 支持智能分诊
+ * AI响应模式枚举 - 支持智能分诊 (简化为两种模式)
  */
 export enum AIResponseMode {
     TOOL_EXECUTION = 'TOOL_EXECUTION',
-    KNOWLEDGE_QA = 'KNOWLEDGE_QA',
-    GENERAL_CHAT = 'GENERAL_CHAT'
+    KNOWLEDGE_QA = 'KNOWLEDGE_QA'
 }
 
 /**
@@ -526,10 +525,9 @@ export interface ErrorDetail {
  * 工具调用者类型 - 用于分布式访问控制
  */
 export enum CallerType {
-    // Orchestrator AI 的不同模式
+    // Orchestrator AI 的不同模式 (简化为两种)
     ORCHESTRATOR_TOOL_EXECUTION = 'orchestrator:TOOL_EXECUTION',
     ORCHESTRATOR_KNOWLEDGE_QA = 'orchestrator:KNOWLEDGE_QA', 
-    ORCHESTRATOR_GENERAL_CHAT = 'orchestrator:GENERAL_CHAT',
     
     // Specialist AI (统一类型，未来可细分为不同专家)
     SPECIALIST = 'specialist',

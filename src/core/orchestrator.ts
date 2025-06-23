@@ -74,46 +74,107 @@ export class Orchestrator {
       // 第一阶段：智能分诊 - 🚀 新架构的核心
       const initialPlan = await this.generateUnifiedPlan(userInput, sessionContext, selectedModel);
       
-      // 🚀 核心逻辑：基于AI的智能分诊
-      if (initialPlan.response_mode === AIResponseMode.GENERAL_CHAT || 
-          initialPlan.response_mode === AIResponseMode.KNOWLEDGE_QA) {
-        // 直接对话模式：无需工具，立即响应
-        return {
-          intent: 'direct_response',
-          result: {
-            mode: 'direct_chat',
-            response: initialPlan.direct_response || '我已理解您的需求。',
-            thought: initialPlan.thought
+
+
+              // 🚀 核心逻辑：基于AI的智能分诊 (简化为两种模式)
+        if (initialPlan.response_mode === AIResponseMode.KNOWLEDGE_QA) {
+          if (initialPlan.tool_calls && initialPlan.tool_calls.length > 0) {
+            // 有工具调用（如知识检索），进入执行流程
+            return await this.conversationalExecutor.executeConversationalPlanning(
+              userInput,
+              sessionContext,
+              selectedModel,
+              initialPlan,
+              this.generateUnifiedPlan.bind(this),
+              this.formatToolResults.bind(this),
+              CallerType.ORCHESTRATOR_KNOWLEDGE_QA // 知识问答模式
+            );
+          } else {
+            // 无工具调用，基于已有知识直接回答
+            return {
+              intent: 'direct_response',
+              result: {
+                mode: 'knowledge_qa',
+                response: initialPlan.direct_response || '根据我的知识，我来为您解答...',
+                thought: initialPlan.thought
+              }
+            };
           }
-        };
-      }
-      
-      // 第二阶段：工具执行模式 - 判断是否有有效的工具调用
-      if (initialPlan.response_mode === AIResponseMode.TOOL_EXECUTION) {
-        // 检查是否有有效的工具调用
-        if (initialPlan.tool_calls && initialPlan.tool_calls.length > 0) {
-          // 🚀 对话式执行：多轮思维链 + 自我修正
-          return await this.conversationalExecutor.executeConversationalPlanning(
-            userInput,
-            sessionContext,
-            selectedModel,
-            initialPlan, // 🚀 传递初始计划
-            this.generateUnifiedPlan.bind(this), // 传递生成器方法
-            this.formatToolResults.bind(this) // 传递格式化器方法
-          );
-        } else {
-          // 没有有效工具调用时，返回指导性响应
-          const guidanceResponse = await this.generateGuidanceResponse(userInput, sessionContext);
-          return {
-            intent: 'guidance_response',
-            result: {
-              mode: 'guidance',
-              response: guidanceResponse,
-              thought: initialPlan.thought
-            }
-          };
         }
-      }
+      
+              // 第二阶段：工具执行模式 - 判断是否有有效的工具调用
+        if (initialPlan.response_mode === AIResponseMode.TOOL_EXECUTION) {
+          // 检查是否有有效的工具调用
+          if (initialPlan.tool_calls && initialPlan.tool_calls.length > 0) {
+            try {
+              // 🚀 对话式执行：多轮思维链 + 自我修正
+              return await this.conversationalExecutor.executeConversationalPlanning(
+                userInput,
+                sessionContext,
+                selectedModel,
+                initialPlan, // 🚀 传递初始计划
+                this.generateUnifiedPlan.bind(this), // 传递生成器方法
+                this.formatToolResults.bind(this), // 传递格式化器方法
+                CallerType.ORCHESTRATOR_TOOL_EXECUTION // 工具执行模式
+              );
+            } catch (error) {
+              // 🚀 降级策略：TOOL_EXECUTION 失败时降级到 KNOWLEDGE_QA
+              this.logger.warn(`TOOL_EXECUTION failed, falling back to KNOWLEDGE_QA mode: ${(error as Error).message}`);
+              
+              try {
+                // 重新生成计划，强制使用 KNOWLEDGE_QA 模式
+                const fallbackPlan: AIPlan = {
+                  thought: `原始工具执行失败，现在以知识问答模式回答：${userInput}`,
+                  response_mode: AIResponseMode.KNOWLEDGE_QA,
+                  direct_response: null,
+                  tool_calls: [
+                    { name: 'readLocalKnowledge', args: { query: userInput } }
+                  ]
+                };
+                
+                return await this.conversationalExecutor.executeConversationalPlanning(
+                  userInput,
+                  sessionContext,
+                  selectedModel,
+                  fallbackPlan,
+                  this.generateUnifiedPlan.bind(this),
+                  this.formatToolResults.bind(this),
+                  CallerType.ORCHESTRATOR_KNOWLEDGE_QA // 降级到知识问答模式
+                );
+              } catch (fallbackError) {
+                // 🚀 如果 KNOWLEDGE_QA 也失败，直接返回基本响应
+                this.logger.error(`Both TOOL_EXECUTION and KNOWLEDGE_QA failed: ${(fallbackError as Error).message}`);
+                return {
+                  intent: 'fallback_response',
+                  result: {
+                    mode: 'basic_fallback',
+                    response: '抱歉，我在处理您的请求时遇到了技术问题。请尝试重新描述您的需求，或者检查网络连接后重试。',
+                    thought: '所有执行模式都失败了，返回基本错误响应',
+                    error: (fallbackError as Error).message
+                  }
+                };
+              }
+            }
+          } else {
+            // 没有有效工具调用时，降级到 KNOWLEDGE_QA 模式
+            this.logger.info('No valid tool calls in TOOL_EXECUTION, falling back to KNOWLEDGE_QA');
+            const fallbackPlan: AIPlan = {
+              thought: `没有找到合适的工具执行，转为知识问答模式：${userInput}`,
+              response_mode: AIResponseMode.KNOWLEDGE_QA,
+              direct_response: `我理解您想要：${userInput}。让我用知识问答的方式来帮助您。`,
+              tool_calls: []
+            };
+            
+            return {
+              intent: 'fallback_to_knowledge',
+              result: {
+                mode: 'knowledge_qa',
+                response: fallbackPlan.direct_response,
+                thought: fallbackPlan.thought
+              }
+            };
+          }
+        }
 
       
       // 兜底：未知模式的处理
@@ -343,8 +404,7 @@ export class Orchestrator {
       },
       responseMode: {
         TOOL_EXECUTION: 'For actionable tasks requiring tool execution',
-        KNOWLEDGE_QA: 'For knowledge-based questions and expert advice',
-        GENERAL_CHAT: 'For casual conversation and greetings'
+        KNOWLEDGE_QA: 'For knowledge-based questions, expert advice, and general conversation'
       }
     };
   }

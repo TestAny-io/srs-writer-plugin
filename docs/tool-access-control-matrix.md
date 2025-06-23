@@ -22,8 +22,7 @@ SRS Writer Plugin 采用四层工具架构 + AI调用者类型：
 
 #### **🤖 AI调用者层级**
 - **🎯 orchestrator:TOOL_EXECUTION**: 智能分诊中心 - 执行模式
-- **🧠 orchestrator:KNOWLEDGE_QA**: 智能分诊中心 - 知识问答模式  
-- **💬 orchestrator:GENERAL_CHAT**: 智能分诊中心 - 闲聊模式
+- **🧠 orchestrator:KNOWLEDGE_QA**: 智能分诊中心 - 知识问答和一般对话模式  
 - **🔬 specialist**: 专家执行器，负责具体SRS业务逻辑
 
 #### **🛠️ 工具实现层级**
@@ -41,7 +40,6 @@ export enum CallerType {
     // Orchestrator AI 的不同模式
     ORCHESTRATOR_TOOL_EXECUTION = 'orchestrator:TOOL_EXECUTION',
     ORCHESTRATOR_KNOWLEDGE_QA = 'orchestrator:KNOWLEDGE_QA',
-    ORCHESTRATOR_GENERAL_CHAT = 'orchestrator:GENERAL_CHAT',
     
     // Specialist AI
     SPECIALIST = 'specialist',
@@ -123,12 +121,12 @@ finalAnswer: {
 ```
 
 ### **🧠 orchestrator:KNOWLEDGE_QA**
-**权限**: 仅知识检索，不能执行操作
+**权限**: 知识检索 + 安全查询操作，包含一般对话功能
 
 **可访问工具示例**:
 ```typescript
 // 🔧 知识检索工具
-ragRetrieval: {
+customRAGRetrieval: {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // ✅ 核心能力
@@ -136,20 +134,11 @@ ragRetrieval: {
     ]
 }
 
-// ❌ 其他工具均不可访问
-// writeFile, listFiles, internetSearch 等都看不到
-```
-
-### **💬 orchestrator:GENERAL_CHAT**
-**权限**: 仅安全查询操作，不能修改数据
-
-**可访问工具示例**:
-```typescript
-// ⚛️ 安全查询工具
+// ⚛️ 安全查询工具（从原GENERAL_CHAT合并）
 readFile: {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.ORCHESTRATOR_GENERAL_CHAT,    // ✅ "帮我看看config.json"
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // ✅ "帮我看看config.json"
         CallerType.SPECIALIST
     ]
 }
@@ -157,7 +146,7 @@ readFile: {
 listFiles: {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.ORCHESTRATOR_GENERAL_CHAT,    // ✅ "项目里有什么文件？"
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // ✅ "项目里有什么文件？"
         CallerType.SPECIALIST
     ]
 }
@@ -165,13 +154,15 @@ listFiles: {
 internetSearch: {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.ORCHESTRATOR_GENERAL_CHAT     // ✅ "最新技术趋势？"
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA     // ✅ "最新技术趋势？"
     ]
 }
 
 // ❌ 危险操作均不可访问
 // writeFile, createDirectory, deleteFile 等都看不到
 ```
+
+
 
 ### **🔬 specialist**
 **权限**: 业务工具 + 系统控制，不能递归调用专家
@@ -188,7 +179,7 @@ updateRequirement: {
 }
 
 // 🔧 内部工具 - 流程控制
-ragRetrieval: {
+customRAGRetrieval: {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
@@ -297,8 +288,7 @@ public async executeTool(toolName: string, params: any, caller: CallerType): Pro
 | 调用者 | 可访问工具类型 | 典型用例 |
 |--------|---------------|----------|
 | **TOOL_EXECUTION** | 全部标记的工具 | "创建SRS", "添加需求", "检查文件" |
-| **KNOWLEDGE_QA** | 仅 ragRetrieval | "如何写需求？", "最佳实践是什么？" |
-| **GENERAL_CHAT** | 安全查询工具 | "项目有什么文件？", "天气如何？" |
+| **KNOWLEDGE_QA** | 知识检索 + 安全查询工具 | "如何写需求？", "项目有什么文件？", "天气如何？" |
 | **SPECIALIST** | 业务 + 系统工具 | 专家规则执行时的工具调用 |
 
 ### **按工具风险分类**
@@ -306,7 +296,7 @@ public async executeTool(toolName: string, params: any, caller: CallerType): Pro
 | 风险等级 | 工具示例 | 访问权限 |
 |----------|----------|----------|
 | **🟢 低风险** | readFile, listFiles | 多数调用者可访问 |
-| **🟡 中风险** | internetSearch, ragRetrieval | 特定场景可访问 |
+| **🟡 中风险** | internetSearch, customRAGRetrieval | 特定场景可访问 |
 | **🔴 高风险** | writeFile, deleteFile | 仅执行模式可访问 |
 | **⚫ 系统关键** | finalAnswer, 专家工具 | 严格限制访问 |
 
@@ -342,8 +332,8 @@ export const writeFileDefinition = {
 };
 
 // ✅ 知识工具 - 广泛但安全
-export const ragRetrievalDefinition = {
-    name: "ragRetrieval",
+export const customRAGRetrievalDefinition = {
+    name: "customRAGRetrieval",
     description: "Knowledge retrieval",
     // ...
     accessibleBy: [
@@ -408,7 +398,7 @@ const report = toolAccessController.generateAccessReport(CallerType.ORCHESTRATOR
 - readFile (atomic/File Operations)
 - listFiles (atomic/File Operations) 
 - internetSearch (atomic/Internet Access)
-- ragRetrieval (internal/System Control Tools)
+- customRAGRetrieval (atomic/RAG Tools)
 */
 ```
 

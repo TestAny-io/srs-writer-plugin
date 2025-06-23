@@ -63,12 +63,13 @@ export class SpecialistExecutor {
 
             const response = await model.sendRequest(messages, requestOptions);
             
-            // 🚀 新增：处理工具调用
-            if (response.toolCalls && response.toolCalls.length > 0) {
-                return await this.handleToolCallsWorkflow(response, messages, model, requestOptions);
-            }
+            // 🚀 VSCode工具调用机制说明：
+            // VSCode使用声明式工具注册机制，工具通过vscode.lm.registerTool注册
+            // LLM会根据requestOptions.tools中的工具定义自动决定调用哪些工具
+            // 我们的callingGuide系统通过注入提示词来指导LLM智能选择工具
+            // 无需手动处理response.toolCalls（VSCode API没有这个属性）
             
-            // 原有逻辑：处理纯文本响应
+            // 处理流式文本响应
             let result = '';
             for await (const fragment of response.text) {
                 result += fragment;
@@ -219,7 +220,7 @@ export class SpecialistExecutor {
             return result;
             
         } catch (error) {
-            this.logger.warn('Failed to inject tool calling guides', error as Error);
+            this.logger.warn(`Failed to inject tool calling guides: ${(error as Error).message}`);
             return promptTemplate; // 失败时返回原模板
         }
     }
@@ -486,67 +487,13 @@ Please provide appropriate assistance based on the user's request.`;
         }));
     }
 
-    /**
-     * 🚀 新增：处理工具调用工作流
-     */
-    private async handleToolCallsWorkflow(
-        response: vscode.LanguageModelChatResponse,
-        messages: vscode.LanguageModelChatMessage[],
-        model: vscode.LanguageModelChat,
-        requestOptions: vscode.LanguageModelChatRequestOptions
-    ): Promise<string> {
-        this.logger.info(`Processing ${response.toolCalls.length} tool calls`);
-
-        // 执行所有工具调用
-        const toolResults: vscode.LanguageModelChatMessage[] = [];
-        
-        for (const toolCall of response.toolCalls) {
-            try {
-                const result = await this.executeToolCall(toolCall);
-                toolResults.push(vscode.LanguageModelChatMessage.Tool(result, toolCall.id));
-                this.logger.info(`Tool call ${toolCall.name} executed successfully`);
-            } catch (error) {
-                const errorMessage = `Tool call ${toolCall.name} failed: ${error instanceof Error ? error.message : String(error)}`;
-                toolResults.push(vscode.LanguageModelChatMessage.Tool(errorMessage, toolCall.id));
-                this.logger.error(`Tool call ${toolCall.name} failed`, error as Error);
-            }
-        }
-
-        // 第二轮交互：将工具结果反馈给 AI
-        const updatedMessages = [...messages, ...toolResults];
-        const secondResponse = await model.sendRequest(updatedMessages, requestOptions);
-        
-        let finalResult = '';
-        for await (const fragment of secondResponse.text) {
-            finalResult += fragment;
-        }
-
-        return finalResult;
-    }
-
-    /**
-     * 🚀 新增：执行单个工具调用
-     */
-    private async executeToolCall(toolCall: vscode.LanguageModelChatToolCall): Promise<string> {
-        const { name: toolName, parameters } = toolCall;
-        
-        // 验证访问权限
-        if (!this.toolAccessController.validateAccess(CallerType.SPECIALIST, toolName)) {
-            throw new Error(`🚫 Access denied: Specialist cannot access tool: ${toolName}`);
-        }
-
-        // 获取工具实现
-        const toolImplementation = toolRegistry.getImplementation(toolName);
-        if (!toolImplementation) {
-            throw new Error(`Tool implementation not found: ${toolName}`);
-        }
-
-        // 执行工具
-        try {
-            const result = await toolImplementation(parameters);
-            return typeof result === 'string' ? result : JSON.stringify(result, null, 2);
-        } catch (error) {
-            throw new Error(`Tool execution failed: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
+    // 🚀 VSCode工具调用实现说明：
+    // 
+    // VSCode的工具调用机制与传统的OpenAI API不同：
+    // 1. 工具通过vscode.lm.registerTool()在extension.ts中注册
+    // 2. LLM通过requestOptions.tools接收工具定义
+    // 3. VSCode自动处理工具调用，无需手动处理response.toolCalls
+    // 4. 我们的callingGuide系统通过提示词注入指导LLM智能选择工具
+    // 
+    // 因此，这里不需要handleToolCallsWorkflow和executeToolCall方法
 }

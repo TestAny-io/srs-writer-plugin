@@ -19,7 +19,7 @@ import {
     atomicToolDefinitions, 
     atomicToolImplementations,
     atomicToolsCategory 
-} from './atomic/atomicTools';
+} from './atomic';
 
 import { 
     specialistToolDefinitions, 
@@ -55,7 +55,26 @@ import {
 import { CallerType } from '../types/index';
 
 /**
- * 工具定义接口 - v3.0 智能分类增强版 + 分布式访问控制
+ * 调用指南接口 - AI智能工具使用指导系统
+ */
+export interface CallingGuide {
+    whenToUse: string;                              // 何时使用这个工具
+    prerequisites?: string;                         // 前置条件
+    inputRequirements?: {                           // 输入要求详解
+        [param: string]: string;
+    };
+    internalWorkflow?: string[];                    // 内部工作流程步骤
+    commonPitfalls?: string[];                      // 常见陷阱和错误
+    performanceNotes?: string[];                    // 性能注意事项
+    examples?: Array<{                              // 使用示例
+        scenario: string;
+        parameters: any;
+        expectedResult: string;
+    }>;
+}
+
+/**
+ * 工具定义接口 - v3.0 智能分类增强版 + 分布式访问控制 + AI指导系统
  */
 export interface ToolDefinition {
     name: string;
@@ -71,6 +90,8 @@ export interface ToolDefinition {
     requiresConfirmation?: boolean;
     // 🚀 新增：分布式访问控制
     accessibleBy?: CallerType[];
+    // 🚀 新增：AI智能指导系统
+    callingGuide?: CallingGuide;
 }
 
 /**

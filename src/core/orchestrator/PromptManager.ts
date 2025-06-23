@@ -42,38 +42,48 @@ export class PromptManager {
     const relevantKnowledge = await retrieveRelevantKnowledge(userInput, sessionContext);
 
     // 3. 执行"邮件合并"，替换所有占位符
-    let finalPrompt = promptTemplate;
-    finalPrompt = finalPrompt.replace('{{USER_INPUT}}', userInput);
-    finalPrompt = finalPrompt.replace('{{TOOLS_JSON_SCHEMA}}', toolsJsonSchema);
-    finalPrompt = finalPrompt.replace('{{CONVERSATION_HISTORY}}', historyContext || 'No actions have been taken yet.');
+    // 🐛 DEBUG: 记录所有占位符的值
+    this.logger.info(`🔍 [DEBUG] Placeholder values for prompt building:`);
+    this.logger.info(`🔍 [DEBUG] - USER_INPUT: "${userInput}"`);
+    this.logger.info(`🔍 [DEBUG] - TOOLS_JSON_SCHEMA length: ${toolsJsonSchema.length}`);
+    this.logger.info(`🔍 [DEBUG] - CONVERSATION_HISTORY: "${historyContext || 'No actions have been taken yet.'}"`);
+    this.logger.info(`🔍 [DEBUG] - TOOL_RESULTS_CONTEXT: "${toolResultsContext || 'No tool results available.'}"`);
+    this.logger.info(`🔍 [DEBUG] - RELEVANT_KNOWLEDGE: "${relevantKnowledge || 'No specific knowledge retrieved.'}"`);
     
-    // 🚀 Code Review新增：支持工具结果上下文占位符
-    if (finalPrompt.includes('{{TOOL_RESULTS_CONTEXT}}')) {
-      finalPrompt = finalPrompt.replace('{{TOOL_RESULTS_CONTEXT}}', toolResultsContext || 'No tool results available.');
+    let finalPrompt = promptTemplate;
+    // 🐛 修复：使用全局正则表达式替换来处理模板中的多个相同占位符
+    finalPrompt = finalPrompt.replace(/\{\{USER_INPUT\}\}/g, userInput);
+    finalPrompt = finalPrompt.replace(/\{\{TOOLS_JSON_SCHEMA\}\}/g, toolsJsonSchema);
+    finalPrompt = finalPrompt.replace(/\{\{CONVERSATION_HISTORY\}\}/g, historyContext || 'No actions have been taken yet.');
+    finalPrompt = finalPrompt.replace(/\{\{TOOL_RESULTS_CONTEXT\}\}/g, toolResultsContext || 'No tool results available.');
+    finalPrompt = finalPrompt.replace(/\{\{RELEVANT_KNOWLEDGE\}\}/g, relevantKnowledge || 'No specific knowledge retrieved.');
+
+    // 🐛 DEBUG: 检查是否还有未替换的占位符
+    const remainingPlaceholders = finalPrompt.match(/\{\{[^}]+\}\}/g);
+    if (remainingPlaceholders) {
+      this.logger.warn(`🔍 [DEBUG] Remaining unreplaced placeholders: ${remainingPlaceholders.join(', ')}`);
     }
     
-    finalPrompt = finalPrompt.replace('{{RELEVANT_KNOWLEDGE}}', relevantKnowledge || 'No specific knowledge retrieved.');
+    // 🐛 DEBUG: 记录最终生成的prompt的开头部分
+    const promptPreview = finalPrompt.substring(0, 500);
+    this.logger.info(`🔍 [DEBUG] Final prompt preview (first 500 chars): "${promptPreview}..."`);
 
     return finalPrompt;
   }
 
   /**
-   * 🚀 智能意图检测：根据用户输入选择合适的 CallerType
+   * 🚀 智能意图检测：根据用户输入选择合适的 CallerType (简化为两种模式)
    */
   private detectIntentType(userInput: string): CallerType {
     const input = userInput.toLowerCase();
     
-    // 检测知识问答类型的输入
-    const knowledgePatterns = [
+    // 检测知识问答和一般对话类型的输入
+    const knowledgeAndChatPatterns = [
       /^(how|what|why|when|where|which)/,
       /如何|怎么|什么是|为什么|怎样/,
       /best practices?|最佳实践/,
       /guidance|指导|建议/,
-      /explanation|解释|说明/
-    ];
-    
-    // 检测一般闲聊类型的输入
-    const chatPatterns = [
+      /explanation|解释|说明/,
       /^(hi|hello|hey|thanks|thank you)/,
       /^(你好|谢谢|感谢)/,
       /weather|天气/,
@@ -81,15 +91,9 @@ export class PromptManager {
       /^(good morning|good afternoon|good evening)/
     ];
     
-    // 优先检测闲聊
-    if (chatPatterns.some(pattern => pattern.test(input))) {
-      this.logger.info(`🤖 Detected GENERAL_CHAT intent: ${userInput}`);
-      return CallerType.ORCHESTRATOR_GENERAL_CHAT;
-    }
-    
-    // 然后检测知识问答
-    if (knowledgePatterns.some(pattern => pattern.test(input))) {
-      this.logger.info(`🧠 Detected KNOWLEDGE_QA intent: ${userInput}`);
+    // 检测知识问答和闲聊（合并为 KNOWLEDGE_QA 模式）
+    if (knowledgeAndChatPatterns.some(pattern => pattern.test(input))) {
+      this.logger.info(`🧠 Detected KNOWLEDGE_QA intent (including general conversation): ${userInput}`);
       return CallerType.ORCHESTRATOR_KNOWLEDGE_QA;
     }
     

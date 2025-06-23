@@ -15,11 +15,23 @@ export class ToolCacheManager {
   private toolsCache: Map<CallerType, { definitions: any[], jsonSchema: string }> = new Map();
 
   constructor() {
-    // 🔧 注册工具缓存失效监听器
-    toolRegistry.onCacheInvalidation(() => {
-      this.invalidateToolCache();
-    });
+    // 🔧 延迟注册工具缓存失效监听器（避免循环依赖）
+    setTimeout(() => {
+      try {
+        if (toolRegistry && typeof toolRegistry.onCacheInvalidation === 'function') {
+          toolRegistry.onCacheInvalidation(() => {
+            this.invalidateToolCache();
+          });
+          this.logger.info('🔗 Tool cache invalidation listener registered');
+        }
+      } catch (error) {
+        this.logger.warn(`Failed to register cache invalidation listener: ${(error as Error).message}`);
+      }
+    }, 0);
   }
+
+  // 🚀 新增：跟踪已记录的缓存使用情况，避免重复日志
+  private loggedCacheUsage: Set<CallerType> = new Set();
 
   /**
    * 🚀 获取指定调用者可访问的工具（带缓存）
@@ -28,7 +40,11 @@ export class ToolCacheManager {
     // 如果缓存有效，直接返回
     if (this.toolsCache.has(caller)) {
       const cached = this.toolsCache.get(caller)!;
-      this.logger.info(`✅ Using cached tools for ${caller} (${cached.definitions.length} tools)`);
+      // 🚀 修复：只在第一次使用缓存时记录日志，避免重复打印
+      if (!this.loggedCacheUsage.has(caller)) {
+        this.logger.info(`✅ Using cached tools for ${caller} (${cached.definitions.length} tools)`);
+        this.loggedCacheUsage.add(caller);
+      }
       return cached;
     }
 
@@ -79,6 +95,7 @@ export class ToolCacheManager {
    */
   public invalidateToolCache(): void {
     this.toolsCache.clear();
+    this.loggedCacheUsage.clear(); // 🚀 清理日志记录状态
     this.logger.info('🔄 All tool caches invalidated - tools will be reloaded on next access');
   }
 } 

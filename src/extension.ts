@@ -5,6 +5,11 @@ import { Orchestrator } from './core/orchestrator';
 import { Logger } from './utils/logger';
 import { ErrorHandler } from './utils/error-handler';
 import { COMMANDS } from './constants';
+import { 
+    InternetSearchTool, 
+    CustomRAGRetrievalTool, 
+    ReadLocalKnowledgeTool 
+} from './tools/atomic/knowledge-tools-backup';
 
 let chatParticipant: SRSChatParticipant;
 let sessionManager: SessionManager;
@@ -19,20 +24,29 @@ export function activate(context: vscode.ExtensionContext) {
     logger.info('SRS Writer Plugin v1.3 is now activating...');
     
     try {
-        // 初始化核心组件
+        // 🔧 调试：分步初始化核心组件
+        logger.info('Step 1: Initializing SessionManager...');
         sessionManager = new SessionManager();
+        logger.info('✅ SessionManager initialized successfully');
+        
+        logger.info('Step 2: Initializing Orchestrator...');
         orchestrator = new Orchestrator();
+        logger.info('✅ Orchestrator initialized successfully');
         
         // 注册Chat Participant
+        logger.info('Step 3: Registering Chat Participant...');
         chatParticipant = SRSChatParticipant.register(context);
-        logger.info('SRS Chat Participant registered successfully');
+        logger.info('✅ SRS Chat Participant registered successfully');
         
         // 注册v1.2新增命令
+        logger.info('Step 4: Registering commands...');
         registerV13Commands(context);
+        logger.info('✅ Commands registered successfully');
         
-        // 注册测试命令 (包含在v1.2命令中，无需单独注册)
-        // TestCommands.register(context);
-        logger.info('Commands registered successfully');
+        // 🔧 Step 5: 注册Language Model Tools
+        logger.info('Step 5: Registering Language Model Tools...');
+        registerLanguageModelTools(context);
+        logger.info('✅ Language Model Tools registered successfully');
         
         // 注册传统帮助命令
         const helpCommand = vscode.commands.registerCommand(COMMANDS.GENERATE_SRS, () => {
@@ -57,10 +71,10 @@ export function activate(context: vscode.ExtensionContext) {
         
         // 显示激活成功消息
         vscode.window.showInformationMessage(
-            '🚀 SRS Writer v1.3 已激活！现在支持智能质量检查。',
-            '了解更多'
+            '🚀 SRS Writer is at your service',
+            'Learn more'
         ).then(selection => {
-            if (selection === '了解更多') {
+            if (selection === 'Learn more') {
                 vscode.commands.executeCommand('srs-writer.help');
             }
         });
@@ -210,6 +224,41 @@ function registerV13Commands(context: vscode.ExtensionContext): void {
     );
     
     logger.info('v1.2 commands registered successfully');
+}
+
+/**
+ * 🔧 注册Language Model Tools - 新增工具注册功能
+ */
+function registerLanguageModelTools(context: vscode.ExtensionContext): void {
+    try {
+        // 检查是否支持语言模型工具API
+        if (!vscode.lm || typeof vscode.lm.registerTool !== 'function') {
+            logger.warn('Language Model Tools API not available, skipping tool registration');
+            return;
+        }
+
+        // 注册Internet Search工具
+        const internetSearchTool = vscode.lm.registerTool('internet_search', new InternetSearchTool());
+        context.subscriptions.push(internetSearchTool);
+        logger.info('🔍 Internet Search Tool registered');
+
+        // 注册Custom RAG Retrieval工具
+        const customRAGTool = vscode.lm.registerTool('custom_rag_retrieval', new CustomRAGRetrievalTool());
+        context.subscriptions.push(customRAGTool);
+        logger.info('🧠 Custom RAG Retrieval Tool registered');
+
+        // 注册Local Knowledge Search工具
+        const localKnowledgeTool = vscode.lm.registerTool('read_local_knowledge', new ReadLocalKnowledgeTool());
+        context.subscriptions.push(localKnowledgeTool);
+        logger.info('📚 Local Knowledge Search Tool registered');
+
+        logger.info('All Language Model Tools registered successfully');
+    } catch (error) {
+        const errorMsg = `Failed to register Language Model Tools: ${(error as Error).message}`;
+        logger.error(errorMsg);
+        // 不抛出错误，允许扩展继续加载
+        vscode.window.showWarningMessage('部分工具注册失败，但扩展可以继续使用');
+    }
 }
 
 /**

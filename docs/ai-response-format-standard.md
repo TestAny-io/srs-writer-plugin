@@ -18,8 +18,7 @@ export interface AIPlan {
 
 export enum AIResponseMode {
     TOOL_EXECUTION = 'TOOL_EXECUTION',        // 执行工具操作
-    KNOWLEDGE_QA = 'KNOWLEDGE_QA',            // 知识问答
-    GENERAL_CHAT = 'GENERAL_CHAT'             // 一般对话
+    KNOWLEDGE_QA = 'KNOWLEDGE_QA'             // 知识问答（包含一般对话）
 }
 ```
 
@@ -32,7 +31,7 @@ export enum AIResponseMode {
 ```json
 {
   "thought": "<详细的思考过程>",
-  "response_mode": "<TOOL_EXECUTION | KNOWLEDGE_QA | GENERAL_CHAT>",
+  "response_mode": "<TOOL_EXECUTION | KNOWLEDGE_QA>",
   "direct_response": "<字符串内容或null>",
   "tool_calls": [
     {
@@ -60,22 +59,19 @@ export enum AIResponseMode {
 - **类型**: `AIResponseMode`
 - **可选值**:
   - `TOOL_EXECUTION`: 需要执行工具操作
-  - `KNOWLEDGE_QA`: 提供知识问答
-  - `GENERAL_CHAT`: 一般对话交流
+  - `KNOWLEDGE_QA`: 提供知识问答和一般对话交流
 
 #### `direct_response` (条件必填)
 - **类型**: `string | null`
 - **使用规则**:
   - `TOOL_EXECUTION` 模式: 必须为 `null`
-  - `KNOWLEDGE_QA` 模式: 必须为完整的回答字符串
-  - `GENERAL_CHAT` 模式: 必须为完整的对话字符串
+  - `KNOWLEDGE_QA` 模式: 必须为完整的回答字符串（包括一般对话）
 
 #### `tool_calls` (条件必填)
 - **类型**: `Array<{name: string, args: any}>`
 - **使用规则**:
   - `TOOL_EXECUTION` 模式: 必须包含至少一个工具调用
-  - `KNOWLEDGE_QA` 模式: 必须为空数组 `[]`
-  - `GENERAL_CHAT` 模式: 必须为空数组 `[]`
+  - `KNOWLEDGE_QA` 模式: 可以包含知识检索工具调用，或为空数组 `[]`
 
 ## 响应模式详细指南
 
@@ -103,9 +99,9 @@ export enum AIResponseMode {
 
 ### KNOWLEDGE_QA 模式
 
-**何时使用**: 用户询问知识、方法、最佳实践等，但不需要执行具体操作
+**何时使用**: 用户询问知识、方法、最佳实践等，或进行一般性对话（问候、感谢、闲聊）
 
-**格式要求**:
+**格式要求（知识问答）**:
 ```json
 {
   "thought": "用户询问如何编写非功能需求，这是知识咨询...",
@@ -115,17 +111,30 @@ export enum AIResponseMode {
 }
 ```
 
-### GENERAL_CHAT 模式
-
-**何时使用**: 问候、感谢、闲聊等非SRS相关的一般交流
-
-**格式要求**:
+**格式要求（一般对话）**:
 ```json
 {
-  "thought": "用户在打招呼，这是一般性对话...",
-  "response_mode": "GENERAL_CHAT",
+  "thought": "用户在打招呼，这是一般性对话，归入KNOWLEDGE_QA模式...",
+  "response_mode": "KNOWLEDGE_QA",
   "direct_response": "您好！我是SRS Writer，很高兴为您服务...",
   "tool_calls": []
+}
+```
+
+**格式要求（带工具调用的知识检索）**:
+```json
+{
+  "thought": "用户询问最新技术趋势，需要检索相关知识...",
+  "response_mode": "KNOWLEDGE_QA",
+  "direct_response": null,
+  "tool_calls": [
+    {
+      "name": "internetSearch",
+      "args": {
+        "query": "最新软件工程趋势 2024"
+      }
+    }
+  ]
 }
 ```
 
@@ -166,7 +175,7 @@ export enum AIResponseMode {
 ```json
 {
   "thought": "解析响应格式时出现错误，使用安全降级模式",
-  "response_mode": "GENERAL_CHAT",
+  "response_mode": "KNOWLEDGE_QA",
   "direct_response": "抱歉，我的响应格式有问题，请重新尝试您的请求。",
   "tool_calls": []
 }
@@ -181,7 +190,7 @@ export enum AIResponseMode {
 
 ### 逻辑一致性验证
 - `TOOL_EXECUTION` 模式：`direct_response` 为 null，`tool_calls` 非空
-- `KNOWLEDGE_QA/GENERAL_CHAT` 模式：`direct_response` 有内容，`tool_calls` 为空数组
+- `KNOWLEDGE_QA` 模式：可以是 `direct_response` 有内容且 `tool_calls` 为空数组，或者 `direct_response` 为 null 且 `tool_calls` 包含知识检索工具
 
 ### 工具调用验证
 - 工具名称必须在已注册工具列表中

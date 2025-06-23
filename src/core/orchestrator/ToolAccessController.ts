@@ -76,14 +76,12 @@ export class ToolAccessController {
                 // 原子工具：orchestrator 所有模式都可以访问，specialist 通过 document 层访问
                 return caller === CallerType.ORCHESTRATOR_TOOL_EXECUTION ||
                        caller === CallerType.ORCHESTRATOR_KNOWLEDGE_QA ||
-                       caller === CallerType.ORCHESTRATOR_GENERAL_CHAT ||
                        caller === CallerType.SPECIALIST;
 
             case 'internal':
                 // 内部工具：所有AI层都可以访问
                 return caller === CallerType.ORCHESTRATOR_TOOL_EXECUTION ||
                        caller === CallerType.ORCHESTRATOR_KNOWLEDGE_QA ||
-                       caller === CallerType.ORCHESTRATOR_GENERAL_CHAT ||
                        caller === CallerType.SPECIALIST;
 
             default:

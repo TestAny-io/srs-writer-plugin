@@ -202,7 +202,7 @@ Total Tools: 33
 │
 └── 🟣 Internal Layer: 4 tools (12.1%)
     ├── Task Control: finalAnswer, reportProgress
-    ├── Knowledge Retrieval: ragRetrieval
+    ├── Knowledge Retrieval: customRAGRetrieval, readLocalKnowledge, internetSearch
     └── System Status: getSystemStatus
 ```
 
