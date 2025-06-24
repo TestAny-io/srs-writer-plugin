@@ -1,18 +1,29 @@
 import * as vscode from 'vscode';
 import { SpecialistExecutor } from '../../core/specialistExecutor';
+import { SessionManager } from '../../core/session-manager';
+import { OperationType } from '../../types/session';
 import { Logger } from '../../utils/logger';
 
 /**
- * 专家工具模块 - 负责调用专家规则模板
+ * 🚀 专家工具模块 v5.0 - 汇报模式架构
  * 
  * 设计理念：
  * 🧠 专家层：专门用于调用specialist模板的路由工具
  * 🔧 内部实现：基于SpecialistExecutor调用rules/specialists/*.md模板
+ * 🔄 汇报模式：执行完成后向SessionManager汇报结果
  * 
- * 这一层的工具负责：
- * - 路由到合适的专家模板
- * - 准备上下文数据
- * - 调用AI执行专家规则
+ * 🚀 v5.0重大重构：
+ * - 删除对sessionManagementTools的直接调用，消除循环依赖
+ * - 改为通过SessionManager汇报执行结果（状态+日志）
+ * - 实现单向数据流：specialistTools → SessionManager → sessionManagementTools
+ * - 支持类型化操作日志（OperationType枚举）
+ * 
+ * 新的工作流程：
+ * 1. 从SessionManager获取当前项目状态
+ * 2. 向SessionManager汇报工具开始执行
+ * 3. 执行specialist业务逻辑（调用100_create_srs.md等）
+ * 4. 向SessionManager汇报执行结果（状态更新+日志记录）
+ * 5. SessionManager负责统一协调状态管理和文件持久化
  */
 
 const logger = Logger.getInstance();
@@ -54,6 +65,9 @@ export async function createComprehensiveSRS(args: {
     sessionData?: any;
     model?: vscode.LanguageModelChat;
 }): Promise<{ success: boolean; result?: string; error?: string; needsChatInteraction?: boolean; chatQuestion?: string; resumeContext?: any }> {
+    const startTime = Date.now();
+    const sessionManager = SessionManager.getInstance();
+    
     try {
         logger.info(`🧠 [SPECIALIST] Creating comprehensive SRS for: ${args.userInput}`);
         
@@ -64,6 +78,28 @@ export async function createComprehensiveSRS(args: {
             };
         }
         
+        // 🚀 1. 从SessionManager获取当前状态
+        let currentSession = await sessionManager.getCurrentSession();
+        
+        // 如果没有会话或项目不匹配，初始化新项目
+        if (!currentSession || (args.projectName && currentSession.projectName !== args.projectName)) {
+            currentSession = await sessionManager.initializeProject(args.projectName);
+        }
+        
+        logger.info(`📋 Using SessionContext ID: ${currentSession.sessionContextId} for project: ${currentSession.projectName || 'unnamed'}`);
+        
+        // 🚀 2. 记录工具开始执行
+        await sessionManager.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.TOOL_EXECUTION_START,
+                operation: `Starting SRS creation`,
+                toolName: 'createComprehensiveSRS',
+                userInput: args.userInput,
+                success: true
+            }
+        });
+        
+        // 🚀 3. 执行specialist逻辑
         const context = {
             userInput: args.userInput,
             sessionData: args.sessionData || {},
@@ -72,16 +108,28 @@ export async function createComprehensiveSRS(args: {
         
         const result = await specialistExecutor.executeSpecialist('100_create_srs', context, args.model);
         
-        // 🚀 新增：解析specialist返回的JSON结果
+        // 🚀 4. 解析specialist返回的JSON结果并汇报
         try {
             const parsedResult = JSON.parse(result);
             
-            // 🚀 新增：处理需要聊天交互的情况
+            // 🚀 处理需要聊天交互的情况
             if (parsedResult.needsChatInteraction) {
                 logger.info(`💬 [SPECIALIST] SRS creation needs chat interaction: ${parsedResult.chatQuestion}`);
+                
+                // 汇报需要用户交互
+                await sessionManager.updateSessionWithLog({
+                    logEntry: {
+                        type: OperationType.USER_QUESTION_ASKED,
+                        operation: `Requesting user interaction: ${parsedResult.chatQuestion}`,
+                        toolName: 'createComprehensiveSRS',
+                        success: true,
+                        executionTime: Date.now() - startTime
+                    }
+                });
+                
                 return {
                     success: true,
-                    result: parsedResult.chatQuestion, // 将问题返回给聊天系统
+                    result: parsedResult.chatQuestion,
                     needsChatInteraction: true,
                     chatQuestion: parsedResult.chatQuestion,
                     resumeContext: parsedResult.resumeContext
@@ -91,28 +139,79 @@ export async function createComprehensiveSRS(args: {
             // 🚀 处理正常完成的情况
             if (parsedResult.completed) {
                 logger.info(`✅ [SPECIALIST] SRS creation completed successfully: ${parsedResult.summary}`);
-                return {
-                    success: true,
-                    result: parsedResult.summary
-                };
+                
+                // 汇报成功完成
+                await sessionManager.updateSessionWithLog({
+                    stateUpdates: {
+                        activeFiles: ['SRS.md']  // 假设创建了SRS.md
+                    },
+                    logEntry: {
+                        type: OperationType.TOOL_EXECUTION_END,
+                        operation: `Successfully completed SRS creation: ${parsedResult.summary}`,
+                        toolName: 'createComprehensiveSRS',
+                        targetFiles: ['SRS.md'],
+                        success: true,
+                        executionTime: Date.now() - startTime
+                    }
+                });
+                
+                return { success: true, result: parsedResult.summary };
             } else {
                 logger.warn(`⚠️ [SPECIALIST] SRS creation partially completed: ${parsedResult.summary}`);
-                return {
-                    success: parsedResult.partialCompletion || false,
-                    result: parsedResult.summary
-                };
+                
+                // 汇报部分完成
+                await sessionManager.updateSessionWithLog({
+                    stateUpdates: parsedResult.partialCompletion ? { activeFiles: ['SRS.md'] } : undefined,
+                    logEntry: {
+                        type: OperationType.TOOL_EXECUTION_END,
+                        operation: `Partially completed SRS creation: ${parsedResult.summary}`,
+                        toolName: 'createComprehensiveSRS',
+                        targetFiles: parsedResult.partialCompletion ? ['SRS.md'] : [],
+                        success: parsedResult.partialCompletion || false,
+                        executionTime: Date.now() - startTime
+                    }
+                });
+                
+                return { success: parsedResult.partialCompletion || false, result: parsedResult.summary };
             }
         } catch (parseError) {
-            // 🔄 兼容性：如果不是JSON格式，按原来的方式处理
+            // 兼容模式：非JSON格式结果
             logger.info(`✅ [SPECIALIST] SRS creation completed (legacy format), length: ${result.length}`);
-            return {
-                success: true,
-                result: result
-            };
+            
+            await sessionManager.updateSessionWithLog({
+                stateUpdates: { activeFiles: ['SRS.md'] },
+                logEntry: {
+                    type: OperationType.TOOL_EXECUTION_END,
+                    operation: `SRS creation completed (legacy format, ${result.length} chars)`,
+                    toolName: 'createComprehensiveSRS',
+                    targetFiles: ['SRS.md'],
+                    success: true,
+                    executionTime: Date.now() - startTime
+                }
+            });
+            
+            return { success: true, result: result };
         }
         
     } catch (error) {
         logger.error(`❌ [SPECIALIST] SRS creation failed`, error as Error);
+        
+        // 汇报执行失败
+        try {
+            await sessionManager.updateSessionWithLog({
+                logEntry: {
+                    type: OperationType.TOOL_EXECUTION_FAILED,
+                    operation: `SRS creation failed: ${(error as Error).message}`,
+                    toolName: 'createComprehensiveSRS',
+                    success: false,
+                    error: (error as Error).message,
+                    executionTime: Date.now() - startTime
+                }
+            });
+        } catch (logError) {
+            logger.error('Failed to log error', logError as Error);
+        }
+        
         return {
             success: false,
             error: (error as Error).message
@@ -152,6 +251,9 @@ export async function editSRSDocument(args: {
     sessionData?: any;
     model?: vscode.LanguageModelChat;
 }): Promise<{ success: boolean; result?: string; error?: string }> {
+    const startTime = Date.now();
+    const sessionManager = SessionManager.getInstance();
+    
     try {
         logger.info(`🧠 [SPECIALIST] Editing SRS document: ${args.userInput}`);
         
@@ -162,6 +264,17 @@ export async function editSRSDocument(args: {
             };
         }
         
+        // 汇报开始执行
+        await sessionManager.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.TOOL_EXECUTION_START,
+                operation: 'Starting SRS document editing',
+                toolName: 'editSRSDocument',
+                userInput: args.userInput,
+                success: true
+            }
+        });
+        
         const context = {
             userInput: args.userInput,
             sessionData: args.sessionData || {},
@@ -170,17 +283,41 @@ export async function editSRSDocument(args: {
         
         const result = await specialistExecutor.executeSpecialist('200_edit_srs', context, args.model);
         
+        // 汇报成功完成
+        await sessionManager.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.TOOL_EXECUTION_END,
+                operation: 'SRS document editing completed',
+                toolName: 'editSRSDocument',
+                targetFiles: ['SRS.md'],
+                success: true,
+                executionTime: Date.now() - startTime
+            }
+        });
+        
         logger.info(`✅ [SPECIALIST] SRS editing completed`);
-        return {
-            success: true,
-            result: result
-        };
+        return { success: true, result: result };
+        
     } catch (error) {
         logger.error(`❌ [SPECIALIST] SRS editing failed`, error as Error);
-        return {
-            success: false,
-            error: (error as Error).message
-        };
+        
+        // 汇报失败
+        try {
+            await sessionManager.updateSessionWithLog({
+                logEntry: {
+                    type: OperationType.TOOL_EXECUTION_FAILED,
+                    operation: `SRS editing failed: ${(error as Error).message}`,
+                    toolName: 'editSRSDocument',
+                    success: false,
+                    error: (error as Error).message,
+                    executionTime: Date.now() - startTime
+                }
+            });
+        } catch (logError) {
+            logger.error('Failed to log error', logError as Error);
+        }
+        
+        return { success: false, error: (error as Error).message };
     }
 }
 
@@ -211,6 +348,9 @@ export async function classifyProjectComplexity(args: {
     projectDetails?: any;
     model?: vscode.LanguageModelChat;
 }): Promise<{ success: boolean; result?: string; error?: string }> {
+    const startTime = Date.now();
+    const sessionManager = SessionManager.getInstance();
+    
     try {
         logger.info(`🧠 [SPECIALIST] Classifying project complexity: ${args.userInput}`);
         
@@ -221,6 +361,17 @@ export async function classifyProjectComplexity(args: {
             };
         }
         
+        // 汇报开始执行
+        await sessionManager.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.TOOL_EXECUTION_START,
+                operation: 'Starting project complexity classification',
+                toolName: 'classifyProjectComplexity',
+                userInput: args.userInput,
+                success: true
+            }
+        });
+        
         const context = {
             userInput: args.userInput,
             projectDetails: args.projectDetails || {},
@@ -229,17 +380,40 @@ export async function classifyProjectComplexity(args: {
         
         const result = await specialistExecutor.executeSpecialist('complexity_classification', context, args.model);
         
+        // 汇报成功完成
+        await sessionManager.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.TOOL_EXECUTION_END,
+                operation: 'Project complexity classification completed',
+                toolName: 'classifyProjectComplexity',
+                success: true,
+                executionTime: Date.now() - startTime
+            }
+        });
+        
         logger.info(`✅ [SPECIALIST] Complexity classification completed`);
-        return {
-            success: true,
-            result: result
-        };
+        return { success: true, result: result };
+        
     } catch (error) {
         logger.error(`❌ [SPECIALIST] Complexity classification failed`, error as Error);
-        return {
-            success: false,
-            error: (error as Error).message
-        };
+        
+        // 汇报失败
+        try {
+            await sessionManager.updateSessionWithLog({
+                logEntry: {
+                    type: OperationType.TOOL_EXECUTION_FAILED,
+                    operation: `Complexity classification failed: ${(error as Error).message}`,
+                    toolName: 'classifyProjectComplexity',
+                    success: false,
+                    error: (error as Error).message,
+                    executionTime: Date.now() - startTime
+                }
+            });
+        } catch (logError) {
+            logger.error('Failed to log error', logError as Error);
+        }
+        
+        return { success: false, error: (error as Error).message };
     }
 }
 
@@ -270,6 +444,9 @@ export async function lintSRSDocument(args: {
     sessionData?: any;
     model?: vscode.LanguageModelChat;
 }): Promise<{ success: boolean; result?: string; error?: string }> {
+    const startTime = Date.now();
+    const sessionManager = SessionManager.getInstance();
+    
     try {
         logger.info(`🧠 [SPECIALIST] Linting SRS document in: ${args.projectPath}`);
         
@@ -280,6 +457,16 @@ export async function lintSRSDocument(args: {
             };
         }
         
+        // 汇报开始执行
+        await sessionManager.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.TOOL_EXECUTION_START,
+                operation: `Starting SRS quality check for: ${args.projectPath}`,
+                toolName: 'lintSRSDocument',
+                success: true
+            }
+        });
+        
         const context = {
             userInput: `Perform quality check on project: ${args.projectPath}`,
             sessionData: args.sessionData || {},
@@ -288,17 +475,40 @@ export async function lintSRSDocument(args: {
         
         const result = await specialistExecutor.executeSpecialist('400_lint_check', context, args.model);
         
+        // 汇报成功完成
+        await sessionManager.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.TOOL_EXECUTION_END,
+                operation: 'SRS quality check completed',
+                toolName: 'lintSRSDocument',
+                success: true,
+                executionTime: Date.now() - startTime
+            }
+        });
+        
         logger.info(`✅ [SPECIALIST] SRS linting completed`);
-        return {
-            success: true,
-            result: result
-        };
+        return { success: true, result: result };
+        
     } catch (error) {
         logger.error(`❌ [SPECIALIST] SRS linting failed`, error as Error);
-        return {
-            success: false,
-            error: (error as Error).message
-        };
+        
+        // 汇报失败
+        try {
+            await sessionManager.updateSessionWithLog({
+                logEntry: {
+                    type: OperationType.TOOL_EXECUTION_FAILED,
+                    operation: `SRS linting failed: ${(error as Error).message}`,
+                    toolName: 'lintSRSDocument',
+                    success: false,
+                    error: (error as Error).message,
+                    executionTime: Date.now() - startTime
+                }
+            });
+        } catch (logError) {
+            logger.error('Failed to log error', logError as Error);
+        }
+        
+        return { success: false, error: (error as Error).message };
     }
 }
 

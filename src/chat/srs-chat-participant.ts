@@ -32,7 +32,8 @@ export class SRSChatParticipant {
     
     constructor() {
         this.orchestrator = new Orchestrator();
-        this.sessionManager = new SessionManager();
+        // 🚀 v3.0重构：使用SessionManager单例
+        this.sessionManager = SessionManager.getInstance();
         
         // 自动初始化会话管理
         this.sessionManager.autoInitialize().catch(error => {
@@ -49,7 +50,7 @@ export class SRSChatParticipant {
         // 注册聊天参与者
         const disposable = vscode.chat.createChatParticipant(
             CHAT_PARTICIPANT_ID, 
-            participant.handleChatRequest.bind(participant)
+            participant.handleRequest.bind(participant)
         );
         
         // 设置参与者属性
@@ -64,33 +65,56 @@ export class SRSChatParticipant {
     }
 
     /**
-     * 处理聊天请求 - v2.0精简版本
-     * 
-     * 职责：
-     * 1. 路由到Slash命令处理器或核心逻辑
-     * 2. 统一错误处理
+     * 处理聊天请求 - 修复：恢复正确的调用链
      */
-    private async handleChatRequest(
+    private async handleRequest(
         request: vscode.ChatRequest,
         context: vscode.ChatContext,
         stream: vscode.ChatResponseStream,
         token: vscode.CancellationToken
     ): Promise<void> {
+        const startTime = Date.now();
+        this.logger.info(`📥 处理聊天请求: ${request.prompt}`);
+
         try {
-            if (request.prompt.startsWith('/')) {
-                // Slash命令自己处理，或者转换prompt后调用核心逻辑
-                await this.handleSlashCommand(request, context, stream, token);
-            } else {
-                // 普通请求直接调用核心逻辑
-                await this.processRequestCore(request.prompt, request.model, stream, token);
+            // 🚀 修复：处理 /new 命令的特殊逻辑
+            if (request.command === 'new') {
+                stream.markdown('🆕 **正在创建新的会话...**\n\n');
+                
+                // 检查模型可用性
+                if (!request.model) {
+                    stream.markdown('⚠️ **未找到AI模型**\n\n请在Chat界面的下拉菜单中选择AI模型。');
+                    return;
+                }
+                
+                // 🚀 修复：使用正确的引擎创建流程
+                await this.processRequestCore('/new', request.model, stream, token);
+                return;
             }
+
+            // 🚀 修复：检查是否是斜杠命令
+            if (request.prompt.startsWith('/')) {
+                await this.handleSlashCommand(request, context, stream, token);
+                return;
+            }
+
+            // 🚀 修复：使用正确的核心处理逻辑
+            await this.processRequestCore(request.prompt, request.model, stream, token);
+
         } catch (error) {
-            this.logger.error('Error handling chat request', error as Error);
-            stream.markdown('❌ 处理请求时发生错误，请稍后重试。\n\n');
-            stream.markdown('💡 您可以尝试：\n');
-            stream.markdown('- 重新描述您的需求\n');
-            stream.markdown('- 使用 `/help` 获取帮助\n');
-            stream.markdown('- 确保选择了可用的AI模型\n');
+            this.logger.error('聊天请求处理失败', error as Error);
+            
+            const errorMessage = error instanceof Error ? error.message : '未知错误';
+            
+            stream.markdown(`❌ **处理请求时发生错误**\n\n`);
+            stream.markdown(`错误信息: ${errorMessage}\n\n`);
+            
+            if (errorMessage.includes('模型不可用') || errorMessage.includes('model not available')) {
+                stream.markdown(`💡 **建议**: 请检查您的 AI 模型配置，确保模型可用且有足够的配额。\n\n`);
+            }
+        } finally {
+            const duration = Date.now() - startTime;
+            this.logger.info(`⏱️ 聊天请求处理完成，耗时: ${duration}ms`);
         }
     }
 
@@ -120,7 +144,7 @@ export class SRSChatParticipant {
         }
         
         stream.progress('🧠 AI 智能引擎启动中...');
-        
+
         // 1. 获取会话上下文
         const sessionContext = await this.getOrCreateSessionContext();
 
@@ -129,8 +153,8 @@ export class SRSChatParticipant {
         // 2. 生成稳定的会话ID
         const sessionId = this.getSessionId(sessionContext);
 
-        // 3. 获取或创建持久化的SRSAgentEngine实例
-        const agentEngine = this.getOrCreateEngine(sessionId, stream, sessionContext, model);
+        // 3. 获取或创建持久化的SRSAgentEngine实例  
+        const agentEngine = this.getOrCreateEngine(sessionId, stream, model);
 
         if (token.isCancellationRequested) { return; }
 
@@ -157,21 +181,21 @@ export class SRSChatParticipant {
     }
 
     /**
-     * 🚀 核心方法：获取或创建持久化的引擎实例
+     * 🚀 核心方法：获取或创建持久化的引擎实例 - v3.0重构版
      * 
      * 这是解决"金鱼智能代理"问题的关键方法
+     * v3.0变更：移除sessionContext参数，引擎内部动态获取
      */
     private getOrCreateEngine(
         sessionId: string, 
         stream: vscode.ChatResponseStream,
-        sessionContext: SessionContext,
         model: vscode.LanguageModelChat
     ): SRSAgentEngine {
         let engine = this.engineRegistry.get(sessionId);
         
         if (!engine) {
-            // 🚀 只在真正需要时创建新引擎
-            engine = new SRSAgentEngine(stream, sessionContext, model);
+            // 🚀 v3.0重构：创建新引擎，移除sessionContext参数
+            engine = new SRSAgentEngine(stream, model);
             engine.setDependencies(this.orchestrator, toolExecutor);
             this.engineRegistry.set(sessionId, engine);
             this.logger.info(`🧠 Created new persistent engine for session: ${sessionId}`);
@@ -242,6 +266,11 @@ export class SRSChatParticipant {
                 newPrompt = "请提供创建新项目的指导，说明如何开始一个新的SRS项目。";
                 break;
                 
+            case '/new':
+                // 🚀 修复：让 /new 命令具有和 "Start New Project" 相同的行为
+                await this.handleNewProjectCommand(stream, token);
+                return; // 直接返回，不需要进一步处理
+                
             case '/edit':
                 const currentSession = await this.getOrCreateSessionContext();
                 if (!currentSession.projectName) {
@@ -259,6 +288,7 @@ export class SRSChatParticipant {
                 stream.markdown('- `/status` - 查看项目状态\n');
                 stream.markdown('- `/lint` - 执行质量检查\n');
                 stream.markdown('- `/create` - 创建项目指导\n');
+                stream.markdown('- `/new` - 归档当前项目并创建新项目\n');
                 stream.markdown('- `/edit` - 编辑项目指导\n\n');
                 stream.markdown('💡 您也可以直接用自然语言描述您的需求！');
                 return;
@@ -269,6 +299,76 @@ export class SRSChatParticipant {
             this.logger.info(`🔍 [DEBUG] Slash command '${command}' converted to prompt: "${newPrompt}"`);
             // 直接调用核心逻辑，而不是递归调用handleChatRequest
             await this.processRequestCore(newPrompt, request.model, stream, token);
+        }
+    }
+
+    /**
+     * 🚀 新增：处理 /new 命令 - 实现完整的项目归档和重置
+     * 与 "Start New Project" 命令相同的行为
+     */
+    private async handleNewProjectCommand(
+        stream: vscode.ChatResponseStream,
+        token: vscode.CancellationToken
+    ): Promise<void> {
+        try {
+            // 检查当前会话
+            const currentSession = await this.sessionManager.getCurrentSession();
+            const hasCurrentProject = currentSession?.projectName;
+
+            // 显示状态信息
+            if (hasCurrentProject) {
+                stream.markdown(`📁 **当前项目**: ${currentSession.projectName}\n\n`);
+                stream.markdown('🔄 **正在归档当前项目并创建新项目...**\n\n');
+                
+                // 显示进度
+                stream.progress('归档当前项目中...');
+            } else {
+                stream.markdown('🆕 **正在创建新项目...**\n\n');
+                stream.progress('创建新项目中...');
+            }
+
+            if (token.isCancellationRequested) { return; }
+
+            // 执行归档并开始新项目 - 和 "Start New Project" 相同的逻辑
+            const result = await this.sessionManager.archiveCurrentAndStartNew(undefined, 'new_project');
+
+            if (token.isCancellationRequested) { return; }
+
+            if (result.success) {
+                // 清理当前聊天参与者的引擎状态，确保使用新的会话
+                await this.clearStaleEngines();
+                
+                const preservedCount = result.filesPreserved.length;
+                const archiveInfo = result.archivedSession ? 
+                    `\n📦 **原项目已归档**: ${result.archivedSession.archiveFileName}` : '';
+                
+                stream.markdown(`✅ **新项目创建成功！**${archiveInfo}\n\n`);
+                if (preservedCount > 0) {
+                    stream.markdown(`💾 **已保护用户文件**: ${preservedCount} 个\n\n`);
+                }
+                
+                // 显示新项目信息
+                if (result.newSession) {
+                    stream.markdown(`🎯 **新项目**: ${result.newSession.projectName || 'unnamed'}\n`);
+                    stream.markdown(`📂 **项目目录**: ${result.newSession.baseDir || 'none'}\n\n`);
+                }
+                
+                stream.markdown('💡 **提示**: 您现在可以开始描述新项目的需求，我将帮助您创建SRS文档！\n\n');
+                
+                this.logger.info(`/new command completed successfully. Preserved ${preservedCount} files.`);
+            } else {
+                stream.markdown(`❌ **创建新项目失败**: ${result.error || '未知错误'}\n\n`);
+                stream.markdown('💡 请稍后重试或联系技术支持。\n\n');
+                
+                this.logger.error(`/new command failed: ${result.error}`);
+            }
+
+        } catch (error) {
+            this.logger.error('Failed to handle /new command', error as Error);
+            
+            stream.markdown(`❌ **处理 /new 命令时发生错误**\n\n`);
+            stream.markdown(`错误信息: ${(error as Error).message}\n\n`);
+            stream.markdown('💡 请稍后重试或使用 `Cmd+Shift+P` → "SRS Writer: Start New Project" 作为替代。\n\n');
         }
     }
 
@@ -308,15 +408,15 @@ export class SRSChatParticipant {
                 followups.push(
                     { label: '📊 查看项目状态', prompt: '/status' },
                     { label: '✏️ 编辑项目', prompt: '/edit' },
-                    { label: '🔍 质量检查', prompt: '/lint' },
+                    { label: '🆕 归档并创建新项目', prompt: '/new' },
                     { label: '💡 获取帮助', prompt: '/help' }
                 );
             } else {
                 // 无项目时的建议
                 followups.push(
-                    { label: '🚀 创建新项目', prompt: '我想创建一个新的项目' },
+                    { label: '🆕 创建新项目', prompt: '/new' },
                     { label: '💡 获取帮助', prompt: '/help' },
-                    { label: '📊 查看状态', prompt: '/status' }
+                    { label: '📊 查看项目状态', prompt: '/status' }
                 );
             }
 
@@ -327,6 +427,21 @@ export class SRSChatParticipant {
                 { label: '💡 获取帮助', prompt: '/help' }
             ];
         }
+    }
+
+    /**
+     * 🚀 v3.0新增：清理过期引擎（用于强制同步）
+     */
+    public async clearStaleEngines(): Promise<void> {
+        const engineCount = this.engineRegistry.size;
+        
+        // 清理所有引擎，它们会重新获取最新的SessionContext
+        this.engineRegistry.forEach(engine => {
+            engine.dispose(); // 取消观察者订阅
+        });
+        this.engineRegistry.clear();
+        
+        this.logger.info(`🧹 Cleared ${engineCount} stale engines from registry`);
     }
 
     /**

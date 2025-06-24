@@ -51,6 +51,12 @@ import {
     systemToolsCategory 
 } from './internal/systemTools';
 
+import { 
+    createNewProjectFolderToolDefinitions, 
+    createNewProjectFolderToolImplementations,
+    createNewProjectFolderToolCategory 
+} from './internal/createNewProjectFolderTool';
+
 // 导入访问控制类型
 import { CallerType } from '../types/index';
 
@@ -193,6 +199,14 @@ class ToolRegistry {
             systemToolDefinitions,
             systemToolImplementations,
             systemToolsCategory,
+            'internal'
+        );
+
+        // 注册项目管理工具
+        this.registerToolsFromCategory(
+            createNewProjectFolderToolDefinitions,
+            createNewProjectFolderToolImplementations,
+            createNewProjectFolderToolCategory,
             'internal'
         );
 
@@ -504,5 +518,7 @@ export {
     documentImporterToolDefinitions,
     documentImporterToolImplementations,
     systemToolDefinitions,
-    systemToolImplementations
+    systemToolImplementations,
+    createNewProjectFolderToolDefinitions,
+    createNewProjectFolderToolImplementations
 }; 

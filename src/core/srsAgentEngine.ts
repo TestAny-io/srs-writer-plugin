@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Logger } from '../utils/logger';
-import { SessionContext } from '../types/session';
+import { SessionContext, ISessionObserver, OperationType } from '../types/session';
+import { SessionManager } from './session-manager';
 import { AIPlan, AIResponseMode, ToolExecutionResult, createToolExecutionResult, ErrorCodes } from '../types/index';
 import { toolRegistry, ToolDefinition } from '../tools/index';
 
@@ -14,15 +15,24 @@ import { ContextManager } from './engine/ContextManager';
 import { SpecialistExecutor } from './specialistExecutor';
 
 /**
- * SRS Agent Engine - 智能执行引擎架构
+ * 🚀 SRS Agent Engine v3.0 - 观察者模式重构版
+ * 
+ * 核心改进：
+ * - 👥 实现 ISessionObserver：自动接收SessionContext变更通知
+ * - ⚡ 动态获取：不再持有过时的SessionContext快照
+ * - 🔄 实时同步：SessionContext变更时自动更新内部状态
+ * - 🏛️ 单例依赖：使用SessionManager单例获取最新数据
+ * 
  * 基于业界最佳实践的Autonomous + Transparent执行模式
  */
-export class SRSAgentEngine {
+export class SRSAgentEngine implements ISessionObserver {
   private state: AgentState;
   private stream: vscode.ChatResponseStream;
   private logger = Logger.getInstance();
-  private sessionContext: SessionContext;
   private selectedModel: vscode.LanguageModelChat;
+  
+  // 🚀 v3.0修改：使用SessionManager单例替代快照副本
+  private sessionManager: SessionManager;
   
   // 依赖注入的组件
   private orchestrator?: any;
@@ -40,12 +50,14 @@ export class SRSAgentEngine {
 
   constructor(
     stream: vscode.ChatResponseStream,
-    sessionContext: SessionContext,
     selectedModel: vscode.LanguageModelChat
   ) {
     this.stream = stream;
-    this.sessionContext = sessionContext;
     this.selectedModel = selectedModel;
+    
+    // 🚀 v3.0重构：使用SessionManager单例并订阅变更
+    this.sessionManager = SessionManager.getInstance();
+    this.sessionManager.subscribe(this);
     
     this.state = {
       stage: 'planning',
@@ -62,7 +74,29 @@ export class SRSAgentEngine {
     this.loopDetector = new LoopDetector();
     this.contextManager = new ContextManager();
 
-    this.logger.info('🚀 SRSAgentEngine initialized - Autonomous + Transparent mode');
+    this.logger.info('🚀 SRSAgentEngine v3.0 initialized - Observer pattern with dynamic SessionContext');
+  }
+
+  /**
+   * 🚀 v3.0新增：实现观察者接口，接收SessionContext变更通知
+   */
+  public onSessionChanged(newContext: SessionContext | null): void {
+    this.logger.info(`🔄 Engine received session context update: ${newContext?.projectName || 'null'}`);
+    
+    // 这里可以根据需要添加特定的处理逻辑
+    // 例如：如果会话被清理，可能需要重置某些状态
+    if (!newContext && this.state.stage === 'awaiting_user') {
+      this.logger.info('🧹 Session cleared while awaiting user, resetting engine state');
+      this.state.stage = 'completed';
+      this.state.pendingInteraction = undefined;
+    }
+  }
+
+  /**
+   * 🚀 v3.0新增：动态获取最新的SessionContext
+   */
+  private async getCurrentSessionContext(): Promise<SessionContext | null> {
+    return await this.sessionManager.getCurrentSession();
   }
 
   /**
@@ -74,10 +108,9 @@ export class SRSAgentEngine {
   }
 
   /**
-   * 🚀 新增：更新当前交互参数但保持引擎状态
+   * 🚀 更新当前交互参数但保持引擎状态 - v3.0简化版
    * 
-   * 这是持久化引擎架构的关键方法，允许引擎在多次交互间复用
-   * 同时保持执行历史和等待状态
+   * 注意：移除了sessionContext参数，因为现在动态获取
    */
   public updateStreamAndModel(
     stream: vscode.ChatResponseStream,
@@ -86,7 +119,8 @@ export class SRSAgentEngine {
     this.stream = stream;
     this.selectedModel = model;
     // 注意：不重置state，保持引擎的记忆和状态
-    this.logger.info('🔄 Engine stream and model updated, state preserved');
+    // 注意：不需要更新sessionContext，因为现在动态获取
+    this.logger.info('🔄 Engine stream and model updated, state preserved, SessionContext dynamically retrieved');
   }
 
   /**
@@ -117,7 +151,7 @@ export class SRSAgentEngine {
     
     // 🚀 关键修改：保留执行历史，添加任务分隔符
     if (this.state.executionHistory.length > 0) {
-      this.recordExecution('result', `--- 新任务开始: ${userInput} ---`, true);
+      await this.recordExecution('result', `--- 新任务开始: ${userInput} ---`, true);
     }
     
     // 限制历史记录大小，避免内存无限增长
@@ -175,7 +209,7 @@ export class SRSAgentEngine {
     this.stream.markdown(`👤 **您的回复**: ${response}\n\n`);
     
     // 记录用户交互
-    this.recordExecution('user_interaction', `用户回复: ${response}`, true);
+    await this.recordExecution('user_interaction', `用户回复: ${response}`, true);
     
     // 🚀 关键修复：检查是否需要恢复specialist执行
     if (this.state.resumeContext) {
@@ -248,7 +282,7 @@ export class SRSAgentEngine {
             this.state.pendingInteraction = undefined;
             this.state.stage = 'completed';
             
-            this.recordExecution('result', parsedResult.summary, true);
+            await this.recordExecution('result', parsedResult.summary, true);
             this.displayExecutionSummary();
             return;
           }
@@ -268,7 +302,7 @@ export class SRSAgentEngine {
         this.state.pendingInteraction = undefined;
         this.state.stage = 'completed';
         
-        this.recordExecution('result', '专家任务恢复执行完成', true);
+        await this.recordExecution('result', '专家任务恢复执行完成', true);
         this.displayExecutionSummary();
         return;
         
@@ -379,7 +413,7 @@ export class SRSAgentEngine {
       if (plan.direct_response) {
         // 有直接回复，显示并完成
         this.stream.markdown(`💬 **AI回复**: ${plan.direct_response}\n\n`);
-        this.recordExecution('result', plan.direct_response, true);
+        await this.recordExecution('result', plan.direct_response, true);
         this.state.stage = 'completed';
         return;
       } else if (plan.tool_calls && plan.tool_calls.length > 0) {
@@ -519,7 +553,7 @@ export class SRSAgentEngine {
       // 调用Orchestrator的规划方法
       const plan = await this.orchestrator.generateUnifiedPlan(
         this.state.currentTask,
-        this.sessionContext,
+        await this.getCurrentSessionContext(),
         this.selectedModel,
         historyContext, // 🚀 历史上下文
         toolResultsContext // 🚀 工具结果上下文
@@ -539,9 +573,9 @@ export class SRSAgentEngine {
   }
 
   /**
-   * 记录执行历史的封装方法
+   * 🚀 v5.0更新：记录执行历史的封装方法 - 添加选择性汇报机制
    */
-  private recordExecution(
+  private async recordExecution(
     type: ExecutionStep['type'], 
     content: string, 
     success?: boolean,
@@ -551,7 +585,8 @@ export class SRSAgentEngine {
     duration?: number,
     errorCode?: string,
     retryCount?: number
-  ): void {
+  ): Promise<void> {
+    // 1. 保持现有的运行时内存记录
     this.contextManager.recordExecution(
       this.state.executionHistory,
       this.state.iterationCount,
@@ -565,6 +600,29 @@ export class SRSAgentEngine {
       errorCode,
       retryCount
     );
+    
+    // 2. v5.0新增：选择性汇报重要业务事件到SessionManager
+    if (this.isBusinessEvent(type, content, toolName)) {
+      try {
+        const operationType = this.mapToOperationType(type, content, success, toolName);
+        
+        await this.sessionManager.updateSessionWithLog({
+          logEntry: {
+            type: operationType,
+            operation: content,
+            toolName,
+            success: success ?? true,
+            executionTime: duration,
+            error: success === false ? content : undefined
+          }
+        });
+        
+        this.logger.info(`📋 Business event reported to SessionManager: ${operationType} - ${content.substring(0, 50)}...`);
+      } catch (error) {
+        // 错误隔离：汇报失败不影响主流程
+        this.logger.warn(`Failed to report business event to SessionManager: ${(error as Error).message}`);
+      }
+    }
   }
 
   /**
@@ -572,6 +630,81 @@ export class SRSAgentEngine {
    */
   private displayExecutionSummary(): void {
     this.contextManager.displayExecutionSummary(this.state, this.stream);
+  }
+
+  /**
+   * 🚀 v5.0新增：判断是否为需要汇报的业务事件
+   */
+  private isBusinessEvent(
+    type: ExecutionStep['type'], 
+    content: string, 
+    toolName?: string
+  ): boolean {
+    switch (type) {
+      case 'user_interaction':
+        // 所有用户交互都是重要的业务事件
+        return true;
+        
+      case 'tool_call':
+        // specialist工具 或 重要的业务工具
+        return toolName?.includes('specialist') || 
+               toolName === 'createComprehensiveSRS' ||
+               toolName === 'editSRSDocument' ||
+               toolName === 'lintSRSDocument' ||
+               toolName === 'classifyProjectComplexity';
+               
+      case 'result':
+        // 重要的业务结果和里程碑
+        return content.includes('专家') || 
+               content.includes('任务完成') ||
+               content.includes('新任务开始') ||
+               content.includes('specialist') ||
+               content.includes('恢复执行');
+               
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * 🚀 v5.0新增：将ExecutionStep类型映射到OperationType
+   */
+  private mapToOperationType(
+    type: ExecutionStep['type'], 
+    content: string, 
+    success?: boolean,
+    toolName?: string
+  ): OperationType {
+    switch (type) {
+      case 'user_interaction':
+        // 根据内容判断是用户响应还是向用户提问
+        return content.includes('用户回复') ? 
+          OperationType.USER_RESPONSE_RECEIVED : 
+          OperationType.USER_QUESTION_ASKED;
+          
+      case 'tool_call':
+        // specialist工具特殊处理
+        if (toolName?.includes('specialist') || 
+            toolName === 'createComprehensiveSRS' ||
+            toolName === 'editSRSDocument') {
+          return OperationType.SPECIALIST_INVOKED;
+        }
+        
+        // 普通工具根据成功状态判断
+        if (success === true) return OperationType.TOOL_EXECUTION_END;
+        if (success === false) return OperationType.TOOL_EXECUTION_FAILED;
+        return OperationType.TOOL_EXECUTION_START;
+        
+      case 'result':
+        // 根据内容判断具体的结果类型
+        if (content.includes('专家') || content.includes('specialist')) {
+          return OperationType.SPECIALIST_INVOKED;
+        }
+        return OperationType.AI_RESPONSE_RECEIVED;
+        
+      default:
+        return OperationType.AI_RESPONSE_RECEIVED;
+    }
   }
 
   // ============================================================================
@@ -640,7 +773,7 @@ export class SRSAgentEngine {
     this.stream.markdown(`🧠 **执行专家工具**: ${toolCall.name}\n`);
     
     const startTime = Date.now();
-    this.recordExecution('tool_call', `开始执行专家工具: ${toolCall.name}`, undefined, toolCall.name, undefined, toolCall.args);
+    await this.recordExecution('tool_call', `开始执行专家工具: ${toolCall.name}`, undefined, toolCall.name, undefined, toolCall.args);
     
     try {
       const result = await this.toolExecutor.executeTool(
@@ -692,7 +825,7 @@ export class SRSAgentEngine {
           this.stream.markdown(`💬 **${parsedResult.chatQuestion}**\n\n`);
           this.stream.markdown(`请在下方输入您的回答...\n\n`);
           
-          this.recordExecution(
+          await this.recordExecution(
             'user_interaction',
             `专家工具 ${toolCall.name} 需要用户交互: ${parsedResult.chatQuestion}`,
             true,
@@ -722,7 +855,7 @@ export class SRSAgentEngine {
         this.stream.markdown(`\`\`\`json\n${outputText}\n\`\`\`\n\n`);
       }
       
-      this.recordExecution(
+      await this.recordExecution(
         'tool_call', 
         `${toolCall.name} 执行成功`, 
         true, 
@@ -740,7 +873,7 @@ export class SRSAgentEngine {
       
       this.stream.markdown(`❌ **${toolCall.name}** 执行失败 (${duration}ms): ${errorMsg}\n\n`);
       
-      this.recordExecution(
+      await this.recordExecution(
         'tool_call', 
         `${toolCall.name} 执行失败: ${errorMsg}`, 
         false, 
@@ -753,5 +886,36 @@ export class SRSAgentEngine {
       
       return { needsUserInteraction: false };
     }
+  }
+
+  // ============================================================================
+  // 🧹 资源管理
+  // ============================================================================
+
+  /**
+   * 🚀 v3.0新增：清理引擎资源，取消观察者订阅
+   */
+  public dispose(): void {
+    this.logger.info('🧹 Disposing SRSAgentEngine and unsubscribing from session changes');
+    this.sessionManager.unsubscribe(this);
+  }
+
+  /**
+   * 🚀 v3.0新增：获取引擎统计信息（用于调试和监控）
+   */
+  public getEngineStats(): { 
+    stage: string; 
+    iterationCount: number; 
+    isAwaitingUser: boolean;
+    executionHistoryLength: number;
+    currentTask: string;
+  } {
+    return {
+      stage: this.state.stage,
+      iterationCount: this.state.iterationCount,
+      isAwaitingUser: this.isAwaitingUser(),
+      executionHistoryLength: this.state.executionHistory.length,
+      currentTask: this.state.currentTask
+    };
   }
 }

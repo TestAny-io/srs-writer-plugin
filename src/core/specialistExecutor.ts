@@ -246,18 +246,29 @@ export class SpecialistExecutor {
      * 替换提示词模板中的变量
      */
     private replaceTemplateVariables(promptTemplate: string, context: any, conversationHistory?: string[], toolExecutionResults?: string[]): string {
+        // ✅ 保持原有逻辑（完全兼容）
         const userInput = context.userInput || '';
         const projectName = context.sessionData?.projectName || null;
         const hasActiveProject = !!projectName;
         
+        // 🚀 新增：语义明确的持久化信息
+        const initialUserRequest = context.userInput || '';
+        const currentUserResponse = context.currentUserResponse || '';
+        
         // 基本变量替换
         let result = promptTemplate;
+        
+        // ✅ 原有占位符保持不变（兼容性）
         result = result.replace(/\{\{USER_INPUT\}\}/g, userInput);
         result = result.replace(/\{\{PROJECT_NAME\}\}/g, projectName || 'Unknown');
         result = result.replace(/\{\{HAS_ACTIVE_PROJECT\}\}/g, hasActiveProject.toString());
         result = result.replace(/\{\{TIMESTAMP\}\}/g, new Date().toISOString());
         result = result.replace(/\{\{DATE\}\}/g, new Date().toISOString().split('T')[0]);
         result = result.replace(/\{\{INTENT\}\}/g, context.intent || '');
+        
+        // 🚀 新增：语义明确的占位符
+        result = result.replace(/\{\{INITIAL_USER_REQUEST\}\}/g, initialUserRequest);
+        result = result.replace(/\{\{CURRENT_USER_RESPONSE\}\}/g, currentUserResponse);
         
         // 上下文数据替换
         if (context.sessionData) {
@@ -277,10 +288,35 @@ export class SpecialistExecutor {
         result = result.replace(/\{\{CONVERSATION_HISTORY\}\}/g, conversationHistoryText);
         result = result.replace(/\{\{TOOL_RESULTS_CONTEXT\}\}/g, toolResultsText);
         
+        // 🚀 注入可用工具列表（JSON Schema格式）
+        result = this.injectAvailableTools(result);
+        
         // 🚀 注入工具调用指南
         result = this.injectToolCallingGuides(result);
         
         return result;
+    }
+
+    /**
+     * 🚀 新增：注入可用工具列表（JSON Schema格式）
+     */
+    private injectAvailableTools(promptTemplate: string): string {
+        try {
+            // 获取 Specialist 可用的工具定义
+            const availableTools = this.toolAccessController.getAvailableTools(CallerType.SPECIALIST);
+            
+            // 转换为 JSON Schema 格式
+            const toolsJsonSchema = JSON.stringify(availableTools, null, 2);
+            
+            // 替换 {{AVAILABLE_TOOLS}} 占位符
+            const result = promptTemplate.replace(/\{\{AVAILABLE_TOOLS\}\}/g, toolsJsonSchema);
+            
+            return result;
+            
+        } catch (error) {
+            this.logger.warn(`Failed to inject available tools: ${(error as Error).message}`);
+            return promptTemplate; // 失败时返回原模板
+        }
     }
 
     /**
@@ -404,8 +440,17 @@ You are a professional SRS (Software Requirements Specification) writer with exp
 # Task
 Create a complete, structured SRS document based on the user's requirements.
 
-# User Request
+# Initial User Request
 "${userInput}"
+
+# ⚠️ CRITICAL: Extract and Remember Key Constraints
+Before proceeding, you MUST identify and remember these critical constraints from the user request:
+- Language Requirements: Does the user specify language preferences (e.g., "中文界面", "English UI")?
+- Platform Requirements: What platform is mentioned (mobile, web, desktop)?
+- Technical Preferences: Any specific technologies, frameworks, or approaches mentioned?
+- User Experience Requirements: Any specific UX/UI preferences or constraints?
+
+💡 These constraints MUST be reflected in every section you generate.
 
 # Output Requirements
 Generate a complete SRS document in markdown format that includes:
@@ -443,6 +488,9 @@ Generate a complete SRS document in markdown format that includes:
 - Ensure all requirements follow SMART principles (Specific, Measurable, Achievable, Relevant, Time-bound)
 - Include realistic acceptance criteria
 - Maintain consistency in terminology
+- CRITICAL: Respect ALL identified constraints (language, platform, technical preferences)
+
+🚨 FINAL CONSTRAINT CHECK: Before generating, verify that your content respects ALL identified constraints from the initial user request.
 
 Generate the complete SRS document now:`;
     }
@@ -849,8 +897,14 @@ Please provide appropriate assistance based on the user's request.`;
                 newIteration++;
                 this.logger.info(`🔄 Specialist ${ruleId} resumed iteration ${newIteration}/${maxIterations}`);
                 
+                // 🚀 关键修改：增强context以包含用户回复
+                const enhancedContext = {
+                    ...context,
+                    currentUserResponse: userResponse  // 🚀 新增：当前用户回复
+                };
+                
                 // 生成下一轮的提示词，包含用户回复
-                const prompt = await this.loadSpecialistPrompt(ruleId, context, updatedConversationHistory, updatedToolExecutionResults);
+                const prompt = await this.loadSpecialistPrompt(ruleId, enhancedContext, updatedConversationHistory, updatedToolExecutionResults);
                 
                 // 🚀 获取 Specialist 可用的工具
                 const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);

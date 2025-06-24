@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode with Hybrid Intelligence Architecture",
-  "version": "1.5.0",
+  "version": "1.5.7-fix-1",
   "publisher": "testany-co",
   "enabledApiProposals": [
     "languageModelTools"
@@ -54,6 +54,10 @@
           {
             "name": "help",
             "description": "Show help information"
+          },
+          {
+            "name": "new",
+            "description": "Start a fresh conversation session"
           }
         ]
       }
@@ -183,36 +187,20 @@
         "title": "SRS Writer: Show Status"
       },
       {
-        "command": "srs-writer.editMode",
-        "title": "SRS Writer: Enter Edit Mode"
+        "command": "srs-writer.startNewProject",
+        "title": "SRS Writer: Start New Project"
       },
       {
-        "command": "srs-writer.clearSession",
-        "title": "SRS Writer: Clear Session"
-      },
-      {
-        "command": "srs-writer.runArchitectureSpike",
-        "title": "SRS Writer: Run Architecture Validation"
+        "command": "srs-writer.viewArchiveHistory",
+        "title": "SRS Writer: View Archive History"
       },
       {
         "command": "srs-writer.toggleAIMode",
         "title": "SRS Writer: Toggle AI/Fallback Mode"
       },
       {
-        "command": "srs-writer.runFullTestSuite",
-        "title": "SRS Writer: Run Full Test Suite"
-      },
-      {
-        "command": "srs-writer.runPerformanceTests",
-        "title": "SRS Writer: Run Performance Tests"
-      },
-      {
-        "command": "srs-writer.runEndToEndTests",
-        "title": "SRS Writer: Run End-to-End Tests"
-      },
-      {
-        "command": "srs-writer.showTestHelp",
-        "title": "SRS Writer: Show Test Help"
+        "command": "srs-writer.forceSyncContext",
+        "title": "SRS Writer: Force Sync Context"
       }
     ],
     "configuration": {

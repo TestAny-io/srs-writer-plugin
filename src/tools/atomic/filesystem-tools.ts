@@ -243,9 +243,9 @@ export async function createDirectory(args: {
         
         if (shouldRegisterAsProject) {
             try {
-                // 动态导入SessionManager以避免循环依赖
+                // 🚀 v3.0重构：使用SessionManager单例，解决多头管理问题
                 const { SessionManager } = await import('../../core/session-manager');
-                const sessionManager = new SessionManager();
+                const sessionManager = SessionManager.getInstance();
                 
                 // 获取当前会话，如果没有项目则更新为新创建的项目
                 const currentSession = await sessionManager.getCurrentSession();
