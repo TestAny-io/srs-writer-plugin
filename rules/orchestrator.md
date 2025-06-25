@@ -67,23 +67,50 @@ User: "How do I write good functional requirements?"
 
 #### **Detection Triggers**
 Watch for these patterns in user input:
+
+**直接项目创建意图**：
 - "我要做一个xxx系统" / "I want to create a xxx system"
 - "创建xxx应用" / "Create xxx application"  
 - "开发xxx平台" / "Develop xxx platform"
 - "设计xxx工具" / "Design xxx tool"
 - "构建xxx网站" / "Build xxx website"
+
+**间接项目创建意图（通过需求文档）**：
+- "我要写一个需求文档，关于xxx" / "I want to write requirements for xxx"
+- "写个SRS文档，关于xxx项目" / "Write an SRS document for xxx project"
+- "需求分析xxx系统" / "Requirements analysis for xxx system"
+- "为xxx应用写需求" / "Write requirements for xxx application"
+- "帮我梳理xxx项目的需求" / "Help me organize requirements for xxx project"
+
+**项目名称不匹配检测**：
 - Any input that contains a **different project name** than the current session
+- Any input that describes a **different project type/domain** than the current session
+
+**关键标识词组合**：
+- Contains both: 【需求文档/SRS/requirement】+ 【新的项目描述】
+- Contains both: 【写/创建/设计】+ 【系统/应用/平台/工具/网站/webapp/app】
+- Pattern: "关于xxx的" / "about xxx" + project-like description
 
 #### **Conflict Detection Logic**
 ```
 Current Session Check:
-├─ No current project? → Continue with creation
-└─ Has current project? → Check project name difference
-    ├─ Same project name? → Continue with current project
-    └─ Different project name? → **TRIGGER NEW PROJECT WORKFLOW**
+├─ No current project? 
+│   ├─ Direct project creation intent? → **TRIGGER NEW PROJECT WORKFLOW**
+│   ├─ Indirect project creation intent (requirements for new project)? → **TRIGGER NEW PROJECT WORKFLOW**
+│   └─ Just document creation for undefined project? → Continue with creation
+└─ Has current project? → Check project name/type difference
+    ├─ Same project name/type? → Continue with current project
+    └─ Different project name/type? → **TRIGGER NEW PROJECT WORKFLOW**
 ```
 
+**增强检测逻辑**：
+1. **提取项目信息**：从用户输入中智能提取项目名称、类型、领域
+2. **上下文分析**：分析"关于xxx"、"为xxx"等介词短语中的项目描述
+3. **意图权重**：结合多个检测触发器的权重来判断是否为新项目创建意图
+
 #### **New Project Workflow** (When Conflict Detected)
+
+**示例1: 直接项目冲突**
 ```json
 {
   "thought": "User wants to create 'Library Management System' but current project is 'E-commerce Platform'. Different project detected - must clean state first.",
@@ -96,6 +123,25 @@ Current Session Check:
         "projectName": "Library Management System",
         "reason": "检测到新项目创建意图，与当前项目不同",
         "confirmWithUser": true
+      }
+    }
+  ]
+}
+```
+
+**示例2: 间接项目创建（通过需求文档）**
+```json
+{
+  "thought": "User says '我要写一个需求文档，关于想做一个webapp，主要功能是帮助中学老师排课程表'. This matches the indirect project creation pattern: writing requirements for a new webapp project. Even though no current project exists, this clearly indicates intent to create a new project. The extracted project info: name='中学老师排课程表webapp', type='webapp', domain='education'. I should create the project folder first.",
+  "response_mode": "TOOL_EXECUTION",
+  "direct_response": null,
+  "tool_calls": [
+    {
+      "name": "createNewProjectFolder",
+      "args": {
+        "projectName": "中学老师排课程表webapp",
+        "reason": "检测到间接项目创建意图：用户要为新的webapp项目写需求文档",
+        "confirmWithUser": false
       }
     }
   ]
@@ -121,13 +167,17 @@ Once `createNewProjectFolder` succeeds, **immediately continue** with the user's
 ```
 
 #### **Key Rules for Project Detection**
-- ✅ **Extract project name intelligently** from user input
-- ✅ **Compare with current session** project name
+- ✅ **Extract project name intelligently** from user input using multiple patterns
+- ✅ **Analyze both direct and indirect creation intents**
+- ✅ **Parse contextual phrases** like "关于xxx", "为xxx", "about xxx"
+- ✅ **Compare with current session** project name and type
 - ✅ **Auto-trigger cleanup** when conflict detected
 - ✅ **Continue seamlessly** after cleanup
 - ✅ **Preserve user intent** throughout the process
+- ✅ **Detect requirements writing for new projects** as creation intent
 - ❌ **Never ignore project conflicts** - they cause context pollution
 - ❌ **Never ask user to manually use /new** - handle automatically
+- ❌ **Never skip project folder creation** for new project intents
 
 ### ❹ **UNIFIED RESPONSE FORMAT**
 

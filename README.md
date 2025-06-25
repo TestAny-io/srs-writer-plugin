@@ -1,16 +1,16 @@
-# SRS Writer - AI-Powered Requirements Engineering
+# SRS Writer - AI-Powered Requirements Engineering for VSCode
 
 <div align="center">
 
 ![SRS Writer Logo](https://img.shields.io/badge/SRS-Writer-blue?style=for-the-badge&logo=visual-studio-code)
-[![Version](https://img.shields.io/badge/Version-1.4.0-blue.svg?style=for-the-badge)](https://github.com/srs-writer-team/srs-writer-plugin)
+[![Version](https://img.shields.io/badge/Version-1.5.8-blue.svg?style=for-the-badge)](https://github.com/srs-writer-team/srs-writer-plugin)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![VSCode](https://img.shields.io/badge/VSCode-1.85+-blue?style=for-the-badge&logo=visual-studio-code)](https://code.visualstudio.com/)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green?style=for-the-badge&logo=node.js)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 
-**Production-Ready AI Assistant for Professional Software Requirements Engineering**
+**Professional AI Assistant for Software Requirements Specification Creation**
 
-[Quick Start](#-quick-start) • [Architecture](#-architecture) • [Tool Ecosystem](#-tool-ecosystem) • [Documentation](#-documentation) • [Contributing](#-contributing)
+[Quick Start](#-quick-start) • [Features](#-features) • [Architecture](#-architecture) • [Tool Ecosystem](#-tool-ecosystem) • [Documentation](#-documentation)
 
 </div>
 
@@ -18,502 +18,491 @@
 
 ## 🎯 Overview
 
-SRS Writer is a production-ready VSCode extension featuring a sophisticated AI agent capable of autonomous software requirements engineering. Built with a four-layer tool architecture and conversational intelligence, it transforms natural language discussions into comprehensive, professional-grade SRS documentation.
+SRS Writer is a production-ready VSCode extension that transforms natural language conversations into comprehensive, professional-grade Software Requirements Specification (SRS) documents. Built with intelligent AI orchestration and a sophisticated tool architecture, it automates the entire requirements engineering process while maintaining IEEE standards compliance.
 
-**Current Capabilities:**
-- **33 Specialized Tools** across 4 architectural layers
-- **Autonomous Task Execution** with intelligent planning and recovery
-- **Professional SRS Generation** following IEEE standards
-- **Persistent Session Management** maintaining project context
-- **Modular Architecture** with 17 specialized modules
+**Core Capabilities:**
+- **Intelligent Conversation Processing** - Understands project intent from natural language
+- **Automated SRS Generation** - Creates complete, structured requirement documents
+- **Multi-Project Management** - Handles multiple projects with isolated contexts
+- **Professional Tool Ecosystem** - 33+ specialized tools across 4 architectural layers
+- **Smart Session Management** - Persistent project state with automatic recovery
 
-## ✨ Core Features
+## ✨ Key Features
 
-### 🤖 Advanced AI Agent Engine
+### 🤖 Intelligent AI Orchestration
 
-- **Conversational Intelligence**: Multi-turn dialogue with context awareness and memory
-- **Autonomous Planning**: Self-organizing task execution with automatic error recovery
-- **Tool Classification**: Smart risk assessment and confirmation workflows
-- **Loop Detection**: Intelligent recovery from execution loops and edge cases
-- **Progress Tracking**: Real-time task progress with transparent status reporting
-- **Context Management**: Dynamic context window optimization and state persistence
-- **User Interaction Handling**: Smart user input processing and response management
+**Advanced Intent Recognition**: Automatically detects project creation needs from conversations like "I want to write requirements for a webapp that helps teachers schedule classes" and intelligently routes to appropriate workflows.
 
-### 🏗️ Four-Layer Tool Architecture
+**Context-Aware Processing**: Maintains project context across sessions, understands file structures, and operates within correct project directories automatically.
 
-**Production-grade tool ecosystem with 33 specialized tools:**
-
-```
-🟡 Atomic Layer (19 tools)    - VSCode API operations
-🟠 Specialist Layer (4 tools) - Business logic operations  
-🔴 Document Layer (6 tools)   - Complex document workflows
-🟣 Internal Layer (4 tools)   - System control and management
-```
+**Smart Tool Selection**: Dynamically selects appropriate tools based on task complexity and user intent, with built-in risk assessment and confirmation workflows.
 
 ### 📋 Professional Document Generation
 
-- **IEEE-Compliant SRS**: Industry-standard requirements specifications
-- **Structured YAML Files**: Machine-readable requirement definitions
-- **Bi-directional Processing**: Import from existing documents or generate from scratch
-- **Quality Assurance**: Built-in validation and consistency checking
-- **Version Control Ready**: Text-based outputs optimized for Git workflows
+**IEEE-Compliant SRS Documents**: Generates comprehensive requirements specifications with structured sections including:
+- Executive summaries and project overviews
+- Functional requirements with unique IDs and traceability
+- Non-functional requirements with measurable criteria
+- Acceptance criteria and validation standards
+- Professional formatting and consistent terminology
 
-### 🎨 Enterprise-Ready Architecture
+**Multi-Format Support**: 
+- **Markdown SRS**: Human-readable, version-control friendly
+- **YAML Requirements**: Machine-readable, structured data
+- **Tabular Requirements**: Organized functional and non-functional requirements
 
-- **Modular Design**: 15 specialized modules with clear separation of concerns
-- **Async Operations**: Non-blocking operations with progress feedback
-- **Error Recovery**: Comprehensive error handling with automatic rollback
-- **Session Persistence**: Project state maintained across VSCode sessions
-- **Plugin Architecture**: Extensible tool registry with hot-reload capabilities
+### 🏗️ Robust Project Management
+
+**Automatic Project Structure**: Creates and manages project directories with proper file organization, ensuring each project has its own isolated workspace.
+
+**Session Persistence**: Maintains project state across VSCode sessions with automatic restoration of context, active files, and conversation history.
+
+**Multi-Project Support**: Handle multiple projects simultaneously without context pollution or file conflicts.
+
+### 🛠️ Four-Layer Tool Architecture
+
+**Production-grade tool ecosystem designed for scalability:**
+
+```
+🟡 Atomic Layer (19 tools)     - Direct VSCode and filesystem operations
+🟠 Specialist Layer (4 tools)  - Complex business logic workflows  
+🔴 Document Layer (6 tools)    - Advanced document processing
+🟣 Internal Layer (4 tools)    - System control and management
+```
+
+**Tool Intelligence Features**:
+- Risk-based execution with automatic confirmations
+- Real-time progress tracking and status reporting
+- Graceful error handling with automatic recovery
+- Dynamic tool registration and hot-reload capability
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Node.js 18+** 
-- **VSCode 1.85.0+**
-- **AI Provider** (GitHub Copilot, Claude, or OpenAI)
+- **VSCode 1.85.0+** with chat feature enabled
+- **Node.js 18+** for development
+- **AI Provider**: GitHub Copilot, Claude, or compatible language model
 
-### Installation
+### Installation & Setup
 
 ```bash
-# Clone and install
+# Clone the repository
 git clone https://github.com/srs-writer-team/srs-writer-plugin.git
 cd srs-writer-plugin
-yarn install
-yarn build:prod
 
-# Install in VSCode
-# Press F5 to launch extension development host
+# Install dependencies
+npm install
+
+# Build the extension
+npm run compile
+
+# Package the extension (optional)
+npm run package
 ```
 
-### First Project in 2 Minutes
+### Creating Your First SRS Document
 
-1. **Open VSCode Chat Panel** (Ctrl+Shift+I)
-2. **Start with @srs-writer**:
+1. **Open VSCode Chat Panel** (`Ctrl+Shift+I` or `Cmd+Shift+I`)
+2. **Start a conversation with @srs-writer**:
 
    ```text
-   @srs-writer Create a task management system for a team of 10 developers
+   @srs-writer I want to create requirements for a task management webapp that helps development teams track sprints and assignments
    ```
 
-3. **Watch autonomous execution**:
-   - Project structure analysis
-   - Requirements extraction and organization
-   - Professional SRS document generation
-   - Quality validation and reporting
+3. **Watch the AI orchestration**:
+   - Automatically detects new project intent
+   - Creates project directory structure
+   - Generates comprehensive SRS document
+   - Validates document completeness and quality
+
+### Example Workflows
+
+**Comprehensive Project Creation**:
+```text
+@srs-writer Create a healthcare management system with patient records, appointment scheduling, and billing integration
+```
+
+**Requirement Enhancement**:
+```text
+@srs-writer Add mobile app support and offline synchronization to my existing project
+```
+
+**Quality Assurance**:
+```text
+@srs-writer Review my requirements document for completeness and suggest improvements
+```
 
 ## 🏗️ Architecture
 
-### System Architecture Overview
+### System Overview
 
-SRS Writer employs a sophisticated multi-layer architecture designed for enterprise-scale requirements engineering:
+SRS Writer employs a sophisticated multi-layer architecture optimized for professional requirements engineering:
 
 ```mermaid
 flowchart TB
-    subgraph "🎯 Presentation Layer"
-        UI["VSCode Chat Interface"]
+    subgraph "💬 User Interface"
+        CHAT["VSCode Chat Integration"]
         CMD["Command Palette"]
-        STATUS["Status Bar Integration"]
+        STATUS["Status Indicators"]
     end
     
-    subgraph "🧠 Intelligence Layer"
+    subgraph "🧠 AI Orchestration Layer"
         ORCH["Orchestrator Engine"]
-        AGENT["SRS Agent Engine"] 
-        PLAN["Plan Generator"]
-        EXEC["Conversational Executor"]
+        INTENT["Intent Recognition"]
+        PLAN["Planning & Routing"]
+        EXEC["Execution Engine"]
     end
     
     subgraph "🔧 Tool Execution Layer"
-        ATOM["Atomic Tools (18)"]
-        SPEC["Specialist Tools (2)"]
-        DOC["Document Tools (4)"]
-        SYS["System Tools (3)"]
+        ATOMIC["Atomic Tools (19)"]
+        SPECIALIST["Specialist Tools (4)"]
+        DOCUMENT["Document Tools (6)"]
+        INTERNAL["Internal Tools (4)"]
     end
     
-    subgraph "💾 Data Layer"
-        FS["File System Manager"]
-        SESS["Session Manager"]
-        CACHE["Tool Cache Manager"]
+    subgraph "💾 Core Services"
+        SESSION["Session Manager"]
         CONTEXT["Context Manager"]
+        FILESYSTEM["File System Manager"]
+        LOGGER["Logging & Analytics"]
     end
     
-    UI --> ORCH
+    CHAT --> ORCH
     CMD --> ORCH
-    STATUS --> AGENT
     
-    ORCH --> PLAN
-    ORCH --> EXEC
-    AGENT --> EXEC
+    ORCH --> INTENT
+    INTENT --> PLAN
+    PLAN --> EXEC
     
-    PLAN --> ATOM
-    EXEC --> SPEC
-    EXEC --> DOC
-    EXEC --> SYS
+    EXEC --> ATOMIC
+    EXEC --> SPECIALIST
+    EXEC --> DOCUMENT
+    EXEC --> INTERNAL
     
-    ATOM --> FS
-    SPEC --> SESS
-    DOC --> CACHE
-    SYS --> CONTEXT
+    ATOMIC --> SESSION
+    SPECIALIST --> CONTEXT
+    DOCUMENT --> FILESYSTEM
+    INTERNAL --> LOGGER
     
-    style UI fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
+    style CHAT fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
     style ORCH fill:#553c9a,stroke:#6b46c1,stroke-width:2px,color:#ffffff
-    style ATOM fill:#065f46,stroke:#059669,stroke-width:2px,color:#ffffff
-    style FS fill:#92400e,stroke:#d97706,stroke-width:2px,color:#ffffff
+    style ATOMIC fill:#065f46,stroke:#059669,stroke-width:2px,color:#ffffff
+    style SESSION fill:#92400e,stroke:#d97706,stroke-width:2px,color:#ffffff
 ```
 
 ### Core Engine Components
 
-| Component | Purpose | Lines of Code | Key Features |
-|-----------|---------|---------------|--------------|
-| **Orchestrator** | AI planning and task routing | 402 | Multi-modal execution, intelligent triage |
-| **SRS Agent Engine** | Autonomous task execution | 503 | Loop detection, error recovery, state management |
-| **Specialist Executor** | Business logic coordination | 552 | Rule-based execution, specialist tool management |
-| **Context Manager** | Memory and history management | - | Session persistence, context optimization |
-| **Tool Executor** | Tool dispatch and coordination | 333 | Risk assessment, confirmation workflows |
-
-### Modular Design Principles
-
-- **Separation of Concerns**: Each module has a single, well-defined responsibility
-- **Dependency Injection**: Clean interfaces enable easy testing and extension
-- **Event-Driven Architecture**: Async operations with comprehensive error handling
-- **Plugin Architecture**: Tool registry supports dynamic loading and hot-reload
+| Component | Purpose | Key Capabilities |
+|-----------|---------|------------------|
+| **Orchestrator** | AI decision engine and task routing | Intent detection, conflict resolution, multi-modal execution |
+| **Session Manager** | Project state and context management | Persistent sessions, multi-project support, automatic recovery |
+| **Specialist Executor** | Complex workflow coordination | Business logic execution, tool chaining, error recovery |
+| **Tool Registry** | Tool management and access control | Dynamic registration, risk assessment, permission management |
+| **Context Manager** | Memory and conversation management | Context optimization, history tracking, state persistence |
 
 ## 🛠️ Tool Ecosystem
 
-### Tool Distribution by Layer
+### Tool Distribution & Capabilities
 
 ```
-Total Tools: 33
-├── 🟡 Atomic Layer: 19 tools (57.6%)
-│   ├── File Operations: readFile, writeFile, appendTextToFile, createDirectory, listFiles, deleteFile, renameFile
-│   ├── Editor Integration: insertText, replaceText, getUserSelection, openAndShowFile, openAndSelectRange
-│   ├── Knowledge Retrieval: readLocalKnowledge, internetSearch, enterpriseRAGCall
-│   └── User Interaction: askQuestion, showProgressIndicator, suggestNextAction, showInformationMessage, showWarningMessage
-│
-├── 🟠 Specialist Layer: 4 tools (12.1%)
-│   ├── SRS Management: createComprehensiveSRS, editSRSDocument
-│   ├── Quality Assurance: classifyProjectComplexity, lintSRSDocument
-│   └── [Expansion Ready: Plugin architecture supports dynamic tool loading]
-│
-├── 🔴 Document Layer: 6 tools (18.2%)
-│   ├── Requirements Management: addNewRequirement, listRequirements
-│   ├── Document Generation: generateFullSrsReport, generateSectionFromYaml
-│   └── Document Import: importFromMarkdown, parseMarkdownTable
-│
-└── 🟣 Internal Layer: 4 tools (12.1%)
-    ├── Task Control: finalAnswer, reportProgress
-    ├── Knowledge Retrieval: customRAGRetrieval, readLocalKnowledge, internetSearch
-    └── System Status: getSystemStatus
+📊 Total: 33 Specialized Tools
+
+🟡 Atomic Layer (19 tools) - 57.6%
+├── File Operations: readFile, writeFile, appendTextToFile, createDirectory
+├── Editor Integration: insertText, replaceText, openAndShowFile
+├── User Interaction: askQuestion, showProgressIndicator, suggestNextAction
+└── Knowledge Access: readLocalKnowledge, internetSearch
+
+🟠 Specialist Layer (4 tools) - 12.1%
+├── SRS Creation: createComprehensiveSRS (autonomous document generation)
+├── SRS Editing: editSRSDocument (intelligent content modification)
+├── Quality Assurance: lintSRSDocument (compliance checking)
+└── Project Analysis: classifyProjectComplexity (scope assessment)
+
+🔴 Document Layer (6 tools) - 18.2%
+├── Requirements: addNewRequirement, listRequirements
+├── Generation: generateFullSrsReport, generateSectionFromYaml
+└── Import/Export: importFromMarkdown, parseMarkdownTable
+
+🟣 Internal Layer (4 tools) - 12.1%
+├── System Control: finalAnswer, reportProgress
+├── Project Management: createNewProjectFolder
+└── Knowledge Retrieval: customRAGRetrieval
 ```
 
-### Tool Intelligence Features
+### Advanced Tool Features
 
-- **Risk Classification**: Automatic assessment (low/medium/high risk)
-- **Interaction Modes**: Autonomous, confirmation-required, or interactive
-- **Usage Analytics**: Real-time monitoring and performance tracking
-- **Dynamic Registration**: Hot-reload capability for new tools
-- **Access Control**: Distributed security model with caller-based permissions
-- **Performance Monitoring**: Real-time tool execution analytics and optimization
+**Intelligent File Operations**: Tools automatically determine correct project directories and maintain file organization without manual path specification.
 
-### High-Value Tool Examples
+**Risk-Aware Execution**: Each tool is classified by risk level (low/medium/high) with appropriate confirmation workflows for user safety.
+
+**Progress Tracking**: Real-time status reporting with detailed execution logs and error recovery mechanisms.
+
+**Context Integration**: Tools automatically access project context, session history, and user preferences for intelligent operation.
+
+### Example Tool Usage
 
 ```typescript
-// Specialist Layer - Business Intelligence
+// Specialist Layer - Autonomous SRS Creation
 await createComprehensiveSRS({
-    projectName: "E-commerce Platform",
-    description: "Full-featured online store with payment processing",
-    includeTemplate: true
+    userInput: "E-commerce platform with payment processing",
+    projectName: "ShopMaster",
+    sessionData: currentProjectContext
 });
 
-// Document Layer - Professional Output  
+// Document Layer - Professional Report Generation  
 await generateFullSrsReport({
-    projectPath: "my-project",
-    outputFileName: "SRS_v1.0_Final.md",
+    projectPath: "ShopMaster",
+    outputFileName: "SRS_ShopMaster_v1.0.md",
     includeMetadata: true
 });
 
-// Atomic Layer - Smart Operations
+// Atomic Layer - Smart File Operations
 await createDirectory({
-    path: "new-project-folder",
-    isProjectDirectory: true  // Automatically updates session context
-});
-
-// Document Layer - Requirements Management
-await addNewRequirement({
-    projectPath: "my-project",
-    requirement: {
-        name: "User Authentication",
-        priority: "高",
-        description: "Secure login with multi-factor authentication",
-        acceptance_criteria: "Users can login with email/password + SMS verification"
-    }
+    path: "mobile-app-requirements",
+    isProjectDirectory: true  // Auto-updates session context
 });
 ```
 
-## 📊 Current Status & Metrics
-
-### Development Metrics
-
-<div align="center">
-
-![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue)
-![Architecture](https://img.shields.io/badge/Modules-17-green)
-![Tools](https://img.shields.io/badge/Tools-33-brightgreen)
-![Coverage](https://img.shields.io/badge/Test_Coverage-85%25-green)
-
-</div>
+## 📊 Technical Specifications
 
 ### Performance Characteristics
 
-- **Response Time**: <2 seconds for common operations
-- **Memory Usage**: <50MB typical working set
-- **Tool Execution**: <500ms average per tool call
+- **Response Time**: <2 seconds for most operations
+- **Memory Footprint**: <50MB typical working set
+- **Tool Execution**: <500ms average per atomic tool
 - **Session Loading**: <100ms for existing projects
+- **Document Generation**: 30-60 seconds for comprehensive SRS
 
 ### Reliability Features
 
-- **Error Recovery**: Automatic rollback on failures
-- **State Persistence**: Crash-resistant session management  
-- **Loop Detection**: Intelligent handling of execution cycles
-- **Graceful Degradation**: Fallback modes for edge cases
+- **Automatic Error Recovery**: Intelligent rollback on operation failures
+- **Session Persistence**: Crash-resistant project state management
+- **Context Validation**: Automatic detection and correction of inconsistent states
+- **Graceful Degradation**: Fallback modes for network or AI service interruptions
+
+### Compatibility
+
+- **VSCode Versions**: 1.85.0+ (requires chat feature)
+- **Node.js**: 18.0+ for development and packaging
+- **AI Models**: Compatible with GitHub Copilot, Claude, OpenAI GPT series
+- **Operating Systems**: Windows, macOS, Linux
+- **File Formats**: Markdown, YAML, JSON, plain text
 
 ## 📁 Project Structure
 
 ```
 srs-writer-plugin/
-├── 📦 src/                          # Source code (TypeScript)
-│   ├── 🎯 core/                     # Core intelligence modules
-│   │   ├── orchestrator.ts          # Main AI orchestrator (402 lines)
-│   │   ├── srsAgentEngine.ts        # Autonomous agent engine (503 lines)
-│   │   ├── specialistExecutor.ts    # Specialist coordination (552 lines)
-│   │   ├── engine/                  # Engine sub-modules (7 files)
-│   │   └── orchestrator/            # Orchestrator sub-modules (8 files)
-│   ├── 🔧 tools/                    # Four-layer tool architecture
-│   │   ├── atomic/                  # VSCode API tools (19 tools)
-│   │   ├── specialist/              # Business logic tools (4 tools)
-│   │   ├── document/                # Document processing tools (6 tools)
-│   │   └── internal/                # System control tools (4 tools)
-│   ├── 💬 chat/                     # VSCode chat integration
-│   ├── 🔍 parser/                   # Document processing (markdown, YAML)
-│   ├── 🗂️ filesystem/               # File management
-│   ├── ✅ quality/                  # Quality assurance and linting
-│   ├── 🧪 test/                     # Test suites and fixtures
-│   ├── 🔧 utils/                    # Utility functions (logger, error handler)
-│   └── 🎨 types/                    # TypeScript definitions
-├── 📋 rules/                        # AI behavior rules
-│   ├── orchestrator.md              # Main orchestrator rules (310 lines)
-│   └── specialists/                 # Task-specific rules (9 files)
-├── ⚙️ config/                       # Configuration files
+├── 📦 src/                          # Core TypeScript source code
+│   ├── 🧠 core/                     # AI orchestration and execution engines
+│   │   ├── orchestrator.ts          # Main AI decision engine (310+ rules)
+│   │   ├── srsAgentEngine.ts        # Autonomous task execution
+│   │   ├── specialistExecutor.ts    # Complex workflow coordination
+│   │   ├── session-manager.ts       # Project state management
+│   │   ├── engine/                  # Core engine components (7 modules)
+│   │   └── orchestrator/            # Orchestration sub-systems (8 modules)
+│   ├── 🛠️ tools/                    # Four-layer tool architecture
+│   │   ├── atomic/                  # VSCode and filesystem operations (19 tools)
+│   │   ├── specialist/              # Business logic workflows (4 tools)
+│   │   ├── document/                # Document processing (6 tools)
+│   │   └── internal/                # System control (4 tools)
+│   ├── 💬 chat/                     # VSCode chat participant integration
+│   ├── 🔍 parser/                   # Document processing (Markdown, YAML)
+│   ├── 🗂️ filesystem/               # File management and organization
+│   ├── ✅ quality/                  # Document validation and linting
+│   ├── 🎨 types/                    # TypeScript type definitions
+│   └── 🔧 utils/                    # Utilities (logging, error handling)
+├── 📋 rules/                        # AI behavior and decision rules
+│   ├── orchestrator.md              # Main orchestration logic (400+ lines)
+│   └── specialists/                 # Task-specific specialist rules (9 files)
+├── ⚙️ config/                       # Configuration and settings
 ├── 📚 docs/                         # Architecture and implementation guides
-│   ├── ai-response-format-standard.md
-│   ├── model-configuration.md
-│   ├── tool-access-control-matrix.md
-│   └── specialist-tool-calling-implementation.md
-├── 📄 templates/                    # SRS templates and samples
+├── 📄 templates/                    # SRS templates and examples
 └── 🧪 src/test/                     # Comprehensive test suites
-    ├── integration/                 # End-to-end testing
+    ├── integration/                 # End-to-end workflow testing
     ├── performance/                 # Performance benchmarks
-    └── fixtures/                    # Test data and cases
+    └── fixtures/                    # Test data and mock scenarios
 ```
 
-## 💬 Usage Patterns
+## 💡 Usage Examples
 
-### Project Creation
+### Professional SRS Creation
 
+**Input**:
 ```text
-@srs-writer Create an e-commerce platform with the following features:
-- User registration and authentication
-- Product catalog with search and filtering  
-- Shopping cart and checkout process
-- Payment integration with Stripe
-- Admin dashboard for inventory management
+@srs-writer Create a comprehensive requirements document for a university course management system. Include student enrollment, grade tracking, course scheduling, and instructor management features.
 ```
 
-**Result**: Complete SRS document with structured requirements, YAML definitions, and quality validation.
+**Generated Output**:
+- Complete SRS document with IEEE-standard structure
+- Functional requirements table with unique IDs
+- Non-functional requirements with measurable criteria
+- Acceptance criteria and validation standards
+- Project classification and complexity analysis
 
-### Requirement Management
+### Multi-Project Management
+
+**Scenario**: Managing multiple concurrent projects
 
 ```text
-@srs-writer Add a new requirement for real-time notifications in my task management system
+@srs-writer Create requirements for a mobile fitness tracking app
+# Creates Project A with isolated context
 
-@srs-writer Update the payment processing requirements to include cryptocurrency support
+@srs-writer Now create requirements for an inventory management system  
+# Automatically switches to Project B, maintains separate contexts
 
-@srs-writer Review the current requirements for completeness and consistency
+@srs-writer Switch back to the fitness app and add social features
+# Intelligently returns to Project A context
 ```
 
-### Document Operations
+### Intelligent Document Enhancement
 
 ```text
-@srs-writer Generate a final SRS report for client presentation
+@srs-writer Review my current requirements and suggest improvements for scalability
 
-@srs-writer Import requirements from the existing project specification document
+@srs-writer Add requirements for API integration and third-party data sources
 
-@srs-writer Validate the document structure and identify any missing sections
-```
-
-### Project Analysis
-
-```text
-@srs-writer /status
-
-@srs-writer Analyze the current project structure and provide recommendations
-
-@srs-writer Show me the current requirements coverage and any gaps
+@srs-writer Generate a final presentation-ready document with executive summary
 ```
 
 ## 🧪 Quality Assurance
 
-### Testing Strategy
+### Comprehensive Testing Strategy
 
-- **Unit Tests**: Individual module functionality
-- **Integration Tests**: Cross-module interactions  
-- **Architecture Tests**: Design principle validation
-- **Performance Tests**: Response time and memory usage
-- **End-to-End Tests**: Complete user workflows
+- **Unit Tests**: Individual component functionality and edge cases
+- **Integration Tests**: Cross-component interactions and data flow
+- **Architecture Tests**: Design principle compliance and dependency validation
+- **Performance Tests**: Response time, memory usage, and scalability metrics
+- **End-to-End Tests**: Complete user workflows and real-world scenarios
 
-### Quality Gates
+### Quality Standards
 
-- **TypeScript**: Strict mode with comprehensive type checking
-- **ESLint**: Enforced code style and best practices
-- **Prettier**: Consistent code formatting
-- **Jest**: Test coverage requirements (>85%)
-- **Architecture Validation**: Automated design compliance
+- **TypeScript Strict Mode**: Comprehensive type safety and compile-time validation
+- **ESLint Configuration**: Enforced coding standards and best practices
+- **Test Coverage**: >85% code coverage requirement with quality metrics
+- **Architecture Compliance**: Automated validation of four-layer design principles
+- **Documentation Standards**: Comprehensive inline documentation and API references
 
 ### Reliability Mechanisms
 
-- **Graceful Error Handling**: Comprehensive try-catch with user-friendly messages
-- **Automatic Rollback**: Database-style transactions for file operations
-- **Session Recovery**: Automatic restoration of interrupted sessions
-- **Resource Management**: Proper cleanup and memory management
+- **Graceful Error Handling**: User-friendly error messages with recovery suggestions
+- **Automatic State Recovery**: Database-style transactions with rollback capabilities
+- **Resource Management**: Proper cleanup and memory leak prevention
+- **Logging & Analytics**: Comprehensive operational monitoring and debugging support
 
-## 🛠️ Development & Contributing
+## 🚀 Development & Contributing
 
-### Development Environment Setup
+### Development Environment
 
 ```bash
-# Clone repository
+# Setup development environment
 git clone https://github.com/srs-writer-team/srs-writer-plugin.git
 cd srs-writer-plugin
+npm install
 
-# Install dependencies
-yarn install
+# Development workflow
+npm run compile          # TypeScript compilation
+npm run watch           # Development with hot reload
+npm run test            # Run all test suites
+npm run package         # Create distributable VSIX
 
-# Development mode with hot reload
-yarn dev
-
-# Run test suite
-yarn test
-
-# Production build
-yarn build:prod
-
-# Architecture validation
-yarn test:architecture
+# Quality assurance
+npm run lint            # Code style validation
+npm run test:coverage   # Coverage analysis
+npm run test:integration # End-to-end testing
 ```
 
-### Available Commands
+### Architecture Guidelines
 
-| Command | Purpose | Usage |
-|---------|---------|-------|
-| `yarn dev` | Development with hot reload | Daily development |
-| `yarn build` | Development build | Testing builds |
-| `yarn build:prod` | Production build | Release preparation |
-| `yarn test` | Run all tests | Quality assurance |
-| `yarn test:spike` | Architecture validation | Design compliance |
-| `yarn lint` | Code style check | Pre-commit validation |
+1. **Four-Layer Compliance**: All new tools must fit within the established architectural layers
+2. **Type Safety**: Strict TypeScript with comprehensive interface definitions
+3. **Error Handling**: Graceful failure modes with user-friendly messaging
+4. **Testing Requirements**: Minimum 85% coverage for new components
+5. **Documentation**: Comprehensive inline documentation and usage examples
 
-### Contribution Guidelines
+### Contributing Workflow
 
-1. **Architecture Compliance**: Follow four-layer tool architecture
-2. **Code Quality**: Maintain >85% test coverage
-3. **Documentation**: Update README for user-facing changes
-4. **Type Safety**: Use strict TypeScript throughout
-5. **Performance**: Keep tool execution <500ms average
+1. **Fork & Clone**: Create your development environment
+2. **Feature Development**: Implement changes following architecture guidelines
+3. **Testing**: Ensure all tests pass and coverage requirements are met
+4. **Documentation**: Update relevant documentation and examples
+5. **Pull Request**: Submit with detailed description and test coverage report
 
 ## 📚 Documentation & Resources
 
-### User Documentation
+### User Guides
 
-- [Quick Start Guide](docs/quick-start.md) - Get running in minutes
-- [Tool Architecture Report](工具架构报告.md) - Complete tool ecosystem overview
-- [AI Response Format Standard](docs/ai-response-format-standard.md) - Response structure guidelines
-- [Model Configuration](docs/model-configuration.md) - AI model setup and tuning
-- [Tool Access Control Matrix](docs/tool-access-control-matrix.md) - Security and permissions
+- **[Quick Start Guide](docs/quick-start.md)** - Get productive in minutes
+- **[Tool Reference](docs/tool-reference.md)** - Complete tool documentation
+- **[Best Practices](docs/best-practices.md)** - Professional usage patterns
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
-### Developer Resources
+### Technical Documentation
 
-- [Orchestrator Rules](rules/orchestrator.md) - AI decision engine guidelines (310 lines)
-- [Specialist Implementation](docs/specialist-tool-calling-implementation.md) - Business logic patterns
-- [Tool Development](docs/tool-development.md) - Adding new tools
-- [Architecture Testing](docs/spike-testing-guide.md) - Design validation methods
+- **[Architecture Overview](docs/architecture.md)** - System design and principles
+- **[API Reference](docs/api-reference.md)** - Programmatic interfaces
+- **[Tool Development Guide](docs/tool-development.md)** - Creating custom tools
+- **[Testing Framework](docs/testing.md)** - Quality assurance methodology
 
-### API Reference
+### Configuration & Setup
 
-- [Tool Registry API](src/tools/index.ts) - Tool registration and management
-- [Core Interfaces](src/types/index.ts) - TypeScript type definitions
-- [Session Management](src/core/session-manager.ts) - State persistence APIs
+- **[AI Model Configuration](docs/model-configuration.md)** - AI provider setup
+- **[Access Control Matrix](docs/tool-access-control-matrix.md)** - Security configuration
+- **[Performance Tuning](docs/performance-tuning.md)** - Optimization guidelines
 
-## 🗺️ Roadmap & Vision
+## 🎯 Roadmap & Future Vision
 
-### Current Capabilities (v1.4.0)
+### Current Capabilities (v1.5.8)
 
-- ✅ **Production-Ready Core**: Stable 4-layer architecture with 33 tools
-- ✅ **Autonomous Agent**: Self-organizing task execution with error recovery
-- ✅ **Professional Output**: IEEE-compliant SRS generation
-- ✅ **Enterprise Features**: Session management, progress tracking, validation
-- ✅ **Enhanced Tool Ecosystem**: Extended atomic layer with 19 tools
-- ✅ **Specialist Intelligence**: 4 business logic tools for complex operations
+- ✅ **Production-Ready Architecture**: Stable four-layer tool ecosystem
+- ✅ **Intelligent Orchestration**: Advanced intent recognition and smart routing
+- ✅ **Professional Output**: IEEE-compliant SRS generation with quality validation
+- ✅ **Multi-Project Support**: Isolated project contexts with session persistence
+- ✅ **Comprehensive Tool Suite**: 33 specialized tools across all architectural layers
 
-### Next Phase: Tool Ecosystem Expansion
+### Upcoming Enhancements
 
-**Priority 1: Advanced Intelligence Features**
-- Context-aware requirement suggestions
-- Automatic consistency checking and gap detection
-- Multi-language SRS generation support
-- **Target**: Enhanced AI capabilities with domain expertise
+**Enhanced AI Intelligence**
+- Context-aware requirement suggestions based on industry patterns
+- Automatic consistency validation and gap detection across requirements
+- Multi-language support for international development teams
 
-**Priority 2: Integration & Automation**
-- Git integration for version control
-- CI/CD pipeline integration
-- Third-party tool connectivity (JIRA, Azure DevOps)
-- **Target**: Seamless development workflow integration
+**Integration & Workflow**
+- Git integration for version control and collaboration
+- CI/CD pipeline integration for automated requirement validation
+- Third-party tool connectivity (JIRA, Azure DevOps, GitHub Issues)
 
-**Priority 3: Tool Ecosystem Expansion**
-- Advanced requirements analysis and validation tools
-- Project management and structure tools  
-- Enhanced quality assurance and testing tools
-- **Target**: Comprehensive professional toolset
+**Advanced Document Processing**
+- Template-based document generation with organizational standards
+- Automated traceability matrix generation and maintenance
+- Export capabilities for multiple enterprise formats (Word, PDF, Confluence)
 
-### Long-term Vision
+### Long-Term Vision
 
-- **Cloud Platform**: Web-based collaboration with real-time sync
-- **Enterprise Suite**: SSO, compliance reporting, advanced security
-- **AI Evolution**: Continuous learning from user patterns and preferences
-- **Ecosystem Growth**: Third-party plugin marketplace and API platform
+- **Cloud Collaboration Platform**: Real-time multi-user editing and review workflows
+- **Enterprise Security**: SSO integration, compliance reporting, and audit trails
+- **AI Evolution**: Continuous learning from organizational patterns and preferences
+- **Marketplace Ecosystem**: Third-party plugin support and community tool sharing
 
-## 📄 License & Attribution
+## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for complete details.
 
-**Key License Features:**
+**License Highlights:**
 - ✅ Commercial use permitted
-- ✅ Modification and distribution allowed  
-- ✅ Private use encouraged
-- ✅ Patent rights granted
-- ⚠️ Trademark restrictions apply
+- ✅ Modification and distribution allowed
+- ✅ Patent protection included
+- ✅ Private use authorized
+- ⚠️ Trademark use not permitted
+- ⚠️ No warranty provided
 
 ---
 
 <div align="center">
 
-**🌟 Experience Production-Ready AI Requirements Engineering**
+**Built with ❤️ for the software engineering community**
 
-**Built for Professional Software Development Teams**
-
-*Transforming natural language into professional documentation since 2024*
-
-**Current Version: 1.4.0** | **Tools: 33** | **Modules: 17** | **Architecture: 4-Layer**
-
-[⬆️ Back to top](#srs-writer---ai-powered-requirements-engineering)
+[⭐ Star on GitHub](https://github.com/srs-writer-team/srs-writer-plugin) • [🐛 Report Bug](https://github.com/srs-writer-team/srs-writer-plugin/issues) • [💡 Request Feature](https://github.com/srs-writer-team/srs-writer-plugin/issues)
 
 </div>

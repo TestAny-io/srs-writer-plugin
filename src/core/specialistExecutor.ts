@@ -246,29 +246,41 @@ export class SpecialistExecutor {
      * 替换提示词模板中的变量
      */
     private replaceTemplateVariables(promptTemplate: string, context: any, conversationHistory?: string[], toolExecutionResults?: string[]): string {
-        // ✅ 保持原有逻辑（完全兼容）
-        const userInput = context.userInput || '';
+        // 🚀 修复：明确区分不同语义的上下文变量
+        
+        // 🔒 持久化上下文：用户的原始完整请求（永不变化）
+        const initialUserRequest = context.userInput || '';
+        
+        // 🔄 临时上下文：当前轮的用户输入
+        // 如果有当前回复，说明是多轮对话中的回复；否则是初始请求
+        const currentUserInput = context.currentUserResponse || context.userInput || '';
+        
+        // 🔄 临时上下文：当前轮的用户回复（专门用于多轮对话）
+        const currentUserResponse = context.currentUserResponse || '';
+        
+        // 基本会话信息
         const projectName = context.sessionData?.projectName || null;
         const hasActiveProject = !!projectName;
-        
-        // 🚀 新增：语义明确的持久化信息
-        const initialUserRequest = context.userInput || '';
-        const currentUserResponse = context.currentUserResponse || '';
         
         // 基本变量替换
         let result = promptTemplate;
         
-        // ✅ 原有占位符保持不变（兼容性）
-        result = result.replace(/\{\{USER_INPUT\}\}/g, userInput);
+        // ✅ 语义明确的占位符替换
+        result = result.replace(/\{\{INITIAL_USER_REQUEST\}\}/g, initialUserRequest);    // 🔒 用户的原始完整请求
+        // result = result.replace(/\{\{USER_INPUT\}\}/g, currentUserInput);               // 🔄 当前轮的用户输入
+        result = result.replace(/\{\{CURRENT_USER_RESPONSE\}\}/g, currentUserResponse); // 🔄 当前轮的用户回复
+        
+        // 项目相关变量
+        const baseDir = context.sessionData?.baseDir || null;
+        const projectPath = baseDir ? path.basename(baseDir) : (projectName || 'Unknown');
+        
         result = result.replace(/\{\{PROJECT_NAME\}\}/g, projectName || 'Unknown');
+        result = result.replace(/\{\{PROJECT_PATH\}\}/g, projectPath);
+        result = result.replace(/\{\{BASE_DIR\}\}/g, baseDir || '');
         result = result.replace(/\{\{HAS_ACTIVE_PROJECT\}\}/g, hasActiveProject.toString());
         result = result.replace(/\{\{TIMESTAMP\}\}/g, new Date().toISOString());
         result = result.replace(/\{\{DATE\}\}/g, new Date().toISOString().split('T')[0]);
         result = result.replace(/\{\{INTENT\}\}/g, context.intent || '');
-        
-        // 🚀 新增：语义明确的占位符
-        result = result.replace(/\{\{INITIAL_USER_REQUEST\}\}/g, initialUserRequest);
-        result = result.replace(/\{\{CURRENT_USER_RESPONSE\}\}/g, currentUserResponse);
         
         // 上下文数据替换
         if (context.sessionData) {
@@ -276,7 +288,7 @@ export class SpecialistExecutor {
             result = result.replace(/\{\{ACTIVE_FILES\}\}/g, JSON.stringify(context.sessionData.activeFiles || []));
         }
         
-        // 🚀 新增：对话历史和工具执行结果
+        // 🚀 对话历史和工具执行结果
         const conversationHistoryText = conversationHistory && conversationHistory.length > 0 
             ? conversationHistory.join('\n\n') 
             : 'No previous conversation history.';

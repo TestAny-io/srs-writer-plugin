@@ -81,9 +81,21 @@ export async function createComprehensiveSRS(args: {
         // 🚀 1. 从SessionManager获取当前状态
         let currentSession = await sessionManager.getCurrentSession();
         
-        // 如果没有会话或项目不匹配，初始化新项目
-        if (!currentSession || (args.projectName && currentSession.projectName !== args.projectName)) {
+        // 🚀 修复：只有在没有会话时才创建新会话，如果有会话但项目名不同则更新项目名
+        if (!currentSession) {
             currentSession = await sessionManager.initializeProject(args.projectName);
+        } else if (args.projectName && currentSession.projectName !== args.projectName) {
+            // 更新现有会话的项目名，而不是创建新会话
+            await sessionManager.updateSession({ projectName: args.projectName });
+            currentSession = await sessionManager.getCurrentSession();
+            if (!currentSession) {
+                throw new Error('Failed to get updated session after project name update');
+            }
+        }
+        
+        // 确保currentSession不为null（已经在上面的逻辑中保证了）
+        if (!currentSession) {
+            throw new Error('Failed to get or create session');
         }
         
         logger.info(`📋 Using SessionContext ID: ${currentSession.sessionContextId} for project: ${currentSession.projectName || 'unnamed'}`);
@@ -102,7 +114,13 @@ export async function createComprehensiveSRS(args: {
         // 🚀 3. 执行specialist逻辑
         const context = {
             userInput: args.userInput,
-            sessionData: args.sessionData || {},
+            sessionData: {
+                ...args.sessionData,
+                projectName: currentSession.projectName,
+                baseDir: currentSession.baseDir,
+                sessionContextId: currentSession.sessionContextId,
+                activeFiles: currentSession.activeFiles
+            },
             intent: 'create'
         };
         
@@ -275,9 +293,18 @@ export async function editSRSDocument(args: {
             }
         });
         
+        // 获取当前会话信息
+        const currentSession = await sessionManager.getCurrentSession();
+        
         const context = {
             userInput: args.userInput,
-            sessionData: args.sessionData || {},
+            sessionData: {
+                ...args.sessionData,
+                projectName: currentSession?.projectName || args.projectName,
+                baseDir: currentSession?.baseDir,
+                sessionContextId: currentSession?.sessionContextId,
+                activeFiles: currentSession?.activeFiles || []
+            },
             intent: 'edit'
         };
         

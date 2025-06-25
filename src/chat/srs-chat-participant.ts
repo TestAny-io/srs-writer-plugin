@@ -30,15 +30,25 @@ export class SRSChatParticipant {
     // 🚀 新架构：引擎注册表 - 支持多会话并发
     private engineRegistry: Map<string, SRSAgentEngine> = new Map();
     
-    constructor() {
+    private constructor() {
+        // 🕵️ 添加构造函数调用追踪
+        const stack = new Error().stack;
+        this.logger.warn('🔍 [CONSTRUCTOR] SRSChatParticipant constructor called! Stack:');
+        this.logger.warn(stack || 'No stack trace available');
+        
         this.orchestrator = new Orchestrator();
-        // 🚀 v3.0重构：使用SessionManager单例
         this.sessionManager = SessionManager.getInstance();
         
-        // 自动初始化会话管理
+        // 🕵️ 记录registry初始化
+        this.logger.warn(`🔍 [CONSTRUCTOR] engineRegistry initialized, size: ${this.engineRegistry.size}`);
+        
+        // 🕵️ 记录autoInitialize调用
+        this.logger.warn('🔍 [CONSTRUCTOR] About to call sessionManager.autoInitialize()...');
         this.sessionManager.autoInitialize().catch(error => {
             this.logger.error('Failed to auto-initialize session manager', error as Error);
+            this.logger.warn('🔍 [CONSTRUCTOR] autoInitialize failed in constructor');
         });
+        this.logger.warn('🔍 [CONSTRUCTOR] autoInitialize() call dispatched (async)');
     }
 
     /**
@@ -191,42 +201,41 @@ export class SRSChatParticipant {
         stream: vscode.ChatResponseStream,
         model: vscode.LanguageModelChat
     ): SRSAgentEngine {
+        // 🕵️ 添加engine registry详细追踪
+        this.logger.warn(`🔍 [ENGINE REGISTRY] getOrCreateEngine called for sessionId: ${sessionId}`);
+        this.logger.warn(`🔍 [ENGINE REGISTRY] Current registry size: ${this.engineRegistry.size}`);
+        this.logger.warn(`🔍 [ENGINE REGISTRY] Registry keys: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+        
         let engine = this.engineRegistry.get(sessionId);
+        this.logger.warn(`🔍 [ENGINE REGISTRY] Registry.get(${sessionId}) returned: ${engine ? 'ENGINE_FOUND' : 'NULL'}`);
         
         if (!engine) {
+            this.logger.warn(`🚨 [ENGINE REGISTRY] Creating NEW engine for sessionId: ${sessionId}`);
             // 🚀 v3.0重构：创建新引擎，移除sessionContext参数
             engine = new SRSAgentEngine(stream, model);
             engine.setDependencies(this.orchestrator, toolExecutor);
             this.engineRegistry.set(sessionId, engine);
+            this.logger.warn(`🔍 [ENGINE REGISTRY] After set() - registry size: ${this.engineRegistry.size}`);
             this.logger.info(`🧠 Created new persistent engine for session: ${sessionId}`);
         } else {
+            this.logger.warn(`🔍 [ENGINE REGISTRY] Reusing existing engine for sessionId: ${sessionId}`);
             // 🚀 复用现有引擎，只更新当前交互的参数
             engine.updateStreamAndModel(stream, model);
             this.logger.info(`♻️  Reusing existing engine for session: ${sessionId}`);
         }
         
+        this.logger.warn(`🔍 [ENGINE REGISTRY] Final registry size: ${this.engineRegistry.size}`);
         return engine;
     }
     
     /**
      * 🚀 生成稳定的会话ID
      * 
-     * 基于工作区路径和项目名生成会话标识符
+     * 基于sessionContextId生成稳定的会话标识符
      */
     private getSessionId(sessionContext: SessionContext): string {
-        const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || 'default';
-        const projectName = sessionContext.projectName || 'default';
-        
-        // 创建稳定且简洁的会话ID
-        const baseId = `${workspacePath}-${projectName}`;
-        
-        // 如果路径过长，创建哈希以避免问题
-        if (baseId.length > 100) {
-            const crypto = require('crypto');
-            return crypto.createHash('md5').update(baseId).digest('hex').slice(0, 16);
-        }
-        
-        return baseId.replace(/[^a-zA-Z0-9-_]/g, '_'); // 清理特殊字符
+        // 🚀 修复：使用稳定的sessionContextId而不是动态的projectName
+        return sessionContext.sessionContextId;
     }
 
     /**
@@ -376,16 +385,25 @@ export class SRSChatParticipant {
      * 获取或创建会话上下文
      */
     private async getOrCreateSessionContext(): Promise<SessionContext> {
+        // 🕵️ 添加会话获取追踪
+        this.logger.warn('🔍 [GET OR CREATE] getOrCreateSessionContext() called');
+        
         try {
+            this.logger.warn('🔍 [GET OR CREATE] Calling sessionManager.getCurrentSession()...');
             const session = await this.sessionManager.getCurrentSession();
+            
             if (session) {
+                this.logger.warn(`🔍 [GET OR CREATE] Found existing session: ${session.projectName} (${session.sessionContextId})`);
                 return session;
             }
-            // 如果没有当前会话，创建新会话
+            
+            // 🚨 这里会创建新的SessionContext！
+            this.logger.warn('🚨 [GET OR CREATE] No existing session found, creating NEW SESSION!');
             return await this.sessionManager.createNewSession();
         } catch (error) {
-            this.logger.error('Failed to get session context', error as Error);
-            // 返回默认会话上下文
+            this.logger.error('Failed to get current session, creating new one', error as Error);
+            this.logger.warn('🚨 [GET OR CREATE] Error occurred, creating NEW SESSION as fallback!');
+            // 🚨 这里也会创建新的SessionContext！
             return await this.sessionManager.createNewSession();
         }
     }
@@ -433,14 +451,23 @@ export class SRSChatParticipant {
      * 🚀 v3.0新增：清理过期引擎（用于强制同步）
      */
     public async clearStaleEngines(): Promise<void> {
+        // 🕵️ 添加clearStaleEngines详细追踪
+        const stack = new Error().stack;
+        this.logger.warn('🚨 [CLEAR ENGINES] clearStaleEngines() called! Call stack:');
+        this.logger.warn(stack || 'No stack trace available');
+        
         const engineCount = this.engineRegistry.size;
+        this.logger.warn(`🔍 [CLEAR ENGINES] Registry size before clear: ${engineCount}`);
+        this.logger.warn(`🔍 [CLEAR ENGINES] Registry keys before clear: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
         
         // 清理所有引擎，它们会重新获取最新的SessionContext
-        this.engineRegistry.forEach(engine => {
+        this.engineRegistry.forEach((engine, sessionId) => {
+            this.logger.warn(`🔍 [CLEAR ENGINES] Disposing engine for sessionId: ${sessionId}`);
             engine.dispose(); // 取消观察者订阅
         });
         this.engineRegistry.clear();
         
+        this.logger.warn(`🔍 [CLEAR ENGINES] Registry size after clear: ${this.engineRegistry.size}`);
         this.logger.info(`🧹 Cleared ${engineCount} stale engines from registry`);
     }
 

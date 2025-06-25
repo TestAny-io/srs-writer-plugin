@@ -145,7 +145,17 @@ export const appendTextToFileToolDefinition = {
             }
         },
         required: ["path", "textToAppend"]
-    }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'confirmation',
+    riskLevel: 'medium',
+    requiresConfirmation: true,
+    // 🚀 访问控制：追加文件是写操作，需要明确执行权限
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的文件操作任务
+        CallerType.SPECIALIST,                    // 专家工具需要生成内容
+        CallerType.DOCUMENT                       // 文档层的核心功能
+    ]
 };
 
 export async function appendTextToFile(args: { 
@@ -215,7 +225,17 @@ export const createDirectoryToolDefinition = {
             }
         },
         required: ["path"]
-    }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'confirmation',
+    riskLevel: 'medium',
+    requiresConfirmation: true,
+    // 🚀 访问控制：创建目录是重要操作，特别是可能注册新项目
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的目录创建任务
+        CallerType.SPECIALIST,                    // 专家需要创建项目结构
+        CallerType.INTERNAL                       // 内部工具（如createNewProjectFolder）
+    ]
 };
 
 export async function createDirectory(args: { 
@@ -359,7 +379,13 @@ export const deleteFileToolDefinition = {
     // 🚀 智能分类属性
     interactionType: 'confirmation',
     riskLevel: 'high',
-    requiresConfirmation: true
+    requiresConfirmation: true,
+    // 🚀 访问控制：删除操作是高风险操作，严格限制权限
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 仅明确的删除任务
+        CallerType.INTERNAL                       // 内部工具（如清理操作）
+        // 注意：故意不包含SPECIALIST和KNOWLEDGE_QA，删除操作风险太高
+    ]
 };
 
 export async function deleteFile(args: { path: string }): Promise<{ success: boolean; error?: string }> {
@@ -400,7 +426,17 @@ export const renameFileToolDefinition = {
             }
         },
         required: ["oldPath", "newPath"]
-    }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'confirmation',
+    riskLevel: 'medium',
+    requiresConfirmation: true,
+    // 🚀 访问控制：重命名/移动是有风险的操作，需要明确权限
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的重命名/移动任务
+        CallerType.SPECIALIST,                    // 专家可能需要重构文件结构
+        CallerType.INTERNAL                       // 内部工具（如项目重构）
+    ]
 };
 
 export async function renameFile(args: { oldPath: string; newPath: string }): Promise<{ success: boolean; error?: string }> {

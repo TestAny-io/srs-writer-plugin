@@ -99,6 +99,26 @@ export class SessionManager implements ISessionManager {
      * 获取当前会话（v3.0异步版本）
      */
     public async getCurrentSession(): Promise<SessionContext | null> {
+        // 🕵️ 添加getCurrentSession的调用追踪
+        const stack = new Error().stack;
+        this.logger.debug('🔍 [GET SESSION] getCurrentSession() called');
+        
+        if (this.currentSession === null) {
+            this.logger.warn('🚨 [GET SESSION] Returning NULL! Call stack:');
+            this.logger.warn(stack || 'No stack trace available');
+            this.logger.warn('🚨 [GET SESSION] currentSession is null - this may cause context loss!');
+            return null;
+        }
+        
+        // 🚀 修复：在实际使用时检查过期，而不是在autoInitialize时
+        const isExpired = await this.isSessionExpired();
+        if (isExpired) {
+            this.logger.warn('🚨 [GET SESSION] Current session is expired, clearing it now');
+            await this.clearSession();
+            return null;
+        }
+        
+        this.logger.debug(`🔍 [GET SESSION] Returning session: ${this.currentSession.projectName} (${this.currentSession.sessionContextId})`);
         return this.currentSession;
     }
 
@@ -193,7 +213,18 @@ export class SessionManager implements ISessionManager {
      * 🚀 清理会话 - v3.0观察者通知版本
      */
     public async clearSession(): Promise<void> {
+        // 🕵️ 添加犯罪现场日志 - 记录调用栈
+        const stack = new Error().stack;
+        this.logger.warn('🚨 [CRIME SCENE] clearSession() called! Call stack:');
+        this.logger.warn(stack || 'No stack trace available');
+        this.logger.warn(`🚨 [BEFORE CLEAR] currentSession exists: ${this.currentSession !== null}`);
+        if (this.currentSession) {
+            this.logger.warn(`🚨 [BEFORE CLEAR] currentSession.projectName: ${this.currentSession.projectName}`);
+            this.logger.warn(`🚨 [BEFORE CLEAR] currentSession.sessionContextId: ${this.currentSession.sessionContextId}`);
+        }
+        
         this.currentSession = null;
+        this.logger.warn('🚨 [AFTER CLEAR] currentSession set to null');
         this.logger.info('Session cleared');
         
         // 删除会话文件
@@ -205,6 +236,7 @@ export class SessionManager implements ISessionManager {
 
         // 🚀 v3.0新增：通知所有观察者
         this.notifyObservers();
+        this.logger.warn('🚨 [CLEAR COMPLETE] All observers notified of session clear');
     }
 
     /**
@@ -398,7 +430,13 @@ export class SessionManager implements ISessionManager {
      * 支持新的UnifiedSessionFile格式，向后兼容旧格式
      */
     public async loadSessionFromFile(): Promise<SessionContext | null> {
+        // 🕵️ 添加文件加载追踪
+        this.logger.warn('🔍 [LOAD SESSION] loadSessionFromFile() called');
+        this.logger.warn(`🔍 [LOAD SESSION] sessionFilePath: ${this.sessionFilePath}`);
+        this.logger.warn(`🔍 [LOAD SESSION] currentSession before load: ${this.currentSession ? 'EXISTS' : 'NULL'}`);
+        
         if (!this.sessionFilePath) {
+            this.logger.warn('🔍 [LOAD SESSION] No sessionFilePath, returning null');
             this.logger.info('No workspace folder available');
             return null;
         }
@@ -406,9 +444,11 @@ export class SessionManager implements ISessionManager {
         try {
             // 加载统一文件
             const unifiedFile = await this.loadUnifiedSessionFile();
+            this.logger.warn(`🔍 [LOAD SESSION] Unified file loaded, currentSession in file: ${unifiedFile.currentSession ? 'EXISTS' : 'NULL'}`);
             
             // 从currentSession字段直接获取状态
             if (unifiedFile.currentSession) {
+                this.logger.warn(`🔍 [LOAD SESSION] Setting currentSession from file: ${unifiedFile.currentSession.projectName} (${unifiedFile.currentSession.sessionContextId})`);
                 this.currentSession = unifiedFile.currentSession;
                 this.logger.info(`Session loaded from unified file: ${unifiedFile.currentSession.projectName || 'unnamed'}`);
                 this.logger.info(`Loaded ${unifiedFile.operations.length} operation records`);
@@ -416,14 +456,17 @@ export class SessionManager implements ISessionManager {
                 // 🚀 v5.0：加载后通知观察者
                 this.notifyObservers();
                 
+                this.logger.warn(`🔍 [LOAD SESSION] Successfully loaded and set currentSession`);
                 return this.currentSession;
             } else {
+                this.logger.warn('🔍 [LOAD SESSION] No currentSession found in unified file, keeping currentSession as-is');
                 this.logger.info('No current session found in unified file');
                 return null;
             }
             
         } catch (error) {
             this.logger.error('Failed to load session from unified file', error as Error);
+            this.logger.warn('🔍 [LOAD SESSION] Load failed, returning null');
             return null;
         }
     }
@@ -573,20 +616,37 @@ export class SessionManager implements ISessionManager {
      * 🚀 v5.0修复：检查会话是否过期 - 基于最后活跃时间而非创建时间
      */
     public async isSessionExpired(maxAgeHours: number = 24): Promise<boolean> {
+        this.logger.warn('🔍 [EXPIRY CHECK] Starting session expiry check...');
+        
         if (!this.currentSession) {
+            this.logger.warn('🔍 [EXPIRY CHECK] No current session, returning false');
             return false;
         }
 
+        this.logger.warn(`🔍 [EXPIRY CHECK] Current session exists: ${this.currentSession.projectName} (${this.currentSession.sessionContextId})`);
+        this.logger.warn(`🔍 [EXPIRY CHECK] Max age hours: ${maxAgeHours}`);
+
         // ✅ 修复：使用lastModified（最后活跃时间）而不是created（创建时间）
-        const lastActivity = new Date(this.currentSession.metadata.lastModified).getTime();
-        const inactivityPeriod = Date.now() - lastActivity;
+        const lastModifiedStr = this.currentSession.metadata.lastModified;
+        this.logger.warn(`🔍 [EXPIRY CHECK] Last modified string: ${lastModifiedStr}`);
+        
+        const lastActivity = new Date(lastModifiedStr).getTime();
+        const currentTime = Date.now();
+        const inactivityPeriod = currentTime - lastActivity;
         const maxInactivityMs = maxAgeHours * 60 * 60 * 1000;
         
         // 🐛 修复日志：记录过期检查的详细信息
         const hoursInactive = Math.round(inactivityPeriod / (1000 * 60 * 60) * 10) / 10;
+        this.logger.warn(`🔍 [EXPIRY CALCULATION] Last activity: ${new Date(lastActivity).toISOString()}`);
+        this.logger.warn(`🔍 [EXPIRY CALCULATION] Current time: ${new Date(currentTime).toISOString()}`);
+        this.logger.warn(`🔍 [EXPIRY CALCULATION] Inactivity period: ${inactivityPeriod}ms (${hoursInactive}h)`);
+        this.logger.warn(`🔍 [EXPIRY CALCULATION] Max inactivity: ${maxInactivityMs}ms (${maxAgeHours}h)`);
         this.logger.debug(`Session expiry check: ${hoursInactive}h inactive (max: ${maxAgeHours}h)`);
         
-        return inactivityPeriod > maxInactivityMs;
+        const isExpired = inactivityPeriod > maxInactivityMs;
+        this.logger.warn(`🔍 [EXPIRY RESULT] Session is expired: ${isExpired}`);
+        
+        return isExpired;
     }
 
     /**
@@ -594,27 +654,45 @@ export class SessionManager implements ISessionManager {
      * 修复：确保不会意外清空有效会话文件
      */
     public async autoInitialize(): Promise<void> {
+        // 🕵️ 添加嫌疑人追踪日志
+        const stack = new Error().stack;
+        this.logger.warn('🔍 [SUSPECT] autoInitialize() called! Call stack:');
+        this.logger.warn(stack || 'No stack trace available');
+        
         try {
+            this.logger.warn('🔍 [STEP1] Attempting to load session from file...');
             // 尝试从文件加载会话
             const loadedSession = await this.loadSessionFromFile();
             
             if (loadedSession) {
+                this.logger.warn(`🔍 [STEP2] Session loaded successfully. ProjectName: ${loadedSession.projectName}, SessionId: ${loadedSession.sessionContextId}`);
+                
                 // 检查会话是否过期
-                if (await this.isSessionExpired()) {
-                    this.logger.info('Loaded session is expired, clearing');
-                    await this.clearSession();
+                this.logger.warn('🔍 [STEP3] Checking if session is expired...');
+                const isExpired = await this.isSessionExpired();
+                this.logger.warn(`🔍 [STEP4] Session expired check result: ${isExpired}`);
+                
+                if (isExpired) {
+                    this.logger.warn('🚨 [DANGER ZONE] Session is expired, but NOT clearing in autoInitialize!');
+                    this.logger.warn('🚨 [FIX] Expired sessions will be handled when actually accessed, not during auto-init');
+                    this.logger.info('Loaded session is expired, but keeping to avoid race conditions');
                 } else {
+                    this.logger.warn('🔍 [SAFE] Session is not expired, keeping it');
                     this.logger.info('Session auto-loaded successfully');
                 }
             } else {
                 // 🚀 修复：如果没有加载到会话，不要做任何操作
                 // 避免意外创建或清空会话文件
+                this.logger.warn('🔍 [NO SESSION] No existing session found during auto-initialization');
                 this.logger.info('No existing session found during auto-initialization');
             }
         } catch (error) {
             this.logger.error('Failed to auto-initialize session', error as Error);
+            this.logger.warn('🔍 [ERROR] autoInitialize failed, but NOT clearing session');
             // 🚀 修复：出错时不要清空会话，只记录错误
         }
+        
+        this.logger.warn('🔍 [COMPLETE] autoInitialize() completed');
     }
 
     /**
