@@ -63,6 +63,19 @@ import {
     taskCompleteToolsCategory 
 } from './internal/taskCompleteTools';
 
+// 🚀 Phase 1新增：语义编辑工具
+import { 
+    enhancedReadFileToolDefinitions, 
+    enhancedReadFileToolImplementations,
+    enhancedReadFileToolsCategory 
+} from './document/enhanced-readfile-tools';
+
+import { 
+    semanticEditEngineToolDefinitions, 
+    semanticEditEngineToolImplementations,
+    semanticEditEngineToolsCategory 
+} from './document/semantic-edit-engine';
+
 // 导入访问控制类型
 import { CallerType } from '../types/index';
 
@@ -222,6 +235,21 @@ class ToolRegistry {
             taskCompleteToolImplementations,
             taskCompleteToolsCategory,
             'internal'
+        );
+
+        // 🚀 Phase 1新增：注册语义编辑工具
+        this.registerToolsFromCategory(
+            enhancedReadFileToolDefinitions,
+            enhancedReadFileToolImplementations,
+            enhancedReadFileToolsCategory,
+            'document'
+        );
+
+        this.registerToolsFromCategory(
+            semanticEditEngineToolDefinitions,
+            semanticEditEngineToolImplementations,
+            semanticEditEngineToolsCategory,
+            'document'
         );
 
         console.log(`[ToolRegistry] Initialized with ${this.definitions.size} tools across ${this.categories.size} categories`);

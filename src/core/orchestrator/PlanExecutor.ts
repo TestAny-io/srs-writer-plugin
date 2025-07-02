@@ -4,8 +4,10 @@ import { Logger } from '../../utils/logger';
 import { SessionContext } from '../../types/session';
 import { SpecialistOutput } from '../../types/index';
 import { SpecialistExecutor } from '../specialistExecutor';
-// 🚀 Phase 1新增：编辑指令支持
+// 🚀 Phase 1新增：编辑指令支持（传统）
 import { executeEditInstructions } from '../../tools/atomic/edit-execution-tools';
+// 🚀 Phase 4新增：统一编辑执行器（支持语义编辑）
+import { executeUnifiedEdits } from '../../tools/atomic/unified-edit-executor';
 
 /**
  * 🚀 新增：specialist输出验证结果
@@ -95,28 +97,29 @@ export class PlanExecutor {
                     return specialistOutput as any;
                 }
 
-                // 🚀 新增：基于requires_file_editing字段处理文件操作
+                // 🚀 Phase 4新增：基于requires_file_editing字段处理文件操作（支持语义编辑）
                 if (specialistOutput.requires_file_editing === true) {
                     // specialist明确表示需要文件编辑，此时edit_instructions和target_file已经在验证阶段确保存在
-                    this.logger.info(`🔧 执行编辑指令: ${specialistOutput.edit_instructions!.length}个操作`);
-                    this.logger.info(`🔧 目标文件: ${specialistOutput.target_file}`);
+                    this.logger.info(`🔧 [Phase4] 执行编辑指令: ${specialistOutput.edit_instructions!.length}个操作`);
+                    this.logger.info(`🔧 [Phase4] 目标文件: ${specialistOutput.target_file}`);
                     
                     // 🚀 修复：使用baseDir拼接完整文件路径
                     const fullPath = currentSessionContext.baseDir 
                         ? path.join(currentSessionContext.baseDir, specialistOutput.target_file!)
                         : specialistOutput.target_file!;
                     
-                    this.logger.info(`🔧 完整文件路径: ${fullPath}`);
+                    this.logger.info(`🔧 [Phase4] 完整文件路径: ${fullPath}`);
                     
-                    const editResult = await executeEditInstructions(
+                    // 🚀 Phase 4新增：使用统一编辑执行器，智能支持语义编辑和传统编辑
+                    const editResult = await executeUnifiedEdits(
                         specialistOutput.edit_instructions!,
                         fullPath
                     );
                     
                     if (!editResult.success) {
-                        this.logger.error(`❌ 编辑指令失败: ${editResult.error}`);
+                        this.logger.error(`❌ [Phase4] 统一编辑失败: ${editResult.error}`);
                         
-                        // 🚧 Phase 2: 编辑修复专家逻辑 (当前版本直接失败)
+                        // 提供详细的失败信息，包括编辑类型和失败统计
                         return {
                             intent: 'plan_failed',
                             result: {
@@ -127,8 +130,10 @@ export class PlanExecutor {
                                 editFailureDetails: {
                                     targetFile: specialistOutput.target_file,
                                     instructionsCount: specialistOutput.edit_instructions!.length,
-                                    appliedCount: editResult.appliedInstructions?.length || 0,
-                                    failedCount: editResult.failedInstructions?.length || 0
+                                    appliedCount: editResult.appliedCount,
+                                    failedCount: editResult.failedCount,
+                                    editType: editResult.editType,
+                                    semanticErrors: editResult.semanticErrors
                                 }
                             }
                         };
@@ -136,7 +141,7 @@ export class PlanExecutor {
                     
                     // 编辑成功，更新specialist输出以包含编辑结果
                     (specialistOutput.metadata as any).editResult = editResult;
-                    this.logger.info(`✅ 编辑指令执行成功，修改了${editResult.appliedInstructions.length}个位置`);
+                    this.logger.info(`✅ [Phase4] 编辑执行成功: ${editResult.appliedCount}个操作应用, 类型: ${editResult.editType}`);
                 } else if (specialistOutput.requires_file_editing === false) {
                     // specialist明确表示不需要文件编辑
                     this.logger.info(`ℹ️ 步骤 ${step.step} 无需文件编辑 (requires_file_editing=false)`);

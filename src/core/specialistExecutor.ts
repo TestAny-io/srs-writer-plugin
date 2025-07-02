@@ -233,7 +233,7 @@ export class SpecialistExecutor {
                     if (taskCompleteResult) {
                         this.logger.info(`✅ 专家 ${specialistId} 通过taskComplete完成任务，迭代次数: ${iteration}`);
                         
-                        // 🚀 修复：从taskComplete结果中智能提取文件编辑信息
+                        // 🚀 Phase 4新增：智能提取文件编辑信息，支持语义编辑格式
                         const taskResult = taskCompleteResult.result;
                         let requiresFileEditing = false;
                         let editInstructions = undefined;
@@ -247,7 +247,10 @@ export class SpecialistExecutor {
                             
                             if (projectState.requires_file_editing === true) {
                                 requiresFileEditing = true;
-                                editInstructions = projectState.edit_instructions;
+                                
+                                // 🚀 Phase 4新增：智能检测和处理语义编辑格式
+                                editInstructions = this.processEditInstructions(projectState.edit_instructions);
+                                
                                 targetFile = projectState.target_file;
                                 content = projectState.content;
                                 structuredData = projectState.structuredData || taskResult;
@@ -284,13 +287,27 @@ export class SpecialistExecutor {
                         };
                     }
 
-                    // 将工具执行结果添加到内部历史中
-                    const resultsText = toolResults.map(result => 
+                    // 🎯 精确过滤工具结果：只移除readFile读取待编辑文档的内容，保留其他重要信息
+                    const filteredResults = this.filterDocumentContentFromResults(toolResults);
+                    const resultsText = filteredResults.map(result => 
                         `工具: ${result.toolName}, 成功: ${result.success}, 结果: ${JSON.stringify(result.result)}`
                     ).join('\n');
                     
                     internalHistory.push(`迭代 ${iteration} - AI计划: ${JSON.stringify(aiPlan)}`);
-                    internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsText}`);
+                    
+                    // 只有当有过滤后的结果时才添加到历史
+                    if (filteredResults.length > 0) {
+                        internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsText}`);
+                        this.logger.info(`✅ [${specialistId}] 迭代 ${iteration} 保留了 ${filteredResults.length}/${toolResults.length} 个工具结果`);
+                    } else {
+                        this.logger.info(`🔍 [${specialistId}] 迭代 ${iteration} 所有工具结果均为文档内容，已过滤`);
+                    }
+                    
+                    // 🔍 [DEBUG] 记录完整工具结果到日志（用于调试）
+                    const fullResultsText = toolResults.map(result => 
+                        `工具: ${result.toolName}, 成功: ${result.success}, 结果: ${JSON.stringify(result.result)}`
+                    ).join('\n');
+                    this.logger.info(`🔧 [DEBUG] [${specialistId}] 迭代 ${iteration} 完整工具执行结果:\n${fullResultsText}`);
                 }
             }
 
@@ -726,6 +743,152 @@ ${context.dependentResults?.length > 0
         return results;
     }
 
+    // ============================================================================
+    // 🚀 Phase 4新增：语义编辑支持
+    // ============================================================================
+
+    /**
+     * 处理编辑指令，智能检测并转换语义编辑格式
+     */
+    private processEditInstructions(editInstructions: any[]): any[] {
+        if (!editInstructions || !Array.isArray(editInstructions)) {
+            return editInstructions;
+        }
+
+        this.logger.info(`🔍 [Phase4] Processing ${editInstructions.length} edit instructions for semantic format detection`);
+
+        const processedInstructions = editInstructions.map((instruction, index) => {
+            // 检测语义编辑格式
+            if (this.isSemanticEditInstruction(instruction)) {
+                this.logger.info(`✅ [Phase4] Instruction ${index + 1} identified as semantic edit: ${instruction.type} -> ${instruction.target?.sectionName}`);
+                
+                // 验证语义编辑指令的完整性
+                const validationResult = this.validateSemanticEditInstruction(instruction);
+                if (!validationResult.valid) {
+                    this.logger.warn(`⚠️ [Phase4] Semantic edit instruction ${index + 1} validation failed: ${validationResult.errors.join(', ')}`);
+                    // 返回原始指令，让后续处理决定如何处理
+                    return instruction;
+                }
+
+                // 标记为语义编辑格式
+                return {
+                    ...instruction,
+                    _semanticEdit: true,
+                    _processed: true
+                };
+            } 
+            // 传统行号编辑格式
+            else if (this.isTraditionalEditInstruction(instruction)) {
+                this.logger.info(`📝 [Phase4] Instruction ${index + 1} identified as traditional edit: ${instruction.action}`);
+                return {
+                    ...instruction,
+                    _semanticEdit: false,
+                    _processed: true
+                };
+            } 
+            // 未识别的格式
+            else {
+                this.logger.warn(`❓ [Phase4] Instruction ${index + 1} format not recognized, keeping as-is`);
+                return instruction;
+            }
+        });
+
+        // 统计处理结果
+        const semanticCount = processedInstructions.filter(i => i._semanticEdit === true).length;
+        const traditionalCount = processedInstructions.filter(i => i._semanticEdit === false).length;
+        const unknownCount = processedInstructions.filter(i => !i._processed).length;
+
+        this.logger.info(`📊 [Phase4] Edit instructions processing summary: ${semanticCount} semantic, ${traditionalCount} traditional, ${unknownCount} unknown format`);
+
+        return processedInstructions;
+    }
+
+    /**
+     * 检测是否为语义编辑指令
+     */
+    private isSemanticEditInstruction(instruction: any): boolean {
+        if (!instruction || typeof instruction !== 'object') {
+            return false;
+        }
+
+        // 必须有type字段且值在支持的语义编辑类型中
+        const semanticTypes = [
+            'replace_section',
+            'insert_after_section', 
+            'insert_before_section',
+            'append_to_list',
+            'update_subsection',
+            // 🚀 新增：行内编辑类型
+            'update_content_in_section',
+            'insert_line_in_section',
+            'remove_content_in_section',
+            'append_to_section',
+            'prepend_to_section'
+        ];
+
+        return semanticTypes.includes(instruction.type) && 
+               instruction.target && 
+               typeof instruction.target.sectionName === 'string';
+    }
+
+    /**
+     * 检测是否为传统行号编辑指令
+     */
+    private isTraditionalEditInstruction(instruction: any): boolean {
+        if (!instruction || typeof instruction !== 'object') {
+            return false;
+        }
+
+        return (instruction.action === 'insert' || instruction.action === 'replace') &&
+               Array.isArray(instruction.lines) &&
+               typeof instruction.content === 'string';
+    }
+
+    /**
+     * 验证语义编辑指令的完整性
+     */
+    private validateSemanticEditInstruction(instruction: any): { valid: boolean; errors: string[] } {
+        const errors: string[] = [];
+
+        // 验证必需字段
+        if (!instruction.type) {
+            errors.push('Missing type field');
+        }
+
+        if (!instruction.target || !instruction.target.sectionName) {
+            errors.push('Missing target.sectionName field');
+        }
+
+        if (typeof instruction.content !== 'string') {
+            errors.push('Content must be a string');
+        }
+
+        if (!instruction.reason) {
+            errors.push('Missing reason field');
+        }
+
+        // 验证type值
+        const validTypes = [
+            'replace_section', 'insert_after_section', 'insert_before_section', 'append_to_list', 'update_subsection',
+            // 🚀 新增：行内编辑类型
+            'update_content_in_section', 'insert_line_in_section', 'remove_content_in_section', 
+            'append_to_section', 'prepend_to_section'
+        ];
+        if (instruction.type && !validTypes.includes(instruction.type)) {
+            errors.push(`Invalid type: ${instruction.type}`);
+        }
+
+        // 验证priority（如果存在）
+        if (instruction.priority !== undefined && (!Number.isInteger(instruction.priority) || instruction.priority < 0)) {
+            errors.push('Priority must be a non-negative integer');
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors
+        };
+    }
+
     /**
      * 🚀 智能判断specialist是否需要文件编辑：基于类型和工作模式
      */
@@ -839,5 +1002,67 @@ ${context.dependentResults?.length > 0
             this.logger.error(`回退加载专家提示词失败 ${specialistId}`, error as Error);
             return this.buildDefaultPrompt(specialistId, context, internalHistory);
         }
+    }
+
+    /**
+     * 🎯 精确过滤工具结果：只移除readFile读取待编辑文档的内容，保留其他重要信息
+     */
+    private filterDocumentContentFromResults(toolResults: Array<{
+        toolName: string;
+        success: boolean;
+        result?: any;
+        error?: string;
+    }>): Array<{
+        toolName: string;
+        success: boolean;
+        result?: any;
+        error?: string;
+    }> {
+        return toolResults.filter(result => {
+            // 如果不是readFile工具，一律保留
+            if (result.toolName !== 'readFile') {
+                this.logger.info(`🔍 [过滤器] 保留非readFile工具: ${result.toolName}`);
+                return true;
+            }
+            
+            // 如果是readFile工具，检查是否读取的是待编辑文档
+            if (result.success && result.result && result.result.content) {
+                try {
+                    // 尝试从工具结果中提取文件路径信息
+                    const resultStr = JSON.stringify(result.result);
+                    
+                    // 待编辑文档的模式匹配
+                    const editableDocPatterns = [
+                        /SRS\.md/i,           // SRS主文档
+                        /requirements?\.ya?ml/i,  // 需求文件
+                        /fr\.ya?ml/i,         // 功能需求
+                        /nfr\.ya?ml/i,        // 非功能需求
+                        /glossary\.ya?ml/i,   // 术语表
+                        /\.md.*content.*\#/i  // 包含大量markdown内容的响应
+                    ];
+                    
+                    // 检查是否匹配待编辑文档模式
+                    const isEditableDoc = editableDocPatterns.some(pattern => 
+                        pattern.test(resultStr)
+                    );
+                    
+                    if (isEditableDoc) {
+                        this.logger.info(`🚫 [过滤器] 过滤readFile读取的待编辑文档内容，长度: ${resultStr.length}`);
+                        return false; // 过滤掉
+                    } else {
+                        this.logger.info(`✅ [过滤器] 保留readFile读取的非编辑文档: ${result.toolName}`);
+                        return true; // 保留
+                    }
+                } catch (error) {
+                    // 如果解析失败，保守处理：保留
+                    this.logger.warn(`⚠️ [过滤器] readFile结果解析失败，保守保留: ${error}`);
+                    return true;
+                }
+            } else {
+                // readFile失败的结果，保留（可能包含重要的错误信息）
+                this.logger.info(`✅ [过滤器] 保留readFile失败结果: ${result.toolName}`);
+                return true;
+            }
+        });
     }
 } 

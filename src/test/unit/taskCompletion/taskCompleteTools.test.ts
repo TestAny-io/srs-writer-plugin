@@ -75,11 +75,11 @@ describe('taskComplete Tool', () => {
     });
 
     test('should throw error for invalid deliverables', async () => {
-      const params = {
+      const params: any = {
         completionType: TaskCompletionType.FULLY_COMPLETED,
         nextStepType: NextStepType.TASK_FINISHED,
         summary: 'Task completed',
-        deliverables: null as any
+        deliverables: null
       };
 
       await expect(taskComplete(params)).rejects.toThrow('deliverables must be a non-empty array');

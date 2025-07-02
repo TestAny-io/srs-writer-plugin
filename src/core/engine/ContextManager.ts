@@ -4,6 +4,8 @@ import { AgentState, ExecutionStep } from './AgentState';
 
 /**
  * 上下文和历史记录管理器 - 负责执行历史和上下文的管理
+ * 
+ * 🚀 Phase 2新增：支持语义编辑结果的特殊处理
  */
 export class ContextManager {
   private logger = Logger.getInstance();
@@ -33,12 +35,9 @@ export class ContextManager {
         // 🚀 关键：将结构化的工具结果放入专门的上下文
         if (step.result) {
           try {
-            const resultData = step.result.output || step.result.error || step.result;
-            const resultString = typeof resultData === 'string' 
-              ? resultData 
-              : JSON.stringify(resultData, null, 2);
-            
-            toolResultItems.push(`### Result of \`${step.toolName}\`:\n\`\`\`json\n${resultString}\n\`\`\``);
+            // 🚀 Phase 2新增：语义编辑结果的特殊处理
+            const formattedResult = this.formatToolResultForContext(step.toolName || 'unknown', step.result);
+            toolResultItems.push(`### Result of \`${step.toolName || 'unknown'}\`:\n${formattedResult}`);
           } catch (jsonError) {
             // JSON序列化失败时的后备处理
             toolResultItems.push(`### Result of \`${step.toolName}\`:\n[Result could not be serialized]`);
@@ -175,5 +174,108 @@ export class ContextManager {
       stream.markdown(`**总耗时**: ${totalDuration}ms\n`);
     }
     stream.markdown(`**执行模式**: 智能状态机 + 分层工具执行\n\n`);
+  }
+
+  // ============================================================================
+  // 🚀 Phase 2新增：语义编辑结果格式化支持
+  // ============================================================================
+
+  /**
+   * 格式化工具结果用于上下文构建
+   * 
+   * 为不同类型的工具提供特定的格式化，特别是语义编辑工具
+   */
+  private formatToolResultForContext(toolName: string, result: any): string {
+    // 语义编辑结果的特殊处理
+    if (toolName === 'executeSemanticEdits') {
+      return this.formatSemanticEditResultForContext(result);
+    }
+    
+    // 增强版读取文件结果的特殊处理
+    if (toolName === 'readFileWithStructure') {
+      return this.formatStructuredReadResultForContext(result);
+    }
+    
+    // 默认处理方式
+    const resultData = result.output || result.error || result;
+    const resultString = typeof resultData === 'string' 
+      ? resultData 
+      : JSON.stringify(resultData, null, 2);
+    
+    return `\`\`\`json\n${resultString}\n\`\`\``;
+  }
+
+  /**
+   * 格式化语义编辑结果用于上下文
+   */
+  private formatSemanticEditResultForContext(result: any): string {
+    if (!result.appliedIntents && !result.failedIntents) {
+      return `\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``;
+    }
+
+    const appliedCount = result.appliedIntents?.length || 0;
+    const failedCount = result.failedIntents?.length || 0;
+    const successRate = appliedCount + failedCount > 0 ? 
+      ((appliedCount / (appliedCount + failedCount)) * 100).toFixed(1) : '0';
+
+    let summary = `**语义编辑执行结果**\n`;
+    summary += `- 成功应用: ${appliedCount}个编辑操作\n`;
+    summary += `- 执行失败: ${failedCount}个编辑操作\n`;
+    summary += `- 成功率: ${successRate}%\n`;
+    
+    if (result.metadata?.executionTime) {
+      summary += `- 执行时间: ${result.metadata.executionTime}ms\n`;
+    }
+
+    // 如果有失败的操作，列出失败原因
+    if (result.failedIntents?.length > 0) {
+      summary += `\n**失败的编辑操作**:\n`;
+      result.failedIntents.forEach((intent: any, index: number) => {
+        summary += `${index + 1}. ${intent.type} → "${intent.target.sectionName}"\n`;
+      });
+    }
+
+    // 如果有语义错误，也要列出
+    if (result.semanticErrors?.length > 0) {
+      summary += `\n**语义分析问题**: ${result.semanticErrors.join(', ')}\n`;
+    }
+
+    return summary;
+  }
+
+  /**
+   * 格式化结构化读取结果用于上下文
+   */
+  private formatStructuredReadResultForContext(result: any): string {
+    if (!result.structure && !result.semanticMap) {
+      return `\`\`\`json\n${JSON.stringify(result, null, 2)}\n\`\`\``;
+    }
+
+    let summary = `**文档结构分析结果**\n`;
+    summary += `- 文件内容: ${result.content?.length || 0}字符\n`;
+    
+    if (result.structure) {
+      summary += `- 标题数量: ${result.structure.headings?.length || 0}个\n`;
+      summary += `- 章节数量: ${result.structure.sections?.length || 0}个\n`;
+      
+      // 列出主要标题结构
+      if (result.structure.headings?.length > 0) {
+        summary += `\n**文档结构**:\n`;
+        result.structure.headings.slice(0, 5).forEach((heading: any, index: number) => {
+          const indent = '  '.repeat(Math.max(0, heading.level - 1));
+          summary += `${indent}- ${heading.text} (H${heading.level})\n`;
+        });
+        
+        if (result.structure.headings.length > 5) {
+          summary += `  ... 还有 ${result.structure.headings.length - 5} 个标题\n`;
+        }
+      }
+    }
+
+    if (result.semanticMap?.editTargets?.length > 0) {
+      summary += `\n**可编辑的语义目标**: ${result.semanticMap.editTargets.length}个\n`;
+    }
+
+    return summary;
   }
 } 

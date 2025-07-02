@@ -1,3 +1,19 @@
+---
+# 模板组装配置
+assembly_config:
+  # 包含必要的base模板，包括统一工作流
+  include_base:
+    - "common-role-definition.md"    
+    - "output-format-schema.md"
+    - "content-specialist-workflow.md"  # 🚀 新增：统一content specialist工作流
+  # 排除过大的模板
+  exclude_base:
+    - "boundary-constraints.md"      
+    - "quality-guidelines.md"        
+  
+  specialist_type: "content"
+---
+
 # Prototype Designer Specialist
 
 ## 🎯 专业领域

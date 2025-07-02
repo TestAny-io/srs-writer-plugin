@@ -66,6 +66,10 @@ import {
 // 🚀 Phase 1新增：编辑执行工具
 import { executeEditInstructions } from './edit-execution-tools';
 
+// 🚀 Phase 1新增：语义编辑工具
+import { DocumentAnalyzer, DocumentStructure, SectionInfo, HeadingInfo } from './document-analyzer';
+import { SemanticLocator, SemanticTarget, LocationResult } from './semantic-locator';
+
 const logger = Logger.getInstance();
 
 // ============================================================================
@@ -294,6 +298,21 @@ export {
     // 编辑指令执行
     executeEditInstructions
 } from './edit-execution-tools';
+
+// 🚀 Phase 1新增：语义编辑基础工具
+export {
+    // 文档分析器
+    DocumentAnalyzer,
+    // 类型定义
+    DocumentStructure, SectionInfo, HeadingInfo
+} from './document-analyzer';
+
+export {
+    // 语义定位器
+    SemanticLocator,
+    // 类型定义
+    SemanticTarget, LocationResult
+} from './semantic-locator';
 
 // ============================================================================
 // 📝 使用说明和示例

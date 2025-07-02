@@ -60,7 +60,7 @@ export class PromptAssemblyEngine {
   constructor(
     private templateBasePath: string = './rules' // 注意：应该传入绝对路径，这个默认值仅用于测试
   ) {
-    this.logger.info(`🚀 PromptAssemblyEngine初始化，模板路径: ${templateBasePath}`);
+    // this.logger.info(`🚀 PromptAssemblyEngine初始化，模板路径: ${templateBasePath}`);
   }
 
   /**
@@ -70,83 +70,83 @@ export class PromptAssemblyEngine {
     specialistType: SpecialistType,
     context: SpecialistContext
   ): Promise<string> {
-    this.logger.info(`🔥 [PromptAssembly] === 开始组装 ${specialistType.name} 提示词 ===`);
+    // this.logger.info(`🔥 [PromptAssembly] === 开始组装 ${specialistType.name} 提示词 ===`);
     
     // 🔍 详细记录输入信息
-    this.logger.info(`🔍 [PromptAssembly] 输入参数:`);
-    this.logger.info(`🔍 [PromptAssembly] - specialistType: ${JSON.stringify(specialistType, null, 2)}`);
-    this.logger.info(`🔍 [PromptAssembly] - context.userRequirements: ${context.userRequirements || '无'}`);
-    this.logger.info(`🔍 [PromptAssembly] - context.structuredContext存在: ${!!context.structuredContext}`);
-    this.logger.info(`🔍 [PromptAssembly] - context.projectMetadata存在: ${!!context.projectMetadata}`);
+    //this.logger.info(`🔍 [PromptAssembly] 输入参数:`);
+    //this.logger.info(`🔍 [PromptAssembly] - specialistType: ${JSON.stringify(specialistType, null, 2)}`);
+    //this.logger.info(`🔍 [PromptAssembly] - context.userRequirements: ${context.userRequirements || '无'}`);
+    //this.logger.info(`🔍 [PromptAssembly] - context.structuredContext存在: ${!!context.structuredContext}`);
+    //this.logger.info(`🔍 [PromptAssembly] - context.projectMetadata存在: ${!!context.projectMetadata}`);
     
     if (context.structuredContext) {
-      this.logger.info(`🔍 [PromptAssembly] - structuredContext内容: ${JSON.stringify(context.structuredContext, null, 2)}`);
+      //this.logger.info(`🔍 [PromptAssembly] - structuredContext内容: ${JSON.stringify(context.structuredContext, null, 2)}`);
     }
     
     if (context.projectMetadata) {
-      this.logger.info(`🔍 [PromptAssembly] - projectMetadata内容: ${JSON.stringify(context.projectMetadata, null, 2)}`);
+      //this.logger.info(`🔍 [PromptAssembly] - projectMetadata内容: ${JSON.stringify(context.projectMetadata, null, 2)}`);
     }
 
     try {
       // 1. 加载专家模板并解析配置
-      this.logger.info(`📄 [PromptAssembly] 步骤1: 加载专家模板并解析配置`);
+      //this.logger.info(`📄 [PromptAssembly] 步骤1: 加载专家模板并解析配置`);
       const { content: specificTemplate, config } = await this.loadSpecificTemplateWithConfig(specialistType.name);
       
-      this.logger.info(`🔍 [PromptAssembly] 专家模板配置解析结果:`);
-      this.logger.info(`🔍 [PromptAssembly] - config: ${JSON.stringify(config, null, 2)}`);
-      this.logger.info(`🔍 [PromptAssembly] - 专家模板长度: ${specificTemplate.length} 字符`);
-      this.logger.info(`🔍 [PromptAssembly] - 专家模板前200字符: ${specificTemplate.substring(0, 200)}`);
+      //this.logger.info(`🔍 [PromptAssembly] 专家模板配置解析结果:`);
+      //this.logger.info(`🔍 [PromptAssembly] - config: ${JSON.stringify(config, null, 2)}`);
+      //this.logger.info(`🔍 [PromptAssembly] - 专家模板长度: ${specificTemplate.length} 字符`);
+      //this.logger.info(`🔍 [PromptAssembly] - 专家模板前200字符: ${specificTemplate.substring(0, 200)}`);
       
       // 2. 根据配置选择性加载base模板
-      this.logger.info(`📄 [PromptAssembly] 步骤2: 根据配置加载base模板`);
+      //this.logger.info(`📄 [PromptAssembly] 步骤2: 根据配置加载base模板`);
       const baseTemplates = await this.loadBaseTemplatesByConfig(config);
       
-      this.logger.info(`🔍 [PromptAssembly] base模板加载结果:`);
-      this.logger.info(`🔍 [PromptAssembly] - 加载的模板数量: ${baseTemplates.length}`);
+      //this.logger.info(`🔍 [PromptAssembly] base模板加载结果:`);
+      //this.logger.info(`🔍 [PromptAssembly] - 加载的模板数量: ${baseTemplates.length}`);
       baseTemplates.forEach((template, index) => {
-        this.logger.info(`🔍 [PromptAssembly] - base模板${index + 1}长度: ${template.length} 字符`);
+        //this.logger.info(`🔍 [PromptAssembly] - base模板${index + 1}长度: ${template.length} 字符`);
       });
       
       // 3. 根据配置加载领域模板
-      this.logger.info(`📄 [PromptAssembly] 步骤3: 根据配置加载domain模板`);
+      //this.logger.info(`📄 [PromptAssembly] 步骤3: 根据配置加载domain模板`);
       const domainTemplate = await this.loadDomainTemplateByConfig(specialistType.category, config);
       
-      this.logger.info(`🔍 [PromptAssembly] domain模板加载结果:`);
-      this.logger.info(`🔍 [PromptAssembly] - domain模板长度: ${domainTemplate.length} 字符`);
+      //this.logger.info(`🔍 [PromptAssembly] domain模板加载结果:`);
+      //this.logger.info(`🔍 [PromptAssembly] - domain模板长度: ${domainTemplate.length} 字符`);
       if (domainTemplate.length > 0) {
-        this.logger.info(`🔍 [PromptAssembly] - domain模板前200字符: ${domainTemplate.substring(0, 200)}`);
+        //this.logger.info(`🔍 [PromptAssembly] - domain模板前200字符: ${domainTemplate.substring(0, 200)}`);
       }
       
       // 4. 组装最终prompt
-      this.logger.info(`📄 [PromptAssembly] 步骤4: 合并所有模板`);
+      //this.logger.info(`📄 [PromptAssembly] 步骤4: 合并所有模板`);
       const allTemplates = [...baseTemplates, domainTemplate, specificTemplate];
-      this.logger.info(`🔍 [PromptAssembly] 合并前模板统计:`);
-      this.logger.info(`🔍 [PromptAssembly] - 总模板数量: ${allTemplates.length}`);
-      this.logger.info(`🔍 [PromptAssembly] - 各模板长度: ${allTemplates.map(t => t.length).join(', ')}`);
+      //this.logger.info(`🔍 [PromptAssembly] 合并前模板统计:`);
+      //this.logger.info(`🔍 [PromptAssembly] - 总模板数量: ${allTemplates.length}`);
+      //this.logger.info(`🔍 [PromptAssembly] - 各模板长度: ${allTemplates.map(t => t.length).join(', ')}`);
       
       const assembledPrompt = this.mergeTemplates(allTemplates, context, config);
       
       // 5. 验证组装结果
-      this.logger.info(`📄 [PromptAssembly] 步骤5: 验证组装结果`);
+      //this.logger.info(`📄 [PromptAssembly] 步骤5: 验证组装结果`);
       await this.validateAssembledPrompt(assembledPrompt);
       
       // 🔥 详细记录最终输出 - v2.0结构化版本
-      this.logger.info(`🎯 [PromptAssembly] === 组装完成 ${specialistType.name} (v2.0结构化版本) ===`);
-      this.logger.info(`🎯 [PromptAssembly] 最终提示词统计:`);
-      this.logger.info(`🎯 [PromptAssembly] - 总长度: ${assembledPrompt.length} 字符`);
-      this.logger.info(`🎯 [PromptAssembly] - 估算token数量: ${Math.ceil(assembledPrompt.length / 4)} tokens`);
+      //this.logger.info(`🎯 [PromptAssembly] === 组装完成 ${specialistType.name} (v2.0结构化版本) ===`);
+      //this.logger.info(`🎯 [PromptAssembly] 最终提示词统计:`);
+      //this.logger.info(`🎯 [PromptAssembly] - 总长度: ${assembledPrompt.length} 字符`);
+      //this.logger.info(`🎯 [PromptAssembly] - 估算token数量: ${Math.ceil(assembledPrompt.length / 4)} tokens`);
       
       // 🚀 v2.0: 验证结构化格式
-      this.logger.info(`🎯 [PromptAssembly] 提示词结构验证:`);
-      this.logger.info(`🎯 [PromptAssembly] - SYSTEM INSTRUCTIONS: ${assembledPrompt.includes('=== SYSTEM INSTRUCTIONS ===') ? '✅' : '❌'}`);
-      this.logger.info(`🎯 [PromptAssembly] - CURRENT TASK: ${assembledPrompt.includes('=== CURRENT TASK ===') ? '✅' : '❌'}`);
-      this.logger.info(`🎯 [PromptAssembly] - CONTEXT INFORMATION: ${assembledPrompt.includes('=== CONTEXT INFORMATION ===') ? '✅' : '❌'}`);
-      this.logger.info(`🎯 [PromptAssembly] - OUTPUT REQUIREMENTS: ${assembledPrompt.includes('=== FINAL INSTRUCTION: OUTPUT REQUIREMENTS ===') ? '✅' : '❌'}`);
+      //this.logger.info(`🎯 [PromptAssembly] 提示词结构验证:`);
+      //this.logger.info(`🎯 [PromptAssembly] - SYSTEM INSTRUCTIONS: ${assembledPrompt.includes('=== SYSTEM INSTRUCTIONS ===') ? '✅' : '❌'}`);
+      //this.logger.info(`🎯 [PromptAssembly] - CURRENT TASK: ${assembledPrompt.includes('=== CURRENT TASK ===') ? '✅' : '❌'}`);
+      //this.logger.info(`🎯 [PromptAssembly] - CONTEXT INFORMATION: ${assembledPrompt.includes('=== CONTEXT INFORMATION ===') ? '✅' : '❌'}`);
+      //this.logger.info(`🎯 [PromptAssembly] - OUTPUT REQUIREMENTS: ${assembledPrompt.includes('=== FINAL INSTRUCTION: OUTPUT REQUIREMENTS ===') ? '✅' : '❌'}`);
       
       // 输出完整的最终提示词（仅在debug模式下）
-      this.logger.info(`🔥 [PromptAssembly] === 完整结构化提示词 for ${specialistType.name} ===`);
-      this.logger.info(`🔥 [PromptAssembly] ${assembledPrompt}`);
-      this.logger.info(`🔥 [PromptAssembly] === 提示词结束 ===`);
+      //this.logger.info(`🔥 [PromptAssembly] === 完整结构化提示词 for ${specialistType.name} ===`);
+      //this.logger.info(`🔥 [PromptAssembly] ${assembledPrompt}`);
+      //this.logger.info(`🔥 [PromptAssembly] === 提示词结束 ===`);
       
       return assembledPrompt;
     } catch (error) {
@@ -155,38 +155,7 @@ export class PromptAssemblyEngine {
     }
   }
 
-  /**
-   * 加载基础模板
-   */
-  private async loadBaseTemplates(): Promise<string[]> {
-    const baseTemplateFiles = [
-      'common-role-definition.md',
-      'output-format-schema.md',
-      'quality-guidelines.md',
-      'boundary-constraints.md'
-    ];
 
-    const templates: string[] = [];
-    
-    for (const file of baseTemplateFiles) {
-      try {
-        const template = await this.loadTemplate(`base/${file}`);
-        templates.push(template);
-        this.logger.info(`✅ [PromptAssembly] 成功加载基础模板: ${file}`);
-      } catch (error) {
-        // 某些基础模板可能不存在，只记录警告
-        if (file === 'quality-guidelines.md' || file === 'boundary-constraints.md') {
-          this.logger.warn(`⚠️ [PromptAssembly] 可选基础模板未找到: ${file}`);
-          templates.push(''); // 添加空模板
-        } else {
-          this.logger.error(`❌ [PromptAssembly] 必需的基础模板缺失: ${file}`, error as Error);
-          throw error; // 必需的基础模板缺失时抛出错误
-        }
-      }
-    }
-
-    return templates;
-  }
 
   /**
    * 加载领域模板
@@ -198,10 +167,10 @@ export class PromptAssemblyEngine {
       
     try {
       const template = await this.loadTemplate(`domain/${templateFile}`);
-      this.logger.info(`✅ [PromptAssembly] 成功加载领域模板: ${templateFile}`);
+      //this.logger.info(`✅ [PromptAssembly] 成功加载领域模板: ${templateFile}`);
       return template;
     } catch (error) {
-      this.logger.warn(`⚠️ [PromptAssembly] 领域模板未找到: ${templateFile}, 使用空模板`);
+      //this.logger.warn(`⚠️ [PromptAssembly] 领域模板未找到: ${templateFile}, 使用空模板`);
       return ''; // 返回空模板而不是抛出错误
     }
   }
@@ -213,7 +182,7 @@ export class PromptAssemblyEngine {
     content: string;
     config: AssemblyConfig;
   }> {
-    this.logger.info(`📋 [PromptAssembly] 加载专家模板配置: ${specialistName}`);
+    //this.logger.info(`📋 [PromptAssembly] 加载专家模板配置: ${specialistName}`);
     const templateContent = await this.loadSpecificTemplate(specialistName);
     
     // 解析YAML frontmatter
@@ -222,7 +191,7 @@ export class PromptAssemblyEngine {
     // 移除frontmatter，返回纯内容
     const content = this.removeFrontmatter(templateContent);
     
-    this.logger.info(`✅ [PromptAssembly] 专家模板配置解析完成: ${specialistName}`);
+    //this.logger.info(`✅ [PromptAssembly] 专家模板配置解析完成: ${specialistName}`);
     return { content, config };
   }
 
@@ -238,16 +207,16 @@ export class PromptAssemblyEngine {
       `specialist/${specialistName}-specific.md`      // 原设计格式 (向后兼容)
     ];
     
-    this.logger.info(`🔍 [PromptAssembly] 尝试加载专家模板: ${specialistName}, 可能路径: ${possiblePaths.join(', ')}`);
+    //this.logger.info(`🔍 [PromptAssembly] 尝试加载专家模板: ${specialistName}, 可能路径: ${possiblePaths.join(', ')}`);
     
     // 尝试每个可能的路径
     for (const relativePath of possiblePaths) {
       try {
         const template = await this.loadTemplate(relativePath);
-        this.logger.info(`✅ [PromptAssembly] 加载专家模板成功: ${relativePath}`);
+        //this.logger.info(`✅ [PromptAssembly] 加载专家模板成功: ${relativePath}`);
         return template;
       } catch (error) {
-        this.logger.debug(`🔍 [PromptAssembly] 路径不存在: ${relativePath}`);
+        //this.logger.debug(`🔍 [PromptAssembly] 路径不存在: ${relativePath}`);
         // 继续尝试下一个路径
         continue;
       }
@@ -265,6 +234,7 @@ export class PromptAssemblyEngine {
     const allBaseTemplates = [
       'common-role-definition.md',
       'output-format-schema.md',
+      'content-specialist-workflow.md',  // 🚀 新增：统一content specialist工作流，支持future exclude模式
       'quality-guidelines.md', 
       'boundary-constraints.md'
     ];
@@ -274,14 +244,14 @@ export class PromptAssemblyEngine {
     if (config.include_base && config.include_base.length > 0) {
       // 明确包含模式：只加载指定的模板
       selectedTemplates = config.include_base;
-      this.logger.info(`🔍 [PromptAssembly] 使用包含模式，选择的base模板: ${selectedTemplates.join(', ')}`);
+      //this.logger.info(`🔍 [PromptAssembly] 使用包含模式，选择的base模板: ${selectedTemplates.join(', ')}`);
     } else {
       // 默认全部，然后排除指定的模板
       selectedTemplates = allBaseTemplates.filter(
         template => !config.exclude_base?.includes(template)
       );
-      this.logger.info(`🔍 [PromptAssembly] 使用排除模式，排除的base模板: ${config.exclude_base?.join(', ') || '无'}`);
-      this.logger.info(`🔍 [PromptAssembly] 最终选择的base模板: ${selectedTemplates.join(', ')}`);
+      //this.logger.info(`🔍 [PromptAssembly] 使用排除模式，排除的base模板: ${config.exclude_base?.join(', ') || '无'}`);
+      //this.logger.info(`🔍 [PromptAssembly] 最终选择的base模板: ${selectedTemplates.join(', ')}`);
     }
     
     const templates: string[] = [];
@@ -289,7 +259,7 @@ export class PromptAssemblyEngine {
       try {
         const template = await this.loadTemplate(`base/${templateFile}`);
         templates.push(template);
-        this.logger.info(`✅ [PromptAssembly] 成功加载base模板: ${templateFile} (${template.length}字符)`);
+        //this.logger.info(`✅ [PromptAssembly] 成功加载base模板: ${templateFile} (${template.length}字符)`);
       } catch (error) {
         this.logger.warn(`⚠️ [PromptAssembly] Base模板加载失败: ${templateFile}, 错误: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -306,10 +276,10 @@ export class PromptAssemblyEngine {
     if (config.domain_template) {
       try {
         const template = await this.loadTemplate(`domain/${config.domain_template}`);
-        this.logger.info(`✅ [PromptAssembly] 使用自定义domain模板: ${config.domain_template}`);
+        //this.logger.info(`✅ [PromptAssembly] 使用自定义domain模板: ${config.domain_template}`);
         return template;
       } catch (error) {
-        this.logger.warn(`⚠️ [PromptAssembly] 自定义domain模板加载失败: ${config.domain_template}, 回退到默认模板`);
+        //this.logger.warn(`⚠️ [PromptAssembly] 自定义domain模板加载失败: ${config.domain_template}, 回退到默认模板`);
       }
     }
     
@@ -343,22 +313,22 @@ export class PromptAssemblyEngine {
    * 🚀 v2.0: 结构化模板合并 - 使用清晰的分隔符和强制JSON输出
    */
   private mergeTemplates(templates: string[], context: SpecialistContext, config?: AssemblyConfig): string {
-    this.logger.info(`🔧 [PromptAssembly] 开始结构化合并模板，总数: ${templates.length}`);
+    //this.logger.info(`🔧 [PromptAssembly] 开始结构化合并模板，总数: ${templates.length}`);
     
     // 过滤掉空模板
     const validTemplates = templates.filter(template => template.trim().length > 0);
-    this.logger.info(`🔧 [PromptAssembly] 有效模板数量: ${validTemplates.length}/${templates.length}`);
+    //this.logger.info(`🔧 [PromptAssembly] 有效模板数量: ${validTemplates.length}/${templates.length}`);
     
     // 处理变量替换（保持原有功能）
     let processedTemplates = validTemplates.map(template => {
       let processed = template;
       const variableMatches = processed.match(/\{\{(\w+)\}\}/g);
       if (variableMatches) {
-        this.logger.info(`🔧 [PromptAssembly] 发现变量占位符: ${variableMatches.join(', ')}`);
+        //this.logger.info(`🔧 [PromptAssembly] 发现变量占位符: ${variableMatches.join(', ')}`);
         processed = processed.replace(/\{\{(\w+)\}\}/g, (match, key) => {
           const replacement = context[key] || match;
           if (replacement !== match) {
-            this.logger.info(`🔧 [PromptAssembly] 替换变量: ${match} -> ${replacement.substring(0, 50)}...`);
+            //this.logger.info(`🔧 [PromptAssembly] 替换变量: ${match} -> ${replacement.substring(0, 50)}...`);
           }
           return replacement;
         });
@@ -380,7 +350,7 @@ export class PromptAssemblyEngine {
         sections.push(context.userRequirements);
         sections.push('```');
         sections.push('');
-        this.logger.info(`🔧 [PromptAssembly] 添加当前任务 (${context.userRequirements.length}字符)`);
+        //this.logger.info(`🔧 [PromptAssembly] 添加当前任务 (${context.userRequirements.length}字符)`);
     }
     
     // 3. 上下文信息部分
@@ -391,7 +361,7 @@ export class PromptAssemblyEngine {
         sections.push('```json');
         sections.push(JSON.stringify(context.projectMetadata, null, 2));
         sections.push('```');
-        this.logger.info(`🔧 [PromptAssembly] 添加项目元数据`);
+        //this.logger.info(`🔧 [PromptAssembly] 添加项目元数据`);
     }
     
     if (context.structuredContext) {
@@ -399,14 +369,14 @@ export class PromptAssemblyEngine {
         sections.push('```json');
         sections.push(JSON.stringify(context.structuredContext, null, 2));
         sections.push('```');
-        this.logger.info(`🔧 [PromptAssembly] 添加结构化上下文`);
+        //this.logger.info(`🔧 [PromptAssembly] 添加结构化上下文`);
     }
     
     // 如果有配置信息，添加专家类型说明
     if (config && config.specialist_type) {
         sections.push('**Specialist Type:**');
         sections.push(`Current specialist type: ${config.specialist_type}`);
-        this.logger.info(`🔧 [PromptAssembly] 添加专家类型说明: ${config.specialist_type}`);
+        //this.logger.info(`🔧 [PromptAssembly] 添加专家类型说明: ${config.specialist_type}`);
     }
     
     sections.push('');
@@ -428,14 +398,14 @@ export class PromptAssemblyEngine {
   private parseYAMLFrontmatter(content: string): AssemblyConfig {
     const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
     if (!frontmatterMatch) {
-      this.logger.info(`🔍 [PromptAssembly] 未找到YAML frontmatter，使用默认配置`);
+      //this.logger.info(`🔍 [PromptAssembly] 未找到YAML frontmatter，使用默认配置`);
       return {}; // 默认配置
     }
     
     try {
       const parsed = yaml.load(frontmatterMatch[1]) as any;
       const config = parsed?.assembly_config || {};
-      this.logger.info(`✅ [PromptAssembly] YAML frontmatter解析成功: ${JSON.stringify(config, null, 2)}`);
+      //this.logger.info(`✅ [PromptAssembly] YAML frontmatter解析成功: ${JSON.stringify(config, null, 2)}`);
       return config;
     } catch (error) {
       this.logger.warn(`⚠️ [PromptAssembly] YAML frontmatter解析失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -448,7 +418,7 @@ export class PromptAssemblyEngine {
    */
   private removeFrontmatter(content: string): string {
     const cleaned = content.replace(/^---\n[\s\S]*?\n---\n/, '');
-    this.logger.debug(`🔧 [PromptAssembly] 移除frontmatter，内容长度: ${content.length} -> ${cleaned.length}`);
+    //this.logger.debug(`🔧 [PromptAssembly] 移除frontmatter，内容长度: ${content.length} -> ${cleaned.length}`);
     return cleaned;
   }
 
@@ -456,7 +426,7 @@ export class PromptAssemblyEngine {
    * 验证组装后的prompt
    */
   private async validateAssembledPrompt(prompt: string): Promise<void> {
-    this.logger.info(`🔍 [PromptAssembly] 开始验证组装结果`);
+    //this.logger.info(`🔍 [PromptAssembly] 开始验证组装结果`);
     
     // 检查必要部分是否存在
     const requiredSections = [
@@ -469,7 +439,7 @@ export class PromptAssemblyEngine {
       if (!prompt.includes(section)) {
         this.logger.warn(`⚠️ [PromptAssembly] 组装后的提示词缺少推荐章节: ${section}`);
       } else {
-        this.logger.debug(`✅ [PromptAssembly] 找到推荐章节: ${section}`);
+        //this.logger.debug(`✅ [PromptAssembly] 找到推荐章节: ${section}`);
       }
     }
 
@@ -482,7 +452,7 @@ export class PromptAssemblyEngine {
       this.logger.info(`✅ [PromptAssembly] 提示词长度合适 (${prompt.length} 字符)`);
     }
     
-    this.logger.info(`✅ [PromptAssembly] 组装结果验证完成`);
+    // this.logger.info(`✅ [PromptAssembly] 组装结果验证完成`);
   }
 
   /**
@@ -671,7 +641,7 @@ export class PromptAssemblyEngine {
    */
   clearCache(): void {
     this.templateCache.clear();
-    this.logger.info(`🔧 [PromptAssembly] 模板缓存已清空`);
+    // this.logger.info(`🔧 [PromptAssembly] 模板缓存已清空`);
   }
 
   /**
@@ -696,7 +666,7 @@ export class PromptAssemblyEngine {
         await this.loadTemplate(`specialist/${template}`);
       }
       
-      this.logger.info(`✅ [PromptAssembly] 预加载了${structure.totalTemplates}个模板到缓存`);
+      // this.logger.info(`✅ [PromptAssembly] 预加载了${structure.totalTemplates}个模板到缓存`);
       
     } catch (error) {
       this.logger.warn(`⚠️ [PromptAssembly] 预加载模板失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -734,7 +704,7 @@ export class PromptAssemblyEngine {
       }
     };
     
-    this.logger.info(`📊 [PromptAssembly] 模板统计: ${JSON.stringify(stats, null, 2)}`);
+    // this.logger.info(`📊 [PromptAssembly] 模板统计: ${JSON.stringify(stats, null, 2)}`);
     return stats;
   }
 } 

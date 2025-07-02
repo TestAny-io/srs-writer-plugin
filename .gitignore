@@ -40,9 +40,11 @@ coverage/
 srs_writer_plugin_for_vscode_requirement/
 工具架构报告.md
 rules/orchestrator.md.bak
-.depricated/
+.deprecated/
 cg.json
 cg.html
+INLINE-EDITING-COMPLETE.md
+SEMANTIC-EDIT-REFACTOR-COMPLETE.md
 
 # 代码停车场 - 暂不使用的代码
 code-parking-lot/
