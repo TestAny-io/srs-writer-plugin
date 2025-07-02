@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode with Hybrid Intelligence Architecture",
-  "version": "1.5.8-debug-2",
+  "version": "1.6.0-debug-23",
   "publisher": "testany-co",
   "enabledApiProposals": [
     "languageModelTools"
@@ -234,7 +234,13 @@
     "lint:fix": "eslint src --ext ts --fix",
     "clean": "rimraf dist",
     "dev": "yarn watch",
-    "validate:architecture": "node -e \"console.log('Architecture validation would run here')\""
+    "validate:architecture": "node -e \"console.log('Architecture validation would run here')\"",
+    "build:new-architecture": "tsc && webpack --config webpack.config.js",
+    "test:integration": "jest --config jest.integration.config.js",
+    "test:golden": "node scripts/run-golden-tests.js",
+    "validate:prompts": "node scripts/validate-prompt-templates.js",
+    "migration:test": "node scripts/test-migration.js",
+    "quality:check": "node scripts/quality-check.js"
   },
   "devDependencies": {
     "@cs-au-dk/jelly": "^0.10.0",

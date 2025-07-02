@@ -54,6 +54,18 @@ import {
     knowledgeToolImplementations
 } from './knowledge-tools-backup';
 
+
+
+// 智能编辑工具
+import {
+    smartEditToolDefinitions,
+    smartEditToolImplementations,
+    smartEditToolsCategory
+} from './smart-edit-tools';
+
+// 🚀 Phase 1新增：编辑执行工具
+import { executeEditInstructions } from './edit-execution-tools';
+
 const logger = Logger.getInstance();
 
 // ============================================================================
@@ -67,6 +79,7 @@ export const atomicToolDefinitions = [
     ...filesystemToolDefinitions,
     ...knowledgeToolDefinitions,
     ...editorToolDefinitions,
+    ...smartEditToolDefinitions,
     ...interactionToolDefinitions,
     ...outputToolDefinitions
 ];
@@ -78,6 +91,7 @@ export const atomicToolImplementations = {
     ...filesystemToolImplementations,
     ...knowledgeToolImplementations,
     ...editorToolImplementations,
+    ...smartEditToolImplementations,
     ...interactionToolImplementations,
     ...outputToolImplementations
 };
@@ -131,6 +145,12 @@ export const atomicToolModules = {
         definitions: outputToolDefinitions,
         implementations: outputToolImplementations,
         description: '结果输出和任务控制工具'
+    },
+
+    smartEdit: {
+        definitions: smartEditToolDefinitions,
+        implementations: smartEditToolImplementations,
+        description: '智能编辑工具 - 基于模式匹配的查找和替换'
     }
 };
 
@@ -223,6 +243,16 @@ export {
     openAndShowFileToolDefinition, openAndSelectRangeToolDefinition
 } from './editor-tools';
 
+
+
+export {
+    // 智能编辑操作
+    findAndReplace, findInFile, replaceInSelection,
+    
+    // 智能编辑工具定义
+    findAndReplaceToolDefinition, findInFileToolDefinition, replaceInSelectionToolDefinition
+} from './smart-edit-tools';
+
 export {
     // 用户交互
     showInformationMessage, showWarningMessage, askQuestion,
@@ -258,6 +288,12 @@ export {
     readLocalKnowledgeToolDefinition, enterpriseRAGCallToolDefinition, customRAGRetrievalToolDefinition,
 
 } from './knowledge-tools-backup';
+
+// 🚀 Phase 1新增：编辑执行工具
+export {
+    // 编辑指令执行
+    executeEditInstructions
+} from './edit-execution-tools';
 
 // ============================================================================
 // 📝 使用说明和示例

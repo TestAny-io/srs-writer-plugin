@@ -1,820 +1,708 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { jsonrepair } from 'jsonrepair';
 import { Logger } from '../utils/logger';
 import { ToolAccessController } from './orchestrator/ToolAccessController';
 import { ToolCacheManager } from './orchestrator/ToolCacheManager';
-import { CallerType } from '../types';
+import { CallerType, SpecialistOutput } from '../types';
 import { toolRegistry } from '../tools';
+import { PromptAssemblyEngine, SpecialistType, SpecialistContext } from './prompts/PromptAssemblyEngine';
 
 /**
- * v1.3 简化版专家执行器 - 基于官方工具
- * 替代复杂的RuleRunner，直接使用@vscode/chat-extension-utils
+ * 🚀 新架构：专家执行器 v2.0 - 简化单一职责版本
  * 
- * 🏗️ 架构说明：
- * 主要路径：外部.md文件 → 模板替换 → VSCode API
- * 降级路径：硬编码提示词方法（仅在文件加载失败时使用）
- * 
- * ⚠️ 重要：此文件包含降级备用代码，请勿轻易删除相关方法和注释
+ * 核心变化：
+ * - 职责回归单一：只执行一个原子的专家任务
+ * - 返回强类型：使用SpecialistOutput接口替代JSON字符串
+ * - 移除复杂逻辑：不再管理跨专家的流程，由PlanExecutor负责
+ * - 内部可迭代：但仅为完成单个任务，迭代次数限制更小
  */
 export class SpecialistExecutor {
     private logger = Logger.getInstance();
     private toolAccessController = new ToolAccessController();
     private toolCacheManager = new ToolCacheManager();
+    private promptAssemblyEngine: PromptAssemblyEngine;
     
     constructor() {
-        this.logger.info('SpecialistExecutor initialized with official VSCode APIs');
+        this.logger.info('🚀 SpecialistExecutor v2.0 initialized - simplified single-task architecture');
+        
+        // 🚀 修复：初始化PromptAssemblyEngine时使用插件安装目录的绝对路径
+        const rulesPath = this.getPluginRulesPath();
+        this.promptAssemblyEngine = new PromptAssemblyEngine(rulesPath);
+        this.logger.info(`📁 PromptAssemblyEngine initialized with rules path: ${rulesPath}`);
     }
 
     /**
-     * 执行专家规则
-     * @param ruleId 规则ID（如 '100_create_srs'）
-     * @param context 上下文数据
-     * @param model 用户选择的模型
+     * 🚀 修复：获取插件rules目录的绝对路径
      */
-    public async executeSpecialist(
-        ruleId: string,
-        context: any,
+    private getPluginRulesPath(): string {
+        try {
+            // 尝试获取插件扩展路径
+            const extension = vscode.extensions.getExtension('testany-co.srs-writer-plugin');
+            if (extension) {
+                const rulesPath = path.join(extension.extensionPath, 'rules');
+                this.logger.info(`✅ 使用插件扩展路径: ${rulesPath}`);
+                return rulesPath;
+            }
+        } catch (error) {
+            this.logger.warn('无法获取插件扩展路径，使用备用路径');
+        }
+        
+        // 备用路径策略
+        const fallbackPaths = [
+            path.join(__dirname, '../../rules'),      // 从 dist/core 到 rules
+            path.join(__dirname, '../../../rules'),   // 从 dist/src/core 到 rules  
+            path.join(__dirname, '../../../../rules'), // webpack打包后的深层结构
+            path.resolve(process.cwd(), 'rules')      // 工作目录下的rules（最后备选）
+        ];
+        
+        // 查找第一个存在的路径
+        for (const fallbackPath of fallbackPaths) {
+            if (fs.existsSync(fallbackPath)) {
+                this.logger.info(`✅ 使用备用路径: ${fallbackPath}`);
+                return fallbackPath;
+            }
+        }
+        
+        // 如果都不存在，返回第一个备用路径（让PromptAssemblyEngine自己处理错误）
+        const defaultPath = fallbackPaths[0];
+        this.logger.warn(`⚠️ 所有路径都不存在，使用默认路径: ${defaultPath}`);
+        return defaultPath;
+    }
+
+    /**
+     * 🚀 新架构：执行单个专家任务
+     * @param specialistId specialist标识符（如 '100_create_srs', 'summary_writer'）
+     * @param contextForThisStep 为当前步骤准备的上下文
+     * @param model 用户选择的模型
+     * @returns 结构化的specialist输出
+     */
+    public async execute(
+        specialistId: string,
+        contextForThisStep: any,
         model: vscode.LanguageModelChat
-    ): Promise<string> {
-        this.logger.info(`Executing specialist: ${ruleId} with model: ${model.name}`);
+    ): Promise<SpecialistOutput> {
+        const startTime = Date.now();
+        this.logger.info(`🚀 执行专家任务: ${specialistId}`);
 
         try {
-            // 🚀 新增：专家执行循环状态管理
-            let conversationHistory: string[] = [];
-            let toolExecutionResults: string[] = [];
-            let maxIterations = 10; // 防止无限循环
-            let currentIteration = 0;
-            let isCompleted = false;
+            // 内部迭代状态管理（仅为单个任务）
+            let internalHistory: string[] = [];
+            let iteration = 0;
+            const MAX_INTERNAL_ITERATIONS = 5; // 单个任务的迭代限制
 
-            while (!isCompleted && currentIteration < maxIterations) {
-                currentIteration++;
-                this.logger.info(`🔄 Specialist iteration ${currentIteration}/${maxIterations} for rule: ${ruleId}`);
+            while (iteration < MAX_INTERNAL_ITERATIONS) {
+                iteration++;
+                this.logger.info(`🔄 专家 ${specialistId} 内部迭代 ${iteration}/${MAX_INTERNAL_ITERATIONS}`);
 
-                // 从对应的专家文件加载提示词
-                const prompt = await this.loadSpecialistPrompt(ruleId, context, conversationHistory, toolExecutionResults);
+                // 1. 加载专家提示词
+                const prompt = await this.loadSpecialistPrompt(specialistId, contextForThisStep, internalHistory);
                 
-                // 🚀 获取 Specialist 可用的工具
+                // 🔍 [DEBUG] 详细记录提示词内容
+                this.logger.info(`🔍 [PROMPT_DEBUG] === 完整提示词内容 for ${specialistId} ===`);
+                this.logger.info(`🔍 [PROMPT_DEBUG] 提示词长度: ${prompt.length} 字符`);
+                this.logger.info(`🔍 [PROMPT_DEBUG] 前500字符:\n${prompt.substring(0, 500)}`);
+                this.logger.info(`🔍 [PROMPT_DEBUG] 后500字符:\n${prompt.substring(Math.max(0, prompt.length - 500))}`);
+                
+                // 检查关键词是否存在
+                const hasToolCallsInstruction = prompt.includes('tool_calls');
+                const hasJsonFormat = prompt.includes('json') || prompt.includes('JSON');
+                const hasWorkflowSteps = prompt.includes('createNewProjectFolder') || prompt.includes('writeFile');
+                
+                this.logger.info(`🔍 [PROMPT_DEBUG] 关键词检查:`);
+                this.logger.info(`🔍 [PROMPT_DEBUG] - 包含 'tool_calls': ${hasToolCallsInstruction}`);
+                this.logger.info(`🔍 [PROMPT_DEBUG] - 包含 JSON 格式: ${hasJsonFormat}`);
+                this.logger.info(`🔍 [PROMPT_DEBUG] - 包含工作流程步骤: ${hasWorkflowSteps}`);
+                this.logger.info(`🔍 [PROMPT_DEBUG] ==========================================`);
+                
+                // 2. 获取可用工具
                 const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
                 const toolsForVSCode = this.convertToolsToVSCodeFormat(toolsInfo.definitions);
                 
-                const messages = [
-                    vscode.LanguageModelChatMessage.User(prompt)
-                ];
-
+                // 🔍 [DEBUG] 详细记录可用工具信息
+                this.logger.info(`🔍 [TOOLS_DEBUG] === 可用工具信息 for ${specialistId} ===`);
+                this.logger.info(`🔍 [TOOLS_DEBUG] 总工具数量: ${toolsForVSCode.length}`);
+                
+                const toolNames = toolsForVSCode.map(tool => tool.name);
+                this.logger.info(`🔍 [TOOLS_DEBUG] 工具列表: ${toolNames.join(', ')}`);
+                
+                // 检查关键工具是否可用
+                const hasCreateNewProject = toolNames.includes('createNewProjectFolder');
+                const hasWriteFile = toolNames.includes('writeFile');
+                const hasCreateDirectory = toolNames.includes('createDirectory');
+                const hasTaskComplete = toolNames.includes('taskComplete');
+                
+                this.logger.info(`🔍 [TOOLS_DEBUG] 关键工具检查:`);
+                this.logger.info(`🔍 [TOOLS_DEBUG] - createNewProjectFolder: ${hasCreateNewProject}`);
+                this.logger.info(`🔍 [TOOLS_DEBUG] - writeFile: ${hasWriteFile}`);
+                this.logger.info(`🔍 [TOOLS_DEBUG] - createDirectory: ${hasCreateDirectory}`);
+                this.logger.info(`🔍 [TOOLS_DEBUG] - taskComplete: ${hasTaskComplete}`);
+                this.logger.info(`🔍 [TOOLS_DEBUG] ==========================================`);
+                
+                // 3. 调用AI
+                const messages = [vscode.LanguageModelChatMessage.User(prompt)];
                 const requestOptions: vscode.LanguageModelChatRequestOptions = {
-                    justification: `Execute SRS specialist rule: ${ruleId} (iteration ${currentIteration})`
+                    justification: `执行专家任务: ${specialistId} (迭代 ${iteration})`
                 };
 
-                // 🚀 如果有可用工具，提供给 AI
                 if (toolsForVSCode.length > 0) {
                     requestOptions.tools = toolsForVSCode;
                 }
 
+                // 🔍 [DEBUG] 记录AI请求配置
+                this.logger.info(`🔍 [AI_REQUEST_DEBUG] === AI 请求配置 ===`);
+                this.logger.info(`🔍 [AI_REQUEST_DEBUG] 消息数量: ${messages.length}`);
+                this.logger.info(`🔍 [AI_REQUEST_DEBUG] 工具数量: ${requestOptions.tools?.length || 0}`);
+                this.logger.info(`🔍 [AI_REQUEST_DEBUG] 工具模式: ${requestOptions.toolMode || '未设置'}`);
+                this.logger.info(`🔍 [AI_REQUEST_DEBUG] ================================`);
+
                 const response = await model.sendRequest(messages, requestOptions);
                 
-                // 处理流式文本响应
+                // 4. 处理AI响应
+                this.logger.info(`🔍 [DEBUG] Starting to process AI response for ${specialistId} iteration ${iteration}`);
                 let result = '';
+                let fragmentCount = 0;
+                
                 for await (const fragment of response.text) {
+                    fragmentCount++;
                     result += fragment;
+                    // this.logger.info(`🔍 [DEBUG] Received fragment ${fragmentCount}, length: ${fragment.length}, total length so far: ${result.length}`);
                 }
+                
+                this.logger.info(`🔍 [DEBUG] Completed processing AI response. Total fragments: ${fragmentCount}, final length: ${result.length}`);
+                this.logger.info(`🔍 [DEBUG] Raw AI Response for ${specialistId}:\n---\n${result}\n---`);
 
                 if (!result.trim()) {
-                    throw new Error(`Specialist ${ruleId} returned empty response in iteration ${currentIteration}`);
+                    this.logger.error(`❌ AI returned empty response for ${specialistId} iteration ${iteration}`);
+                    throw new Error(`专家 ${specialistId} 在迭代 ${iteration} 返回了空响应`);
                 }
 
-                this.logger.info(`🧠 Specialist ${ruleId} iteration ${currentIteration} response length: ${result.length}`);
-
-                // 🚀 新增：解析AI返回的工具调用计划
-                const aiPlan = this.parseAIToolPlan(result);
+                // 5. 解析AI计划
+                this.logger.info(`🔍 [DEBUG] Attempting to parse AI response for ${specialistId}`);
+                const aiPlan = this.parseAIResponse(result);
+                this.logger.info(`🔍 [DEBUG] AI plan parsing result for ${specialistId}: ${aiPlan ? 'SUCCESS' : 'FAILED'}`);
+                if (aiPlan) {
+                    this.logger.info(`🔍 [DEBUG] Parsed plan details: has_tool_calls=${!!aiPlan.tool_calls?.length}, has_direct_response=${!!aiPlan.direct_response}, tool_calls_count=${aiPlan.tool_calls?.length || 0}`);
+                }
                 
-                if (!aiPlan || !aiPlan.tool_calls || aiPlan.tool_calls.length === 0) {
-                    this.logger.warn(`⚠️ No tool calls found in specialist response for iteration ${currentIteration}`);
-                    // 将AI响应添加到历史，继续下一轮
-                    conversationHistory.push(`AI Response (iteration ${currentIteration}): ${result}`);
+                // 6. 详细验证AI计划
+                this.logger.info(`🔍 [DEBUG] Validating AI plan for ${specialistId} iteration ${iteration}:`);
+                this.logger.info(`🔍 [DEBUG] - aiPlan is null/undefined: ${!aiPlan}`);
+                if (aiPlan) {
+                    this.logger.info(`🔍 [DEBUG] - aiPlan.tool_calls exists: ${!!aiPlan.tool_calls}`);
+                    this.logger.info(`🔍 [DEBUG] - aiPlan.tool_calls.length: ${aiPlan.tool_calls?.length || 0}`);
+                    this.logger.info(`🔍 [DEBUG] - aiPlan.direct_response exists: ${!!aiPlan.direct_response}`);
+                    this.logger.info(`🔍 [DEBUG] - aiPlan.direct_response length: ${aiPlan.direct_response?.length || 0}`);
+                    this.logger.info(`🔍 [DEBUG] - aiPlan keys: ${JSON.stringify(Object.keys(aiPlan))}`);
+                    
+                    if (aiPlan.tool_calls && Array.isArray(aiPlan.tool_calls) && aiPlan.tool_calls.length > 0) {
+                        this.logger.info(`🔍 [DEBUG] - tool_calls details: ${JSON.stringify(aiPlan.tool_calls.map(tc => ({ name: tc.name, hasArgs: !!tc.args })))}`);
+                    }
+                }
+                
+                const hasValidToolCalls = aiPlan?.tool_calls && Array.isArray(aiPlan.tool_calls) && aiPlan.tool_calls.length > 0;
+                const hasValidDirectResponse = aiPlan?.direct_response && aiPlan.direct_response.trim().length > 0;
+                
+                this.logger.info(`🔍 [DEBUG] Validation results: hasValidToolCalls=${hasValidToolCalls}, hasValidDirectResponse=${hasValidDirectResponse}`);
+                
+                if (!aiPlan || (!hasValidToolCalls && !hasValidDirectResponse)) {
+                    this.logger.error(`❌ [DEBUG] AI plan validation failed for ${specialistId} iteration ${iteration}`);
+                    this.logger.error(`❌ [DEBUG] Failure reason: aiPlan=${!!aiPlan}, hasValidToolCalls=${hasValidToolCalls}, hasValidDirectResponse=${hasValidDirectResponse}`);
+                    throw new Error(`专家 ${specialistId} 在迭代 ${iteration} 未提供有效的工具调用或直接响应`);
+                }
+
+                // 🚀 移除direct_response路径：所有specialist都必须通过taskComplete工具完成任务
+                if ((!aiPlan.tool_calls || aiPlan.tool_calls.length === 0)) {
+                    // 没有工具调用意味着specialist没有按照要求的格式输出，应该重试
+                    this.logger.warn(`⚠️ 专家 ${specialistId} 未提供工具调用，迭代 ${iteration} 格式错误`);
+                    // 继续循环，让specialist重新尝试
                     continue;
                 }
 
-                // 🚀 新增：执行AI规划的工具调用
-                const toolCallResults = await this.executeToolCallsFromPlan(aiPlan.tool_calls);
-                
-                // 🚀 新增：检查是否需要聊天交互（askQuestion工具的特殊处理）
-                const chatInteractionNeeded = toolCallResults.find(result => 
-                    result.toolName === 'askQuestion' && 
-                    result.success && 
-                    result.result?.needsChatInteraction
-                );
-                
-                if (chatInteractionNeeded) {
-                    this.logger.info(`💬 Specialist ${ruleId} needs chat interaction: ${chatInteractionNeeded.result.chatQuestion}`);
-                    
-                    // 🚀 返回特殊状态，让聊天系统处理用户交互
-                    return JSON.stringify({
-                        needsChatInteraction: true,
-                        chatQuestion: chatInteractionNeeded.result.chatQuestion,
-                        currentIteration: currentIteration,
-                        conversationHistory: conversationHistory,
-                        toolExecutionResults: toolExecutionResults,
-                        pendingPlan: aiPlan,
-                        resumeContext: {
-                            ruleId: ruleId,
-                            context: context,
-                            // 保存当前状态以便后续恢复
+                // 7. 执行工具调用
+                if (aiPlan.tool_calls && aiPlan.tool_calls.length > 0) {
+                    const toolResults = await this.executeToolCalls(aiPlan.tool_calls);
+                    const toolsUsed = toolResults.map(result => result.toolName);
+
+                    // 检查是否有taskComplete调用（任务完成信号）
+                    const taskCompleteResult = toolResults.find(result => 
+                        result.toolName === 'taskComplete' && result.success
+                    );
+
+                    if (taskCompleteResult) {
+                        this.logger.info(`✅ 专家 ${specialistId} 通过taskComplete完成任务，迭代次数: ${iteration}`);
+                        
+                        // 🚀 修复：从taskComplete结果中智能提取文件编辑信息
+                        const taskResult = taskCompleteResult.result;
+                        let requiresFileEditing = false;
+                        let editInstructions = undefined;
+                        let targetFile = undefined;
+                        let content = undefined;
+                        let structuredData = taskResult;
+                        
+                        // 检查contextForNext.projectState中是否有文件编辑信息
+                        if (taskResult?.contextForNext?.projectState) {
+                            const projectState = taskResult.contextForNext.projectState;
+                            
+                            if (projectState.requires_file_editing === true) {
+                                requiresFileEditing = true;
+                                editInstructions = projectState.edit_instructions;
+                                targetFile = projectState.target_file;
+                                content = projectState.content;
+                                structuredData = projectState.structuredData || taskResult;
+                            } else if (projectState.requires_file_editing === false) {
+                                requiresFileEditing = false;
+                            }
                         }
-                    });
-                }
-                
-                // 🚀 新增：检查是否调用了 finalAnswer（任务完成信号）
-                const finalAnswerCall = aiPlan.tool_calls.find(call => call.name === 'finalAnswer');
-                if (finalAnswerCall) {
-                    this.logger.info(`🎯 Specialist ${ruleId} completed task with finalAnswer in iteration ${currentIteration}`);
-                    isCompleted = true;
-                    
-                    // 返回最终答案的摘要
-                    const finalResult = toolCallResults.find(result => result.toolName === 'finalAnswer');
-                    if (finalResult && finalResult.success) {
-                        return JSON.stringify({
-                            completed: true,
-                            summary: finalResult.result?.summary || 'Task completed successfully',
-                            iterations: currentIteration,
-                            totalToolsExecuted: toolCallResults.length
-                        });
+                        
+                        // 🚀 智能判断requires_file_editing：基于specialist类型和工作模式
+                        if (requiresFileEditing === false && taskResult?.contextForNext?.projectState?.requires_file_editing === undefined) {
+                            requiresFileEditing = this.shouldRequireFileEditing(specialistId, toolsUsed);
+                            
+                            if (requiresFileEditing) {
+                                this.logger.info(`🔍 [DEBUG] 基于specialist类型判断requires_file_editing=true: ${specialistId}`);
+                            } else {
+                                this.logger.info(`🔍 [DEBUG] 基于specialist类型判断requires_file_editing=false: ${specialistId}`);
+                            }
+                        }
+                        
+                        return {
+                            success: true,
+                            content: content || taskResult?.summary || '任务已完成',
+                            requires_file_editing: requiresFileEditing, // ✅ 智能判断，不再硬编码
+                            edit_instructions: editInstructions,
+                            target_file: targetFile,
+                            structuredData: structuredData,
+                            metadata: {
+                                specialist: specialistId,
+                                iterations: iteration,
+                                executionTime: Date.now() - startTime,
+                                timestamp: new Date().toISOString(),
+                                toolsUsed
+                            }
+                        };
                     }
+
+                    // 将工具执行结果添加到内部历史中
+                    const resultsText = toolResults.map(result => 
+                        `工具: ${result.toolName}, 成功: ${result.success}, 结果: ${JSON.stringify(result.result)}`
+                    ).join('\n');
+                    
+                    internalHistory.push(`迭代 ${iteration} - AI计划: ${JSON.stringify(aiPlan)}`);
+                    internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsText}`);
                 }
-
-                // 🚀 新增：将工具执行结果添加到历史中
-                const resultsText = toolCallResults.map(result => 
-                    `Tool: ${result.toolName}, Success: ${result.success}, Result: ${JSON.stringify(result.result)}`
-                ).join('\n');
-                
-                conversationHistory.push(`AI Plan (iteration ${currentIteration}): ${JSON.stringify(aiPlan)}`);
-                toolExecutionResults.push(`Tool Results (iteration ${currentIteration}):\n${resultsText}`);
             }
 
-            // 🚀 如果达到最大迭代次数但未完成，返回部分完成状态
-            if (currentIteration >= maxIterations && !isCompleted) {
-                this.logger.warn(`⚠️ Specialist ${ruleId} reached max iterations (${maxIterations}) without explicit completion`);
-                return JSON.stringify({
-                    completed: false,
-                    summary: `Specialist completed ${currentIteration} iterations but did not explicitly signal completion`,
-                    iterations: currentIteration,
-                    partialCompletion: true
-                });
-            }
-
-            // 🚀 正常完成情况的默认返回
-            return JSON.stringify({
-                completed: true,
-                summary: `Specialist ${ruleId} completed successfully`,
-                iterations: currentIteration
-            });
+            // 达到最大迭代次数
+            this.logger.warn(`⚠️ 专家 ${specialistId} 达到最大迭代次数 (${MAX_INTERNAL_ITERATIONS})`);
+            return {
+                success: false,
+                requires_file_editing: false, // 🚀 失败情况下设为false
+                error: `专家任务超过最大迭代次数 (${MAX_INTERNAL_ITERATIONS})，未能完成`,
+                metadata: {
+                    specialist: specialistId,
+                    iterations: MAX_INTERNAL_ITERATIONS,
+                    executionTime: Date.now() - startTime,
+                    timestamp: new Date().toISOString()
+                }
+            };
 
         } catch (error) {
-            this.logger.error(`Failed to execute specialist ${ruleId}`, error as Error);
-            throw error;
+            this.logger.error(`❌ 专家 ${specialistId} 执行失败`, error as Error);
+            return {
+                success: false,
+                requires_file_editing: false, // 🚀 异常情况下设为false
+                error: (error as Error).message,
+                metadata: {
+                    specialist: specialistId,
+                    iterations: 0,
+                    executionTime: Date.now() - startTime,
+                    timestamp: new Date().toISOString()
+                }
+            };
         }
     }
 
     /**
-     * 从rules/specialists/目录加载专家提示词
+     * 🚀 新架构：使用PromptAssemblyEngine加载专家提示词
      */
-    private async loadSpecialistPrompt(ruleId: string, context: any, conversationHistory: string[], toolExecutionResults: string[]): Promise<string> {
+    private async loadSpecialistPrompt(
+        specialistId: string, 
+        context: any, 
+        internalHistory: string[]
+    ): Promise<string> {
         try {
-            // 根据ruleId确定文件名
-            const fileName = this.getSpecialistFileName(ruleId);
+            this.logger.info(`🔍 [DEBUG] loadSpecialistPrompt called for: ${specialistId}`);
             
-            // 查找专家文件路径
-            const possiblePaths = [
-                path.join(__dirname, `../../rules/specialists/${fileName}`),  // 开发环境
-                path.join(__dirname, `../rules/specialists/${fileName}`),     // 打包环境备选1
-                path.join(__dirname, `rules/specialists/${fileName}`),        // 打包环境备选2
-                path.join(process.cwd(), `rules/specialists/${fileName}`),     // 工作目录
-            ];
+            // 1. 将specialistId映射为SpecialistType
+            const specialistType = this.mapSpecialistIdToType(specialistId);
+            this.logger.info(`🔍 [DEBUG] Mapped to type: ${JSON.stringify(specialistType)}`);
             
-            // 如果是VSCode扩展环境，使用扩展上下文路径
-            try {
-                const extension = vscode.extensions.getExtension('testany-co.srs-writer-plugin');
-                if (extension) {
-                    possiblePaths.unshift(path.join(extension.extensionPath, `rules/specialists/${fileName}`));
+            // 2. 构建SpecialistContext
+            const specialistContext: SpecialistContext = {
+                userRequirements: context.userInput || context.currentStep?.description || '',
+                structuredContext: {
+                    currentStep: context.currentStep,
+                    dependentResults: context.dependentResults || [],
+                    internalHistory: internalHistory
+                },
+                projectMetadata: {
+                    projectName: context.sessionData?.projectName || 'Unknown',
+                    baseDir: context.sessionData?.baseDir || '',
+                    timestamp: new Date().toISOString()
                 }
-            } catch (error) {
-                this.logger.warn('Failed to get extension path, using fallback paths');
-            }
+            };
             
-            // 查找第一个存在的路径
-            const specialistPath = possiblePaths.find(filePath => fs.existsSync(filePath));
+            // 3. 调用PromptAssemblyEngine组装提示词
+            this.logger.info(`🔍 [DEBUG] Calling promptAssemblyEngine.assembleSpecialistPrompt...`);
+            const assembledPrompt = await this.promptAssemblyEngine.assembleSpecialistPrompt(
+                specialistType,
+                specialistContext
+            );
             
-            if (!specialistPath) {
-                this.logger.warn(`Specialist prompt file not found: ${fileName}. Tried paths: ${possiblePaths.join(', ')}`);
-                return this.buildPromptForSpecialist(ruleId, context, conversationHistory, toolExecutionResults); // 降级到硬编码版本
-            }
+            this.logger.info(`🔍 [DEBUG] PromptAssemblyEngine assembled prompt successfully, length: ${assembledPrompt.length}`);
+            this.logger.info(`✅ 使用PromptAssemblyEngine组装专家提示词: ${specialistId}`);
             
-            // 读取文件内容
-            let promptTemplate = fs.readFileSync(specialistPath, 'utf8');
-            
-            // 替换模板变量
-            promptTemplate = this.replaceTemplateVariables(promptTemplate, context, conversationHistory, toolExecutionResults);
-            
-            this.logger.info(`Loaded specialist prompt from: ${specialistPath}`);
-            return promptTemplate;
+            return assembledPrompt;
             
         } catch (error) {
-            this.logger.error(`Failed to load specialist prompt file for ${ruleId}`, error as Error);
-            // 降级到硬编码版本
-            return this.buildPromptForSpecialist(ruleId, context, conversationHistory, toolExecutionResults);
+            this.logger.error(`❌ PromptAssemblyEngine组装失败，回退到传统方式: ${specialistId}`, error as Error);
+            
+            // 回退到原有的文件加载方式
+            return await this.loadSpecialistPromptFallback(specialistId, context, internalHistory);
         }
     }
 
     /**
-     * 根据ruleId获取对应的文件名
+     * 根据specialistId获取对应的文件名
      */
-    private getSpecialistFileName(ruleId: string): string {
+    private getSpecialistFileName(specialistId: string): string {
         const fileMapping: { [key: string]: string } = {
-            '100_create_srs': '100_create_srs.md',
-            '200_edit_srs': '200_edit_srs.md',
-            '300_prototype': '300_prototype.md',
-            '400_lint_check': '400_lint_check.md',
-            '500_git_operations': '500_git_operations.md',
             'help_response': 'help_response.md',
-            'complexity_classification': 'ComplexityClassification.md'
+            'complexity_classification': 'ComplexityClassification.md',
+            
+            // 新的content类specialist
+            'project_initializer': 'content/project_initializer.md',  // 🚀 新增
+            'summary_writer': 'content/summary_writer.md',
+            'overall_description_writer': 'content/overall_description_writer.md',
+            'fr_writer': 'content/fr_writer.md',
+            'nfr_writer': 'content/nfr_writer.md',
+            'user_journey_writer': 'content/user_journey_writer.md',
+            'journey_writer': 'content/user_journey_writer.md', // 别名
+            'prototype_designer': 'content/prototype_designer.md',
+            
+            // 新的process类specialist
+            'requirement_syncer': 'process/requirement_syncer.md',
+            'document_formatter': 'process/document_formatter.md',
+            'doc_formatter': 'process/document_formatter.md', // 别名
+            'git_operator': 'process/git_operator.md'
         };
         
-        return fileMapping[ruleId] || `${ruleId}.md`;
+        return fileMapping[specialistId] || `${specialistId}.md`;
+    }
+
+    /**
+     * 查找专家文件路径
+     */
+    private async findSpecialistFile(fileName: string): Promise<string | null> {
+        // 构建可能的路径（包括扩展安装路径）
+        let possiblePaths: string[] = [];
+        
+        try {
+            const extension = vscode.extensions.getExtension('testany-co.srs-writer-plugin');
+            if (extension) {
+                // 优先使用扩展路径
+                possiblePaths.push(path.join(extension.extensionPath, `rules/specialists/${fileName}`));
+            }
+        } catch (error) {
+            this.logger.warn('无法获取扩展路径，使用备用路径');
+        }
+        
+        // 添加其他可能的路径
+        possiblePaths.push(
+            path.join(__dirname, `../../rules/specialists/${fileName}`),
+            path.join(__dirname, `../rules/specialists/${fileName}`),
+            path.join(__dirname, `rules/specialists/${fileName}`),
+            path.join(process.cwd(), `rules/specialists/${fileName}`)
+        );
+        
+        // 查找第一个存在的文件
+        for (const filePath of possiblePaths) {
+            if (fs.existsSync(filePath)) {
+                this.logger.info(`✅ 找到专家文件: ${filePath}`);
+                return filePath;
+            }
+        }
+        
+        this.logger.warn(`❌ 未找到专家文件: ${fileName}，搜索路径: ${possiblePaths.join(', ')}`);
+        return null;
     }
 
     /**
      * 替换提示词模板中的变量
      */
-    private replaceTemplateVariables(promptTemplate: string, context: any, conversationHistory?: string[], toolExecutionResults?: string[]): string {
-        // 🚀 修复：明确区分不同语义的上下文变量
-        
-        // 🔒 持久化上下文：用户的原始完整请求（永不变化）
-        const initialUserRequest = context.userInput || '';
-        
-        // 🔄 临时上下文：当前轮的用户输入
-        // 如果有当前回复，说明是多轮对话中的回复；否则是初始请求
-        const currentUserInput = context.currentUserResponse || context.userInput || '';
-        
-        // 🔄 临时上下文：当前轮的用户回复（专门用于多轮对话）
-        const currentUserResponse = context.currentUserResponse || '';
-        
-        // 基本会话信息
-        const projectName = context.sessionData?.projectName || null;
-        const hasActiveProject = !!projectName;
-        
-        // 基本变量替换
+    private replaceTemplateVariables(
+        promptTemplate: string, 
+        context: any, 
+        internalHistory: string[]
+    ): string {
         let result = promptTemplate;
         
-        // ✅ 语义明确的占位符替换
-        result = result.replace(/\{\{INITIAL_USER_REQUEST\}\}/g, initialUserRequest);    // 🔒 用户的原始完整请求
-        // result = result.replace(/\{\{USER_INPUT\}\}/g, currentUserInput);               // 🔄 当前轮的用户输入
-        result = result.replace(/\{\{CURRENT_USER_RESPONSE\}\}/g, currentUserResponse); // 🔄 当前轮的用户回复
-        
-        // 项目相关变量
-        const baseDir = context.sessionData?.baseDir || null;
-        const projectPath = baseDir ? path.basename(baseDir) : (projectName || 'Unknown');
-        
-        result = result.replace(/\{\{PROJECT_NAME\}\}/g, projectName || 'Unknown');
-        result = result.replace(/\{\{PROJECT_PATH\}\}/g, projectPath);
-        result = result.replace(/\{\{BASE_DIR\}\}/g, baseDir || '');
-        result = result.replace(/\{\{HAS_ACTIVE_PROJECT\}\}/g, hasActiveProject.toString());
+        // 基本变量替换
+        result = result.replace(/\{\{INITIAL_USER_REQUEST\}\}/g, context.userInput || '');
+        result = result.replace(/\{\{CURRENT_USER_RESPONSE\}\}/g, context.currentUserResponse || '');
+        result = result.replace(/\{\{PROJECT_NAME\}\}/g, context.sessionData?.projectName || 'Unknown');
+        result = result.replace(/\{\{BASE_DIR\}\}/g, context.sessionData?.baseDir || '');
         result = result.replace(/\{\{TIMESTAMP\}\}/g, new Date().toISOString());
         result = result.replace(/\{\{DATE\}\}/g, new Date().toISOString().split('T')[0]);
-        result = result.replace(/\{\{INTENT\}\}/g, context.intent || '');
         
-        // 上下文数据替换
-        if (context.sessionData) {
-            result = result.replace(/\{\{LAST_INTENT\}\}/g, context.sessionData.lastIntent || 'null');
-            result = result.replace(/\{\{ACTIVE_FILES\}\}/g, JSON.stringify(context.sessionData.activeFiles || []));
+        // 当前步骤信息
+        if (context.currentStep) {
+            result = result.replace(/\{\{CURRENT_STEP_DESCRIPTION\}\}/g, context.currentStep.description || '');
+            result = result.replace(/\{\{EXPECTED_OUTPUT\}\}/g, context.currentStep.expectedOutput || '');
         }
         
-        // 🚀 对话历史和工具执行结果
-        const conversationHistoryText = conversationHistory && conversationHistory.length > 0 
-            ? conversationHistory.join('\n\n') 
-            : 'No previous conversation history.';
+        // 依赖结果
+        const dependentResultsText = context.dependentResults && context.dependentResults.length > 0
+            ? context.dependentResults.map((dep: any) => 
+                `步骤${dep.step} (${dep.specialist}): ${dep.content || JSON.stringify(dep.structuredData)}`
+              ).join('\n\n')
+            : '无依赖的上步结果';
         
-        const toolResultsText = toolExecutionResults && toolExecutionResults.length > 0 
-            ? toolExecutionResults.join('\n\n') 
-            : 'No previous tool execution results.';
+        result = result.replace(/\{\{DEPENDENT_RESULTS\}\}/g, dependentResultsText);
         
-        result = result.replace(/\{\{CONVERSATION_HISTORY\}\}/g, conversationHistoryText);
-        result = result.replace(/\{\{TOOL_RESULTS_CONTEXT\}\}/g, toolResultsText);
+        // 内部历史
+        const historyText = internalHistory.length > 0 
+            ? internalHistory.join('\n\n') 
+            : '无内部迭代历史';
         
-        // 🚀 注入可用工具列表（JSON Schema格式）
-        result = this.injectAvailableTools(result);
-        
-        // 🚀 注入工具调用指南
-        result = this.injectToolCallingGuides(result);
+        result = result.replace(/\{\{INTERNAL_HISTORY\}\}/g, historyText);
         
         return result;
     }
 
     /**
-     * 🚀 新增：注入可用工具列表（JSON Schema格式）
+     * 构建默认提示词（当文件加载失败时）
      */
-    private injectAvailableTools(promptTemplate: string): string {
-        try {
-            // 获取 Specialist 可用的工具定义
-            const availableTools = this.toolAccessController.getAvailableTools(CallerType.SPECIALIST);
-            
-            // 转换为 JSON Schema 格式
-            const toolsJsonSchema = JSON.stringify(availableTools, null, 2);
-            
-            // 替换 {{AVAILABLE_TOOLS}} 占位符
-            const result = promptTemplate.replace(/\{\{AVAILABLE_TOOLS\}\}/g, toolsJsonSchema);
-            
-            return result;
-            
-        } catch (error) {
-            this.logger.warn(`Failed to inject available tools: ${(error as Error).message}`);
-            return promptTemplate; // 失败时返回原模板
-        }
+    private buildDefaultPrompt(specialistId: string, context: any, internalHistory: string[]): string {
+        return `# 专家任务: ${specialistId}
+
+## 用户请求
+${context.userInput || '未提供用户输入'}
+
+## 当前步骤
+${context.currentStep?.description || '未指定步骤描述'}
+
+## 依赖结果
+${context.dependentResults?.length > 0 
+    ? context.dependentResults.map((dep: any) => `步骤${dep.step}: ${dep.content}`).join('\n')
+    : '无依赖结果'
+}
+
+## 任务要求
+请根据用户请求和当前步骤描述，执行专家任务 "${specialistId}"。
+
+## 输出要求
+1. 如果需要使用工具，请调用相应的工具
+2. 完成任务后，请调用 taskComplete 工具并提供完整的结果摘要
+3. 确保输出内容符合步骤期望：${context.currentStep?.expectedOutput || '未指定'}
+
+请开始执行任务。`;
     }
 
     /**
-     * 🚀 新增：注入工具调用指南
-     */
-    private injectToolCallingGuides(promptTemplate: string): string {
-        try {
-            // 获取 Specialist 可用的工具定义（同步版本，用于模板替换）
-            const availableTools = this.toolAccessController.getAvailableTools(CallerType.SPECIALIST);
-            
-            // 为每个工具生成调用指南
-            const toolGuides: { [key: string]: string } = {};
-            
-            for (const tool of availableTools) {
-                if (tool.callingGuide) {
-                    toolGuides[tool.name] = this.formatCallingGuide(tool);
-                }
-            }
-            
-            // 替换模板中的工具调用指南占位符
-            let result = promptTemplate;
-            
-            // 支持 {{TOOL_CALLING_GUIDE.toolName}} 格式
-            const guidePattern = /\{\{TOOL_CALLING_GUIDE\.(\w+)\}\}/g;
-            result = result.replace(guidePattern, (match, toolName) => {
-                return toolGuides[toolName] || `工具 ${toolName} 的调用指南不可用`;
-            });
-            
-            // 支持 {{ALL_TOOL_GUIDES}} 格式
-            const allGuidesText = Object.entries(toolGuides)
-                .map(([name, guide]) => `## ${name} 工具调用指南\n${guide}`)
-                .join('\n\n');
-            
-            result = result.replace(/\{\{ALL_TOOL_GUIDES\}\}/g, allGuidesText);
-            
-            return result;
-            
-        } catch (error) {
-            this.logger.warn(`Failed to inject tool calling guides: ${(error as Error).message}`);
-            return promptTemplate; // 失败时返回原模板
-        }
-    }
-
-    /**
-     * 🚀 新增：格式化单个工具的调用指南
-     */
-    private formatCallingGuide(tool: any): string {
-        const guide = tool.callingGuide;
-        
-        let formatted = `**何时使用**: ${guide.whenToUse || '未指定'}\n\n`;
-        
-        if (guide.prerequisites) {
-            formatted += `**前置条件**: ${guide.prerequisites}\n\n`;
-        }
-        
-        if (guide.inputRequirements) {
-            formatted += `**输入要求**:\n`;
-            for (const [key, desc] of Object.entries(guide.inputRequirements)) {
-                formatted += `- ${key}: ${desc}\n`;
-            }
-            formatted += '\n';
-        }
-        
-        if (guide.internalWorkflow && Array.isArray(guide.internalWorkflow)) {
-            formatted += `**内部工作流程**:\n`;
-            guide.internalWorkflow.forEach((step: string) => {
-                formatted += `${step}\n`;
-            });
-            formatted += '\n';
-        }
-        
-        if (guide.commonPitfalls && Array.isArray(guide.commonPitfalls)) {
-            formatted += `**常见陷阱**:\n`;
-            guide.commonPitfalls.forEach((pitfall: string) => {
-                formatted += `⚠️ ${pitfall}\n`;
-            });
-        }
-        
-        return formatted.trim();
-    }
-
-    /**
-     * 为不同的专家构建相应的提示词（降级备用版本）
-     * 
-     * ⚠️ 重要：此方法仅作为降级备用，当外部.md文件加载失败时使用
-     * 🚫 请勿删除此注释和方法 - 这是系统稳定性的重要保障
-     * 📋 主要路径应使用 rules/specialists/*.md 文件
-     * 🔄 未来版本可能会移除此降级机制
-     */
-    private buildPromptForSpecialist(ruleId: string, context: any, conversationHistory: string[], toolExecutionResults: string[]): string {
-        const userInput = context.userInput || '';
-        const projectName = context.sessionData?.projectName || null;
-
-        switch (ruleId) {
-            case '100_create_srs':
-                return this.buildCreateSRSPrompt(userInput, context, conversationHistory, toolExecutionResults);
-            
-            case '200_edit_srs':
-                return this.buildEditSRSPrompt(userInput, context, projectName, conversationHistory, toolExecutionResults);
-            
-            case 'help_response':
-                return this.buildHelpPrompt(userInput, conversationHistory, toolExecutionResults);
-            
-            default:
-                return this.buildGenericPrompt(ruleId, userInput, context, conversationHistory, toolExecutionResults);
-        }
-    }
-
-    /**
-     * 构建创建SRS的提示词（降级备用版本）
-     * 
-     * ⚠️ 重要：此方法仅作为降级备用，当 rules/specialists/100_create_srs.md 加载失败时使用
-     * 🚫 请勿删除此注释和方法 - 这是系统稳定性的重要保障
-     * 📋 主要路径应使用 rules/specialists/100_create_srs.md 文件
-     * 🔄 未来版本可能会移除此降级机制
-     */
-    private buildCreateSRSPrompt(userInput: string, context: any, conversationHistory: string[], toolExecutionResults: string[]): string {
-        return `# Role
-You are a professional SRS (Software Requirements Specification) writer with expertise in creating comprehensive technical documentation.
-
-# Task
-Create a complete, structured SRS document based on the user's requirements.
-
-# Initial User Request
-"${userInput}"
-
-# ⚠️ CRITICAL: Extract and Remember Key Constraints
-Before proceeding, you MUST identify and remember these critical constraints from the user request:
-- Language Requirements: Does the user specify language preferences (e.g., "中文界面", "English UI")?
-- Platform Requirements: What platform is mentioned (mobile, web, desktop)?
-- Technical Preferences: Any specific technologies, frameworks, or approaches mentioned?
-- User Experience Requirements: Any specific UX/UI preferences or constraints?
-
-💡 These constraints MUST be reflected in every section you generate.
-
-# Output Requirements
-Generate a complete SRS document in markdown format that includes:
-
-1. **Document Header**
-   - Title with project name extracted from user input
-   - Version: 1.0
-   - Date: ${new Date().toISOString().split('T')[0]}
-
-2. **Required Sections**
-   - ## 1. 引言 (Introduction)
-   - ## 2. 整体说明 (Overall Description) 
-   - ## 3. 功能需求 (Functional Requirements)
-   - ## 4. 非功能性需求 (Non-Functional Requirements)
-   - ## 5. 验收标准 (Acceptance Criteria)
-
-3. **Functional Requirements Table**
-   Include a table with columns: FR-ID | 需求名称 | 优先级 | 详细描述 | 验收标准
-   Use ID format: FR-MODULE-001, FR-MODULE-002, etc.
-
-4. **Non-Functional Requirements Table**
-   Include a table with columns: NFR-ID | 需求名称 | 优先级 | 详细描述 | 衡量标准
-   Use ID format: NFR-PERF-001, NFR-SEC-001, etc.
-
-5. **Project Classification**
-   At the end, add a section with:
-   \`\`\`
-   ### --- AI CLASSIFICATION ---
-   Project Type: [Web App/Mobile App/Desktop App/Platform]
-   Complexity: [Simple/Medium/Complex]
-   \`\`\`
-
-# Quality Standards
-- Use clear, professional language
-- Ensure all requirements follow SMART principles (Specific, Measurable, Achievable, Relevant, Time-bound)
-- Include realistic acceptance criteria
-- Maintain consistency in terminology
-- CRITICAL: Respect ALL identified constraints (language, platform, technical preferences)
-
-🚨 FINAL CONSTRAINT CHECK: Before generating, verify that your content respects ALL identified constraints from the initial user request.
-
-Generate the complete SRS document now:`;
-    }
-
-    /**
-     * 构建编辑SRS的提示词（降级备用版本）
-     * 
-     * ⚠️ 重要：此方法仅作为降级备用，当 rules/specialists/200_edit_srs.md 加载失败时使用
-     * 🚫 请勿删除此注释和方法 - 这是系统稳定性的重要保障
-     * 📋 主要路径应使用 rules/specialists/200_edit_srs.md 文件
-     * 🔄 未来版本可能会移除此降级机制
-     */
-    private buildEditSRSPrompt(userInput: string, context: any, projectName: string | null, conversationHistory: string[], toolExecutionResults: string[]): string {
-        return `# Role
-You are a professional SRS editor specializing in modifying existing Software Requirements Specification documents.
-
-# Context
-- Current project: ${projectName || 'Unknown'}
-- Edit request: "${userInput}"
-
-# Task
-Modify the existing SRS document based on the user's edit request. Focus on:
-
-1. **Understanding the Request**: Analyze what specific changes are needed
-2. **Maintaining Consistency**: Ensure changes align with existing document structure
-3. **Quality Assurance**: Verify all modifications follow SMART principles
-
-# Edit Guidelines
-- Preserve existing document structure and formatting
-- Update version numbers and dates appropriately
-- Maintain requirement ID consistency
-- Add detailed acceptance criteria for new requirements
-- Update related sections when making changes
-
-# Output Format
-Provide the specific changes or additions requested, maintaining the original SRS markdown format.
-
-Process this edit request now:`;
-    }
-
-    /**
-     * 构建帮助提示词（降级备用版本）
-     * 
-     * ⚠️ 重要：此方法仅作为降级备用，当 rules/specialists/help_response.md 加载失败时使用
-     * 🚫 请勿删除此注释和方法 - 这是系统稳定性的重要保障
-     * 📋 主要路径应使用 rules/specialists/help_response.md 文件
-     * 🔄 未来版本可能会移除此降级机制
-     */
-    private buildHelpPrompt(userInput: string, conversationHistory: string[], toolExecutionResults: string[]): string {
-        return `# SRS Writer Assistant Help
-
-You are helping a user with the SRS Writer VSCode extension. Here are the available commands and features:
-
-## Available Commands
-- **/create** - Create a new SRS document from requirements description
-- **/edit** - Edit existing SRS document (requires active project)
-- **/lint** - Check document quality and compliance
-- **/help** - Show this help information
-
-## How to Use
-1. **Creating a new SRS**: Use "/create" followed by your project description
-   Example: "/create I want to build a library management system"
-
-2. **Editing existing SRS**: Use "/edit" with specific changes
-   Example: "/edit add user authentication feature"
-
-3. **Quality checking**: Use "/lint" to validate your SRS document
-
-## User Query
-"${userInput}"
-
-Provide specific help based on their question above.`;
-    }
-
-    /**
-     * 构建通用提示词（降级备用版本）
-     * 
-     * ⚠️ 重要：此方法仅作为降级备用，当对应的 rules/specialists/*.md 文件加载失败时使用
-     * 🚫 请勿删除此注释和方法 - 这是系统稳定性的重要保障
-     * 📋 主要路径应使用 rules/specialists/ 目录下的对应.md文件
-     * 🔄 未来版本可能会移除此降级机制
-     */
-    private buildGenericPrompt(ruleId: string, userInput: string, context: any, conversationHistory: string[], toolExecutionResults: string[]): string {
-        return `# SRS Writing Assistant
-
-You are a helpful assistant for Software Requirements Specification writing.
-
-Rule ID: ${ruleId}
-User Input: "${userInput}"
-Context: ${JSON.stringify(context, null, 2)}
-
-Please provide appropriate assistance based on the user's request.`;
-    }
-
-    /**
-     * 检查是否可以处理特定专家
-     */
-    public canHandle(specialistId: string): boolean {
-        const supportedSpecialists = [
-            '100_create_srs', 
-            '200_edit_srs', 
-            '300_prototype', 
-            '400_lint_check', 
-            '500_git_operations', 
-            'help_response',
-            'complexity_classification'
-        ];
-        return supportedSpecialists.includes(specialistId);
-    }
-
-    /**
-     * 获取支持的专家列表
-     */
-    public getSupportedSpecialists(): string[] {
-        return [
-            '100_create_srs', 
-            '200_edit_srs', 
-            '300_prototype', 
-            '400_lint_check', 
-            '500_git_operations', 
-            'help_response',
-            'complexity_classification'
-        ];
-    }
-
-    /**
-     * 重新加载专家规则（简化版本中为空实现）
-     */
-    public async reloadSpecialists(): Promise<void> {
-        this.logger.info('Specialists reloaded (simplified version - no external rules)');
-    }
-
-    /**
-     * 🚀 新增：将工具定义转换为 VSCode 格式
+     * 将工具定义转换为VSCode格式
      */
     private convertToolsToVSCodeFormat(toolDefinitions: any[]): vscode.LanguageModelChatTool[] {
         return toolDefinitions.map(tool => ({
             name: tool.name,
             description: tool.description,
-            parameters: tool.parameters
+            parametersSchema: tool.parametersSchema || tool.parameters || {}
         }));
     }
 
     /**
-     * 🚀 更新：解析AI返回的工具调用计划 - 健壮版本
-     * 
-     * 这个方法能够处理各种可能的AI输出格式污染：
-     * - 前后缀文本噪音
-     * - Markdown代码块包装
-     * - 多个JSON对象（取第一个有效的）
-     * - 格式错误的换行和空格
+     * 🚀 多策略AI响应解析 - 防御纵深设计
+     * 策略1: Markdown代码块 → 策略2: 平衡JSON → 策略3: 贪婪提取 → 策略4: 直接响应降级
      */
-    private parseAIToolPlan(aiResponse: string): { tool_calls: Array<{ name: string; args: any }> } | null {
-        this.logger.info(`🔍 [DEBUG] Parsing AI response, length: ${aiResponse.length}`);
-        
-        try {
-            // 🚀 方法1：直接解析（最快路径）
-            const directParsed = JSON.parse(aiResponse.trim());
-            if (directParsed && directParsed.tool_calls && Array.isArray(directParsed.tool_calls)) {
-                this.logger.info(`✅ Direct JSON parse successful, found ${directParsed.tool_calls.length} tool calls`);
-                return directParsed;
+    private parseAIResponse(aiResponse: string): { tool_calls?: Array<{ name: string; args: any }>; direct_response?: string; content?: string; structuredData?: any } | null {
+        this.logger.info(`🔍 [DEBUG] Starting multi-strategy parsing for response (length: ${aiResponse.length})`);
+
+        // 策略1: 优先尝试解析Markdown代码块中的JSON
+        const markdownMatch = aiResponse.match(/```json\n([\s\S]*?)\n```/);
+        if (markdownMatch && markdownMatch[1]) {
+            this.logger.info(`🔍 [DEBUG] Strategy 1: Found JSON in Markdown code block.`);
+            const parsed = this.tryParseWithRepair(markdownMatch[1]);
+            if (this.isValidPlan(parsed)) {
+                this.logger.info(`✅ [DEBUG] Strategy 1 successful - using Markdown code block result`);
+                return this.standardizeOutput(parsed, aiResponse);
             }
-        } catch (error) {
-            // 直接解析失败，继续尝试其他方法
-            this.logger.debug('Direct JSON parse failed, trying extraction methods');
         }
 
-        try {
-            // 🚀 方法2：使用健壮的JSON提取函数
-            const extracted = this.extractAndParseJson(aiResponse);
-            if (extracted && extracted.tool_calls && Array.isArray(extracted.tool_calls)) {
-                this.logger.info(`✅ Robust JSON extraction successful, found ${extracted.tool_calls.length} tool calls`);
-                return extracted;
+        // 策略2: 尝试寻找一个括号平衡的JSON对象
+        const balancedJson = this.findBalancedJson(aiResponse);
+        if (balancedJson) {
+            this.logger.info(`🔍 [DEBUG] Strategy 2: Found a balanced JSON object (length: ${balancedJson.length}).`);
+            const parsed = this.tryParseWithRepair(balancedJson);
+            if (this.isValidPlan(parsed)) {
+                this.logger.info(`✅ [DEBUG] Strategy 2 successful - using balanced JSON result`);
+                return this.standardizeOutput(parsed, aiResponse);
             }
-        } catch (error) {
-            this.logger.debug(`Robust extraction failed: ${(error as Error).message}`);
         }
 
-        try {
-            // 🚀 方法3：Markdown代码块提取（兼容性）
-            const jsonMatch = aiResponse.match(/```json\s*(.*?)\s*```/s);
-            if (jsonMatch) {
-                const extracted = this.extractAndParseJson(jsonMatch[1]);
-                if (extracted && extracted.tool_calls && Array.isArray(extracted.tool_calls)) {
-                    this.logger.info(`✅ Markdown block extraction successful, found ${extracted.tool_calls.length} tool calls`);
-                    return extracted;
-                }
+        // 策略3: 最后的贪婪提取（作为降级）
+        const firstBrace = aiResponse.indexOf('{');
+        const lastBrace = aiResponse.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+            this.logger.info(`🔍 [DEBUG] Strategy 3: Using greedy extraction (${firstBrace} to ${lastBrace}).`);
+            const greedyJson = aiResponse.substring(firstBrace, lastBrace + 1);
+            const parsed = this.tryParseWithRepair(greedyJson);
+            if (this.isValidPlan(parsed)) {
+                this.logger.info(`✅ [DEBUG] Strategy 3 successful - using greedy extraction result`);
+                return this.standardizeOutput(parsed, aiResponse);
             }
-        } catch (error) {
-            this.logger.debug(`Markdown block extraction failed: ${(error as Error).message}`);
         }
 
-        try {
-            // 🚀 方法4：多JSON对象检测和提取
-            const multipleJsons = this.extractMultipleJsonObjects(aiResponse);
-            for (const jsonObj of multipleJsons) {
-                if (jsonObj && jsonObj.tool_calls && Array.isArray(jsonObj.tool_calls)) {
-                    this.logger.info(`✅ Multiple JSON extraction successful, found ${jsonObj.tool_calls.length} tool calls`);
-                    return jsonObj;
-                }
-            }
-        } catch (error) {
-            this.logger.debug(`Multiple JSON extraction failed: ${(error as Error).message}`);
-        }
-
-        // 🚀 所有方法都失败时的详细错误日志
-        this.logger.error('=== AI RESPONSE PARSING FAILED ===');
-        this.logger.error(`Response length: ${aiResponse.length}`);
-        this.logger.error(`Response preview (first 500 chars): ${aiResponse.substring(0, 500)}`);
-        this.logger.error(`Response preview (last 500 chars): ${aiResponse.substring(Math.max(0, aiResponse.length - 500))}`);
-        this.logger.error('AI response does not contain valid tool_calls format');
-        
-        return null;
+        // 策略4: 所有策略失败，降级为直接响应
+        this.logger.warn(`⚠️ All parsing strategies failed. Falling back to direct response.`);
+        this.logger.info(`🔍 [DEBUG] Fallback: treating entire response as direct_response`);
+        return { direct_response: aiResponse };
     }
 
     /**
-     * 🚀 新增：健壮的JSON提取和解析函数
-     * 
-     * 基于用户提供的算法，能够处理更多边缘情况
+     * 辅助方法：尝试用jsonrepair解析JSON文本
      */
-    private extractAndParseJson(rawText: string): any {
-        // 1. 寻找 JSON 的开始和结束位置
-        //    我们假设 JSON 对象总是以 '{' 开始，以 '}' 结束
-        const firstBrace = rawText.indexOf('{');
-        const lastBrace = rawText.lastIndexOf('}');
-
-        if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-            // 如果找不到有效的 JSON 结构，就抛出错误
-            throw new Error("No valid JSON object found in the response.");
-        }
-
-        // 2. 提取出可能是 JSON 的部分
-        const jsonString = rawText.substring(firstBrace, lastBrace + 1);
-
-        // 3. 尝试解析
+    private tryParseWithRepair(jsonText: string): any | null {
         try {
-            return JSON.parse(jsonString);
-        } catch (error) {
-            this.logger.error("--- JSON PARSE FAILED ---");
-            this.logger.error("Original Text: " + rawText);
-            this.logger.error("Extracted Substring: " + jsonString);
-            this.logger.error("Parse Error: " + String(error));
-            throw new Error("Failed to parse the extracted JSON string.");
-        }
-    }
-
-    /**
-     * 🚀 新增：多JSON对象检测和提取
-     * 
-     * 处理AI返回多个JSON对象的情况，找到第一个有效的
-     */
-    private extractMultipleJsonObjects(rawText: string): any[] {
-        const results: any[] = [];
-        let searchIndex = 0;
-
-        while (searchIndex < rawText.length) {
-            const nextBrace = rawText.indexOf('{', searchIndex);
-            if (nextBrace === -1) break;
-
-            // 找到匹配的右括号
-            let braceCount = 0;
-            let endIndex = nextBrace;
+            this.logger.info(`🔍 [DEBUG] Attempting to parse JSON text (length: ${jsonText.length})`);
+            this.logger.info(`🔍 [DEBUG] JSON preview: ${jsonText.substring(0, 200)}...`);
             
-            for (let i = nextBrace; i < rawText.length; i++) {
-                if (rawText[i] === '{') {
+            const repairedJsonText = jsonrepair(jsonText);
+            this.logger.info(`🔍 [DEBUG] JSON repair completed. Repaired length: ${repairedJsonText.length}`);
+            
+            const parsed = JSON.parse(repairedJsonText);
+            this.logger.info(`🔍 [DEBUG] JSON.parse successful. Object keys: ${JSON.stringify(Object.keys(parsed || {}))}`);
+            
+            return parsed;
+        } catch (error) {
+            this.logger.warn(`❌ [DEBUG] Parsing failed even after repair: ${(error as Error).message}`);
+            return null;
+        }
+    }
+
+    /**
+     * 辅助方法：检查解析出的对象是否是有效的计划
+     */
+    private isValidPlan(parsed: any): boolean {
+        if (!parsed || typeof parsed !== 'object') {
+            this.logger.info(`🔍 [DEBUG] isValidPlan: Invalid object type`);
+            return false;
+        }
+        
+        // 一个有效的计划，要么有tool_calls，要么有我们期望的content/direct_response
+        const hasTools = parsed.tool_calls && Array.isArray(parsed.tool_calls) && parsed.tool_calls.length > 0;
+        const hasContent = (typeof parsed.content === 'string' && parsed.content.trim().length > 0) || 
+                          (typeof parsed.direct_response === 'string' && parsed.direct_response.trim().length > 0);
+        
+        this.logger.info(`🔍 [DEBUG] isValidPlan: hasTools=${hasTools}, hasContent=${hasContent}`);
+        return hasTools || hasContent;
+    }
+
+    /**
+     * 辅助方法：将不同格式的解析结果标准化
+     */
+    private standardizeOutput(parsed: any, rawResponse: string): { tool_calls?: Array<{ name: string; args: any }>; direct_response?: string; content?: string; structuredData?: any } {
+        this.logger.info(`🔍 [DEBUG] Standardizing output from parsed object`);
+        
+        // 如果解析出的对象本身就是我们期望的格式，进行标准化处理
+        if (this.isValidPlan(parsed)) {
+            const result = {
+                content: parsed.content,
+                structuredData: parsed.structuredData,
+                direct_response: parsed.direct_response || parsed.content,
+                tool_calls: parsed.tool_calls
+            };
+            
+            this.logger.info(`✅ [DEBUG] Standardized output: content=${!!result.content}, structuredData=${!!result.structuredData}, direct_response=${!!result.direct_response}, tool_calls=${result.tool_calls?.length || 0}`);
+            return result;
+        }
+        
+        // 降级处理
+        this.logger.warn(`⚠️ [DEBUG] Standardization failed, falling back to raw response`);
+        return { direct_response: rawResponse };
+    }
+
+    /**
+     * 辅助方法：查找括号平衡的JSON对象
+     */
+    private findBalancedJson(text: string): string | null {
+        this.logger.info(`🔍 [DEBUG] Searching for balanced JSON in text...`);
+        
+        let braceCount = 0;
+        let startIndex = -1;
+        let inString = false;
+        let escapeNext = false;
+        
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            
+            // 处理字符串内的字符（避免被字符串内的花括号干扰）
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+            
+            if (char === '\\') {
+                escapeNext = true;
+                continue;
+            }
+            
+            if (char === '"' && !escapeNext) {
+                inString = !inString;
+                continue;
+            }
+            
+            // 只在字符串外处理花括号
+            if (!inString) {
+                if (char === '{') {
+                    if (startIndex === -1) {
+                        startIndex = i;
+                        this.logger.info(`🔍 [DEBUG] Found potential JSON start at position ${i}`);
+                    }
                     braceCount++;
-                } else if (rawText[i] === '}') {
+                } else if (char === '}') {
                     braceCount--;
-                    if (braceCount === 0) {
-                        endIndex = i;
-                        break;
+                    if (braceCount === 0 && startIndex !== -1) {
+                        // 找到平衡的JSON对象
+                        const jsonCandidate = text.substring(startIndex, i + 1);
+                        this.logger.info(`✅ [DEBUG] Found balanced JSON object: length=${jsonCandidate.length}, start=${startIndex}, end=${i}`);
+                        return jsonCandidate;
                     }
                 }
             }
-
-            if (braceCount === 0) {
-                // 找到了完整的JSON对象
-                const jsonCandidate = rawText.substring(nextBrace, endIndex + 1);
-                try {
-                    const parsed = JSON.parse(jsonCandidate);
-                    results.push(parsed);
-                } catch (error) {
-                    // 这个候选对象不是有效JSON，继续寻找
-                    this.logger.debug(`Invalid JSON candidate: ${jsonCandidate.substring(0, 100)}...`);
-                }
-                searchIndex = endIndex + 1;
-            } else {
-                // 没有找到匹配的右括号
-                break;
-            }
         }
-
-        return results;
+        
+        this.logger.info(`❌ [DEBUG] No balanced JSON object found`);
+        return null; // 未找到平衡的JSON
     }
 
     /**
-     * 🚀 新增：执行工具调用计划中的工具
+     * 执行工具调用
      */
-    private async executeToolCallsFromPlan(toolCalls: Array<{ name: string; args: any }>): Promise<Array<{
+    private async executeToolCalls(toolCalls: Array<{ name: string; args: any }>): Promise<Array<{
         toolName: string;
         success: boolean;
         result?: any;
         error?: string;
     }>> {
-        const results = [];
+        const results: Array<{ toolName: string; success: boolean; result?: any; error?: string }> = [];
 
         for (const toolCall of toolCalls) {
             try {
-                this.logger.info(`🔧 Executing planned tool: ${toolCall.name} with args: ${JSON.stringify(toolCall.args)}`);
+                this.logger.info(`🔧 执行工具: ${toolCall.name}`);
                 
-                // 🚀 使用工具注册表执行工具
-                const { toolRegistry } = await import('../tools/index');
+                // 🚀 修复：使用正确的工具注册表执行方法
                 const result = await toolRegistry.executeTool(toolCall.name, toolCall.args);
                 
                 results.push({
@@ -823,10 +711,10 @@ Please provide appropriate assistance based on the user's request.`;
                     result: result
                 });
                 
-                this.logger.info(`✅ Tool ${toolCall.name} executed successfully`);
+                this.logger.info(`✅ 工具 ${toolCall.name} 执行成功`);
                 
             } catch (error) {
-                this.logger.error(`❌ Tool ${toolCall.name} execution failed: ${(error as Error).message}`);
+                this.logger.error(`❌ 工具 ${toolCall.name} 执行失败`, error as Error);
                 results.push({
                     toolName: toolCall.name,
                     success: false,
@@ -839,209 +727,117 @@ Please provide appropriate assistance based on the user's request.`;
     }
 
     /**
-     * 🚀 新增：从用户交互中恢复specialist执行
-     * 
-     * 这个方法用于处理specialist在等待用户输入后的状态恢复
+     * 🚀 智能判断specialist是否需要文件编辑：基于类型和工作模式
      */
-    public async resumeSpecialistExecution(
-        resumeContext: {
-            ruleId: string;
-            context: any;
-            currentIteration: number;
-            conversationHistory: string[];
-            toolExecutionResults: string[];
-            pendingPlan: any;
-            userResponse: string;
-        },
-        model: vscode.LanguageModelChat
-    ): Promise<string> {
-        this.logger.info(`🔄 Resuming specialist ${resumeContext.ruleId} from iteration ${resumeContext.currentIteration}`);
+    private shouldRequireFileEditing(specialistId: string, toolsUsed: string[]): boolean {
+        // 1. 直接执行工具的specialist（无论content还是process）
+        const directExecutionSpecialists = [
+            'project_initializer',  // 混合型content specialist
+            'git_operator',         // process specialist
+            'document_formatter',   // process specialist  
+            'requirement_syncer'    // process specialist
+        ];
         
-        try {
-            // 恢复执行状态
-            const { ruleId, context, currentIteration, conversationHistory, toolExecutionResults, pendingPlan, userResponse } = resumeContext;
-            
-            // 将用户回复添加到对话历史中
-            const updatedConversationHistory = [...conversationHistory];
-            updatedConversationHistory.push(`User Response: ${userResponse}`);
-            
-            // 🚀 关键：更新askQuestion工具的参数，包含用户回复
-            const updatedPlan = { ...pendingPlan };
-            if (updatedPlan.tool_calls) {
-                updatedPlan.tool_calls = updatedPlan.tool_calls.map((toolCall: any) => {
-                    if (toolCall.name === 'askQuestion') {
-                        // askQuestion工具已经执行完成，现在继续执行其他工具
-                        return null; // 标记为跳过
-                    }
-                    return toolCall;
-                }).filter((toolCall: any) => toolCall !== null);
-            }
-            
-            // 🚀 执行剩余的工具调用（如果有的话）
-            let toolCallResults: Array<{
-                toolName: string;
-                success: boolean;
-                result?: any;
-                error?: string;
-            }> = [];
-            
-            if (updatedPlan.tool_calls && updatedPlan.tool_calls.length > 0) {
-                toolCallResults = await this.executeToolCallsFromPlan(updatedPlan.tool_calls);
-            }
-            
-            // 🚀 将用户回复和工具执行结果添加到上下文中
-            const updatedToolExecutionResults = [...toolExecutionResults];
-            updatedToolExecutionResults.push(`User Response Processing:\nUser said: ${userResponse}`);
-            
-            if (toolCallResults.length > 0) {
-                const resultsText = toolCallResults.map(result => 
-                    `Tool: ${result.toolName}, Success: ${result.success}, Result: ${JSON.stringify(result.result)}`
-                ).join('\n');
-                updatedToolExecutionResults.push(`Resumed Tool Results:\n${resultsText}`);
-            }
-            
-            // 🚀 继续specialist的执行循环
-            let maxIterations = 10;
-            let isCompleted = false;
-            let newIteration = currentIteration;
-            
-            while (!isCompleted && newIteration < maxIterations) {
-                newIteration++;
-                this.logger.info(`🔄 Specialist ${ruleId} resumed iteration ${newIteration}/${maxIterations}`);
-                
-                // 🚀 关键修改：增强context以包含用户回复
-                const enhancedContext = {
-                    ...context,
-                    currentUserResponse: userResponse  // 🚀 新增：当前用户回复
-                };
-                
-                // 生成下一轮的提示词，包含用户回复
-                const prompt = await this.loadSpecialistPrompt(ruleId, enhancedContext, updatedConversationHistory, updatedToolExecutionResults);
-                
-                // 🚀 获取 Specialist 可用的工具
-                const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
-                const toolsForVSCode = this.convertToolsToVSCodeFormat(toolsInfo.definitions);
-                
-                const messages = [
-                    vscode.LanguageModelChatMessage.User(prompt)
-                ];
-
-                const requestOptions: vscode.LanguageModelChatRequestOptions = {
-                    justification: `Resume SRS specialist rule: ${ruleId} (iteration ${newIteration})`
-                };
-
-                if (toolsForVSCode.length > 0) {
-                    requestOptions.tools = toolsForVSCode;
-                }
-
-                const response = await model.sendRequest(messages, requestOptions);
-                
-                let result = '';
-                for await (const fragment of response.text) {
-                    result += fragment;
-                }
-
-                if (!result.trim()) {
-                    throw new Error(`Specialist ${ruleId} returned empty response in resumed iteration ${newIteration}`);
-                }
-
-                this.logger.info(`🧠 Specialist ${ruleId} resumed iteration ${newIteration} response length: ${result.length}`);
-
-                // 解析AI返回的工具调用计划
-                const aiPlan = this.parseAIToolPlan(result);
-                
-                if (!aiPlan || !aiPlan.tool_calls || aiPlan.tool_calls.length === 0) {
-                    this.logger.info(`✅ No more tool calls in resumed iteration ${newIteration} - task may be completed`);
-                    break;
-                }
-
-                // 执行AI规划的工具调用
-                const iterationResults = await this.executeToolCallsFromPlan(aiPlan.tool_calls);
-                
-                // 检查是否调用了 finalAnswer（任务完成信号）
-                const finalAnswerCall = aiPlan.tool_calls.find(call => call.name === 'finalAnswer');
-                if (finalAnswerCall) {
-                    this.logger.info(`🎯 Specialist ${ruleId} completed task with finalAnswer in resumed iteration ${newIteration}`);
-                    isCompleted = true;
-                    
-                    const finalResult = iterationResults.find(result => result.toolName === 'finalAnswer');
-                    if (finalResult && finalResult.success) {
-                        return JSON.stringify({
-                            completed: true,
-                            summary: finalResult.result?.summary || `Task completed successfully after user interaction`,
-                            iterations: newIteration,
-                            totalToolsExecuted: iterationResults.length,
-                            resumedFromUserInteraction: true
-                        });
-                    }
-                }
-                
-                // 🚀 重要：检查是否又需要用户交互
-                const newChatInteractionNeeded = iterationResults.find(result => 
-                    result.toolName === 'askQuestion' && 
-                    result.success && 
-                    result.result?.needsChatInteraction
-                );
-                
-                if (newChatInteractionNeeded) {
-                    this.logger.info(`💬 Specialist ${ruleId} needs another chat interaction: ${newChatInteractionNeeded.result.chatQuestion}`);
-                    
-                    return JSON.stringify({
-                        needsChatInteraction: true,
-                        chatQuestion: newChatInteractionNeeded.result.chatQuestion,
-                        currentIteration: newIteration,
-                        conversationHistory: updatedConversationHistory,
-                        toolExecutionResults: updatedToolExecutionResults,
-                        pendingPlan: aiPlan,
-                        resumeContext: {
-                            ruleId: ruleId,
-                            context: context,
-                        }
-                    });
-                }
-                
-                // 将执行结果添加到历史中
-                const iterationResultsText = iterationResults.map(result => 
-                    `Tool: ${result.toolName}, Success: ${result.success}, Result: ${JSON.stringify(result.result)}`
-                ).join('\n');
-                
-                updatedConversationHistory.push(`AI Plan (resumed iteration ${newIteration}): ${JSON.stringify(aiPlan)}`);
-                updatedToolExecutionResults.push(`Tool Results (resumed iteration ${newIteration}):\n${iterationResultsText}`);
-            }
-            
-            // 如果达到最大迭代次数但未完成
-            if (newIteration >= maxIterations && !isCompleted) {
-                this.logger.warn(`⚠️ Specialist ${ruleId} reached max iterations (${maxIterations}) in resumed execution`);
-                return JSON.stringify({
-                    completed: false,
-                    summary: `Specialist completed ${newIteration} iterations (including resume) but did not explicitly signal completion`,
-                    iterations: newIteration,
-                    partialCompletion: true,
-                    resumedFromUserInteraction: true
-                });
-            }
-            
-            // 正常完成
-            return JSON.stringify({
-                completed: true,
-                summary: `Specialist ${ruleId} completed successfully after user interaction`,
-                iterations: newIteration,
-                resumedFromUserInteraction: true
-            });
-            
-        } catch (error) {
-            this.logger.error(`Failed to resume specialist ${resumeContext.ruleId}`, error as Error);
-            throw error;
+        // 2. 纯决策型content specialist
+        const decisionOnlySpecialists = [
+            'summary_writer',
+            'fr_writer', 
+            'nfr_writer',
+            'user_journey_writer',
+            'overall_description_writer',
+            'prototype_designer'
+        ];
+        
+        // 3. 不涉及文件操作的specialist
+        const nonFileSpecialists = [
+            'help_response',
+            'complexity_classification'
+        ];
+        
+        const fileOperationTools = ['writeFile', 'createFile', 'appendTextToFile', 'createDirectory', 'createNewProjectFolder', 'renameFile'];
+        const usedFileTools = toolsUsed.some(tool => fileOperationTools.includes(tool));
+        
+        if (directExecutionSpecialists.includes(specialistId)) {
+            // 直接执行工具的specialist，即使使用文件工具也不需要edit_instructions
+            this.logger.info(`🔧 [shouldRequireFileEditing] ${specialistId} 是直接执行型specialist，无需edit_instructions`);
+            return false;
+        } else if (decisionOnlySpecialists.includes(specialistId)) {
+            // 纯决策型specialist，如果使用了文件工具则需要edit_instructions
+            this.logger.info(`🔧 [shouldRequireFileEditing] ${specialistId} 是决策型specialist，文件工具使用: ${usedFileTools}`);
+            return usedFileTools;
+        } else if (nonFileSpecialists.includes(specialistId)) {
+            // 不涉及文件的specialist
+            this.logger.info(`🔧 [shouldRequireFileEditing] ${specialistId} 是非文件操作specialist`);
+            return false;
+        } else {
+            // 未知specialist，保守判断
+            this.logger.warn(`⚠️ [shouldRequireFileEditing] 未知specialist类型: ${specialistId}，基于工具使用保守判断`);
+            return usedFileTools;
         }
     }
 
-    // 🚀 VSCode工具调用实现说明：
-    // 
-    // VSCode的工具调用机制与传统的OpenAI API不同：
-    // 1. 工具通过vscode.lm.registerTool()在extension.ts中注册
-    // 2. LLM通过requestOptions.tools接收工具定义
-    // 3. VSCode自动处理工具调用，无需手动处理response.toolCalls
-    // 4. 我们的callingGuide系统通过提示词注入指导LLM智能选择工具
-    // 
-    // 因此，这里不需要handleToolCallsWorkflow和executeToolCall方法
-}
+    /**
+     * 将specialistId映射为SpecialistType
+     */
+    private mapSpecialistIdToType(specialistId: string): SpecialistType {
+        // Content Specialists
+        const contentSpecialists = [
+            'project_initializer',  // 🚀 新增
+            'summary_writer', 'overall_description_writer', 'fr_writer', 
+            'nfr_writer', 'user_journey_writer', 'journey_writer', 'prototype_designer'
+        ];
+        
+        // Process Specialists  
+        const processSpecialists = [
+            'requirement_syncer', 'document_formatter', 'doc_formatter', 'git_operator'
+        ];
+        
+        if (contentSpecialists.includes(specialistId)) {
+            return {
+                name: specialistId,
+                category: 'content'
+            };
+        } else if (processSpecialists.includes(specialistId)) {
+            return {
+                name: specialistId,
+                category: 'process'
+            };
+        } else {
+            // 默认为content类型
+            this.logger.warn(`未知的specialistId: ${specialistId}，默认为content类型`);
+            return {
+                name: specialistId,
+                category: 'content'
+            };
+        }
+    }
+
+    /**
+     * 回退方法：原有的文件加载方式
+     */
+    private async loadSpecialistPromptFallback(
+        specialistId: string, 
+        context: any, 
+        internalHistory: string[]
+    ): Promise<string> {
+        try {
+            const fileName = this.getSpecialistFileName(specialistId);
+            const specialistPath = await this.findSpecialistFile(fileName);
+            
+            if (!specialistPath) {
+                this.logger.warn(`专家提示词文件未找到: ${fileName}，使用默认模板`);
+                return this.buildDefaultPrompt(specialistId, context, internalHistory);
+            }
+            
+            let promptTemplate = fs.readFileSync(specialistPath, 'utf8');
+            promptTemplate = this.replaceTemplateVariables(promptTemplate, context, internalHistory);
+            
+            this.logger.info(`从文件加载专家提示词: ${specialistPath}`);
+            return promptTemplate;
+            
+        } catch (error) {
+            this.logger.error(`回退加载专家提示词失败 ${specialistId}`, error as Error);
+            return this.buildDefaultPrompt(specialistId, context, internalHistory);
+        }
+    }
+} 

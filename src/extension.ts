@@ -112,18 +112,13 @@ function registerCoreCommands(context: vscode.ExtensionContext): void {
     
 
     
-    // AI模式切换命令
+    // AI模式切换命令 - 新架构：不再需要手动切换模式，AI自动智能分诊
     const toggleAIModeCommand = vscode.commands.registerCommand('srs-writer.toggleAIMode', async () => {
-        const currentStatus = await orchestrator.getStatus();
-        const newMode = !currentStatus.aiMode;
+        const currentStatus = await orchestrator.getSystemStatus();
         
-        orchestrator.setAIMode(newMode);
-        
-        const modeText = newMode ? 'AI智能模式' : '代码降级模式';
-        const icon = newMode ? '🤖' : '⚙️';
-        
+        // 新架构：模式通过智能分诊自动确定，无需手动切换
         vscode.window.showInformationMessage(
-            `${icon} 已切换到${modeText}`
+            `🚀 新架构已启用智能分诊\n\n当前状态: ${currentStatus.mode}\n模式将根据用户意图自动切换：\n• 🚀 计划执行模式：复杂多步骤任务\n• 🛠️ 工具执行模式：需要操作文件的任务\n• 🧠 知识问答模式：咨询和对话`
         );
     });
     
@@ -195,11 +190,11 @@ function createEnhancedStatusBar(): vscode.StatusBarItem {
         try {
             const session = await sessionManager?.getCurrentSession();
             // 🚀 修复：正确使用异步调用，避免缓存过度调用
-            const orchestratorStatus = await orchestrator?.getStatus();
+            const orchestratorStatus = await orchestrator?.getSystemStatus();
             
             if (session?.projectName) {
                 statusBarItem.text = `$(notebook-kernel) SRS: ${session.projectName}`;
-                statusBarItem.tooltip = `SRS Writer v1.3\n项目: ${session.projectName}\nAI模式: ${orchestratorStatus?.aiMode ? '启用' : '禁用'}\n点击查看状态`;
+                statusBarItem.tooltip = `SRS Writer v1.3\n项目: ${session.projectName}\n模式: ${orchestratorStatus?.mode || '未知'}\n点击查看状态`;
             } else {
                 statusBarItem.text = '$(notebook-kernel) SRS Writer';
                 statusBarItem.tooltip = 'SRS Writer v1.3 - 智能助手\n点击查看状态';
@@ -279,7 +274,7 @@ async function showEnhancedStatus(): Promise<void> {
  */
 async function showQuickOverview(): Promise<void> {
     const session = await sessionManager.getCurrentSession();
-    const orchestratorStatus = await orchestrator.getStatus();
+    const orchestratorStatus = await orchestrator.getSystemStatus();
     const syncStatus = await sessionManager.checkSyncStatus();
     const observerStats = sessionManager.getObserverStats();
     
@@ -294,8 +289,8 @@ async function showQuickOverview(): Promise<void> {
 • 会话版本: ${session?.metadata.version || 'N/A'}
 
 🤖 **AI引擎状态**
-• AI模式: ${orchestratorStatus.aiMode ? '启用' : '禁用'}
-• 可用工具: ${orchestratorStatus.availableTools.length}个
+• 架构版本: ${orchestratorStatus.version}
+• 当前模式: ${orchestratorStatus.mode}
 • 观察者: ${observerStats.count}个活跃
 
 ${syncIcon} **同步状态**
@@ -315,7 +310,7 @@ ${syncStatus.inconsistencies.length > 0 ? `• 问题: ${syncStatus.inconsistenc
  */
 async function showDetailedReport(): Promise<void> {
     const session = await sessionManager.getCurrentSession();
-    const orchestratorStatus = await orchestrator.getStatus();
+    const orchestratorStatus = await orchestrator.getSystemStatus();
     const syncStatus = await sessionManager.checkSyncStatus();
     const observerStats = sessionManager.getObserverStats();
     const chatStatus = chatParticipant ? await chatParticipant.getStatus() : '聊天参与者未初始化';
@@ -348,9 +343,10 @@ async function showDetailedReport(): Promise<void> {
   ${syncStatus.inconsistencies.length > 0 ? `发现问题:\n  ${syncStatus.inconsistencies.map(i => `• ${i}`).join('\n  ')}` : '  无同步问题'}
 
 🤖 Orchestrator状态
-  AI模式: ${orchestratorStatus.aiMode ? '✅ 启用' : '❌ 禁用'}
-  可用工具: ${orchestratorStatus.availableTools.length}个
-  工具列表: ${orchestratorStatus.availableTools.join(', ')}
+  架构版本: ${orchestratorStatus.version}
+  运行模式: ${orchestratorStatus.mode}
+  状态: ${orchestratorStatus.status}
+  能力: ${orchestratorStatus.capabilities?.join(', ') || 'N/A'}
 
 💬 聊天参与者状态
 ${chatStatus}
@@ -408,7 +404,7 @@ async function showSyncStatus(): Promise<void> {
 async function exportStatusReport(): Promise<void> {
     try {
         const session = await sessionManager.getCurrentSession();
-        const orchestratorStatus = await orchestrator.getStatus();
+        const orchestratorStatus = await orchestrator.getSystemStatus();
         const syncStatus = await sessionManager.checkSyncStatus();
         const observerStats = sessionManager.getObserverStats();
         

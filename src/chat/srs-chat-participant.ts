@@ -478,7 +478,7 @@ export class SRSChatParticipant {
         try {
             const sessionContext = await this.getOrCreateSessionContext();
             const sessionId = this.getSessionId(sessionContext);
-            const orchestratorStatus = await this.orchestrator.getStatus();
+            const orchestratorStatus = await this.orchestrator.getSystemStatus();
             
             return [
                 '=== SRS Chat Participant v4.0 Status ===',

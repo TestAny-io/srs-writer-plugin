@@ -76,10 +76,10 @@ Usage: Call this when you have successfully completed the user's request, whethe
             },
             required: ['summary', 'achievements', 'nextSteps']
         },
-        // 🚀 访问控制：只有执行任务的AI可以标记完成
+        // 🚀 访问控制：只有orchestrator可以标记最终完成
         accessibleBy: [
-            CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 主要任务完成
-            CallerType.SPECIALIST                     // 专家任务完成
+            CallerType.ORCHESTRATOR_TOOL_EXECUTION   // 只有orchestrator可以调用finalAnswer
+            // 注意：移除了CallerType.SPECIALIST，specialist现在使用taskComplete
         ]
     },
     {

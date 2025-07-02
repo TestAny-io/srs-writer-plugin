@@ -101,7 +101,7 @@ export class SessionManager implements ISessionManager {
     public async getCurrentSession(): Promise<SessionContext | null> {
         // 🕵️ 添加getCurrentSession的调用追踪
         const stack = new Error().stack;
-        this.logger.debug('🔍 [GET SESSION] getCurrentSession() called');
+        // this.logger.debug('🔍 [GET SESSION] getCurrentSession() called');
         
         if (this.currentSession === null) {
             this.logger.warn('🚨 [GET SESSION] Returning NULL! Call stack:');
@@ -118,7 +118,7 @@ export class SessionManager implements ISessionManager {
             return null;
         }
         
-        this.logger.debug(`🔍 [GET SESSION] Returning session: ${this.currentSession.projectName} (${this.currentSession.sessionContextId})`);
+        // this.logger.debug(`🔍 [GET SESSION] Returning session: ${this.currentSession.projectName} (${this.currentSession.sessionContextId})`);
         return this.currentSession;
     }
 
@@ -616,19 +616,19 @@ export class SessionManager implements ISessionManager {
      * 🚀 v5.0修复：检查会话是否过期 - 基于最后活跃时间而非创建时间
      */
     public async isSessionExpired(maxAgeHours: number = 24): Promise<boolean> {
-        this.logger.warn('🔍 [EXPIRY CHECK] Starting session expiry check...');
+        // this.logger.warn('🔍 [EXPIRY CHECK] Starting session expiry check...');
         
         if (!this.currentSession) {
-            this.logger.warn('🔍 [EXPIRY CHECK] No current session, returning false');
+            // this.logger.warn('🔍 [EXPIRY CHECK] No current session, returning false');
             return false;
         }
 
-        this.logger.warn(`🔍 [EXPIRY CHECK] Current session exists: ${this.currentSession.projectName} (${this.currentSession.sessionContextId})`);
-        this.logger.warn(`🔍 [EXPIRY CHECK] Max age hours: ${maxAgeHours}`);
+        // this.logger.warn(`🔍 [EXPIRY CHECK] Current session exists: ${this.currentSession.projectName} (${this.currentSession.sessionContextId})`);
+        // this.logger.warn(`🔍 [EXPIRY CHECK] Max age hours: ${maxAgeHours}`);
 
         // ✅ 修复：使用lastModified（最后活跃时间）而不是created（创建时间）
         const lastModifiedStr = this.currentSession.metadata.lastModified;
-        this.logger.warn(`🔍 [EXPIRY CHECK] Last modified string: ${lastModifiedStr}`);
+        // this.logger.warn(`🔍 [EXPIRY CHECK] Last modified string: ${lastModifiedStr}`);
         
         const lastActivity = new Date(lastModifiedStr).getTime();
         const currentTime = Date.now();
@@ -637,14 +637,14 @@ export class SessionManager implements ISessionManager {
         
         // 🐛 修复日志：记录过期检查的详细信息
         const hoursInactive = Math.round(inactivityPeriod / (1000 * 60 * 60) * 10) / 10;
-        this.logger.warn(`🔍 [EXPIRY CALCULATION] Last activity: ${new Date(lastActivity).toISOString()}`);
-        this.logger.warn(`🔍 [EXPIRY CALCULATION] Current time: ${new Date(currentTime).toISOString()}`);
-        this.logger.warn(`🔍 [EXPIRY CALCULATION] Inactivity period: ${inactivityPeriod}ms (${hoursInactive}h)`);
-        this.logger.warn(`🔍 [EXPIRY CALCULATION] Max inactivity: ${maxInactivityMs}ms (${maxAgeHours}h)`);
-        this.logger.debug(`Session expiry check: ${hoursInactive}h inactive (max: ${maxAgeHours}h)`);
+        // this.logger.warn(`🔍 [EXPIRY CALCULATION] Last activity: ${new Date(lastActivity).toISOString()}`);
+        // this.logger.warn(`🔍 [EXPIRY CALCULATION] Current time: ${new Date(currentTime).toISOString()}`);
+        // this.logger.warn(`🔍 [EXPIRY CALCULATION] Inactivity period: ${inactivityPeriod}ms (${hoursInactive}h)`);
+        // this.logger.warn(`🔍 [EXPIRY CALCULATION] Max inactivity: ${maxInactivityMs}ms (${maxAgeHours}h)`);
+        // this.logger.debug(`Session expiry check: ${hoursInactive}h inactive (max: ${maxAgeHours}h)`);
         
         const isExpired = inactivityPeriod > maxInactivityMs;
-        this.logger.warn(`🔍 [EXPIRY RESULT] Session is expired: ${isExpired}`);
+        // this.logger.warn(`🔍 [EXPIRY RESULT] Session is expired: ${isExpired}`);
         
         return isExpired;
     }

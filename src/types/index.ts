@@ -3,13 +3,15 @@
  */
 
 import { SessionContext } from './session';
+import { EditInstruction } from './editInstructions';
 
 // === Orchestrator v3.0 智能分诊相关类型定义 ===
 
 /**
- * AI响应模式枚举 - 支持智能分诊 (简化为两种模式)
+ * AI响应模式枚举 - 支持智能分诊 (扩展为三种模式)
  */
 export enum AIResponseMode {
+    PLAN_EXECUTION = 'PLAN_EXECUTION',      // 🚀 新增：复杂计划执行模式
     TOOL_EXECUTION = 'TOOL_EXECUTION',
     KNOWLEDGE_QA = 'KNOWLEDGE_QA'
 }
@@ -22,6 +24,39 @@ export interface AIPlan {
     response_mode: AIResponseMode;
     direct_response: string | null;
     tool_calls: Array<{ name: string; args: any }>;
+    // 🚀 新增：计划执行模式的专用字段
+    execution_plan?: {
+        planId: string;
+        description: string;
+        steps: Array<{
+            step: number;
+            description: string;
+            specialist: string;                    // e.g., 'summary_writer', '100_create_srs'
+            context_dependencies: number[];       // 依赖的上一步步骤编号
+            expectedOutput?: string;               // 可选：期望的输出类型
+        }>;
+    } | null;
+}
+
+/**
+ * 🚀 新架构：Specialist执行结果接口
+ * 替代原有的JSON字符串返回值，实现强类型约束
+ */
+export interface SpecialistOutput {
+    success: boolean;
+    content?: string;                             // 由specialist生成的核心内容(如Markdown) - 保留兼容性
+    edit_instructions?: EditInstruction[];        // 🚀 Phase 1新增：编辑指令列表
+    target_file?: string;                         // 🚀 Phase 1新增：目标文件路径
+    requires_file_editing: boolean;               // 🚀 新增：强制明确是否需要文件操作
+    structuredData?: any;                         // 可选：结构化数据，供后续步骤使用
+    metadata: {
+        specialist: string;                       // specialist标识
+        iterations: number;                       // 内部迭代次数
+        executionTime: number;                    // 执行时长(ms)
+        timestamp: string;                        // 执行时间戳
+        toolsUsed?: string[];                     // 可选：使用的工具列表
+    };
+    error?: string;                               // 失败时的错误信息
 }
 
 /**

@@ -28,7 +28,7 @@ export interface SpecialistResumeContext {
  * 执行步骤接口 - 完整的执行日志 🚀 Code Review优化版本
  */
 export interface ExecutionStep {
-  type: 'thought' | 'tool_call' | 'user_interaction' | 'result' | 'tool_call_skipped' | 'forced_response';
+  type: 'thought' | 'tool_call' | 'user_interaction' | 'result' | 'tool_call_skipped' | 'forced_response' | 'system';
   content: string;
   timestamp: number;
   toolName?: string;

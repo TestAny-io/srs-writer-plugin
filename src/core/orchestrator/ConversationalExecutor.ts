@@ -3,6 +3,7 @@ import { Logger } from '../../utils/logger';
 import { SessionContext } from '../../types/session';
 import { toolExecutor } from '../toolExecutor';
 import { AIPlan, CallerType } from '../../types/index';
+import { TaskCompletionResult, NextStepType } from '../../types/taskCompletion';
 
 /**
  * 对话式执行器 - 负责思维链和对话式规划循环
@@ -58,9 +59,12 @@ export class ConversationalExecutor {
         break;
       }
       
-      // 🚀 关键修复：分离 finalAnswer 和其他工具调用
+      // 🚀 关键修复：分离 finalAnswer、taskComplete 和其他工具调用
       const finalAnswerCall = currentPlan.tool_calls.find(tool => tool.name === 'finalAnswer');
-      const otherToolCalls = currentPlan.tool_calls.filter(tool => tool.name !== 'finalAnswer');
+      const taskCompleteCall = currentPlan.tool_calls.find(tool => tool.name === 'taskComplete');
+      const otherToolCalls = currentPlan.tool_calls.filter(tool => 
+        tool.name !== 'finalAnswer' && tool.name !== 'taskComplete'
+      );
       
       // 🚀 先执行所有非 finalAnswer 的工具
       if (otherToolCalls.length > 0) {
@@ -105,6 +109,26 @@ export class ConversationalExecutor {
         const failedTools = iterationResults.filter(r => !r.success);
         if (failedTools.length > 0) {
           this.logger.warn(`⚠️ ${failedTools.length} tools failed, will attempt self-correction in next iteration`);
+        }
+      }
+      
+      // 🚀 处理 taskComplete（如果存在）
+      if (taskCompleteCall) {
+        this.logger.info('🎯 Specialist called taskComplete - processing task completion signal');
+        
+        const taskCompleteResult = await toolExecutor.executeTool(
+          'taskComplete',
+          taskCompleteCall.args,
+          callerType,
+          selectedModel
+        );
+        
+        if (taskCompleteResult.success) {
+          const completionData: TaskCompletionResult = taskCompleteResult.result;
+          return await this.handleTaskCompletion(completionData, taskCompleteCall, userInput, sessionContext, selectedModel, generateUnifiedPlan, formatToolResults, callerType);
+        } else {
+          this.logger.error('❌ taskComplete execution failed:', taskCompleteResult.error);
+          // 继续执行，不中断流程
         }
       }
       
@@ -307,6 +331,170 @@ export class ConversationalExecutor {
   private isSimpleTask(userInput: string): boolean {
     const simpleKeywords = ['列出', '显示', '查看', '获取', '状态'];
     return simpleKeywords.some(keyword => userInput.includes(keyword));
+  }
+
+  /**
+   * 处理任务完成信号
+   */
+  private async handleTaskCompletion(
+    completionData: TaskCompletionResult,
+    originalToolCall: any,
+    userInput: string,
+    sessionContext: SessionContext,
+    selectedModel: vscode.LanguageModelChat,
+    generateUnifiedPlan: (
+      userInput: string,
+      sessionContext: SessionContext,
+      selectedModel: vscode.LanguageModelChat,
+      historyContext: string,
+      toolResultsContext: string
+    ) => Promise<AIPlan>,
+    formatToolResults: (toolResults: any[]) => string,
+    callerType?: CallerType
+  ): Promise<{ intent: string; result?: any }> {
+    
+    this.logger.info(`🎯 Processing task completion: ${completionData.nextStepType}`);
+    
+    // 分析下一步类型并执行相应逻辑
+    switch (completionData.nextStepType) {
+      case NextStepType.TASK_FINISHED:
+        // 真正完成，调用finalAnswer结束对话
+        this.logger.info('✅ Task fully completed, calling finalAnswer');
+        
+        const finalResult = await toolExecutor.executeTool(
+          'finalAnswer',
+          {
+            summary: `任务圆满完成。${completionData.summary}`,
+            achievements: completionData.deliverables || [],
+            nextSteps: ['项目已完成，可以进行测试或部署'],
+            taskType: 'specialist_collaboration'
+          },
+          callerType,
+          selectedModel
+        );
+        
+        return {
+          intent: 'task_completed',
+          result: {
+            mode: 'specialist_collaboration_completed',
+            summary: completionData.summary,
+            deliverables: completionData.deliverables,
+            finalResult: finalResult.result,
+            collaborationType: 'single_specialist_completion'
+          }
+        };
+        
+      case NextStepType.HANDOFF_TO_SPECIALIST:
+        // 转交给其他专家
+        if (!completionData.nextStepDetails?.specialistType) {
+          throw new Error('HANDOFF_TO_SPECIALIST requires nextStepDetails.specialistType');
+        }
+        
+        this.logger.info(`🔄 Handing off to specialist: ${completionData.nextStepDetails.specialistType}`);
+        
+        return await this.executeSpecialistHandoff(
+          completionData,
+          userInput,
+          sessionContext,
+          selectedModel,
+          generateUnifiedPlan,
+          formatToolResults,
+          callerType
+        );
+        
+      case NextStepType.USER_INTERACTION:
+        // 需要用户交互
+        this.logger.info('💬 Requesting user interaction');
+        
+        return {
+          intent: 'user_interaction_required',
+          result: {
+            mode: 'chat_question',
+            question: completionData.nextStepDetails?.userQuestion || '需要您的确认来继续任务',
+            summary: `${completionData.summary}\n\n${completionData.nextStepDetails?.userQuestion}`,
+            response: completionData.summary,
+            thought: `专家已完成阶段性工作，需要用户确认：${completionData.nextStepDetails?.userQuestion}`,
+            awaitingUserResponse: true,
+            resumeContext: {
+              completionData,
+              originalToolCall,
+              userInput,
+              sessionContext
+            }
+          }
+        };
+        
+      case NextStepType.CONTINUE_SAME_SPECIALIST:
+        // 同一专家继续工作
+        this.logger.info('🔄 Same specialist continuing work');
+        
+        // 这种情况下我们不结束对话，让循环继续
+        return {
+          intent: 'specialist_continuing',
+          result: {
+            mode: 'specialist_continuation',
+            summary: completionData.summary,
+            continueInstructions: completionData.nextStepDetails?.continueInstructions,
+            // 不返回最终结果，让外层循环继续
+          }
+        };
+        
+      default:
+        throw new Error(`Unknown nextStepType: ${completionData.nextStepType}`);
+    }
+  }
+
+  /**
+   * 执行专家转交
+   */
+  private async executeSpecialistHandoff(
+    completionData: TaskCompletionResult,
+    userInput: string,
+    sessionContext: SessionContext,
+    selectedModel: vscode.LanguageModelChat,
+    generateUnifiedPlan: (
+      userInput: string,
+      sessionContext: SessionContext,
+      selectedModel: vscode.LanguageModelChat,
+      historyContext: string,
+      toolResultsContext: string
+    ) => Promise<AIPlan>,
+    formatToolResults: (toolResults: any[]) => string,
+    callerType?: CallerType
+  ): Promise<{ intent: string; result?: any }> {
+    
+    const nextSpecialistType = completionData.nextStepDetails!.specialistType!;
+    const taskDescription = completionData.nextStepDetails!.taskDescription || 
+      `继续${userInput}的工作，基于之前专家的成果`;
+    
+    // 构建包含上下文的新计划
+    const handoffPlan: AIPlan = {
+      thought: `专家转交：${completionData.summary}。现在将任务转交给${nextSpecialistType}专家继续处理。`,
+      response_mode: 'TOOL_EXECUTION' as any,
+      direct_response: null,
+      tool_calls: [
+        {
+          name: nextSpecialistType,
+          args: {
+            userInput: taskDescription,
+            inheritedContext: completionData.contextForNext,
+            previousSpecialistSummary: completionData.summary,
+            previousDeliverables: completionData.deliverables
+          }
+        }
+      ]
+    };
+    
+    // 继续执行新专家（递归调用对话式执行器）
+    return await this.executeConversationalPlanning(
+      taskDescription,
+      sessionContext,
+      selectedModel,
+      handoffPlan,
+      generateUnifiedPlan,
+      formatToolResults,
+      callerType
+    );
   }
 
   /**

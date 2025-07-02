@@ -43,3 +43,10 @@ rules/orchestrator.md.bak
 .depricated/
 cg.json
 cg.html
+
+# 代码停车场 - 暂不使用的代码
+code-parking-lot/
+docs/
+design/
+implementation-and-refactor/
+scripts/

@@ -124,11 +124,17 @@ export async function createComprehensiveSRS(args: {
             intent: 'create'
         };
         
-        const result = await specialistExecutor.executeSpecialist('100_create_srs', context, args.model);
+        const result = await specialistExecutor.execute('100_create_srs', context, args.model);
         
-        // 🚀 4. 解析specialist返回的JSON结果并汇报
+        // 🚀 4. 解析specialist返回的结构化结果并汇报
         try {
-            const parsedResult = JSON.parse(result);
+            // 新架构：result已经是SpecialistOutput对象，不需要JSON.parse
+            if (!result.success) {
+                throw new Error(result.error || 'Specialist execution failed');
+            }
+            
+            const content = result.content || 'SRS创建完成';
+            const parsedResult = result.structuredData || {};
             
             // 🚀 处理需要聊天交互的情况
             if (parsedResult.needsChatInteraction) {
@@ -193,22 +199,23 @@ export async function createComprehensiveSRS(args: {
                 return { success: parsedResult.partialCompletion || false, result: parsedResult.summary };
             }
         } catch (parseError) {
-            // 兼容模式：非JSON格式结果
-            logger.info(`✅ [SPECIALIST] SRS creation completed (legacy format), length: ${result.length}`);
+            // 兼容模式：旧格式的字符串结果，但现在result是SpecialistOutput对象
+            const legacyContent = result.content || result.error || 'SRS创建完成';
+            logger.info(`✅ [SPECIALIST] SRS creation completed (legacy mode), content length: ${legacyContent.length}`);
             
             await sessionManager.updateSessionWithLog({
                 stateUpdates: { activeFiles: ['SRS.md'] },
                 logEntry: {
                     type: OperationType.TOOL_EXECUTION_END,
-                    operation: `SRS creation completed (legacy format, ${result.length} chars)`,
+                    operation: `SRS creation completed (legacy mode, ${legacyContent.length} chars)`,
                     toolName: 'createComprehensiveSRS',
                     targetFiles: ['SRS.md'],
-                    success: true,
+                    success: result.success,
                     executionTime: Date.now() - startTime
                 }
             });
             
-            return { success: true, result: result };
+            return { success: result.success, result: legacyContent };
         }
         
     } catch (error) {
@@ -308,7 +315,7 @@ export async function editSRSDocument(args: {
             intent: 'edit'
         };
         
-        const result = await specialistExecutor.executeSpecialist('200_edit_srs', context, args.model);
+        const result = await specialistExecutor.execute('200_edit_srs', context, args.model);
         
         // 汇报成功完成
         await sessionManager.updateSessionWithLog({
@@ -323,7 +330,7 @@ export async function editSRSDocument(args: {
         });
         
         logger.info(`✅ [SPECIALIST] SRS editing completed`);
-        return { success: true, result: result };
+        return { success: result.success, result: result.content || result.error || 'SRS编辑完成' };
         
     } catch (error) {
         logger.error(`❌ [SPECIALIST] SRS editing failed`, error as Error);
@@ -405,7 +412,7 @@ export async function classifyProjectComplexity(args: {
             intent: 'complexity_classification'
         };
         
-        const result = await specialistExecutor.executeSpecialist('complexity_classification', context, args.model);
+        const result = await specialistExecutor.execute('complexity_classification', context, args.model);
         
         // 汇报成功完成
         await sessionManager.updateSessionWithLog({
@@ -419,7 +426,7 @@ export async function classifyProjectComplexity(args: {
         });
         
         logger.info(`✅ [SPECIALIST] Complexity classification completed`);
-        return { success: true, result: result };
+        return { success: result.success, result: result.content || result.error || '复杂度分类完成' };
         
     } catch (error) {
         logger.error(`❌ [SPECIALIST] Complexity classification failed`, error as Error);
@@ -500,7 +507,7 @@ export async function lintSRSDocument(args: {
             intent: 'lint'
         };
         
-        const result = await specialistExecutor.executeSpecialist('400_lint_check', context, args.model);
+        const result = await specialistExecutor.execute('400_lint_check', context, args.model);
         
         // 汇报成功完成
         await sessionManager.updateSessionWithLog({
@@ -514,7 +521,7 @@ export async function lintSRSDocument(args: {
         });
         
         logger.info(`✅ [SPECIALIST] SRS linting completed`);
-        return { success: true, result: result };
+        return { success: result.success, result: result.content || result.error || 'SRS质量检查完成' };
         
     } catch (error) {
         logger.error(`❌ [SPECIALIST] SRS linting failed`, error as Error);

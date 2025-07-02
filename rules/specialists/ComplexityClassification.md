@@ -471,3 +471,87 @@ MVP判定决策记录格式
 - **面向团队效率项目**：可参考 .cursor/rules/srs-template/MidSizeProject_for_User.md 或 .cursor/rules/srs-template/MidSizeProject_for_Platform.md，重点关注工具易用性和集成要求
 - **面向安全项目**：可参考 .cursor/rules/srs-template/ComplexProject_for_User.md 或 .cursor/rules/srs-template/ComplexProject_for_Platform.md 作为基础，额外增加安全合规章节
 - **混合类型项目**：选择主要类型对应的模版，在需求分析阶段补充其他类型的特殊要求
+
+---
+
+## 🚨 重要：输出格式要求
+
+**ComplexityClassification specialist必须严格按照以下JSON格式输出：**
+
+```json
+{
+  "requires_file_editing": false,
+  "content": "## 项目复杂度分析报告\n\n### 项目类型识别\n基于您提供的需求描述，该项目属于：**面向用户交付 (User Delivery)**\n\n### 复杂度评估\n根据以下关键指标分析：\n- 业务领域数量：2个（用户管理、内容展示）\n- 用户角色类型：3种（普通用户、管理员、访客）\n- 外部系统集成：1个（第三方认证）\n- 业务流程复杂度：中等（多步骤注册流程）\n\n**评估结果：中等复杂度项目**\n\n### 推荐模版\n建议使用：`.cursor/rules/srs-template/MidSizeProject_for_User.md`\n\n### 特殊考虑\n- 无特殊合规要求\n- 需求相对稳定\n- 建议关注用户体验设计",
+  "structuredData": {
+    "type": "ComplexityClassification",
+    "data": {
+      "projectType": {
+        "category": "User Delivery",
+        "description": "面向用户交付",
+        "characteristics": ["直接面向最终用户", "关注用户体验", "业务价值交付"]
+      },
+      "complexityLevel": {
+        "level": "Medium",
+        "description": "中等复杂度",
+        "score": 14,
+        "breakdown": {
+          "businessDomains": {"count": 2, "score": 1},
+          "userRoles": {"count": 3, "score": 2},
+          "externalIntegrations": {"count": 1, "score": 1},
+          "businessProcessComplexity": {"level": "medium", "score": 2},
+          "dataComplexity": {"level": "medium", "score": 2},
+          "requirementClarity": {"level": "clear", "score": 1},
+          "requirementStability": {"level": "stable", "score": 1},
+          "complianceRequirements": {"level": "none", "score": 0}
+        }
+      },
+      "recommendedTemplate": {
+        "path": ".cursor/rules/srs-template/MidSizeProject_for_User.md",
+        "rationale": "适合功能较完整的用户产品，包含用户权限管理和业务流程"
+      },
+      "isMVP": false,
+      "mvpAnalysis": {
+        "timeConstraints": false,
+        "resourceConstraints": false,
+        "goalOriented": false,
+        "reasoning": "项目未显示明显的MVP特征"
+      },
+      "specialConsiderations": [
+        "需求相对稳定，预期变更较少",
+        "无特殊合规性要求",
+        "建议重点关注用户体验设计"
+      ],
+      "riskFactors": [
+        "用户角色权限需要仔细设计",
+        "外部集成的稳定性需要考虑"
+      ]
+    },
+    "confidence": 0.87
+  },
+  "metadata": {
+    "wordCount": 280,
+    "qualityScore": 8.7,
+    "completeness": 90,
+    "estimatedReadingTime": "2 minutes"
+  },
+  "qualityAssessment": {
+    "strengths": ["清晰的分类逻辑", "量化的评估标准", "明确的模版推荐"],
+    "weaknesses": ["可能需要更多项目细节确认"],
+    "confidenceLevel": 87
+  },
+  "nextSteps": [
+    "使用推荐的模版开始编写SRS文档",
+    "如项目需求有重大变更，请重新评估复杂度",
+    "在文档中记录分类决策以便后续参考"
+  ]
+}
+```
+
+### 🔑 关键要求：
+1. **requires_file_editing必须设为false**，因为仅提供分析和建议，不进行文件操作
+2. **不需要edit_instructions和target_file字段**
+3. **structuredData.type必须为"ComplexityClassification"**
+4. **必须明确指出项目类型、复杂度级别和推荐模版**
+5. **必须包含评分细节和决策依据**
+6. **需要评估是否为MVP项目**
+7. **content字段应包含完整的分析报告**

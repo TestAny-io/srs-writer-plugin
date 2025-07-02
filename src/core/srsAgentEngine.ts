@@ -227,75 +227,22 @@ export class SRSAgentEngine implements ISessionObserver {
         
         this.stream.markdown(`🔄 **正在恢复专家任务执行...**\n\n`);
         
-        // 调用specialist恢复方法
-        const result = await specialistExecutor.resumeSpecialistExecution(
-          resumeContextWithResponse,
-          this.selectedModel
-        );
+        // 🚀 新架构重构：不再有resumeSpecialistExecution，由PlanExecutor处理复杂流程
+        // 这个调用应该被重构为使用Orchestrator.planAndExecute()
+        this.stream.markdown(`⚠️ **架构升级通知**\n\n`);
+        this.stream.markdown(`原有的specialist恢复机制已被新的PlanExecutor替代。\n`);
+        this.stream.markdown(`请重新开始您的任务，新架构将提供更强大的多步骤任务编排能力。\n\n`);
         
-        // 解析specialist的恢复结果
-        try {
-          const parsedResult = JSON.parse(result);
+        // 清除状态，引导用户重新开始
+        this.state.resumeContext = undefined;
+        this.state.pendingInteraction = undefined;
+        this.state.stage = 'completed';
+        
+        await this.recordExecution('result', '新架构：specialist恢复功能已升级', true);
+        return;
           
-          // 🚀 检查是否又需要用户交互
-          if (parsedResult.needsChatInteraction) {
-            this.logger.info(`💬 Specialist needs another chat interaction: ${parsedResult.chatQuestion}`);
-            
-            // 更新resumeContext
-            this.state.resumeContext = {
-              ruleId: parsedResult.resumeContext?.ruleId || this.state.resumeContext.ruleId,
-              context: parsedResult.resumeContext?.context || this.state.resumeContext.context,
-              currentIteration: parsedResult.currentIteration || this.state.resumeContext.currentIteration,
-              conversationHistory: parsedResult.conversationHistory || this.state.resumeContext.conversationHistory,
-              toolExecutionResults: parsedResult.toolExecutionResults || this.state.resumeContext.toolExecutionResults,
-              pendingPlan: parsedResult.pendingPlan || this.state.resumeContext.pendingPlan
-            };
-            
-            // 设置新的交互状态
-            this.state.pendingInteraction = {
-              type: 'input',
-              message: parsedResult.chatQuestion,
-              toolCall: interaction.toolCall,
-              originalResult: parsedResult
-            };
-            
-            // 显示新问题
-            this.stream.markdown(`💬 **${parsedResult.chatQuestion}**\n\n`);
-            this.stream.markdown(`请在下方输入您的回答...\n\n`);
-            
-            return; // 继续等待用户输入
-          }
-          
-          // 🚀 Specialist执行完成
-          if (parsedResult.completed) {
-            this.logger.info(`✅ Specialist execution completed: ${parsedResult.summary}`);
-            
-            this.stream.markdown(`✅ **任务完成**\n\n`);
-            this.stream.markdown(`${parsedResult.summary}\n\n`);
-            
-            if (parsedResult.resumedFromUserInteraction) {
-              this.stream.markdown(`🎯 专家任务在您的协助下成功完成！\n\n`);
-            }
-            
-            // 清除状态
-            this.state.resumeContext = undefined;
-            this.state.pendingInteraction = undefined;
-            this.state.stage = 'completed';
-            
-            await this.recordExecution('result', parsedResult.summary, true);
-            this.displayExecutionSummary();
-            return;
-          }
-          
-          // 🚀 Specialist部分完成
-          this.stream.markdown(`⚠️ **任务部分完成**\n\n`);
-          this.stream.markdown(`${parsedResult.summary}\n\n`);
-          
-        } catch (parseError) {
-          // 如果不是JSON格式，按文本处理
-          this.stream.markdown(`✅ **专家任务恢复完成**\n\n`);
-          this.stream.markdown(`${result}\n\n`);
-        }
+        // 注意：由于已经在上面return了，这个代码块实际上不会执行，
+        // 但保留它以防未来需要实现真正的specialist恢复功能
         
         // 清除状态
         this.state.resumeContext = undefined;
@@ -403,9 +350,71 @@ export class SRSAgentEngine implements ISessionObserver {
     // 1. AI规划阶段
     const plan = await this.generatePlan();
     
+    // 🔍 DEBUG: 记录生成的计划详情
+    this.logger.info(`🔍 [DEBUG] Generated plan details:`);
+    this.logger.info(`🔍 [DEBUG] - response_mode: ${plan.response_mode}`);
+    this.logger.info(`🔍 [DEBUG] - has tool_calls: ${!!plan.tool_calls && plan.tool_calls.length > 0}`);
+    this.logger.info(`🔍 [DEBUG] - has execution_plan: ${!!(plan as any).execution_plan}`);
+    this.logger.info(`🔍 [DEBUG] - thought: ${plan.thought.substring(0, 100)}...`);
+    
     // 2. 透明显示AI思考过程
     this.stream.markdown(`> 🤖 **AI思考**: ${plan.thought}\n\n`);
     this.recordExecution('thought', plan.thought);
+    
+    // 🚀 新增：检查PLAN_EXECUTION模式
+    if (plan.response_mode === 'PLAN_EXECUTION' && (plan as any).execution_plan) {
+      this.logger.info(`🚀 [DEBUG] 检测到PLAN_EXECUTION模式，移交给orchestrator.planAndExecute处理`);
+      
+      try {
+        // 🚀 修复递归调用：传递已有的计划，避免重复调用generateUnifiedPlan
+        const executionResult = await this.orchestrator.planAndExecute(
+          this.state.currentTask,
+          await this.getCurrentSessionContext(),
+          this.selectedModel,
+          plan  // 🚀 关键：传递已生成的plan，避免重复LLM调用
+        );
+        
+        this.logger.info(`🔍 [DEBUG] planAndExecute result: intent=${executionResult.intent}`);
+        
+        // 根据执行结果更新引擎状态
+        if (executionResult.intent === 'plan_completed') {
+          this.stream.markdown(`✅ **计划执行完成**: ${executionResult.result?.summary}\n\n`);
+          await this.recordExecution('result', `计划执行完成: ${executionResult.result?.summary}`, true);
+          this.state.stage = 'completed';
+          return;
+        } else if (executionResult.intent === 'plan_failed') {
+          this.stream.markdown(`❌ **计划执行失败**: ${executionResult.result?.error}\n\n`);
+          await this.recordExecution('result', `计划执行失败: ${executionResult.result?.error}`, false);
+          this.state.stage = 'error';
+          return;
+        } else if (executionResult.intent === 'user_interaction_required') {
+          // 需要用户交互
+          this.logger.info(`💬 [DEBUG] 计划执行需要用户交互`);
+          this.state.stage = 'awaiting_user';
+          this.state.pendingInteraction = {
+            type: 'input',
+            message: executionResult.result?.question || '需要您的确认',
+            options: []
+          };
+          this.state.resumeContext = executionResult.result?.resumeContext;
+          
+          this.stream.markdown(`💬 **${executionResult.result?.question}**\n\n`);
+          await this.recordExecution('user_interaction', `向用户提问: ${executionResult.result?.question}`, true);
+          return;
+        } else {
+          // 其他情况，记录并继续
+          this.logger.info(`🔍 [DEBUG] 未知的planAndExecute结果: ${executionResult.intent}`);
+          this.stream.markdown(`ℹ️ **计划执行状态**: ${executionResult.intent}\n\n`);
+        }
+        
+      } catch (error) {
+        this.logger.error(`❌ [DEBUG] planAndExecute执行失败`, error as Error);
+        this.stream.markdown(`❌ **计划执行出错**: ${(error as Error).message}\n\n`);
+        await this.recordExecution('result', `计划执行出错: ${(error as Error).message}`, false);
+        this.state.stage = 'error';
+        return;
+      }
+    }
     
     // 3. 检查响应模式
     if (plan.response_mode === AIResponseMode.KNOWLEDGE_QA) {
@@ -511,6 +520,8 @@ export class SRSAgentEngine implements ISessionObserver {
         return;
       }
     } else {
+      // 🔍 DEBUG: 记录没有工具调用的情况
+      this.logger.info(`🔍 [DEBUG] 没有工具调用，任务可能已完成`);
       // 没有工具调用，任务可能完成
       this.state.stage = 'completed';
     }
@@ -550,7 +561,14 @@ export class SRSAgentEngine implements ISessionObserver {
       // 🚀 Code Review修复：构建分离的上下文
       const { historyContext, toolResultsContext } = this.contextManager.buildContextForPrompt(this.state.executionHistory);
       
+      this.logger.info(`🔍 [DEBUG] Context prepared for orchestrator:`);
+      this.logger.info(`🔍 [DEBUG] - historyContext length: ${historyContext.length}`);
+      this.logger.info(`🔍 [DEBUG] - toolResultsContext length: ${toolResultsContext.length}`);
+      this.logger.info(`🔍 [DEBUG] - sessionContext available: ${!!(await this.getCurrentSessionContext())}`);
+      
       // 调用Orchestrator的规划方法
+      this.logger.info(`🔍 [DEBUG] Calling orchestrator.generateUnifiedPlan...`);
+      
       const plan = await this.orchestrator.generateUnifiedPlan(
         this.state.currentTask,
         await this.getCurrentSessionContext(),
@@ -559,14 +577,19 @@ export class SRSAgentEngine implements ISessionObserver {
         toolResultsContext // 🚀 工具结果上下文
       );
       
+      this.logger.info(`🔍 [DEBUG] orchestrator.generateUnifiedPlan returned successfully`);
+      this.logger.info(`🔍 [DEBUG] Plan response_mode: ${plan.response_mode}`);
+      this.logger.info(`🔍 [DEBUG] Plan has execution_plan: ${!!(plan as any).execution_plan}`);
+      this.logger.info(`🔍 [DEBUG] Plan has tool_calls: ${!!plan.tool_calls && plan.tool_calls.length > 0}`);
+      
       return plan;
     } catch (error) {
-      this.logger.error('规划生成失败', error as Error);
+      this.logger.error('❌ [DEBUG] 规划生成失败', error as Error);
       // 返回安全的降级计划
       return {
         thought: '规划生成失败，使用降级策略',
-                    response_mode: AIResponseMode.KNOWLEDGE_QA,
-        direct_response: '抱歉，我在规划时遇到了问题。能请您换一种方式提问吗？',
+        response_mode: AIResponseMode.KNOWLEDGE_QA,
+        direct_response: '抱歉，我在规划时遇到了问题。能请您换一种方式表达吗？',
         tool_calls: []
       };
     }
@@ -770,10 +793,10 @@ export class SRSAgentEngine implements ISessionObserver {
 
   // 🚀 新增：特殊处理specialist工具的用户交互需求
   private async handleSpecialistTool(toolCall: { name: string; args: any }): Promise<{ needsUserInteraction: boolean } | undefined> {
-    this.stream.markdown(`🧠 **执行专家工具**: ${toolCall.name}\n`);
+    this.stream.markdown(`🧠 **需求文档专家正在工作**: ${toolCall.name}\n`);
     
     const startTime = Date.now();
-    await this.recordExecution('tool_call', `开始执行专家工具: ${toolCall.name}`, undefined, toolCall.name, undefined, toolCall.args);
+    await this.recordExecution('tool_call', `需求文档专家正在使用工具: ${toolCall.name}`, undefined, toolCall.name, undefined, toolCall.args);
     
     try {
       const result = await this.toolExecutor.executeTool(

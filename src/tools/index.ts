@@ -57,6 +57,12 @@ import {
     createNewProjectFolderToolCategory 
 } from './internal/createNewProjectFolderTool';
 
+import { 
+    taskCompleteToolDefinitions, 
+    taskCompleteToolImplementations,
+    taskCompleteToolsCategory 
+} from './internal/taskCompleteTools';
+
 // 导入访问控制类型
 import { CallerType } from '../types/index';
 
@@ -207,6 +213,14 @@ class ToolRegistry {
             createNewProjectFolderToolDefinitions,
             createNewProjectFolderToolImplementations,
             createNewProjectFolderToolCategory,
+            'internal'
+        );
+
+        // 注册任务完成工具
+        this.registerToolsFromCategory(
+            taskCompleteToolDefinitions,
+            taskCompleteToolImplementations,
+            taskCompleteToolsCategory,
             'internal'
         );
 

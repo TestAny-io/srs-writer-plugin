@@ -62,7 +62,8 @@ When to use:
     },
     // 🚀 访问控制：只有主要的AI代理可以创建新项目
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION  // 只允许 orchestrator 在工具执行模式下调用
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator 在工具执行模式下调用
+        CallerType.SPECIALIST                   // 🚀 新增：specialist（特别是project_initializer）可以调用
     ]
 };
 
