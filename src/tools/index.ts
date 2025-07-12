@@ -21,11 +21,7 @@ import {
     atomicToolsCategory 
 } from './atomic';
 
-import { 
-    specialistToolDefinitions, 
-    specialistToolImplementations,
-    specialistToolsCategory 
-} from './specialist/specialistTools';
+// Specialist tools have been removed as they are deprecated
 
 import { 
     requirementToolDefinitions, 
@@ -63,11 +59,11 @@ import {
     taskCompleteToolsCategory 
 } from './internal/taskCompleteTools';
 
-// 🚀 Phase 1新增：语义编辑工具
+// 🚀 统一的文件读取工具
 import { 
-    enhancedReadFileToolDefinitions, 
-    enhancedReadFileToolImplementations,
-    enhancedReadFileToolsCategory 
+    readFileToolDefinitions, 
+    readFileToolImplementations,
+    readFileToolsCategory 
 } from './document/enhanced-readfile-tools';
 
 import { 
@@ -181,13 +177,7 @@ class ToolRegistry {
             'atomic'
         );
 
-        // 注册专家层工具
-        this.registerToolsFromCategory(
-            specialistToolDefinitions,
-            specialistToolImplementations,
-            specialistToolsCategory,
-            'specialist'
-        );
+        // Specialist tools have been removed as they are deprecated
 
         // 注册文档层工具 - 生成器
         this.registerToolsFromCategory(
@@ -239,9 +229,9 @@ class ToolRegistry {
 
         // 🚀 Phase 1新增：注册语义编辑工具
         this.registerToolsFromCategory(
-            enhancedReadFileToolDefinitions,
-            enhancedReadFileToolImplementations,
-            enhancedReadFileToolsCategory,
+            readFileToolDefinitions,
+            readFileToolImplementations,
+            readFileToolsCategory,
             'document'
         );
 
@@ -551,8 +541,7 @@ export const generateCompactToolList = () => toolRegistry.generateCompactToolLis
 export {
     atomicToolDefinitions,
     atomicToolImplementations,
-    specialistToolDefinitions,
-    specialistToolImplementations,
+    // Specialist tools removed,
     requirementToolDefinitions,
     requirementToolImplementations,
     documentGeneratorToolDefinitions,

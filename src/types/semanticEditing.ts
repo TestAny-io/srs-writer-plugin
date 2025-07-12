@@ -66,16 +66,18 @@ export interface SemanticEditResult {
     metadata?: {
         executionTime: number;              // 执行时间（毫秒）
         timestamp: string;                  // 时间戳
-        documentStructure?: any;            // 文档结构信息
+        astNodeCount?: number;              // AST节点数量
+        documentLength?: number;            // 文档长度
     };
 }
 
 // ============================================================================
-// 文档结构分析类型
+// 文档结构分析类型 (🚨 已废弃 - 使用AST-based SemanticLocator)
 // ============================================================================
 
 /**
  * 文档结构信息接口
+ * @deprecated 已废弃 - SemanticLocator现在直接使用AST，不再需要此接口
  */
 export interface DocumentStructure {
     sections: SectionInfo[];                            // 章节信息
@@ -86,6 +88,7 @@ export interface DocumentStructure {
 
 /**
  * 章节信息接口
+ * @deprecated 已废弃 - SemanticLocator现在直接使用AST，不再需要此接口
  */
 export interface SectionInfo {
     name: string;               // 章节名称
@@ -98,6 +101,7 @@ export interface SectionInfo {
 
 /**
  * 标题信息接口
+ * @deprecated 已废弃 - SemanticLocator现在直接使用AST，不再需要此接口
  */
 export interface HeadingInfo {
     level: number;          // 标题级别（1-6）
@@ -131,8 +135,8 @@ export interface LocationResult {
 export interface StructuredReadFileResult {
     success: boolean;               // 是否成功
     content: string;                // 原始文件内容
-    structure?: DocumentStructure;  // 文档结构信息（可选）
-    semanticMap?: SemanticMap;     // 语义映射表（可选）
+    structure?: DocumentStructure;  // 文档结构信息（可选）- 🚨 已废弃
+    semanticMap?: SemanticMap;     // 语义映射表（可选）- 🚨 已废弃
     error?: string;                 // 错误信息
 }
 

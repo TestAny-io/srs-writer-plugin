@@ -163,7 +163,8 @@ interface SessionLogFile {
 所有specialist层工具都应该按照以下模式封装sessionManagementTools：
 
 ```typescript
-export async function createComprehensiveSRS(args: any) {
+// DEPRECATED: createComprehensiveSRS has been removed
+export async function createComprehensiveSRS_deprecated(args: any) {
     const startTime = Date.now();
     
     try {

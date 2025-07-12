@@ -1,7 +1,54 @@
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
 import { CallerType } from '../../types/index';
-import { getActiveDocumentContent, replaceText, getUserSelection } from './editor-tools';
+import { getActiveDocumentContent } from './editor-tools';
+
+// 私有工具函数 - 复制自editor-tools.ts以避免依赖已废弃的工具
+async function replaceText(args: { text: string; startLine: number; endLine: number }): Promise<{ success: boolean; error?: string }> {
+    try {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            return { success: false, error: 'No active text editor' };
+        }
+
+        const startPos = new vscode.Position(args.startLine - 1, 0); // 转为 0-based
+        const endPos = new vscode.Position(args.endLine, 0); // endLine 的下一行开头
+        const range = new vscode.Range(startPos, endPos);
+        
+        await activeEditor.edit(editBuilder => {
+            editBuilder.replace(range, args.text);
+        });
+        
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+}
+
+async function getUserSelection(): Promise<{ 
+    success: boolean; 
+    text?: string; 
+    range?: { startLine: number; endLine: number }; 
+    error?: string 
+}> {
+    try {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            return { success: false, error: 'No active text editor' };
+        }
+
+        const selection = activeEditor.selection;
+        const text = activeEditor.document.getText(selection);
+        const range = {
+            startLine: selection.start.line + 1, // 转为 1-based
+            endLine: selection.end.line + 1
+        };
+        
+        return { success: true, text, range };
+    } catch (error) {
+        return { success: false, error: (error as Error).message };
+    }
+}
 
 /**
  * 智能编辑工具 - 提供基于模式匹配的查找和替换功能

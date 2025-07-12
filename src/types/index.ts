@@ -34,6 +34,7 @@ export interface AIPlan {
             specialist: string;                    // e.g., 'summary_writer', '100_create_srs'
             context_dependencies: number[];       // 依赖的上一步步骤编号
             expectedOutput?: string;               // 可选：期望的输出类型
+            output_chapter_titles?: string[];      // 可选：输出章节标题
         }>;
     } | null;
 }
@@ -55,8 +56,49 @@ export interface SpecialistOutput {
         executionTime: number;                    // 执行时长(ms)
         timestamp: string;                        // 执行时间戳
         toolsUsed?: string[];                     // 可选：使用的工具列表
+        // 🚀 新增：specialist循环迭代相关字段
+        loopIterations?: number;                  // 可选：PlanExecutor层面的循环次数
+        totalLoopTime?: number;                   // 可选：总循环时长(ms)
+        iterationHistory?: Array<{               // 可选：迭代历史摘要
+            iteration: number;
+            summary: string;
+            executionTime: number;
+        }>;
     };
     error?: string;                               // 失败时的错误信息
+}
+
+/**
+ * 🚀 Specialist循环迭代 - 执行历史记录接口
+ * 用于记录specialist每一轮的执行详情，支持自循环迭代机制
+ */
+export interface SpecialistExecutionHistory {
+    iteration: number;                           // 迭代轮次（从1开始）
+    toolCalls: Array<{ name: string; args: any }>; // 本轮执行的工具调用
+    toolResults: Array<{                        // 工具执行结果
+        toolName: string;
+        success: boolean;
+        result: any;
+        error?: string;
+    }>;
+    aiResponse: string;                          // specialist的AI回复内容
+    timestamp: string;                           // 执行时间戳（ISO 8601格式）
+    summary: string;                             // 本轮工作简要描述
+    executionTime: number;                       // 本轮执行时长（ms）
+}
+
+/**
+ * 🚀 Specialist循环迭代 - 循环状态管理接口
+ * 管理specialist在PlanExecutor层面的自循环状态
+ */
+export interface SpecialistLoopState {
+    specialistId: string;                        // specialist标识符
+    currentIteration: number;                    // 当前迭代轮次
+    maxIterations: number;                       // 最大迭代次数限制
+    executionHistory: SpecialistExecutionHistory[]; // 历史执行记录
+    isLooping: boolean;                          // 是否处于循环状态
+    startTime: number;                           // 循环开始时间戳
+    lastContinueReason?: string;                 // 最后一次继续的原因
 }
 
 /**

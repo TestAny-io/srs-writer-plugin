@@ -15,15 +15,16 @@ import { CallerType } from '../../types/index';
 const logger = Logger.getInstance();
 
 // ============================================================================
-// 文件操作工具
+// 文件操作工具 (内部实现)
 // ============================================================================
 
 /**
- * 读取文件内容
+ * [内部函数] 读取文件内容的基础实现。
+ * 不再作为独立的工具注册。
  */
-export const readFileToolDefinition = {
-    name: "readFile",
-    description: "Read the complete content of a file",
+const _internalReadFileToolDefinition = {
+    name: "_internalReadFile",
+    description: "Internal function to read the complete content of a file",
     parameters: {
         type: "object",
         properties: {
@@ -33,21 +34,10 @@ export const readFileToolDefinition = {
             }
         },
         required: ["path"]
-    },
-    // 🚀 智能分类属性
-    interactionType: 'autonomous',
-    riskLevel: 'low',
-    requiresConfirmation: false,
-    // 🚀 访问控制：读取文件是安全操作，大部分调用者都可以使用
-    accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 用户询问文件内容，现在归入知识问答模式
-        CallerType.SPECIALIST,                    // 专家需要读取现有文档
-        CallerType.DOCUMENT                       // 文档层读取操作
-    ]
+    }
 };
 
-export async function readFile(args: { path: string }): Promise<{ success: boolean; content?: string; error?: string }> {
+export async function _internalReadFile(args: { path: string }): Promise<{ success: boolean; content?: string; error?: string }> {
     try {
         const workspaceFolder = getCurrentWorkspaceFolder();
         if (!workspaceFolder) {
@@ -58,10 +48,10 @@ export async function readFile(args: { path: string }): Promise<{ success: boole
         const fileData = await vscode.workspace.fs.readFile(fileUri);
         const content = new TextDecoder().decode(fileData);
         
-        logger.info(`✅ Read file: ${args.path} (${content.length} chars)`);
+        logger.info(`[_internalReadFile] Read file: ${args.path} (${content.length} chars)`);
         return { success: true, content };
     } catch (error) {
-        const errorMsg = `Failed to read file ${args.path}: ${(error as Error).message}`;
+        const errorMsg = `[_internalReadFile] Failed to read file ${args.path}: ${(error as Error).message}`;
         logger.error(errorMsg);
         return { success: false, error: errorMsg };
     }
@@ -507,7 +497,6 @@ function getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
 // ============================================================================
 
 export const filesystemToolDefinitions = [
-    readFileToolDefinition,
     writeFileToolDefinition,
     appendTextToFileToolDefinition,
     createDirectoryToolDefinition,
@@ -517,11 +506,11 @@ export const filesystemToolDefinitions = [
 ];
 
 export const filesystemToolImplementations = {
-    readFile,
     writeFile,
     appendTextToFile,
     createDirectory,
     listFiles,
     deleteFile,
-    renameFile
+    renameFile,
+    _internalReadFile
 }; 

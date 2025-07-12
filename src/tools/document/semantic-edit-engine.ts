@@ -1,13 +1,12 @@
 /**
  * SemanticEditEngine - 语义编辑引擎
  * 
- * 基于VSCode原生WorkspaceEdit和DocumentSymbol，
+ * 基于VSCode原生WorkspaceEdit和AST语义定位，
  * 实现精确、安全、原子性的语义编辑操作
  */
 
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
-import { DocumentAnalyzer } from '../atomic/document-analyzer';
 import { SemanticLocator, SemanticTarget } from '../atomic/semantic-locator';
 
 const logger = Logger.getInstance();
@@ -35,10 +34,16 @@ export interface SemanticEditResult {
     failedIntents: SemanticEditIntent[];
     error?: string;
     semanticErrors?: string[];
+    saveResult?: {                    // 🆕 新增保存结果
+        success: boolean;
+        executionTime: number;        // 保存操作耗时（毫秒）
+        error?: string;
+    };
     metadata?: {
         executionTime: number;
         timestamp: string;
-        documentStructure?: any;
+        astNodeCount: number;
+        documentLength: number;
     };
 }
 
@@ -60,19 +65,16 @@ export async function executeSemanticEdits(
     try {
         logger.info(`🔧 Starting semantic editing: ${intents.length} intents for ${targetFileUri.fsPath}`);
         
-        // 打开文档
+        // 打开文档并获取内容
         const document = await vscode.workspace.openTextDocument(targetFileUri);
+        const markdownContent = document.getText();
         
-        // 分析文档结构
-        const analyzer = new DocumentAnalyzer();
-        const structure = await analyzer.analyzeDocument(document);
+        // 🚀 AST重构：直接使用文档内容创建语义定位器
+        const locator = new SemanticLocator(markdownContent);
         
-        if (structure.sections.length === 0) {
+        if (locator.getNodeCount() === 0) {
             logger.warn(`⚠️ Document has no identifiable structure, falling back to simple editing`);
         }
-        
-        // 创建语义定位器
-        const locator = new SemanticLocator(structure);
         
         // 按优先级排序意图
         const sortedIntents = [...intents].sort((a, b) => (b.priority || 0) - (a.priority || 0));
@@ -124,26 +126,83 @@ export async function executeSemanticEdits(
                     metadata: {
                         executionTime: Date.now() - startTime,
                         timestamp: new Date().toISOString(),
-                        documentStructure: structure
+                        astNodeCount: locator.getNodeCount(),
+                        documentLength: markdownContent.length
+                    }
+                };
+            } else {
+                // 🚀 新增：强制保存文档
+                const saveStartTime = Date.now();
+                let saveResult = {
+                    success: false,
+                    executionTime: 0,
+                    error: undefined as string | undefined
+                };
+
+                try {
+                    // 重新获取最新的文档对象（因为applyEdit后可能已更新）
+                    const updatedDocument = await vscode.workspace.openTextDocument(targetFileUri);
+                    
+                    if (updatedDocument.isDirty) {
+                        logger.info(`💾 Saving changes to disk: ${targetFileUri.fsPath}`);
+                        saveResult.success = await updatedDocument.save();
+                        
+                        if (saveResult.success) {
+                            logger.info(`✅ Document saved successfully`);
+                        } else {
+                            saveResult.error = 'Save operation returned false';
+                            logger.warn(`⚠️ Failed to save document: ${saveResult.error}`);
+                        }
+                    } else {
+                        // 文档不脏，认为保存成功
+                        saveResult.success = true;
+                        logger.info(`ℹ️ Document is clean, no save needed`);
+                    }
+                } catch (error) {
+                    saveResult.error = (error as Error).message;
+                    logger.error(`❌ Error while saving document: ${saveResult.error}`);
+                } finally {
+                    saveResult.executionTime = Date.now() - saveStartTime;
+                }
+
+                // 更新返回结果，包含保存信息
+                const totalSuccess = appliedIntents.length;
+                const totalFailed = failedIntents.length;
+                
+                logger.info(`🎉 Semantic editing complete: ${totalSuccess} success, ${totalFailed} failed`);
+                
+                return {
+                    success: totalSuccess > 0 && totalFailed === 0,
+                    appliedIntents,
+                    failedIntents,
+                    saveResult,  // 🆕 包含保存结果
+                    semanticErrors: semanticErrors.length > 0 ? semanticErrors : undefined,
+                    metadata: {
+                        executionTime: Date.now() - startTime,
+                        timestamp: new Date().toISOString(),
+                        astNodeCount: locator.getNodeCount(),
+                        documentLength: markdownContent.length
                     }
                 };
             }
         }
         
+        // 如果没有编辑需要应用，直接返回成功
         const totalSuccess = appliedIntents.length;
         const totalFailed = failedIntents.length;
         
-        logger.info(`🎉 Semantic editing complete: ${totalSuccess} success, ${totalFailed} failed`);
+        logger.info(`🎉 Semantic editing complete: ${totalSuccess} success, ${totalFailed} failed (no edits applied)`);
         
         return {
-            success: totalSuccess > 0 && totalFailed === 0,
+            success: totalSuccess === 0 && totalFailed === 0, // 没有编辑时也算成功
             appliedIntents,
             failedIntents,
             semanticErrors: semanticErrors.length > 0 ? semanticErrors : undefined,
             metadata: {
                 executionTime: Date.now() - startTime,
                 timestamp: new Date().toISOString(),
-                documentStructure: structure
+                astNodeCount: locator.getNodeCount(),
+                documentLength: markdownContent.length
             }
         };
         
@@ -159,7 +218,9 @@ export async function executeSemanticEdits(
             semanticErrors,
             metadata: {
                 executionTime: Date.now() - startTime,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                astNodeCount: 0,
+                documentLength: 0
             }
         };
     }

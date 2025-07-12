@@ -1,13 +1,14 @@
 /**
  * SemanticLocator - 语义定位器
  * 
- * 基于DocumentAnalyzer提供的文档结构，
- * 实现精确的语义位置定位功能
+ * 基于AST语法树，实现精确的语义位置定位功能
  */
 
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
-import { DocumentStructure, SectionInfo } from './document-analyzer';
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import { Root as MdastRoot, Content as MdastContent, Heading as MdastHeading } from 'mdast';
 
 const logger = Logger.getInstance();
 
@@ -42,12 +43,43 @@ export interface LocationResult {
 }
 
 /**
- * SemanticLocator - 语义定位器
+ * AST章节信息接口
+ */
+interface ASTSectionInfo {
+    name: string;
+    level: number;
+    startLine: number;
+    endLine: number;
+    content: string;
+    node: MdastHeading;
+}
+
+/**
+ * SemanticLocator - 基于AST的语义定位器
  */
 export class SemanticLocator {
+    private ast: MdastRoot;
+    private sourceText: string;
+    private sections: ASTSectionInfo[];
+    private lines: string[];
     
-    constructor(private structure: DocumentStructure) {
-        logger.info(`🎯 SemanticLocator initialized with ${structure.sections.length} sections`);
+    constructor(markdownContent: string) {
+        this.sourceText = markdownContent;
+        this.lines = markdownContent.split('\n');
+        
+        try {
+            // 解析Markdown为AST
+            this.ast = unified().use(remarkParse).parse(markdownContent) as MdastRoot;
+            
+            // 提取章节信息
+            this.sections = this.extractSections();
+            
+            logger.info(`🎯 SemanticLocator initialized with AST: ${this.sections.length} sections found`);
+        } catch (error) {
+            logger.error(`Failed to parse markdown: ${(error as Error).message}`);
+            this.ast = { type: 'root', children: [] };
+            this.sections = [];
+        }
     }
     
     /**
@@ -100,13 +132,97 @@ export class SemanticLocator {
     }
     
     /**
+     * 从AST提取章节信息（支持递归遍历嵌套结构）
+     * @returns 章节信息数组
+     */
+    private extractSections(): ASTSectionInfo[] {
+        const sections: ASTSectionInfo[] = [];
+        
+        const traverse = (nodes: MdastContent[], parentContext?: string) => {
+            nodes.forEach((node, index) => {
+                if (node.type === 'heading') {
+                    const heading = node as MdastHeading;
+                    const name = this.extractHeadingText(heading);
+                    const startLine = (heading.position?.start.line || 1) - 1; // 转为0-based
+                    
+                    // 在当前层级中查找结束行
+                    const endLine = this.calculateSectionEndLineInContext(heading, nodes, index);
+                    const content = this.lines.slice(startLine, endLine + 1).join('\n');
+                    
+                    sections.push({
+                        name: parentContext ? `${parentContext} > ${name}` : name, // 保留层级信息
+                        level: heading.depth,
+                        startLine,
+                        endLine,
+                        content,
+                        node: heading
+                    });
+                }
+                
+                // 递归处理子节点
+                if ('children' in node && node.children) {
+                    const contextName = node.type === 'heading' ? 
+                        this.extractHeadingText(node as MdastHeading) : parentContext;
+                    traverse(node.children as MdastContent[], contextName);
+                }
+            });
+        };
+        
+        traverse(this.ast.children);
+        
+        return sections.sort((a, b) => a.startLine - b.startLine);
+    }
+    
+    /**
+     * 从标题节点提取文本
+     */
+    private extractHeadingText(heading: MdastHeading): string {
+        const extractText = (node: any): string => {
+            if (node.type === 'text') {
+                return node.value;
+            }
+            if (node.children) {
+                return node.children.map(extractText).join('');
+            }
+            return '';
+        };
+        
+        return heading.children.map(extractText).join('').trim();
+    }
+    
+    /**
+     * 在当前上下文中计算章节结束行
+     */
+    private calculateSectionEndLineInContext(
+        heading: MdastHeading, 
+        siblingNodes: MdastContent[], 
+        nodeIndex: number
+    ): number {
+        let endLine = this.lines.length - 1;
+        
+        // 在同一层级中查找下一个标题
+        for (let i = nodeIndex + 1; i < siblingNodes.length; i++) {
+            const nextNode = siblingNodes[i];
+            if (nextNode.type === 'heading') {
+                const nextHeading = nextNode as MdastHeading;
+                if (nextHeading.depth <= heading.depth) {
+                    endLine = (nextHeading.position?.start.line || 1) - 2; // 前一行
+                    break;
+                }
+            }
+        }
+        
+        return endLine;
+    }
+    
+    /**
      * 根据名称查找section
      * @param sectionName section名称
      * @returns 找到的section或undefined
      */
-    findSectionByName(sectionName: string): SectionInfo | undefined {
+    findSectionByName(sectionName: string): ASTSectionInfo | undefined {
         // 直接匹配
-        let section = this.structure.sections.find(s => 
+        let section = this.sections.find(s => 
             this.normalizeText(s.name) === this.normalizeText(sectionName)
         );
         
@@ -115,7 +231,7 @@ export class SemanticLocator {
         }
         
         // 模糊匹配
-        section = this.structure.sections.find(s => 
+        section = this.sections.find(s => 
             this.normalizeText(s.name).includes(this.normalizeText(sectionName)) ||
             this.normalizeText(sectionName).includes(this.normalizeText(s.name))
         );
@@ -133,47 +249,34 @@ export class SemanticLocator {
      * @param position 位置类型
      * @returns 插入点位置
      */
-    calculateInsertionPoint(section: SectionInfo, position?: 'before' | 'after'): vscode.Position {
+    calculateInsertionPoint(section: ASTSectionInfo, position?: 'before' | 'after'): vscode.Position {
         switch (position) {
             case 'before':
-                return section.range.start;
+                return new vscode.Position(section.startLine, 0);
                 
             case 'after':
-                // 找到section的结束位置
+                // 找到下一个同级或更高级别的section
                 const nextSection = this.findNextSameLevelSection(section);
                 if (nextSection) {
-                    return new vscode.Position(nextSection.range.start.line - 1, 0);
+                    return new vscode.Position(nextSection.startLine - 1, 0);
                 } else {
-                    return new vscode.Position(section.range.end.line + 1, 0);
+                    return new vscode.Position(section.endLine + 1, 0);
                 }
                 
             default:
-                return section.range.start;
+                return new vscode.Position(section.startLine, 0);
         }
     }
     
     /**
      * 🚀 计算append_to_section的插入位置
-     * 在章节内容的最后一行末尾插入，但不超出章节边界
      */
-    private calculateAppendPosition(section: SectionInfo): LocationResult {
+    private calculateAppendPosition(section: ASTSectionInfo): LocationResult {
         try {
-            // 计算章节内容的真实结束位置
-            const nextSection = this.findNextSameLevelSection(section);
-            let contentEndLine: number;
+            // 在章节内容的最后一行之后插入新行
+            const insertionPoint = new vscode.Position(section.endLine + 1, 0);
             
-            if (nextSection) {
-                // 如果有下一个同级section，在它之前插入
-                contentEndLine = nextSection.range.start.line - 1;
-            } else {
-                // 如果没有下一个同级section，使用当前section的结束位置
-                contentEndLine = section.range.end.line;
-            }
-            
-            // 确保不会超出章节范围
-            const insertionPoint = new vscode.Position(contentEndLine, 0);
-            
-            logger.info(`📍 Calculated append position at line ${contentEndLine + 1}`);
+            logger.info(`📍 Calculated append position at line ${section.endLine + 2}`);
             
             return {
                 found: true,
@@ -188,15 +291,14 @@ export class SemanticLocator {
     }
     
     /**
-     * 🚀 计算prepend_to_section的插入位置  
-     * 在章节标题之后，内容开始之前插入
+     * 🚀 计算prepend_to_section的插入位置
      */
-    private calculatePrependPosition(section: SectionInfo): LocationResult {
+    private calculatePrependPosition(section: ASTSectionInfo): LocationResult {
         try {
             // 在章节标题的下一行插入
-            const insertionPoint = new vscode.Position(section.range.start.line + 1, 0);
+            const insertionPoint = new vscode.Position(section.startLine + 1, 0);
             
-            logger.info(`📍 Calculated prepend position at line ${section.range.start.line + 2}`);
+            logger.info(`📍 Calculated prepend position at line ${section.startLine + 2}`);
             
             return {
                 found: true,
@@ -213,14 +315,17 @@ export class SemanticLocator {
     /**
      * 计算具体位置
      */
-    private calculatePosition(section: SectionInfo, target: SemanticTarget): LocationResult {
+    private calculatePosition(section: ASTSectionInfo, target: SemanticTarget): LocationResult {
         const position = target.position || 'replace';
         
         switch (position) {
             case 'replace':
                 return {
                     found: true,
-                    range: section.range,
+                    range: new vscode.Range(
+                        new vscode.Position(section.startLine, 0),
+                        new vscode.Position(section.endLine, this.lines[section.endLine]?.length || 0)
+                    ),
                     context: this.buildContext(section)
                 };
                 
@@ -239,11 +344,9 @@ export class SemanticLocator {
                 };
                 
             case 'append':
-                // 在section内容末尾追加 - 这是针对append_to_section操作
                 return this.calculateAppendPosition(section);
                 
             case 'prepend':
-                // 在section内容开始处插入 - 这是针对prepend_to_section操作
                 return this.calculatePrependPosition(section);
                 
             default:
@@ -255,12 +358,12 @@ export class SemanticLocator {
     /**
      * 查找下一个同级section
      */
-    private findNextSameLevelSection(currentSection: SectionInfo): SectionInfo | undefined {
-        const currentIndex = this.structure.sections.indexOf(currentSection);
+    private findNextSameLevelSection(currentSection: ASTSectionInfo): ASTSectionInfo | undefined {
+        const currentIndex = this.sections.indexOf(currentSection);
         if (currentIndex === -1) return undefined;
         
-        for (let i = currentIndex + 1; i < this.structure.sections.length; i++) {
-            const section = this.structure.sections[i];
+        for (let i = currentIndex + 1; i < this.sections.length; i++) {
+            const section = this.sections[i];
             if (section.level <= currentSection.level) {
                 return section;
             }
@@ -272,7 +375,7 @@ export class SemanticLocator {
     /**
      * 构建上下文信息
      */
-    private buildContext(section: SectionInfo): {
+    private buildContext(section: ASTSectionInfo): {
         beforeText: string;
         afterText: string;
         parentSection?: string;
@@ -290,30 +393,30 @@ export class SemanticLocator {
     /**
      * 查找前一个section
      */
-    private findPreviousSection(currentSection: SectionInfo): SectionInfo | undefined {
-        const currentIndex = this.structure.sections.indexOf(currentSection);
-        return currentIndex > 0 ? this.structure.sections[currentIndex - 1] : undefined;
+    private findPreviousSection(currentSection: ASTSectionInfo): ASTSectionInfo | undefined {
+        const currentIndex = this.sections.indexOf(currentSection);
+        return currentIndex > 0 ? this.sections[currentIndex - 1] : undefined;
     }
     
     /**
      * 查找后一个section
      */
-    private findNextSection(currentSection: SectionInfo): SectionInfo | undefined {
-        const currentIndex = this.structure.sections.indexOf(currentSection);
-        return currentIndex < this.structure.sections.length - 1 ? 
-               this.structure.sections[currentIndex + 1] : undefined;
+    private findNextSection(currentSection: ASTSectionInfo): ASTSectionInfo | undefined {
+        const currentIndex = this.sections.indexOf(currentSection);
+        return currentIndex < this.sections.length - 1 ? 
+               this.sections[currentIndex + 1] : undefined;
     }
     
     /**
      * 查找父section
      */
-    private findParentSection(currentSection: SectionInfo): SectionInfo | undefined {
-        const currentIndex = this.structure.sections.indexOf(currentSection);
+    private findParentSection(currentSection: ASTSectionInfo): ASTSectionInfo | undefined {
+        const currentIndex = this.sections.indexOf(currentSection);
         if (currentIndex === -1) return undefined;
         
         // 向前查找更高级别的section
         for (let i = currentIndex - 1; i >= 0; i--) {
-            const section = this.structure.sections[i];
+            const section = this.sections[i];
             if (section.level < currentSection.level) {
                 return section;
             }
@@ -324,11 +427,8 @@ export class SemanticLocator {
     
     /**
      * 🚀 新增：在章节内查找具体内容
-     * @param section 目标章节
-     * @param target 语义目标
-     * @returns 内容定位结果
      */
-    private findContentInSection(section: SectionInfo, target: SemanticTarget): LocationResult {
+    private findContentInSection(section: ASTSectionInfo, target: SemanticTarget): LocationResult {
         try {
             logger.info(`🔍 Searching for content in section: ${section.name}`);
             
@@ -338,22 +438,18 @@ export class SemanticLocator {
             
             // 处理不同类型的内容定位
             if (target.targetContent) {
-                // 查找要替换的目标内容
                 return this.findTargetContent(section, target.targetContent, lines);
             }
             
             if (target.contentToRemove) {
-                // 查找要删除的内容
                 return this.findTargetContent(section, target.contentToRemove, lines);
             }
             
             if (target.afterContent) {
-                // 查找在某内容之后插入的位置
                 return this.findInsertionAfterContent(section, target.afterContent, lines);
             }
             
             if (target.beforeContent) {
-                // 查找在某内容之前插入的位置
                 return this.findInsertionBeforeContent(section, target.beforeContent, lines);
             }
             
@@ -369,36 +465,18 @@ export class SemanticLocator {
     /**
      * 查找目标内容的位置
      */
-    private findTargetContent(section: SectionInfo, targetContent: string, lines: string[]): LocationResult {
-        const normalizedTarget = this.normalizeText(targetContent);
-        
+    private findTargetContent(section: ASTSectionInfo, targetContent: string, lines: string[]): LocationResult {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            const normalizedLine = this.normalizeText(line);
             
-            if (normalizedLine.includes(normalizedTarget)) {
-                const startPos = new vscode.Position(section.range.start.line + i, 0);
-                const endPos = new vscode.Position(section.range.start.line + i, line.length);
+            // 在原始行上使用不区分大小写的搜索来找到起始索引
+            const startIndex = line.toLowerCase().indexOf(targetContent.toLowerCase());
+
+            if (startIndex !== -1) {
+                const startPos = new vscode.Position(section.startLine + i, startIndex);
+                const endPos = new vscode.Position(section.startLine + i, startIndex + targetContent.length);
                 
-                logger.info(`✅ Found target content at line ${section.range.start.line + i + 1}`);
-                
-                return {
-                    found: true,
-                    range: new vscode.Range(startPos, endPos),
-                    context: this.buildContext(section)
-                };
-            }
-        }
-        
-        // 如果完全匹配失败，尝试模糊匹配
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            if (line.includes(targetContent)) {
-                const startIndex = line.indexOf(targetContent);
-                const startPos = new vscode.Position(section.range.start.line + i, startIndex);
-                const endPos = new vscode.Position(section.range.start.line + i, startIndex + targetContent.length);
-                
-                logger.info(`✅ Found target content with fuzzy match at line ${section.range.start.line + i + 1}`);
+                logger.info(`✅ Found precise target content at line ${section.startLine + i + 1}, cols ${startIndex}-${startIndex + targetContent.length} ("${targetContent}")`);
                 
                 return {
                     found: true,
@@ -415,7 +493,7 @@ export class SemanticLocator {
     /**
      * 查找在某内容之后的插入位置
      */
-    private findInsertionAfterContent(section: SectionInfo, afterContent: string, lines: string[]): LocationResult {
+    private findInsertionAfterContent(section: ASTSectionInfo, afterContent: string, lines: string[]): LocationResult {
         const normalizedAfter = this.normalizeText(afterContent);
         
         for (let i = 0; i < lines.length; i++) {
@@ -423,9 +501,9 @@ export class SemanticLocator {
             const normalizedLine = this.normalizeText(line);
             
             if (normalizedLine.includes(normalizedAfter)) {
-                const insertionPoint = new vscode.Position(section.range.start.line + i + 1, 0);
+                const insertionPoint = new vscode.Position(section.startLine + i + 1, 0);
                 
-                logger.info(`✅ Found insertion point after content at line ${section.range.start.line + i + 2}`);
+                logger.info(`✅ Found insertion point after content at line ${section.startLine + i + 2}`);
                 
                 return {
                     found: true,
@@ -442,7 +520,7 @@ export class SemanticLocator {
     /**
      * 查找在某内容之前的插入位置
      */
-    private findInsertionBeforeContent(section: SectionInfo, beforeContent: string, lines: string[]): LocationResult {
+    private findInsertionBeforeContent(section: ASTSectionInfo, beforeContent: string, lines: string[]): LocationResult {
         const normalizedBefore = this.normalizeText(beforeContent);
         
         for (let i = 0; i < lines.length; i++) {
@@ -450,9 +528,9 @@ export class SemanticLocator {
             const normalizedLine = this.normalizeText(line);
             
             if (normalizedLine.includes(normalizedBefore)) {
-                const insertionPoint = new vscode.Position(section.range.start.line + i, 0);
+                const insertionPoint = new vscode.Position(section.startLine + i, 0);
                 
-                logger.info(`✅ Found insertion point before content at line ${section.range.start.line + i + 1}`);
+                logger.info(`✅ Found insertion point before content at line ${section.startLine + i + 1}`);
                 
                 return {
                     found: true,
@@ -477,9 +555,14 @@ export class SemanticLocator {
     }
     
     /**
+     * 获取AST节点统计信息
+     */
+    public getNodeCount(): number {
+        return this.sections.length;
+    }
+    
+    /**
      * 🚀 静态方法：创建append_to_section目标
-     * @param sectionName 章节名称
-     * @returns 配置好的语义目标
      */
     static createAppendToSectionTarget(sectionName: string): SemanticTarget {
         return {
@@ -490,8 +573,6 @@ export class SemanticLocator {
     
     /**
      * 🚀 静态方法：创建prepend_to_section目标
-     * @param sectionName 章节名称
-     * @returns 配置好的语义目标
      */
     static createPrependToSectionTarget(sectionName: string): SemanticTarget {
         return {
@@ -501,50 +582,26 @@ export class SemanticLocator {
     }
     
     /**
-     * 🚀 静态方法：检测操作类型并创建相应的目标
-     * @param operationType 操作类型字符串
-     * @param sectionName 章节名称
-     * @returns 配置好的语义目标，如果操作类型不匹配则返回null
+     * 🚀 静态方法：根据操作类型创建目标
      */
     static createTargetForOperation(operationType: string, sectionName: string): SemanticTarget | null {
         switch (operationType) {
             case 'append_to_section':
                 return SemanticLocator.createAppendToSectionTarget(sectionName);
-                
             case 'prepend_to_section':
                 return SemanticLocator.createPrependToSectionTarget(sectionName);
-                
             default:
                 return null;
         }
     }
-}
-
-/**
- * 🚀 使用示例：
- * 
- * // 在某个章节末尾追加内容
- * const appendIntent: SemanticEditIntent = {
- *     type: 'append_to_section',
- *     target: { sectionName: '功能需求' },
- *     content: '- 新增功能：用户登录验证',
- *     reason: '添加新的功能需求',
- *     priority: 1
- * };
- * 
- * // 在某个章节开头插入内容  
- * const prependIntent: SemanticEditIntent = {
- *     type: 'prepend_to_section',
- *     target: { sectionName: '项目概述' },
- *     content: '**重要提醒**: 本文档包含最新的需求变更',
- *     reason: '添加重要提醒信息',
- *     priority: 2
- * };
- * 
- * // 执行语义编辑
- * const result = await executeSemanticEdits([appendIntent, prependIntent], fileUri);
- * 
- * // 或者使用辅助方法创建目标
- * const appendTarget = SemanticLocator.createAppendToSectionTarget('功能需求');
- * const prependTarget = SemanticLocator.createPrependToSectionTarget('项目概述');
- */ 
+    
+    /**
+     * 🚀 使用示例和测试辅助方法
+     * 
+     * 使用示例：
+     * ```typescript
+     * const appendTarget = SemanticLocator.createAppendToSectionTarget('功能需求');
+     * const prependTarget = SemanticLocator.createPrependToSectionTarget('项目概述');
+     * ```
+     */
+} 

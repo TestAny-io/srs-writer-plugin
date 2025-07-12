@@ -481,7 +481,7 @@ export class SRSAgentEngine implements ISessionObserver {
               return; // 等待用户确认
             } else {
               // 🚀 新增：特殊处理specialist工具的用户交互需求
-              if (toolCall.name === 'createComprehensiveSRS' || toolCall.name.includes('specialist')) {
+              if (toolCall.name.includes('specialist')) {
                 const result = await this.handleSpecialistTool(toolCall);
                 if (result?.needsUserInteraction) {
                   return; // 暂停执行，等待用户响应
@@ -496,7 +496,7 @@ export class SRSAgentEngine implements ISessionObserver {
           case 'autonomous':
           default:
             // 🚀 新增：特殊处理specialist工具的用户交互需求
-            if (toolCall.name === 'createComprehensiveSRS' || toolCall.name.includes('specialist')) {
+            if (toolCall.name.includes('specialist')) {
               const result = await this.handleSpecialistTool(toolCall);
               if (result?.needsUserInteraction) {
                 return; // 暂停执行，等待用户响应
@@ -669,12 +669,8 @@ export class SRSAgentEngine implements ISessionObserver {
         return true;
         
       case 'tool_call':
-        // specialist工具 或 重要的业务工具
-        return toolName?.includes('specialist') || 
-               toolName === 'createComprehensiveSRS' ||
-               toolName === 'editSRSDocument' ||
-               toolName === 'lintSRSDocument' ||
-               toolName === 'classifyProjectComplexity';
+        // specialist工具 (deprecated tools removed)
+        return toolName?.includes('specialist') ?? false;
                
       case 'result':
         // 重要的业务结果和里程碑
@@ -707,9 +703,7 @@ export class SRSAgentEngine implements ISessionObserver {
           
       case 'tool_call':
         // specialist工具特殊处理
-        if (toolName?.includes('specialist') || 
-            toolName === 'createComprehensiveSRS' ||
-            toolName === 'editSRSDocument') {
+        if (toolName?.includes('specialist')) {
           return OperationType.SPECIALIST_INVOKED;
         }
         

@@ -67,7 +67,6 @@ import {
 import { executeEditInstructions } from './edit-execution-tools';
 
 // 🚀 Phase 1新增：语义编辑工具
-import { DocumentAnalyzer, DocumentStructure, SectionInfo, HeadingInfo } from './document-analyzer';
 import { SemanticLocator, SemanticTarget, LocationResult } from './semantic-locator';
 
 const logger = Logger.getInstance();
@@ -226,25 +225,22 @@ export function getAtomicToolsStats() {
 
 // 从原始atomicTools.ts重新导出的所有函数名（向后兼容）
 export {
-    // 文件系统操作
-    readFile, writeFile, appendTextToFile, createDirectory, 
+    // 文件系统操作 (注意：readFile已重构为统一工具，在document层提供)
+    _internalReadFile, writeFile, appendTextToFile, createDirectory, 
     listFiles, deleteFile, renameFile,
     
-    // 文件系统工具定义
-    readFileToolDefinition, writeFileToolDefinition, appendTextToFileToolDefinition,
+    // 文件系统工具定义 (注意：readFileToolDefinition已重构为统一工具)
+    writeFileToolDefinition, appendTextToFileToolDefinition,
     createDirectoryToolDefinition, listFilesToolDefinition, deleteFileToolDefinition,
     renameFileToolDefinition
 } from './filesystem-tools';
 
 export {
     // 编辑器操作
-    getActiveDocumentContent, getUserSelection, insertText, replaceText,
-    openAndShowFile, openAndSelectRange,
+    getActiveDocumentContent, openAndShowFile,
     
     // 编辑器工具定义
-    getActiveDocumentContentToolDefinition, getUserSelectionToolDefinition,
-    insertTextToolDefinition, replaceTextToolDefinition,
-    openAndShowFileToolDefinition, openAndSelectRangeToolDefinition
+    getActiveDocumentContentToolDefinition, openAndShowFileToolDefinition
 } from './editor-tools';
 
 
@@ -260,12 +256,11 @@ export {
 export {
     // 用户交互
     showInformationMessage, showWarningMessage, askQuestion,
-    suggestNextAction, showProgressIndicator,
+    suggestNextAction,
     
     // 用户交互工具定义
     showInformationMessageToolDefinition, showWarningMessageToolDefinition,
-    askQuestionToolDefinition, suggestNextActionToolDefinition,
-    showProgressIndicatorToolDefinition
+    askQuestionToolDefinition, suggestNextActionToolDefinition
 } from './interaction-tools';
 
 export {
@@ -300,13 +295,6 @@ export {
 } from './edit-execution-tools';
 
 // 🚀 Phase 1新增：语义编辑基础工具
-export {
-    // 文档分析器
-    DocumentAnalyzer,
-    // 类型定义
-    DocumentStructure, SectionInfo, HeadingInfo
-} from './document-analyzer';
-
 export {
     // 语义定位器
     SemanticLocator,

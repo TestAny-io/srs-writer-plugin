@@ -251,66 +251,7 @@ export async function suggestNextAction(args: {
 // 进度指示器工具
 // ============================================================================
 
-/**
- * 🚀 用户体验增强工具：显示进度指示器
- * 高价值场景：长时间操作时提供进度反馈，避免界面卡住
- * SRS场景：调用远程RAG生成完整SRS文档时显示"正在生成，请稍候..."
- */
-export const showProgressIndicatorToolDefinition = {
-    name: "showProgressIndicator",
-    description: "Show a progress indicator while performing a long-running operation",
-    parameters: {
-        type: "object",
-        properties: {
-            title: {
-                type: "string",
-                description: "Title of the progress indicator"
-            },
-            message: {
-                type: "string",
-                description: "Message to display during the operation"
-            },
-            cancellable: {
-                type: "boolean",
-                description: "Whether the operation can be cancelled (default: false)"
-            }
-        },
-        required: ["title", "message"]
-    }
-};
 
-// 注意：这个工具比较特殊，它需要配合具体的异步任务使用
-// 在实际的specialist层中，会与其他工具组合使用
-export async function showProgressIndicator(args: { 
-    title: string; 
-    message: string; 
-    cancellable?: boolean 
-}): Promise<{ success: boolean; error?: string }> {
-    try {
-        // 这是一个模拟的进度指示器，实际的specialist层会传入具体的任务
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: args.title,
-            cancellable: args.cancellable || false
-        }, async (progress, token) => {
-            progress.report({ message: args.message });
-            
-            // 模拟一个短暂的操作
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            if (token.isCancellationRequested) {
-                throw new Error('Operation was cancelled');
-            }
-        });
-        
-        logger.info(`✅ Progress indicator completed: ${args.title}`);
-        return { success: true };
-    } catch (error) {
-        const errorMsg = `Progress indicator failed: ${(error as Error).message}`;
-        logger.error(errorMsg);
-        return { success: false, error: errorMsg };
-    }
-}
 
 // ============================================================================
 // 导出定义和实现
@@ -320,14 +261,12 @@ export const interactionToolDefinitions = [
     showInformationMessageToolDefinition,
     showWarningMessageToolDefinition,
     askQuestionToolDefinition,
-    suggestNextActionToolDefinition,
-    showProgressIndicatorToolDefinition
+    suggestNextActionToolDefinition
 ];
 
 export const interactionToolImplementations = {
     showInformationMessage,
     showWarningMessage,
     askQuestion,
-    suggestNextAction,
-    showProgressIndicator
+    suggestNextAction
 }; 

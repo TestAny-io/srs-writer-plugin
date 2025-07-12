@@ -72,11 +72,11 @@ src/tools/atomic/
 ### 3. `editor-tools.ts` - 编辑器交互
 **包含工具：**
 - `getActiveDocumentContent` - 获取当前文档内容
-- `getUserSelection` - 获取用户选中文本
-- `insertText` - 在指定位置插入文本
-- `replaceText` - 替换指定范围文本
+- [DEPRECATED] `getUserSelection` - 已移除
+- [DEPRECATED] `insertText` - 已移除
+- [DEPRECATED] `replaceText` - 已移除
 - `openAndShowFile` - 打开并显示文件
-- `openAndSelectRange` - 打开文件并选择范围
+- [DEPRECATED] `openAndSelectRange` - 已移除
 
 **特色功能：**
 - 精准的文本编辑操作
@@ -89,7 +89,7 @@ src/tools/atomic/
 - `showWarningMessage` - 显示警告消息
 - `askQuestion` - 询问用户输入
 - `suggestNextAction` - 智能建议和解释
-- `showProgressIndicator` - 显示进度指示器
+- [DEPRECATED] `showProgressIndicator` - 已移除
 
 **特色功能：**
 - 智能建议替代弹出对话框

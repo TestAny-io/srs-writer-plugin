@@ -287,27 +287,18 @@ export class SpecialistExecutor {
                         };
                     }
 
-                    // 🎯 精确过滤工具结果：只移除readFile读取待编辑文档的内容，保留其他重要信息
-                    const filteredResults = this.filterDocumentContentFromResults(toolResults);
-                    const resultsText = filteredResults.map(result => 
+                    // 将工具执行结果添加到历史记录，支持specialist的循环迭代
+                    const resultsText = toolResults.map(result => 
                         `工具: ${result.toolName}, 成功: ${result.success}, 结果: ${JSON.stringify(result.result)}`
                     ).join('\n');
                     
                     internalHistory.push(`迭代 ${iteration} - AI计划: ${JSON.stringify(aiPlan)}`);
+                    internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsText}`);
                     
-                    // 只有当有过滤后的结果时才添加到历史
-                    if (filteredResults.length > 0) {
-                        internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsText}`);
-                        this.logger.info(`✅ [${specialistId}] 迭代 ${iteration} 保留了 ${filteredResults.length}/${toolResults.length} 个工具结果`);
-                    } else {
-                        this.logger.info(`🔍 [${specialistId}] 迭代 ${iteration} 所有工具结果均为文档内容，已过滤`);
-                    }
+                    this.logger.info(`✅ [${specialistId}] 迭代 ${iteration} 记录了 ${toolResults.length} 个工具执行结果`);
                     
                     // 🔍 [DEBUG] 记录完整工具结果到日志（用于调试）
-                    const fullResultsText = toolResults.map(result => 
-                        `工具: ${result.toolName}, 成功: ${result.success}, 结果: ${JSON.stringify(result.result)}`
-                    ).join('\n');
-                    this.logger.info(`🔧 [DEBUG] [${specialistId}] 迭代 ${iteration} 完整工具执行结果:\n${fullResultsText}`);
+                    this.logger.info(`🔧 [DEBUG] [${specialistId}] 迭代 ${iteration} 工具执行结果:\n${resultsText}`);
                 }
             }
 
@@ -359,6 +350,7 @@ export class SpecialistExecutor {
             // 2. 构建SpecialistContext
             const specialistContext: SpecialistContext = {
                 userRequirements: context.userInput || context.currentStep?.description || '',
+                language: context.currentStep?.language || 'en-US',  // 🚀 新增：language参数传递，默认为en-US
                 structuredContext: {
                     currentStep: context.currentStep,
                     dependentResults: context.dependentResults || [],
@@ -1002,67 +994,5 @@ ${context.dependentResults?.length > 0
             this.logger.error(`回退加载专家提示词失败 ${specialistId}`, error as Error);
             return this.buildDefaultPrompt(specialistId, context, internalHistory);
         }
-    }
-
-    /**
-     * 🎯 精确过滤工具结果：只移除readFile读取待编辑文档的内容，保留其他重要信息
-     */
-    private filterDocumentContentFromResults(toolResults: Array<{
-        toolName: string;
-        success: boolean;
-        result?: any;
-        error?: string;
-    }>): Array<{
-        toolName: string;
-        success: boolean;
-        result?: any;
-        error?: string;
-    }> {
-        return toolResults.filter(result => {
-            // 如果不是readFile工具，一律保留
-            if (result.toolName !== 'readFile') {
-                this.logger.info(`🔍 [过滤器] 保留非readFile工具: ${result.toolName}`);
-                return true;
-            }
-            
-            // 如果是readFile工具，检查是否读取的是待编辑文档
-            if (result.success && result.result && result.result.content) {
-                try {
-                    // 尝试从工具结果中提取文件路径信息
-                    const resultStr = JSON.stringify(result.result);
-                    
-                    // 待编辑文档的模式匹配
-                    const editableDocPatterns = [
-                        /SRS\.md/i,           // SRS主文档
-                        /requirements?\.ya?ml/i,  // 需求文件
-                        /fr\.ya?ml/i,         // 功能需求
-                        /nfr\.ya?ml/i,        // 非功能需求
-                        /glossary\.ya?ml/i,   // 术语表
-                        /\.md.*content.*\#/i  // 包含大量markdown内容的响应
-                    ];
-                    
-                    // 检查是否匹配待编辑文档模式
-                    const isEditableDoc = editableDocPatterns.some(pattern => 
-                        pattern.test(resultStr)
-                    );
-                    
-                    if (isEditableDoc) {
-                        this.logger.info(`🚫 [过滤器] 过滤readFile读取的待编辑文档内容，长度: ${resultStr.length}`);
-                        return false; // 过滤掉
-                    } else {
-                        this.logger.info(`✅ [过滤器] 保留readFile读取的非编辑文档: ${result.toolName}`);
-                        return true; // 保留
-                    }
-                } catch (error) {
-                    // 如果解析失败，保守处理：保留
-                    this.logger.warn(`⚠️ [过滤器] readFile结果解析失败，保守保留: ${error}`);
-                    return true;
-                }
-            } else {
-                // readFile失败的结果，保留（可能包含重要的错误信息）
-                this.logger.info(`✅ [过滤器] 保留readFile失败结果: ${result.toolName}`);
-                return true;
-            }
-        });
     }
 } 

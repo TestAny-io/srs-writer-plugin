@@ -20,6 +20,7 @@ export interface SpecialistType {
 
 export interface SpecialistContext {
   userRequirements?: string;
+  language?: string;  // 🚀 新增：明确定义language字段，用于指定specialist输出的语言
   structuredContext?: any;
   projectMetadata?: any;
   [key: string]: any;
@@ -141,7 +142,7 @@ export class PromptAssemblyEngine {
       //this.logger.info(`🎯 [PromptAssembly] - SYSTEM INSTRUCTIONS: ${assembledPrompt.includes('=== SYSTEM INSTRUCTIONS ===') ? '✅' : '❌'}`);
       //this.logger.info(`🎯 [PromptAssembly] - CURRENT TASK: ${assembledPrompt.includes('=== CURRENT TASK ===') ? '✅' : '❌'}`);
       //this.logger.info(`🎯 [PromptAssembly] - CONTEXT INFORMATION: ${assembledPrompt.includes('=== CONTEXT INFORMATION ===') ? '✅' : '❌'}`);
-      //this.logger.info(`🎯 [PromptAssembly] - OUTPUT REQUIREMENTS: ${assembledPrompt.includes('=== FINAL INSTRUCTION: OUTPUT REQUIREMENTS ===') ? '✅' : '❌'}`);
+      this.logger.info(`🎯 [PromptAssembly] - OUTPUT REQUIREMENTS: ${assembledPrompt.includes('=== FINAL INSTRUCTION: OUTPUT REQUIREMENTS ===') ? '✅' : '❌'}`);
       
       // 输出完整的最终提示词（仅在debug模式下）
       //this.logger.info(`🔥 [PromptAssembly] === 完整结构化提示词 for ${specialistType.name} ===`);

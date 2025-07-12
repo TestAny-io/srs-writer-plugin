@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { executeSemanticEdits, validateSemanticIntents, SemanticEditIntent } from '../../../tools/document/semantic-edit-engine';
-import { readFileWithStructure } from '../../../tools/document/enhanced-readfile-tools';
+import { readFile } from '../../../tools/document/enhanced-readfile-tools';
 
 describe('Semantic Edit Engine Integration', () => {
     let testFileUri: vscode.Uri;
@@ -37,15 +37,13 @@ describe('Semantic Edit Engine Integration', () => {
     describe('Complete Semantic Editing Workflow', () => {
         it('should execute a complete read-analyze-edit workflow', async () => {
             // Step 1: Read file with structure analysis
-            const readResult = await readFileWithStructure({
+            const readResult = await readFile({
                 path: 'test-document.md',
-                includeStructure: true,
-                includeSemanticMap: true
+                includeStructure: true
             });
 
             expect(readResult.success).toBe(true);
             expect(readResult.structure).toBeDefined();
-            expect(readResult.semanticMap).toBeDefined();
 
             // Step 2: Create semantic edit intents based on structure analysis
             const editIntents: SemanticEditIntent[] = [
@@ -136,7 +134,8 @@ describe('Semantic Edit Engine Integration', () => {
             expect(editResult.metadata).toBeDefined();
             expect(editResult.metadata!.executionTime).toBeGreaterThan(0);
             expect(editResult.metadata!.timestamp).toBeDefined();
-            expect(editResult.metadata!.documentStructure).toBeDefined();
+            expect(editResult.metadata!.astNodeCount).toBeGreaterThanOrEqual(0);
+            expect(editResult.metadata!.documentLength).toBeGreaterThan(0);
         });
     });
 

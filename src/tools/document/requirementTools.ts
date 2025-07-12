@@ -2,7 +2,8 @@ import * as yaml from 'js-yaml';
 import { Logger } from '../../utils/logger';
 import { marked } from 'marked';
 import { CallerType } from '../../types';
-import { readFile, writeFile, deleteFile } from '../atomic';
+import { writeFile, deleteFile } from '../atomic';
+import { readFile } from './enhanced-readfile-tools';
 
 /**
  * 需求管理文档工具模块
@@ -12,10 +13,10 @@ import { readFile, writeFile, deleteFile } from '../atomic';
  * 🔧 内部实现层：遵循单一职责原则的私有函数，代码组织良好
  * 
  * AI永远不会知道内部实现细节，只看到业务级工具：
- * - addNewRequirement: 添加新的功能需求
+ * - [DEPRECATED] addNewRequirement: 已移除
  * - updateRequirement: 更新现有需求
  * - deleteRequirement: 删除需求
- * - listRequirements: 列出所有需求
+ * - [DEPRECATED] listRequirements: 已移除
  */
 
 const logger = Logger.getInstance();
@@ -276,232 +277,7 @@ async function _rollbackFromBackups(projectPath: string, backups: { frBackup?: s
 // 这些是AI唯一能看到的工具，每个都是完整的业务操作
 // ============================================================================
 
-/**
- * 🧠 AI工具：添加新的功能需求
- * AI看到的是完整的业务操作，无需关心内部实现细节
- */
-export const addNewRequirementToolDefinition = {
-    name: "addNewRequirement",
-    description: "Add a new functional requirement to the project (complete business operation)",
-    parameters: {
-        type: "object",
-        properties: {
-            projectPath: {
-                type: "string",
-                description: "The project directory path (e.g., 'my-project')"
-            },
-            requirement: {
-                type: "object",
-                properties: {
-                    name: {
-                        type: "string",
-                        description: "Name of the requirement"
-                    },
-                    priority: {
-                        type: "string",
-                        enum: ["高", "中", "低"],
-                        description: "Priority level"
-                    },
-                    description: {
-                        type: "string",
-                        description: "Detailed description of the requirement"
-                    },
-                    acceptance_criteria: {
-                        type: "string",
-                        description: "Acceptance criteria for the requirement"
-                    },
-                    notes: {
-                        type: "string",
-                        description: "Additional notes (optional)"
-                    }
-                },
-                required: ["name", "priority", "description", "acceptance_criteria"]
-            }
-        },
-        required: ["projectPath", "requirement"]
-    },
-    // 🚀 新增：分布式访问控制
-    accessibleBy: [CallerType.SPECIALIST, CallerType.DOCUMENT],
-    // 🚀 新增：调用指南
-    callingGuide: {
-        whenToUse: "当需要向现有项目添加新的功能需求时",
-        prerequisites: "项目必须已存在 SRS.md 文件，建议先调用 customRAGRetrieval 或 readLocalKnowledge 获取需求编写最佳实践",
-        inputRequirements: {
-            projectPath: "必需：项目目录路径，如 'my-ecommerce-project'",
-            requirement: "必需：包含 name(需求名称)、priority(优先级)、description(详细描述)、acceptance_criteria(验收标准) 的完整需求对象"
-        },
-        internalWorkflow: [
-            "1. 验证项目状态和 SRS.md 文件存在性",
-            "2. 创建备份文件以确保事务安全",
-            "3. 读取现有功能需求列表",
-            "4. 生成新的需求ID (FR-XXX格式)",
-            "5. 同时更新 fr.yaml 和 SRS.md 中的功能需求表格",
-            "6. 原子性提交或自动回滚"
-        ],
-        commonPitfalls: [
-            "不要在项目不存在时调用此工具",
-            "确保 requirement 对象包含所有必需字段",
-            "priority 必须是 '高'、'中'、'低' 之一",
-            "description 和 acceptance_criteria 应该具体且可衡量"
-        ]
-    }
-};
-
-export async function addNewRequirement(args: {
-    projectPath: string;
-    requirement: {
-        name: string;
-        priority: string;
-        description: string;
-        acceptance_criteria: string;
-        notes?: string;
-    };
-}): Promise<{ success: boolean; message: string; requirementId?: string }> {
-    
-    const { projectPath, requirement } = args;
-    logger.info(`🧠 [AI TOOL] Adding new requirement to project: ${projectPath}`);
-    
-    let backups: { frBackup?: string; srsBackup?: string } = {};
-    
-    try {
-        // 1. 验证项目状态
-        const srsResult = await readFile({ path: `${projectPath}/SRS.md` });
-        if (!srsResult.success) {
-            return {
-                success: false,
-                message: `SRS.md文件不存在: ${projectPath}/SRS.md，请先创建项目主文档`
-            };
-        }
-
-        // 2. 创建备份（事务保障）
-        backups = await _createBackupFiles(projectPath);
-
-        // 3. 获取现有需求
-        const { requirements } = await _getExistingRequirements(projectPath);
-
-        // 4. 生成新需求
-        const newRequirementId = await _createRequirementId(requirements);
-        const newRequirement = {
-            id: newRequirementId,
-            name: requirement.name,
-            priority: requirement.priority,
-            description: requirement.description,
-            acceptance_criteria: requirement.acceptance_criteria,
-            notes: requirement.notes || '',
-            created_at: new Date().toISOString(),
-            status: '待实现'
-        };
-
-        // 5. 添加到需求列表
-        const updatedRequirements = [...requirements, newRequirement];
-
-        // 6. 原子性保存（关键时刻）
-        await _saveRequirementsToYAML(projectPath, updatedRequirements);
-        await _updateRequirementsInSRS(projectPath, updatedRequirements);
-
-        // 7. 清理备份
-        if (backups.frBackup) await deleteFile({ path: backups.frBackup });
-        if (backups.srsBackup) await deleteFile({ path: backups.srsBackup });
-
-        logger.info(`🎉 [AI TOOL SUCCESS] Requirement ${newRequirementId} added successfully`);
-        
-        return {
-            success: true,
-            message: `✅ 功能需求已成功添加：${newRequirementId} - ${requirement.name}`,
-            requirementId: newRequirementId
-        };
-
-    } catch (error) {
-        logger.error(`❌ [AI TOOL ROLLBACK] Failed to add requirement`, error as Error);
-        
-        // 回滚机制
-        try {
-            await _rollbackFromBackups(projectPath, backups);
-        } catch (rollbackError) {
-            return {
-                success: false,
-                message: `严重错误：添加需求失败且回滚失败，请手动检查文件状态。原始错误：${(error as Error).message}`
-            };
-        }
-        
-        return {
-            success: false,
-            message: `添加功能需求失败（已自动回滚）：${(error as Error).message}`
-        };
-    }
-}
-
-/**
- * 🧠 AI工具：列出项目中的所有功能需求
- */
-export const listRequirementsToolDefinition = {
-    name: "listRequirements",
-    description: "List all functional requirements in a project",
-    parameters: {
-        type: "object",
-        properties: {
-            projectPath: {
-                type: "string",
-                description: "The project directory path"
-            }
-        },
-        required: ["projectPath"]
-    },
-    // 🚀 新增：分布式访问控制
-    accessibleBy: [CallerType.SPECIALIST, CallerType.DOCUMENT, CallerType.ORCHESTRATOR_TOOL_EXECUTION],
-    // 🚀 新增：调用指南
-    callingGuide: {
-        whenToUse: "当需要查看项目现有功能需求列表时，通常用于编辑前的状态检查",
-        prerequisites: "项目目录必须存在，不要求 SRS.md 必须存在（会返回空列表）",
-        inputRequirements: {
-            projectPath: "必需：项目目录路径，如 'my-project'"
-        },
-        internalWorkflow: [
-            "1. 尝试读取项目中的 fr.yaml 文件",
-            "2. 解析 YAML 格式的功能需求数据",
-            "3. 返回结构化的需求列表",
-            "4. 如果文件不存在则返回空列表"
-        ],
-        commonPitfalls: [
-            "不要假设返回的列表一定不为空",
-            "projectPath 必须是有效的目录路径",
-            "返回的需求对象包含 id、name、priority、description 等字段"
-        ]
-    }
-};
-
-export async function listRequirements(args: { projectPath: string }): Promise<{
-    success: boolean;
-    message: string;
-    requirements?: any[];
-}> {
-    const { projectPath } = args;
-    logger.info(`🧠 [AI TOOL] Listing requirements from project: ${projectPath}`);
-    
-    try {
-        const { success, requirements } = await _getExistingRequirements(projectPath);
-        
-        if (!success) {
-            return {
-                success: false,
-                message: "获取功能需求列表失败"
-            };
-        }
-        
-        return {
-            success: true,
-            message: `找到 ${requirements.length} 个功能需求`,
-            requirements: requirements
-        };
-
-    } catch (error) {
-        logger.error(`Failed to list requirements from ${projectPath}`, error as Error);
-        return {
-            success: false,
-            message: `获取功能需求列表失败: ${(error as Error).message}`
-        };
-    }
-}
+// DEPRECATED: addNewRequirement and listRequirements tools have been removed
 
 // ============================================================================
 // 导出聚合 - 适配工具注册表格式
@@ -510,17 +286,15 @@ export async function listRequirements(args: { projectPath: string }): Promise<{
 /**
  * 所有需求工具的定义数组
  */
-export const requirementToolDefinitions = [
-    addNewRequirementToolDefinition,
-    listRequirementsToolDefinition
+export const requirementToolDefinitions: any[] = [
+    // All requirement tools have been deprecated
 ];
 
 /**
  * 所有需求工具的实现映射
  */
 export const requirementToolImplementations = {
-    addNewRequirement,
-    listRequirements
+    // All requirement tools have been deprecated
 };
 
 /**
@@ -528,7 +302,7 @@ export const requirementToolImplementations = {
  */
 export const requirementToolsCategory = {
     name: 'Document-Level Requirement Tools',
-    description: 'Document-level tools for functional requirements management in SRS projects',
-    tools: requirementToolDefinitions.map(tool => tool.name),
+    description: 'Document-level tools for functional requirements management in SRS projects (deprecated)',
+    tools: [],
     layer: 'document'
 }; 

@@ -21,7 +21,7 @@
 ## 文档格式化报告
 
 ### 格式化摘要
-- **处理文件**: `srs-document.md`
+- **处理文件**: `SRS.md`
 - **原始大小**: 15.2KB
 - **格式化后大小**: 14.8KB
 - **修复问题**: 12个
@@ -67,7 +67,7 @@
     "type": "DocumentFormatting",
     "data": {
       "processingInfo": {
-        "fileName": "srs-document.md",
+        "fileName": "SRS.md",
         "originalSize": "15.2KB",
         "formattedSize": "14.8KB",
         "processingTime": "2.3秒",

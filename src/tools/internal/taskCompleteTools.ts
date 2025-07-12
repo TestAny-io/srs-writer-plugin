@@ -5,7 +5,7 @@
  */
 
 import { CallerType } from '../../types/index';
-import { TaskCompletionResult, TaskCompletionType, NextStepType } from '../../types/taskCompletion';
+import { TaskCompletionResult, TaskCompletionType, NextStepType, Deliverables } from '../../types/taskCompletion';
 import { Logger } from '../../utils/logger';
 
 const logger = Logger.getInstance();
@@ -42,9 +42,44 @@ export const taskCompleteToolDefinition = {
                 description: '任务完成总结，描述已完成的工作'
             },
             deliverables: {
-                type: 'array',
-                items: { type: 'string' },
-                description: '具体的交付成果列表，如文件路径、功能模块等'
+                oneOf: [
+                    {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: '交付成果列表（字符串数组格式）'
+                    },
+                    {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                path: { type: 'string', description: '文件路径' },
+                                content: { type: 'string', description: '文件内容' },
+                                type: { type: 'string', description: '文件类型（可选）' },
+                                description: { type: 'string', description: '文件说明（可选）' }
+                            },
+                            required: ['path', 'content'],
+                            description: '交付成果数据对象'
+                        },
+                        description: '交付成果列表（对象数组格式，支持文件内容传递）'
+                    },
+                    {
+                        type: 'object',
+                        additionalProperties: {
+                            type: 'object',
+                            properties: {
+                                path: { type: 'string', description: '文件路径' },
+                                content: { type: 'string', description: '文件内容' },
+                                type: { type: 'string', description: '文件类型（可选）' },
+                                description: { type: 'string', description: '文件说明（可选）' }
+                            },
+                            required: ['path', 'content'],
+                            description: '交付成果数据对象'
+                        },
+                        description: '交付成果列表（对象字典格式，支持文件内容传递）'
+                    }
+                ],
+                description: '具体的交付成果列表。支持三种格式：1) 字符串数组（兼容旧格式）；2) 对象数组（直观易用）；3) 对象字典（键值对格式）'
             },
             nextStepDetails: {
                 type: 'object',
@@ -114,7 +149,7 @@ export const taskComplete = async (params: {
     completionType: TaskCompletionType;
     nextStepType: NextStepType;
     summary: string;
-    deliverables: string[];
+    deliverables: Deliverables;
     nextStepDetails?: any;
     contextForNext?: any;
 }): Promise<TaskCompletionResult> => {
@@ -124,8 +159,61 @@ export const taskComplete = async (params: {
         throw new Error('taskComplete: summary is required and cannot be empty');
     }
     
-    if (!params.deliverables || !Array.isArray(params.deliverables)) {
-        throw new Error('taskComplete: deliverables must be a non-empty array');
+    if (!params.deliverables) {
+        throw new Error('taskComplete: deliverables is required');
+    }
+    
+    // 验证deliverables格式
+    if (Array.isArray(params.deliverables)) {
+        if (params.deliverables.length === 0) {
+            throw new Error('taskComplete: deliverables array cannot be empty');
+        }
+        
+        // 检查是字符串数组还是对象数组
+        const isStringArray = params.deliverables.every(item => typeof item === 'string');
+        const isObjectArray = params.deliverables.every(item => 
+            typeof item === 'object' && item !== null && 
+            typeof item.path === 'string' && typeof item.content === 'string'
+        );
+        
+        if (isStringArray) {
+            // 验证字符串数组格式 - 无需额外验证
+        } else if (isObjectArray) {
+            // 验证对象数组格式 - 每个对象必须有path和content
+            for (let i = 0; i < params.deliverables.length; i++) {
+                const item = params.deliverables[i] as any; // 类型断言，因为我们已经验证了isObjectArray
+                if (!item.path || typeof item.path !== 'string') {
+                    throw new Error(`taskComplete: deliverable at index ${i} must have a valid path`);
+                }
+                if (!item.content || typeof item.content !== 'string') {
+                    throw new Error(`taskComplete: deliverable at index ${i} must have valid content`);
+                }
+            }
+        } else {
+            throw new Error('taskComplete: deliverables array must contain either all strings or all objects with path and content');
+        }
+    } else if (typeof params.deliverables === 'object') {
+        // 验证对象字典格式
+        const deliverableKeys = Object.keys(params.deliverables);
+        if (deliverableKeys.length === 0) {
+            throw new Error('taskComplete: deliverables object cannot be empty');
+        }
+        
+        // 验证每个deliverable对象的结构
+        for (const key of deliverableKeys) {
+            const item = params.deliverables[key];
+            if (!item || typeof item !== 'object') {
+                throw new Error(`taskComplete: deliverable "${key}" must be an object`);
+            }
+            if (!item.path || typeof item.path !== 'string') {
+                throw new Error(`taskComplete: deliverable "${key}" must have a valid path`);
+            }
+            if (!item.content || typeof item.content !== 'string') {
+                throw new Error(`taskComplete: deliverable "${key}" must have valid content`);
+            }
+        }
+    } else {
+        throw new Error('taskComplete: deliverables must be either an array or an object');
     }
     
     // 构建任务完成结果
@@ -142,7 +230,19 @@ export const taskComplete = async (params: {
     logger.info(`🎯 [taskComplete] Specialist task completed:`);
     logger.info(`   - Type: ${params.completionType}`);
     logger.info(`   - Next Step: ${params.nextStepType}`);
-    logger.info(`   - Deliverables: ${params.deliverables.length} items`);
+    
+    // 记录deliverables信息
+    if (Array.isArray(params.deliverables)) {
+        const isStringArray = params.deliverables.every(item => typeof item === 'string');
+        if (isStringArray) {
+            logger.info(`   - Deliverables: ${params.deliverables.length} items (string array format)`);
+        } else {
+            logger.info(`   - Deliverables: ${params.deliverables.length} items (object array format with content)`);
+        }
+    } else {
+        const deliverableKeys = Object.keys(params.deliverables);
+        logger.info(`   - Deliverables: ${deliverableKeys.length} items (object dictionary format with content)`);
+    }
     
     if (params.nextStepDetails?.specialistType) {
         logger.info(`   - Next Specialist: ${params.nextStepDetails.specialistType}`);

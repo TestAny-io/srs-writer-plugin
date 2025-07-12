@@ -15,7 +15,7 @@
 import { OperationLogEntry, UnifiedSessionFile } from '../../types/session';
 import { Logger } from '../../utils/logger';
 import { 
-    readFile, 
+    _internalReadFile, 
     writeFile, 
     createDirectory, 
     renameFile, 
@@ -59,7 +59,7 @@ export async function archiveLogFileIfNeeded(): Promise<void> {
         const logFilePath = getCurrentLogFilePath();
         
         // 🚀 使用atomic层工具检查文件是否存在
-        const fileReadResult = await readFile({ path: logFilePath });
+        const fileReadResult = await _internalReadFile({ path: logFilePath });
         if (!fileReadResult.success) {
             return; // 文件不存在，无需归档
         }
@@ -86,7 +86,7 @@ export async function archiveCurrentLogFile(): Promise<void> {
         const logFilePath = getCurrentLogFilePath();
         
         // 🚀 使用atomic层工具检查文件是否存在
-        const fileReadResult = await readFile({ path: logFilePath });
+        const fileReadResult = await _internalReadFile({ path: logFilePath });
         if (!fileReadResult.success) {
             logger.info('No current log file to archive');
             return;
@@ -114,7 +114,7 @@ export async function getOperationHistory(
         
         // 🚀 使用atomic层工具从当前日志文件读取
         const currentLogPath = getCurrentLogFilePath();
-        const currentFileResult = await readFile({ path: currentLogPath });
+        const currentFileResult = await _internalReadFile({ path: currentLogPath });
         if (currentFileResult.success) {
             const currentLog = await loadLogFile(currentLogPath);
             const filtered = currentLog.operations.filter(op => op.sessionContextId === sessionContextId);
@@ -182,7 +182,7 @@ async function getCurrentOrCreateLogFile(): Promise<UnifiedSessionFile> {
     const logFilePath = getCurrentLogFilePath();
     
     // 🚀 使用atomic层工具检查文件是否存在
-    const fileReadResult = await readFile({ path: logFilePath });
+    const fileReadResult = await _internalReadFile({ path: logFilePath });
     if (fileReadResult.success) {
         return await loadLogFile(logFilePath);
     } else {
@@ -215,7 +215,7 @@ async function getCurrentOrCreateLogFile(): Promise<UnifiedSessionFile> {
 async function loadLogFile(filePath: string): Promise<UnifiedSessionFile> {
     try {
         // 🚀 使用atomic层工具读取文件
-        const fileReadResult = await readFile({ path: filePath });
+        const fileReadResult = await _internalReadFile({ path: filePath });
         if (!fileReadResult.success) {
             throw new Error(fileReadResult.error || 'Failed to read file');
         }

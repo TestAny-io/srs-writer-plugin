@@ -4,6 +4,7 @@ import { Logger } from '../../utils/logger';
  * 结果格式化器 - 负责工具执行结果的格式化和汇总
  * 
  * 🚀 Phase 2新增：支持语义编辑结果格式化
+ * 🚀 Phase 3新增：支持执行计划和章节标题格式化
  */
 export class ResultFormatter {
   private logger = Logger.getInstance();
@@ -53,7 +54,196 @@ export class ResultFormatter {
   }
 
   // ============================================================================
-  // 🚀 Phase 2新增：语义编辑结果格式化支持
+  // 🚀 Phase 3新增：执行计划和章节标题格式化支持
+  // ============================================================================
+
+  /**
+   * 格式化执行计划概览，包含章节标题信息
+   */
+  public formatExecutionPlan(plan: { 
+    planId: string; 
+    description: string; 
+    steps: Array<{
+      step: number;
+      description: string;
+      specialist: string;
+      context_dependencies: number[];
+      output_chapter_titles?: string[];
+    }>
+  }): string {
+    let report = `📋 **执行计划概览**\n\n`;
+    
+    report += `🎯 **计划信息**:\n`;
+    report += `  • 计划ID: ${plan.planId}\n`;
+    report += `  • 目标: ${plan.description}\n`;
+    report += `  • 总步骤: ${plan.steps.length}个\n\n`;
+
+    report += `📝 **步骤规划**:\n`;
+    plan.steps.forEach(step => {
+      report += `  **步骤 ${step.step}**: ${step.description}\n`;
+      report += `    🔧 专家: ${step.specialist}\n`;
+      
+      if (step.context_dependencies && step.context_dependencies.length > 0) {
+        report += `    📎 依赖: 步骤 ${step.context_dependencies.join(', ')}\n`;
+      }
+      
+      if (step.output_chapter_titles && step.output_chapter_titles.length > 0) {
+        report += `    📄 预期章节:\n`;
+        step.output_chapter_titles.forEach(title => {
+          report += `      • ${title}\n`;
+        });
+      }
+      report += `\n`;
+    });
+
+    // 生成章节标题总览
+    const allChapterTitles = plan.steps
+      .filter(step => step.output_chapter_titles && step.output_chapter_titles.length > 0)
+      .flatMap(step => step.output_chapter_titles!);
+
+    if (allChapterTitles.length > 0) {
+      report += `📖 **预期文档结构**:\n`;
+      allChapterTitles.forEach((title, index) => {
+        report += `  ${index + 1}. ${title}\n`;
+      });
+      report += `\n`;
+    }
+
+    return report;
+  }
+
+  /**
+   * 格式化计划执行结果，包含步骤完成情况和章节产出
+   */
+  public formatPlanExecutionResult(result: {
+    summary: string;
+    executionTime: number;
+    totalSteps: number;
+    stepResults: { [key: number]: any };
+    finalOutput?: any;
+  }): string {
+    let report = `🎉 **计划执行完成**\n\n`;
+    
+    report += `📊 **执行摘要**:\n`;
+    report += `  • ${result.summary}\n`;
+    report += `  • 执行时间: ${result.executionTime}ms\n`;
+    report += `  • 完成步骤: ${Object.keys(result.stepResults).length}/${result.totalSteps}\n\n`;
+
+    // 步骤执行详情
+    report += `📋 **步骤执行详情**:\n`;
+    Object.entries(result.stepResults).forEach(([stepNum, stepResult]) => {
+      const status = stepResult.success ? '✅' : '❌';
+      report += `  ${status} **步骤 ${stepNum}**: ${stepResult.specialist}\n`;
+      report += `    ⏱️ 执行时间: ${stepResult.executionTime}ms (${stepResult.iterations}次迭代)\n`;
+      
+      if (stepResult.contentLength > 0) {
+        report += `    📝 内容长度: ${stepResult.contentLength}字符\n`;
+      }
+      
+      if (stepResult.hasStructuredData) {
+        report += `    📊 包含结构化数据\n`;
+      }
+      report += `\n`;
+    });
+
+    // 最终输出信息
+    if (result.finalOutput) {
+      report += `🎯 **最终产出**:\n`;
+      if (result.finalOutput.content) {
+        const contentPreview = result.finalOutput.content.substring(0, 200);
+        report += `  📄 内容预览: ${contentPreview}${result.finalOutput.content.length > 200 ? '...' : ''}\n`;
+      }
+      if (result.finalOutput.structuredData) {
+        report += `  📊 结构化数据: 已生成\n`;
+      }
+      report += `\n`;
+    }
+
+    return report;
+  }
+
+  /**
+   * 格式化步骤结果，特别展示章节标题产出
+   */
+  public formatStepResultWithChapters(
+    stepNumber: number,
+    specialist: string,
+    result: any,
+    expectedChapterTitles?: string[]
+  ): string {
+    let report = `📋 **步骤 ${stepNumber} 执行结果** (${specialist})\n\n`;
+    
+    const status = result.success ? '✅ 成功' : '❌ 失败';
+    report += `🔧 **执行状态**: ${status}\n`;
+    
+    if (result.success) {
+      report += `⏱️ **执行时间**: ${result.metadata?.executionTime || 0}ms\n`;
+      report += `🔄 **迭代次数**: ${result.metadata?.iterations || 1}次\n`;
+      
+      if (result.content) {
+        report += `📝 **内容长度**: ${result.content.length}字符\n`;
+      }
+      
+      // 显示预期的章节标题
+      if (expectedChapterTitles && expectedChapterTitles.length > 0) {
+        report += `\n📖 **预期章节标题**:\n`;
+        expectedChapterTitles.forEach(title => {
+          report += `  • ${title}\n`;
+        });
+      }
+      
+      // 如果有文件编辑结果，显示编辑信息
+      if (result.metadata?.editResult) {
+        const editResult = result.metadata.editResult;
+        report += `\n🔧 **文件编辑结果**:\n`;
+        report += `  • 成功操作: ${editResult.appliedCount}个\n`;
+        report += `  • 失败操作: ${editResult.failedCount}个\n`;
+        report += `  • 编辑类型: ${editResult.editType}\n`;
+        
+        if (editResult.semanticErrors && editResult.semanticErrors.length > 0) {
+          report += `  ⚠️ 语义错误: ${editResult.semanticErrors.length}个\n`;
+        }
+      }
+      
+      // 如果有结构化数据，提供摘要
+      if (result.structuredData) {
+        report += `\n📊 **结构化数据**: 已生成\n`;
+      }
+      
+    } else {
+      report += `❌ **错误信息**: ${result.error || '未知错误'}\n`;
+    }
+    
+    report += `\n`;
+    return report;
+  }
+
+  /**
+   * 提取并格式化章节标题映射
+   */
+  public formatChapterTitleMapping(stepResults: { [key: number]: any }, planSteps?: any[]): string {
+    if (!planSteps) return '';
+    
+    let report = `📖 **章节标题产出映射**\n\n`;
+    
+    planSteps.forEach(step => {
+      const stepResult = stepResults[step.step];
+      if (step.output_chapter_titles && step.output_chapter_titles.length > 0) {
+        const status = stepResult?.success ? '✅' : stepResult ? '❌' : '⏳';
+        report += `${status} **步骤 ${step.step}** (${step.specialist}):\n`;
+        
+        step.output_chapter_titles.forEach((title: string) => {
+          report += `  📄 ${title}\n`;
+        });
+        report += `\n`;
+      }
+    });
+    
+    return report;
+  }
+
+  // ============================================================================
+  // 🚀 Phase 2: 语义编辑结果格式化支持 (保持不变)
   // ============================================================================
 
   /**
@@ -78,8 +268,10 @@ export class ResultFormatter {
     report += `  • 成功率: ${successRate}%\n`;
     report += `  • 执行时间: ${metadata.executionTime}ms\n`;
     
-    if (metadata.documentStructure) {
-      report += `  • 文档结构: ${metadata.documentStructure.headings?.length || 0}个标题, ${metadata.documentStructure.sections?.length || 0}个章节\n`;
+    // 🚀 AST重构：更新元数据显示
+    if (metadata.astNodeCount !== undefined) {
+      report += `  • AST节点: ${metadata.astNodeCount}个章节\n`;
+      report += `  • 文档长度: ${metadata.documentLength || 0}字符\n`;
     }
     report += '\n';
 

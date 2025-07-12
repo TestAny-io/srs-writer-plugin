@@ -1,56 +1,47 @@
 /**
- * Enhanced ReadFile Tools - 增强版文件读取工具
+ * ReadFile Tool - 统一的文件读取工具
  * 
- * 扩展基础readFile功能，提供文档结构分析和语义映射，
- * 为AI Agent提供精确的编辑目标信息
+ * 对外暴露的唯一文件读取接口。
+ * 具备基础的文档结构分析能力，为AI Agent提供编辑目标信息。
  */
 
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
-import { DocumentAnalyzer, DocumentStructure } from '../atomic/document-analyzer';
-import { readFile } from '../atomic/filesystem-tools';
+import { SemanticLocator } from '../atomic/semantic-locator';
+// 导入内部读取函数
+import { _internalReadFile } from '../atomic/filesystem-tools';
+import { CallerType } from '../../types';
 
 const logger = Logger.getInstance();
+
+/**
+ * 简化的文档结构信息
+ */
+export interface SimpleDocumentStructure {
+    sectionCount: number;
+    headings: Array<{
+        level: number;
+        text: string;
+        line: number;
+    }>;
+}
 
 /**
  * 结构化文件读取结果接口
  */
 export interface StructuredReadFileResult {
     success: boolean;
-    content: string;                    // 原始内容（保持兼容）
-    structure?: DocumentStructure;      // 新增：结构化信息
-    semanticMap?: SemanticMap;         // 新增：语义映射表
+    content: string;                              // 原始内容（保持兼容）
+    structure?: SimpleDocumentStructure;          // 新增：简化的结构化信息
     error?: string;
 }
 
 /**
- * 语义映射表接口
+ * 统一的文件读取工具定义
  */
-export interface SemanticMap {
-    headings: Array<{
-        level: number;
-        text: string;
-        selector: string;               // "h2:section('功能需求')"
-        anchorBefore: string;          // "h2:section('功能需求'):before"  
-        anchorAfter: string;           // "h2:section('功能需求'):after"
-        range: vscode.Range;
-    }>;
-    editTargets: Array<{
-        name: string;
-        selector: string;
-        insertionPoints: {
-            before: vscode.Position;
-            after: vscode.Position;
-        };
-    }>;
-}
-
-/**
- * 增强版文件读取工具定义
- */
-export const readFileWithStructureToolDefinition = {
-    name: "readFileWithStructure",
-    description: "Read file content with optional document structure analysis for semantic editing",
+export const readFileToolDefinition = {
+    name: "readFile",
+    description: "Read file content. Can optionally include basic document structure information for files like Markdown.",
     parameters: {
         type: "object",
         properties: {
@@ -60,34 +51,38 @@ export const readFileWithStructureToolDefinition = {
             },
             includeStructure: {
                 type: "boolean", 
-                description: "Include document structure analysis for semantic editing (default: false)",
-                default: false
-            },
-            includeSemanticMap: {
-                type: "boolean",
-                description: "Include semantic mapping table for AI-friendly editing targets (default: false)",
+                description: "Include basic document structure information (e.g., for Markdown files). Default: false",
                 default: false
             }
         },
         required: ["path"]
-    }
+    },
+    // 继承之前 readFile 的智能分类属性
+    interactionType: 'autonomous',
+    riskLevel: 'low',
+    requiresConfirmation: false,
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
+        CallerType.SPECIALIST,
+        CallerType.DOCUMENT
+    ]
 };
 
 /**
- * 增强版文件读取函数
+ * 统一的文件读取函数
  * @param args 读取参数
  * @returns 结构化读取结果
  */
-export async function readFileWithStructure(args: {
+export async function readFile(args: {
     path: string;
     includeStructure?: boolean;
-    includeSemanticMap?: boolean;
 }): Promise<StructuredReadFileResult> {
     try {
-        logger.info(`📖 Reading file with structure analysis: ${args.path}`);
+        logger.info(`📖 Reading file with optional structure analysis: ${args.path}`);
         
-        // 首先读取原始文件内容
-        const basicReadResult = await readFile({ path: args.path });
+        // 调用内部基础读取函数
+        const basicReadResult = await _internalReadFile({ path: args.path });
         
         if (!basicReadResult.success) {
             return {
@@ -100,36 +95,40 @@ export async function readFileWithStructure(args: {
         const content = basicReadResult.content!;
         
         // 如果不需要结构分析，直接返回基础结果
-        if (!args.includeStructure && !args.includeSemanticMap) {
+        if (!args.includeStructure) {
+            logger.info(`✅ Basic file read complete: ${content.length} chars`);
             return {
                 success: true,
                 content
             };
         }
         
-        // 执行文档结构分析
-        let structure: DocumentStructure | undefined;
-        let semanticMap: SemanticMap | undefined;
+        // 使用SemanticLocator进行基础的结构分析
+        let structure: SimpleDocumentStructure | undefined;
         
-        if (args.includeStructure || args.includeSemanticMap) {
-            structure = await analyzeDocumentStructure(args.path);
-            
-            if (args.includeSemanticMap && structure) {
-                semanticMap = buildSemanticMap(structure);
-            }
+        try {
+            const locator = new SemanticLocator(content);
+            structure = {
+                sectionCount: locator.getNodeCount(),
+                // 暂时简化版本，不提供详细标题信息（SemanticLocator不暴露sections）
+                headings: []
+            };
+        } catch (error) {
+            logger.warn(`Structure analysis failed, but returning content: ${(error as Error).message}`);
+            // 即使结构分析失败，文件读取本身是成功的，所以只记录警告
+            structure = undefined;
         }
         
-        logger.info(`✅ Enhanced file read complete: ${content.length} chars, ${structure?.headings.length || 0} headings`);
+        logger.info(`✅ Enhanced file read complete: ${content.length} chars, ${structure?.sectionCount ?? 0} sections`);
         
         return {
             success: true,
             content,
-            structure,
-            semanticMap
+            structure
         };
         
     } catch (error) {
-        const errorMsg = `Enhanced file read failed for ${args.path}: ${(error as Error).message}`;
+        const errorMsg = `Read file failed for ${args.path}: ${(error as Error).message}`;
         logger.error(errorMsg);
         
         return {
@@ -138,72 +137,6 @@ export async function readFileWithStructure(args: {
             error: errorMsg
         };
     }
-}
-
-/**
- * 分析文档结构
- */
-async function analyzeDocumentStructure(filePath: string): Promise<DocumentStructure | undefined> {
-    try {
-        // 获取工作区
-        const workspaceFolder = getCurrentWorkspaceFolder();
-        if (!workspaceFolder) {
-            logger.warn('No workspace folder found for document analysis');
-            return undefined;
-        }
-        
-        // 构建文件URI
-        const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, filePath);
-        
-        // 打开文档
-        const document = await vscode.workspace.openTextDocument(fileUri);
-        
-        // 创建分析器并分析文档
-        const analyzer = new DocumentAnalyzer();
-        const structure = await analyzer.analyzeDocument(document);
-        
-        return structure;
-        
-    } catch (error) {
-        logger.error(`Document structure analysis failed: ${(error as Error).message}`);
-        return undefined;
-    }
-}
-
-/**
- * 构建语义映射表
- */
-function buildSemanticMap(structure: DocumentStructure): SemanticMap {
-    const headings = structure.headings.map(heading => ({
-        level: heading.level,
-        text: heading.text,
-        selector: heading.selector,
-        anchorBefore: `${heading.selector}:before`,
-        anchorAfter: `${heading.selector}:after`,
-        range: heading.range
-    }));
-    
-    const editTargets = structure.sections.map(section => {
-        // 计算插入点
-        const beforePoint = section.range.start;
-        const afterPoint = new vscode.Position(section.range.end.line + 1, 0);
-        
-        return {
-            name: section.name,
-            selector: section.selector,
-            insertionPoints: {
-                before: beforePoint,
-                after: afterPoint
-            }
-        };
-    });
-    
-    logger.info(`🗺️ Built semantic map: ${headings.length} headings, ${editTargets.length} targets`);
-    
-    return {
-        headings,
-        editTargets
-    };
 }
 
 /**
@@ -217,23 +150,23 @@ function getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
 /**
  * 工具实现映射
  */
-export const enhancedReadFileToolImplementations = {
-    readFileWithStructure
+export const readFileToolImplementations = {
+    readFile
 };
 
 /**
  * 工具定义数组
  */
-export const enhancedReadFileToolDefinitions = [
-    readFileWithStructureToolDefinition
+export const readFileToolDefinitions = [
+    readFileToolDefinition
 ];
 
 /**
- * Enhanced ReadFile 工具分类信息
+ * ReadFile 工具分类信息
  */
-export const enhancedReadFileToolsCategory = {
-    name: 'Enhanced ReadFile Tools',
-    description: 'Enhanced file reading with document structure analysis for semantic editing',
-    tools: enhancedReadFileToolDefinitions.map(tool => tool.name),
+export const readFileToolsCategory = {
+    name: 'ReadFile Tool',
+    description: 'Unified file reading with optional document structure information',
+    tools: readFileToolDefinitions.map(tool => tool.name),
     layer: 'document'
 }; 

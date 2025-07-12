@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Logger } from '../../utils/logger';
 import { SessionContext } from '../../types/session';
-import { SpecialistOutput } from '../../types/index';
+import { SpecialistOutput, SpecialistLoopState, SpecialistExecutionHistory } from '../../types/index';
 import { SpecialistExecutor } from '../specialistExecutor';
 // 🚀 Phase 1新增：编辑指令支持（传统）
 import { executeEditInstructions } from '../../tools/atomic/edit-execution-tools';
@@ -39,13 +39,24 @@ enum FailureType {
  * - 按步骤顺序执行多个specialist
  * - 管理步骤间的上下文依赖关系
  * - 处理执行失败和错误恢复
+ * - 🚀 新增：管理specialist自循环迭代状态
  */
 export class PlanExecutor {
     private logger = Logger.getInstance();
+    
+    /**
+     * 🚀 新增：specialist循环状态管理
+     * Key: specialistId (如 "summary_writer")
+     * Value: 该specialist的循环状态
+     */
+    private specialistLoopStates: Map<string, SpecialistLoopState> = new Map();
 
     constructor(
         private specialistExecutor: SpecialistExecutor
-    ) {}
+    ) {
+        // 初始化specialist循环状态管理器
+        this.specialistLoopStates = new Map();
+    }
 
     /**
      * 执行完整的计划
@@ -81,85 +92,53 @@ export class PlanExecutor {
                 this.logger.info(`🔍 [DEBUG] - specialist: ${step.specialist}`);
                 this.logger.info(`🔍 [DEBUG] - context_dependencies: ${JSON.stringify(step.context_dependencies || [])}`);
                 
-                // 🚀 新增：带重试机制的specialist执行
-                const specialistOutput = await this.executeStepWithRetry(
-                    step, 
-                    stepResults, 
-                    currentSessionContext, 
-                    userInput, 
-                    selectedModel, 
-                    plan
-                );
-
-                // 检查是否执行失败（已经在executeStepWithRetry中处理了重试）
-                if (!specialistOutput.success || (specialistOutput as any).planFailed) {
-                    // executeStepWithRetry已经返回了失败结果，直接返回
-                    return specialistOutput as any;
-                }
-
-                // 🚀 Phase 4新增：基于requires_file_editing字段处理文件操作（支持语义编辑）
-                if (specialistOutput.requires_file_editing === true) {
-                    // specialist明确表示需要文件编辑，此时edit_instructions和target_file已经在验证阶段确保存在
-                    this.logger.info(`🔧 [Phase4] 执行编辑指令: ${specialistOutput.edit_instructions!.length}个操作`);
-                    this.logger.info(`🔧 [Phase4] 目标文件: ${specialistOutput.target_file}`);
-                    
-                    // 🚀 修复：使用baseDir拼接完整文件路径
-                    const fullPath = currentSessionContext.baseDir 
-                        ? path.join(currentSessionContext.baseDir, specialistOutput.target_file!)
-                        : specialistOutput.target_file!;
-                    
-                    this.logger.info(`🔧 [Phase4] 完整文件路径: ${fullPath}`);
-                    
-                    // 🚀 Phase 4新增：使用统一编辑执行器，智能支持语义编辑和传统编辑
-                    const editResult = await executeUnifiedEdits(
-                        specialistOutput.edit_instructions!,
-                        fullPath
+                // 🚀 新增：带循环支持的specialist执行
+                let specialistOutput: SpecialistOutput;
+                try {
+                    specialistOutput = await this.executeSpecialistWithLoopSupport(
+                        step, 
+                        stepResults, 
+                        currentSessionContext, 
+                        userInput, 
+                        selectedModel, 
+                        plan
                     );
-                    
-                    if (!editResult.success) {
-                        this.logger.error(`❌ [Phase4] 统一编辑失败: ${editResult.error}`);
-                        
-                        // 提供详细的失败信息，包括编辑类型和失败统计
-                        return {
-                            intent: 'plan_failed',
-                            result: {
-                                summary: `计划 '${plan.description}' 在步骤 ${step.step} 的文件编辑失败`,
-                                error: `文件编辑失败: ${editResult.error}`,
-                                failedStep: step.step,
-                                completedSteps: Object.keys(stepResults).length,
-                                editFailureDetails: {
-                                    targetFile: specialistOutput.target_file,
-                                    instructionsCount: specialistOutput.edit_instructions!.length,
-                                    appliedCount: editResult.appliedCount,
-                                    failedCount: editResult.failedCount,
-                                    editType: editResult.editType,
-                                    semanticErrors: editResult.semanticErrors
-                                }
-                            }
-                        };
-                    }
-                    
-                    // 编辑成功，更新specialist输出以包含编辑结果
-                    (specialistOutput.metadata as any).editResult = editResult;
-                    this.logger.info(`✅ [Phase4] 编辑执行成功: ${editResult.appliedCount}个操作应用, 类型: ${editResult.editType}`);
-                } else if (specialistOutput.requires_file_editing === false) {
-                    // specialist明确表示不需要文件编辑
-                    this.logger.info(`ℹ️ 步骤 ${step.step} 无需文件编辑 (requires_file_editing=false)`);
-                } else {
-                    // 这种情况在验证阶段应该已经被拦截，如果到这里说明有逻辑错误
-                    this.logger.error(`🚨 严重错误: 步骤 ${step.step} 的requires_file_editing字段无效: ${specialistOutput.requires_file_editing}`);
+                } catch (error) {
+                    this.logger.error(`❌ 步骤 ${step.step} specialist循环执行异常: ${(error as Error).message}`);
                     return {
-                        intent: 'plan_error',
+                        intent: 'plan_failed',
                         result: {
-                            summary: `计划 '${plan.description}' 在步骤 ${step.step} 发生逻辑错误`,
-                            error: `requires_file_editing字段无效: ${specialistOutput.requires_file_editing}`,
+                            summary: `计划 '${plan.description}' 在步骤 ${step.step} 执行异常`,
+                            error: `specialist循环执行异常: ${(error as Error).message}`,
                             failedStep: step.step,
                             completedSteps: Object.keys(stepResults).length
                         }
                     };
                 }
 
-                // 4. 保存该步骤的结果
+                // 检查specialist是否执行成功
+                if (!specialistOutput.success) {
+                    this.logger.error(`❌ 步骤 ${step.step} specialist执行失败: ${specialistOutput.error}`);
+                    return {
+                        intent: 'plan_failed',
+                        result: {
+                            summary: `计划 '${plan.description}' 在步骤 ${step.step} 失败: ${step.description}`,
+                            error: `specialist执行失败: ${specialistOutput.error}`,
+                            failedStep: step.step,
+                            completedSteps: Object.keys(stepResults).length,
+                            specialistDetails: {
+                                specialist: step.specialist,
+                                iterations: specialistOutput.metadata?.iterations || 0,
+                                loopIterations: specialistOutput.metadata?.loopIterations || 0
+                            }
+                        }
+                    };
+                }
+
+                // 注意：文件编辑现在在executeSpecialistWithLoopSupport内部处理
+                // 不需要在这里再次处理文件编辑逻辑
+
+                // 保存该步骤的结果
                 stepResults[step.step] = specialistOutput;
                 
                 // 🚀 检查是否需要刷新session上下文（特别是项目初始化步骤）
@@ -169,7 +148,10 @@ export class PlanExecutor {
                     this.logger.info(`✅ Session上下文已刷新，新项目: ${currentSessionContext?.projectName || 'unknown'}`);
                 }
                 
-                this.logger.info(`✅ 步骤 ${step.step} 完成 (${specialistOutput.metadata.iterations}次迭代)`);
+                const loopInfo = specialistOutput.metadata?.loopIterations 
+                    ? ` (${specialistOutput.metadata.loopIterations}轮循环, ${specialistOutput.metadata.iterations}次内部迭代)`
+                    : ` (${specialistOutput.metadata.iterations}次迭代)`;
+                this.logger.info(`✅ 步骤 ${step.step} 完成${loopInfo}`);
             }
 
             const executionTime = Date.now() - startTime;
@@ -208,8 +190,11 @@ export class PlanExecutor {
         step: any, 
         allPreviousResults: { [key: number]: SpecialistOutput }, 
         initialSessionContext: SessionContext,
-        userInput: string
+        userInput: string,
+        executionPlan: { planId: string; description: string; steps: any[] }  // 🚀 新增：传入整个执行计划
     ): any {
+        this.logger.info(`🔍 [DEBUG] prepareContextForStep: executionPlan received - planId=${executionPlan?.planId}, steps=${executionPlan?.steps?.length}`);
+        
         // 提取依赖步骤的结果
         const dependencies = step.context_dependencies || [];
         const dependentResults = dependencies.map((depStep: number): { step: number; content?: string; structuredData?: any; specialist?: string } => ({
@@ -220,7 +205,7 @@ export class PlanExecutor {
         })).filter((dep: { step: number; content?: string; structuredData?: any; specialist?: string }) => dep.content || dep.structuredData);
 
         // 构建当前步骤的完整上下文
-        return {
+        const context = {
             // 基础会话信息（永不变化）
             userInput: userInput,
             sessionData: initialSessionContext,
@@ -230,15 +215,54 @@ export class PlanExecutor {
                 number: step.step,
                 description: step.description,
                 specialist: step.specialist,
-                expectedOutput: step.expectedOutput
+                expectedOutput: step.expectedOutput,
+                output_chapter_titles: step.output_chapter_titles,  // 🚀 新增：当前步骤的章节标题
+                language: step.language  // 🚀 新增：language参数传递
             },
             
             // 依赖的上一步或多步的结果
             dependentResults,
             
             // 所有已完成步骤的摘要（用于全局上下文）
-            completedStepsOverview: this.generateStepsOverview(allPreviousResults)
+            completedStepsOverview: this.generateStepsOverview(allPreviousResults),
+            
+            // 🚀 新增：完整的执行计划上下文
+            executionPlan: {
+                planId: executionPlan.planId,
+                description: executionPlan.description,
+                totalSteps: executionPlan.steps.length,
+                currentStepIndex: step.step - 1,  // 当前步骤在计划中的索引（从0开始）
+                allSteps: executionPlan.steps.map((planStep: any) => ({
+                    step: planStep.step,
+                    description: planStep.description,
+                    specialist: planStep.specialist,
+                    context_dependencies: planStep.context_dependencies || [],
+                    output_chapter_titles: planStep.output_chapter_titles || [],
+                    language: planStep.language,  // 🚀 新增：language参数传递
+                    isCurrentStep: planStep.step === step.step,
+                    isCompleted: !!allPreviousResults[planStep.step],
+                    isPending: planStep.step > step.step
+                })),
+                // 为specialist提供的便利信息
+                previousSteps: executionPlan.steps.filter((s: any) => s.step < step.step),
+                currentStepInfo: step,
+                upcomingSteps: executionPlan.steps.filter((s: any) => s.step > step.step),
+                // 章节标题汇总
+                allPlannedChapters: executionPlan.steps
+                    .filter((s: any) => s.output_chapter_titles && s.output_chapter_titles.length > 0)
+                    .flatMap((s: any) => s.output_chapter_titles.map((title: string) => ({
+                        title,
+                        step: s.step,
+                        specialist: s.specialist,
+                        isCompleted: !!allPreviousResults[s.step],
+                        isCurrent: s.step === step.step,
+                        isPending: s.step > step.step
+                    })))
+            }
         };
+        
+        this.logger.info(`🔍 [DEBUG] prepareContextForStep: context prepared with executionPlan.allSteps=${context.executionPlan?.allSteps?.length}`);
+        return context;
     }
 
     /**
@@ -379,8 +403,9 @@ export class PlanExecutor {
      */
     private prepareRetryContext(step: any, allPreviousResults: { [key: number]: SpecialistOutput }, 
                                initialSessionContext: SessionContext, userInput: string, 
+                               executionPlan: { planId: string; description: string; steps: any[] },  // 🚀 新增：执行计划参数
                                previousFailure?: string): any {
-        const baseContext = this.prepareContextForStep(step, allPreviousResults, initialSessionContext, userInput);
+        const baseContext = this.prepareContextForStep(step, allPreviousResults, initialSessionContext, userInput, executionPlan);
         
         if (previousFailure) {
             baseContext.retryContext = {
@@ -423,6 +448,598 @@ export class PlanExecutor {
     }
 
     /**
+     * 🚀 核心方法：带循环支持的specialist执行器
+     * 支持specialist自循环迭代，直到specialist主动完成任务
+     * 
+     * @param step 执行步骤信息
+     * @param stepResults 已完成步骤的结果
+     * @param currentSessionContext 当前session上下文
+     * @param userInput 用户原始输入
+     * @param selectedModel VSCode语言模型
+     * @param plan 执行计划
+     * @returns Promise<SpecialistOutput> specialist最终输出
+     */
+    private async executeSpecialistWithLoopSupport(
+        step: any,
+        stepResults: { [key: number]: SpecialistOutput },
+        currentSessionContext: SessionContext,
+        userInput: string,
+        selectedModel: vscode.LanguageModelChat,
+        plan: { planId: string; description: string; steps: any[] }
+    ): Promise<SpecialistOutput> {
+        const specialistId = step.specialist;
+        const maxIterations = 5; // 最大循环次数限制
+        
+        this.logger.info(`🔄 开始带循环支持的specialist执行: ${specialistId}`);
+        
+        // 初始化或获取该specialist的循环状态
+        let loopState = this.specialistLoopStates.get(specialistId);
+        if (!loopState) {
+            loopState = {
+                specialistId,
+                currentIteration: 0,
+                maxIterations,
+                executionHistory: [],
+                isLooping: false,
+                startTime: Date.now()
+            };
+            this.specialistLoopStates.set(specialistId, loopState);
+        }
+        
+        // 重置循环状态（新的步骤开始）
+        loopState.currentIteration = 0;
+        loopState.executionHistory = [];
+        loopState.isLooping = true;
+        loopState.startTime = Date.now();
+        
+        let finalSpecialistOutput: SpecialistOutput | null = null;
+        
+        try {
+            while (loopState.currentIteration < maxIterations) {
+                loopState.currentIteration++;
+                const iterationStart = Date.now();
+                
+                this.logger.info(`🔄 ${specialistId} 第 ${loopState.currentIteration}/${maxIterations} 轮循环开始`);
+                
+                // 构建包含历史的增强context
+                const enhancedContext = this.buildSpecialistLoopContext(
+                    step,
+                    stepResults,
+                    currentSessionContext,
+                    userInput,
+                    plan,
+                    loopState.executionHistory
+                );
+                
+                // 执行specialist
+                const specialistOutput = await this.specialistExecutor.execute(
+                    specialistId,
+                    enhancedContext,
+                    selectedModel
+                );
+                
+                const iterationTime = Date.now() - iterationStart;
+                
+                // 记录本轮执行历史
+                const executionRecord: SpecialistExecutionHistory = {
+                    iteration: loopState.currentIteration,
+                    toolCalls: enhancedContext.lastToolCalls || [], // 从SpecialistExecutor获取
+                    toolResults: enhancedContext.lastToolResults || [], // 从SpecialistExecutor获取
+                    aiResponse: specialistOutput.content || '',
+                    timestamp: new Date().toISOString(),
+                    summary: this.extractIterationSummary(specialistOutput),
+                    executionTime: iterationTime
+                };
+                
+                this.recordSpecialistExecution(loopState, executionRecord);
+                
+                // 🚀 关键修复：无论是否继续循环，都先执行文件编辑
+                if (specialistOutput.requires_file_editing === true) {
+                    this.logger.info(`🔧 执行specialist的文件编辑指令 (第${loopState.currentIteration}轮)`);
+                    
+                    await this.executeFileEditsInLoop(specialistOutput, currentSessionContext);
+                    
+                    // 更新session context以反映文件变化
+                    currentSessionContext = await this.refreshOrUpdateSessionContext(
+                        currentSessionContext,
+                        specialistOutput.target_file!
+                    );
+                    
+                    this.logger.info(`✅ 第${loopState.currentIteration}轮文件编辑完成`);
+                }
+                
+                // 检查是否需要继续循环
+                const shouldContinue = this.shouldContinueLoop(specialistOutput, loopState);
+                
+                if (!shouldContinue.continue) {
+                    this.logger.info(`✅ ${specialistId} 循环结束: ${shouldContinue.reason}`);
+                    finalSpecialistOutput = specialistOutput;
+                    break;
+                }
+                
+                // 如果要继续循环，记录继续原因
+                this.logger.info(`🔄 ${specialistId} 第 ${loopState.currentIteration} 轮完成，继续原因: ${shouldContinue.reason}`);
+                loopState.lastContinueReason = shouldContinue.reason;
+            }
+            
+            // 如果达到最大循环次数还没有结束
+            if (!finalSpecialistOutput) {
+                this.logger.warn(`⚠️ ${specialistId} 达到最大循环次数 (${maxIterations})，强制结束`);
+                // 使用最后一次的输出作为最终结果
+                finalSpecialistOutput = loopState.executionHistory[loopState.executionHistory.length - 1]
+                    ? this.constructFinalOutputFromHistory(loopState.executionHistory)
+                    : this.createTimeoutOutput(specialistId);
+            }
+            
+        } finally {
+            // 清理循环状态
+            loopState.isLooping = false;
+            const totalTime = Date.now() - loopState.startTime;
+            
+            this.logger.info(`🏁 ${specialistId} 循环完成，总耗时: ${totalTime}ms，共 ${loopState.currentIteration} 轮`);
+            
+            // 更新最终输出的metadata以包含循环信息
+            if (finalSpecialistOutput) {
+                finalSpecialistOutput.metadata = {
+                    ...finalSpecialistOutput.metadata,
+                    loopIterations: loopState.currentIteration,
+                    totalLoopTime: totalTime,
+                    iterationHistory: loopState.executionHistory.map(h => ({
+                        iteration: h.iteration,
+                        summary: h.summary,
+                        executionTime: h.executionTime
+                    }))
+                };
+            }
+        }
+        
+        return finalSpecialistOutput!;
+    }
+
+    /**
+     * 🚀 辅助方法：构建包含历史的specialist循环context
+     * 在基础context上增加specialist的执行历史，让specialist能看到之前循环的结果
+     */
+    private buildSpecialistLoopContext(
+        step: any,
+        stepResults: { [key: number]: SpecialistOutput },
+        currentSessionContext: SessionContext,
+        userInput: string,
+        plan: { planId: string; description: string; steps: any[] },
+        executionHistory: SpecialistExecutionHistory[]
+    ): any {
+        // 先获取基础context
+        const baseContext = this.prepareContextForStep(step, stepResults, currentSessionContext, userInput, plan);
+        
+        // 如果没有历史记录，直接返回基础context
+        if (!executionHistory || executionHistory.length === 0) {
+            this.logger.info(`🔍 ${step.specialist} 第一轮循环，使用基础context`);
+            return baseContext;
+        }
+        
+        this.logger.info(`🔍 ${step.specialist} 第${executionHistory.length + 1}轮循环，包含${executionHistory.length}轮历史`);
+        
+        // 构建执行历史摘要
+        const historyOverview = this.buildExecutionHistoryOverview(executionHistory);
+        
+        // 提取工具调用结果历史
+        const toolResultsHistory = this.extractToolResultsHistory(executionHistory);
+        
+        // 构建文件状态追踪
+        const fileStateTracking = this.buildFileStateTracking(executionHistory, currentSessionContext);
+        
+        // 构建增强的context
+        const enhancedContext = {
+            ...baseContext,
+            
+            // 🚀 新增：specialist循环历史信息
+            specialistLoopContext: {
+                isLooping: true,
+                currentIteration: executionHistory.length + 1,
+                totalIterations: executionHistory.length,
+                
+                // 历史执行概览
+                executionHistoryOverview: historyOverview,
+                
+                // 详细的工具调用结果历史
+                toolResultsHistory: toolResultsHistory,
+                
+                // 文件状态追踪
+                fileStateTracking: fileStateTracking,
+                
+                // 上一轮的关键信息
+                lastIterationSummary: executionHistory.length > 0 
+                    ? this.buildLastIterationSummary(executionHistory[executionHistory.length - 1])
+                    : null,
+                
+                // 循环模式指导
+                loopGuidance: {
+                    purpose: "您正在进行多轮迭代优化工作",
+                    workflow: [
+                        "1. 查看上一轮的工具调用结果和文件状态",
+                        "2. 分析当前工作成果是否满足要求",
+                        "3. 如果满足要求，使用taskComplete with nextStepType: 'TASK_FINISHED'",
+                        "4. 如果需要继续改进，使用工具进行操作，然后taskComplete with nextStepType: 'CONTINUE_SAME_SPECIALIST'"
+                    ],
+                    availableActions: [
+                        "readFile - 查看当前文件内容",
+                        "findInFile - 搜索文件中的特定内容",
+                        "taskComplete - 完成本轮工作并决定是否继续"
+                    ]
+                }
+            }
+        };
+        
+        this.logger.info(`✅ 为${step.specialist}构建增强context：包含${toolResultsHistory.length}个工具结果`);
+        return enhancedContext;
+    }
+
+    /**
+     * 🚀 辅助方法：构建执行历史概览
+     */
+    private buildExecutionHistoryOverview(executionHistory: SpecialistExecutionHistory[]): string {
+        const overview = executionHistory.map((record, index) => {
+            const toolCallsDesc = record.toolCalls.length > 0 
+                ? record.toolCalls.map(tc => tc.name).join(', ')
+                : '无工具调用';
+            
+            return `第${record.iteration}轮: ${toolCallsDesc} | ${record.summary}`;
+        }).join('\n');
+        
+        return `执行历史概览 (共${executionHistory.length}轮):\n${overview}`;
+    }
+
+    /**
+     * 🚀 辅助方法：提取工具调用结果历史
+     */
+    private extractToolResultsHistory(executionHistory: SpecialistExecutionHistory[]): Array<{
+        iteration: number;
+        toolName: string;
+        success: boolean;
+        result: any;
+        summary?: string;
+    }> {
+        const allResults: Array<{
+            iteration: number;
+            toolName: string;
+            success: boolean;
+            result: any;
+            summary?: string;
+        }> = [];
+        
+        for (const record of executionHistory) {
+            for (const toolResult of record.toolResults) {
+                allResults.push({
+                    iteration: record.iteration,
+                    toolName: toolResult.toolName,
+                    success: toolResult.success,
+                    result: toolResult.result,
+                    summary: this.summarizeToolResult(toolResult)
+                });
+            }
+        }
+        
+        return allResults;
+    }
+
+    /**
+     * 🚀 辅助方法：构建文件状态追踪
+     */
+    private buildFileStateTracking(executionHistory: SpecialistExecutionHistory[], currentSessionContext: SessionContext): {
+        modifiedFiles: string[];
+        lastModificationIteration: { [file: string]: number };
+        fileOperations: Array<{ iteration: number; operation: string; file?: string }>;
+    } {
+        const modifiedFiles: Set<string> = new Set();
+        const lastModificationIteration: { [file: string]: number } = {};
+        const fileOperations: Array<{ iteration: number; operation: string; file?: string }> = [];
+        
+        for (const record of executionHistory) {
+            for (const toolCall of record.toolCalls) {
+                if (toolCall.name === 'readFile' && toolCall.args?.path) {
+                    fileOperations.push({
+                        iteration: record.iteration,
+                        operation: `读取: ${toolCall.args.path}`,
+                        file: toolCall.args.path
+                    });
+                }
+                
+                if (toolCall.name === 'taskComplete' && toolCall.args?.edit_instructions) {
+                    const targetFile = toolCall.args.target_file;
+                    if (targetFile) {
+                        modifiedFiles.add(targetFile);
+                        lastModificationIteration[targetFile] = record.iteration;
+                        fileOperations.push({
+                            iteration: record.iteration,
+                            operation: `编辑: ${targetFile} (${toolCall.args.edit_instructions.length}个指令)`,
+                            file: targetFile
+                        });
+                    }
+                }
+            }
+        }
+        
+        return {
+            modifiedFiles: Array.from(modifiedFiles),
+            lastModificationIteration,
+            fileOperations
+        };
+    }
+
+    /**
+     * 🚀 辅助方法：构建上一轮迭代摘要
+     */
+    private buildLastIterationSummary(lastRecord: SpecialistExecutionHistory): {
+        iteration: number;
+        toolsUsed: string[];
+        keyResults: string[];
+        summary: string;
+        executionTime: number;
+    } {
+        const toolsUsed = lastRecord.toolCalls.map(tc => tc.name);
+        const keyResults = lastRecord.toolResults
+            .filter(tr => tr.success)
+            .map(tr => this.summarizeToolResult(tr));
+        
+        return {
+            iteration: lastRecord.iteration,
+            toolsUsed,
+            keyResults,
+            summary: lastRecord.summary,
+            executionTime: lastRecord.executionTime
+        };
+    }
+
+    /**
+     * 🚀 辅助方法：总结工具调用结果
+     */
+    private summarizeToolResult(toolResult: { toolName: string; success: boolean; result: any; error?: string }): string {
+        if (!toolResult.success) {
+            return `${toolResult.toolName}失败: ${toolResult.error || '未知错误'}`;
+        }
+        
+        switch (toolResult.toolName) {
+            case 'readFile':
+                const content = toolResult.result?.content || toolResult.result;
+                const contentLength = typeof content === 'string' ? content.length : 0;
+                return `读取文件成功 (${contentLength}字符)`;
+                
+            case 'findInFile':
+                const matches = toolResult.result?.matches || [];
+                return `文件搜索成功 (找到${matches.length}个匹配)`;
+                
+            case 'taskComplete':
+                const editCount = toolResult.result?.edit_instructions?.length || 0;
+                return `任务完成 (${editCount}个编辑指令)`;
+                
+            default:
+                return `${toolResult.toolName}执行成功`;
+        }
+    }
+
+    /**
+     * 🚀 辅助方法：提取迭代摘要
+     */
+    private extractIterationSummary(specialistOutput: SpecialistOutput): string {
+        // 简单实现：从content中提取前100字符作为摘要
+        return specialistOutput.content?.substring(0, 100) || 
+               `specialist执行${specialistOutput.success ? '成功' : '失败'}`;
+    }
+
+    /**
+     * 🚀 辅助方法：记录specialist执行历史（待实现）
+     */
+    private recordSpecialistExecution(loopState: SpecialistLoopState, executionRecord: SpecialistExecutionHistory): void {
+        // TODO: 在recordSpecialistExecution任务中实现
+        loopState.executionHistory.push(executionRecord);
+    }
+
+    /**
+     * 🚀 辅助方法：判断是否需要继续循环
+     */
+    private shouldContinueLoop(specialistOutput: SpecialistOutput, loopState: SpecialistLoopState): { continue: boolean; reason: string } {
+        // 检查specialist是否明确表示完成
+        if (specialistOutput.structuredData?.nextStepType === 'TASK_FINISHED') {
+            return { continue: false, reason: 'specialist标记任务完成' };
+        }
+        
+        // 检查是否要求继续同一specialist
+        if (specialistOutput.structuredData?.nextStepType === 'CONTINUE_SAME_SPECIALIST') {
+            return { continue: true, reason: 'specialist要求继续迭代' };
+        }
+        
+        // 默认：第一轮后就结束（保持现有行为）
+        return { continue: false, reason: '默认单轮执行完成' };
+    }
+
+    /**
+     * 🚀 辅助方法：在循环内部执行文件编辑
+     */
+    private async executeFileEditsInLoop(specialistOutput: SpecialistOutput, currentSessionContext: SessionContext): Promise<void> {
+        if (!specialistOutput.edit_instructions || !specialistOutput.target_file) {
+            return;
+        }
+
+        const fullPath = currentSessionContext.baseDir 
+            ? path.join(currentSessionContext.baseDir, specialistOutput.target_file)
+            : specialistOutput.target_file;
+
+        // 使用现有的统一编辑执行器
+        const editResult = await executeUnifiedEdits(specialistOutput.edit_instructions, fullPath);
+        
+        if (!editResult.success) {
+            this.logger.error(`❌ 循环内文件编辑失败: ${editResult.error}`);
+            throw new Error(`文件编辑失败: ${editResult.error}`);
+        }
+        
+        this.logger.info(`✅ 循环内文件编辑成功: ${editResult.appliedCount}个操作应用`);
+    }
+
+    /**
+     * 🚀 辅助方法：刷新或更新session context以反映文件编辑
+     * 当specialist在循环中编辑了文件，需要更新context以便下轮循环看到最新状态
+     * 
+     * @param currentSessionContext 当前session上下文
+     * @param targetFile 被编辑的目标文件路径（相对路径）
+     * @returns Promise<SessionContext> 更新后的session上下文
+     */
+    private async refreshOrUpdateSessionContext(
+        currentSessionContext: SessionContext, 
+        targetFile: string
+    ): Promise<SessionContext> {
+        try {
+            this.logger.info(`🔄 刷新session context: 文件 ${targetFile} 已被修改`);
+            
+            // 对于大多数情况，session context的核心信息（projectName, baseDir等）不会改变
+            // 但某些specialist的文件编辑可能会影响项目状态，需要特殊处理
+            
+            // 1. 检查是否是可能影响session状态的关键文件
+            const affectsSession = this.checkIfFileAffectsSession(targetFile);
+            
+            if (!affectsSession) {
+                // 一般文件编辑，session context无需更新
+                this.logger.info(`ℹ️ 文件 ${targetFile} 不影响session状态，保持原有context`);
+                return currentSessionContext;
+            }
+            
+            // 2. 对于影响session的文件，尝试部分更新
+            const updatedContext = await this.performPartialSessionUpdate(currentSessionContext, targetFile);
+            
+            this.logger.info(`✅ Session context部分更新完成: ${targetFile}`);
+            return updatedContext;
+            
+        } catch (error) {
+            this.logger.error(`❌ 更新session context失败: ${(error as Error).message}`);
+            this.logger.warn(`⚠️ 保持原有session context，继续执行`);
+            
+            // 更新失败时，返回原有context，不中断流程
+            return currentSessionContext;
+        }
+    }
+
+    /**
+     * 🚀 辅助方法：检查文件是否影响session状态
+     */
+    private checkIfFileAffectsSession(targetFile: string): boolean {
+        // 定义可能影响session状态的文件模式
+        const sessionAffectingPatterns = [
+            /package\.json$/,          // 包配置变化
+            /\.git\/config$/,          // Git配置变化
+            /vscode\/settings\.json$/, // VSCode配置变化
+            /^\.env/,                  // 环境变量文件
+            /^README\.md$/,            // 项目描述文档
+            /^PROJECT\./,              // 项目配置文件
+            /^SRS\./                   // SRS主文档
+        ];
+        
+        return sessionAffectingPatterns.some(pattern => pattern.test(targetFile));
+    }
+
+    /**
+     * 🚀 辅助方法：执行部分session更新
+     */
+    private async performPartialSessionUpdate(
+        currentSessionContext: SessionContext, 
+        targetFile: string
+    ): Promise<SessionContext> {
+        // 创建更新后的context副本
+        const updatedContext = { ...currentSessionContext };
+        
+        try {
+            // 根据不同文件类型执行不同的更新策略
+            if (targetFile.endsWith('package.json')) {
+                // package.json变化，可能影响项目名称或版本
+                updatedContext.metadata.lastModified = new Date().toISOString();
+                this.logger.info(`📦 检测到package.json变化，更新时间戳`);
+                
+            } else if (targetFile.match(/^SRS\./)) {
+                // SRS主文档变化，可能影响项目描述
+                updatedContext.metadata.lastModified = new Date().toISOString();
+                this.logger.info(`📄 检测到SRS文档变化，更新时间戳`);
+                
+            } else if (targetFile.match(/^README\.md$/)) {
+                // README变化，可能影响项目描述
+                updatedContext.metadata.lastModified = new Date().toISOString();
+                this.logger.info(`📝 检测到README变化，更新时间戳`);
+                
+            } else {
+                // 其他影响session的文件，通用处理
+                updatedContext.metadata.lastModified = new Date().toISOString();
+                this.logger.info(`🔄 检测到session相关文件变化: ${targetFile}`);
+            }
+            
+            // 对于特别重要的变化，可以考虑重新扫描项目结构
+            // 但这里采用轻量级更新策略，避免性能影响
+            
+            return updatedContext;
+            
+        } catch (error) {
+            this.logger.error(`❌ 部分session更新失败: ${(error as Error).message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * 🚀 辅助方法：获取文件内容摘要（用于调试）
+     */
+    private async getFileContentSummary(filePath: string): Promise<string> {
+        try {
+            const { FileManager } = await import('../../filesystem/file-manager');
+            const fileManager = new FileManager();
+            
+            const content = await fileManager.readFile(filePath);
+            
+            // 返回前200字符作为摘要
+            if (content.length <= 200) {
+                return content;
+            }
+            
+            return content.substring(0, 200) + '...';
+            
+        } catch (error) {
+            return `无法读取文件: ${(error as Error).message}`;
+        }
+    }
+
+    /**
+     * 🚀 辅助方法：从历史记录构建最终输出
+     */
+    private constructFinalOutputFromHistory(executionHistory: SpecialistExecutionHistory[]): SpecialistOutput {
+        const lastExecution = executionHistory[executionHistory.length - 1];
+        
+        return {
+            success: true,
+            content: lastExecution.aiResponse,
+            requires_file_editing: false,
+            metadata: {
+                specialist: 'unknown',
+                iterations: executionHistory.length,
+                executionTime: executionHistory.reduce((sum, h) => sum + h.executionTime, 0),
+                timestamp: new Date().toISOString(),
+                toolsUsed: []
+            }
+        };
+    }
+
+    /**
+     * 🚀 辅助方法：创建超时输出
+     */
+    private createTimeoutOutput(specialistId: string): SpecialistOutput {
+        return {
+            success: false,
+            error: `specialist ${specialistId} 超过最大循环次数限制`,
+            requires_file_editing: false,
+            metadata: {
+                specialist: specialistId,
+                iterations: 0,
+                executionTime: 0,
+                timestamp: new Date().toISOString(),
+                toolsUsed: []
+            }
+        };
+    }
+
+    /**
      * 🚀 新增：带重试机制的步骤执行
      */
     private async executeStepWithRetry(
@@ -448,6 +1065,7 @@ export class PlanExecutor {
                 stepResults, 
                 currentSessionContext, 
                 userInput, 
+                plan,  // 🚀 执行计划参数
                 lastFailureReason
             );
 
@@ -456,6 +1074,7 @@ export class PlanExecutor {
             }
 
             // 2. 调用SpecialistExecutor
+            this.logger.info(`🔍 [DEBUG] Calling specialist with context.executionPlan.allSteps=${contextForThisStep.executionPlan?.allSteps?.length}`);
             let specialistOutput: SpecialistOutput;
             try {
                 specialistOutput = await this.specialistExecutor.execute(
