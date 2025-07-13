@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Logger } from '../../utils/logger';
 import { SessionContext } from '../../types/session';
-import { SpecialistOutput, SpecialistLoopState, SpecialistExecutionHistory } from '../../types/index';
 import { SpecialistExecutor } from '../specialistExecutor';
+import { SpecialistOutput, SpecialistExecutionHistory, SpecialistInteractionResult, SpecialistLoopState } from '../engine/AgentState';
 // 🚀 Phase 1新增：编辑指令支持（传统）
 import { executeEditInstructions } from '../../tools/atomic/edit-execution-tools';
 // 🚀 Phase 4新增：统一编辑执行器（支持语义编辑）
@@ -150,7 +150,7 @@ export class PlanExecutor {
                 
                 const loopInfo = specialistOutput.metadata?.loopIterations 
                     ? ` (${specialistOutput.metadata.loopIterations}轮循环, ${specialistOutput.metadata.iterations}次内部迭代)`
-                    : ` (${specialistOutput.metadata.iterations}次迭代)`;
+                    : ` (${specialistOutput.metadata?.iterations || 1}次迭代)`;
                 this.logger.info(`✅ 步骤 ${step.step} 完成${loopInfo}`);
             }
 
@@ -201,7 +201,7 @@ export class PlanExecutor {
             step: depStep,
             content: allPreviousResults[depStep]?.content,
             structuredData: allPreviousResults[depStep]?.structuredData,
-            specialist: allPreviousResults[depStep]?.metadata.specialist
+            specialist: allPreviousResults[depStep]?.metadata?.specialist || 'unknown'
         })).filter((dep: { step: number; content?: string; structuredData?: any; specialist?: string }) => dep.content || dep.structuredData);
 
         // 构建当前步骤的完整上下文
@@ -270,7 +270,7 @@ export class PlanExecutor {
      */
     private generateStepsOverview(results: { [key: number]: SpecialistOutput }): string {
         const completed = Object.entries(results).map(([stepNum, result]) => 
-            `步骤${stepNum}: ${result.metadata.specialist} - ${result.success ? '✅完成' : '❌失败'}`
+            `步骤${stepNum}: ${result.metadata?.specialist || 'unknown'} - ${result.success ? '✅完成' : '❌失败'}`
         );
         return completed.join('\n');
     }
@@ -283,10 +283,10 @@ export class PlanExecutor {
         
         for (const [stepNum, result] of Object.entries(stepResults)) {
             formatted[stepNum] = {
-                specialist: result.metadata.specialist,
+                specialist: result.metadata?.specialist || 'unknown',
                 success: result.success,
-                iterations: result.metadata.iterations,
-                executionTime: result.metadata.executionTime,
+                iterations: result.metadata?.iterations || 0,
+                executionTime: result.metadata?.executionTime || 0,
                 contentLength: result.content?.length || 0,
                 hasStructuredData: !!result.structuredData
             };
@@ -457,7 +457,7 @@ export class PlanExecutor {
      * @param userInput 用户原始输入
      * @param selectedModel VSCode语言模型
      * @param plan 执行计划
-     * @returns Promise<SpecialistOutput> specialist最终输出
+     * @returns Promise<SpecialistOutput | SpecialistInteractionResult> specialist最终输出或用户交互需求
      */
     private async executeSpecialistWithLoopSupport(
         step: any,
@@ -466,7 +466,7 @@ export class PlanExecutor {
         userInput: string,
         selectedModel: vscode.LanguageModelChat,
         plan: { planId: string; description: string; steps: any[] }
-    ): Promise<SpecialistOutput> {
+    ): Promise<SpecialistOutput | SpecialistInteractionResult> {
         const specialistId = step.specialist;
         const maxIterations = 5; // 最大循环次数限制
         
@@ -519,6 +519,37 @@ export class PlanExecutor {
                 );
                 
                 const iterationTime = Date.now() - iterationStart;
+                
+                // 🚀 新增：检查specialist是否需要用户交互（askQuestion工具调用）
+                if (this.checkSpecialistNeedsChatInteraction(specialistOutput)) {
+                    this.logger.info(`💬 ${specialistId} 在第 ${loopState.currentIteration} 轮需要用户交互`);
+                    
+                    // 构建完整的resumeContext
+                    const resumeContext = this.buildCompleteResumeContext(
+                        specialistId,
+                        step,
+                        stepResults,
+                        currentSessionContext,
+                        userInput,
+                        plan,
+                        loopState,
+                        specialistOutput,
+                        enhancedContext
+                    );
+                    
+                    // 提取用户问题
+                    const question = this.extractQuestionFromSpecialistOutput(specialistOutput);
+                    
+                    this.logger.info(`💬 构建完整resumeContext并暂停执行，等待用户回复: "${question}"`);
+                    
+                    // 返回需要用户交互的特殊结果
+                    return {
+                        success: false,
+                        needsChatInteraction: true,
+                        resumeContext,
+                        question
+                    } as SpecialistInteractionResult;
+                }
                 
                 // 记录本轮执行历史
                 const executionRecord: SpecialistExecutionHistory = {
@@ -860,9 +891,14 @@ export class PlanExecutor {
             return;
         }
 
-        const fullPath = currentSessionContext.baseDir 
-            ? path.join(currentSessionContext.baseDir, specialistOutput.target_file)
-            : specialistOutput.target_file;
+        // 🚀 使用智能路径解析替代简单拼接
+        const fullPath = this.smartPathResolution(
+            specialistOutput.target_file,
+            currentSessionContext.baseDir,
+            currentSessionContext.projectName
+        );
+
+        this.logger.info(`🔍 [PATH] 智能路径解析: ${specialistOutput.target_file} -> ${fullPath}`);
 
         // 使用现有的统一编辑执行器
         const editResult = await executeUnifiedEdits(specialistOutput.edit_instructions, fullPath);
@@ -873,6 +909,263 @@ export class PlanExecutor {
         }
         
         this.logger.info(`✅ 循环内文件编辑成功: ${editResult.appliedCount}个操作应用`);
+    }
+
+    /**
+     * 🚀 智能路径解析：处理各种路径格式和corner case
+     * 
+     * 主要解决问题：
+     * - 双重项目名拼接问题（BlackpinkFanWebapp/BlackpinkFanWebapp/SRS.md）
+     * - 父子目录同名问题（/aaaa/bbbb/bbbb/ccc.md）
+     * - 绝对路径vs相对路径
+     * - 路径遍历安全性
+     */
+    private smartPathResolution(targetFile: string, baseDir: string | null, projectName: string | null): string {
+        // 输入验证
+        this.validateTargetFile(targetFile);
+
+        // Case 1: target_file是绝对路径
+        if (path.isAbsolute(targetFile)) {
+            this.logger.info(`🔍 [PATH] Case 1: 绝对路径 -> ${targetFile}`);
+            return targetFile;
+        }
+        
+        // Case 2: 没有baseDir，使用target_file作为相对路径
+        if (!baseDir) {
+            this.logger.info(`🔍 [PATH] Case 2: 无baseDir -> ${targetFile}`);
+            return targetFile;
+        }
+        
+        // Case 3: 没有projectName，直接拼接
+        if (!projectName) {
+            const result = path.join(baseDir, targetFile);
+            this.logger.info(`🔍 [PATH] Case 3: 无projectName -> ${result}`);
+            return result;
+        }
+        
+        // Case 4: 核心逻辑 - 检查重复项目名问题
+        return this.resolveProjectNameDuplication(targetFile, baseDir, projectName);
+    }
+
+    /**
+     * 🚀 解决项目名重复问题的核心逻辑
+     */
+    private resolveProjectNameDuplication(targetFile: string, baseDir: string, projectName: string): string {
+        // 标准化项目名（处理特殊字符）
+        const normalizedProjectName = this.normalizeProjectName(projectName);
+        
+        // 检查baseDir是否以项目名结尾
+        const baseDirEndsWithProject = this.pathEndsWithProjectName(baseDir, normalizedProjectName);
+        
+        // 检查target_file是否以项目名开头
+        const targetFileStartsWithProject = this.pathStartsWithProjectName(targetFile, normalizedProjectName);
+        
+        let result: string;
+        
+        if (baseDirEndsWithProject && targetFileStartsWithProject) {
+            // Case 4a: 双重项目名 - 需要精确处理，避免父子目录同名问题
+            result = this.handleDuplicateProjectName(targetFile, baseDir, normalizedProjectName);
+            this.logger.info(`🔍 [PATH] Case 4a: 双重项目名 -> ${result}`);
+            
+        } else if (baseDirEndsWithProject && !targetFileStartsWithProject) {
+            // Case 4b: baseDir包含项目名，target_file不包含 - 正常拼接
+            result = path.join(baseDir, targetFile);
+            this.logger.info(`🔍 [PATH] Case 4b: baseDir含项目名 -> ${result}`);
+            
+        } else if (!baseDirEndsWithProject && targetFileStartsWithProject) {
+            // Case 4c: baseDir不包含项目名，target_file包含 - 正常拼接
+            result = path.join(baseDir, targetFile);
+            this.logger.info(`🔍 [PATH] Case 4c: target_file含项目名 -> ${result}`);
+            
+        } else {
+            // Case 4d: 都不包含项目名 - 可能需要插入项目名
+            result = this.handleMissingProjectName(targetFile, baseDir, normalizedProjectName);
+            this.logger.info(`🔍 [PATH] Case 4d: 都不含项目名 -> ${result}`);
+        }
+        
+        return result;
+    }
+
+    /**
+     * 🚀 处理双重项目名问题 - 精确版本，避免父子目录同名陷阱
+     */
+    private handleDuplicateProjectName(targetFile: string, baseDir: string, projectName: string): string {
+        // 标准化路径分隔符
+        const normalizedTargetFile = targetFile.replace(/[\\\/]/g, path.sep);
+        const normalizedBaseDir = baseDir.replace(/[\\\/]/g, path.sep);
+        const normalizedProjectName = projectName.replace(/[\\\/]/g, path.sep);
+        
+        // 分析baseDir和targetFile的结构
+        const baseDirParts = normalizedBaseDir.split(path.sep);
+        const targetFileParts = normalizedTargetFile.split(path.sep);
+        
+        // 检查是否真的是双重项目名，而不是父子目录同名
+        if (targetFileParts.length > 1 && targetFileParts[0] === normalizedProjectName) {
+            // 获取baseDir中最后一个目录名
+            const lastBaseDirPart = baseDirParts[baseDirParts.length - 1];
+            
+            if (lastBaseDirPart === normalizedProjectName) {
+                // 确实是双重项目名，移除target_file中的项目名前缀
+                const relativePath = targetFileParts.slice(1).join(path.sep);
+                
+                // 额外验证：确保这不是有意的子目录结构
+                if (this.isIntentionalSubdirectory(normalizedTargetFile, normalizedProjectName)) {
+                    this.logger.info(`🔍 [PATH] 检测到有意的子目录结构，保持原样`);
+                    return path.join(normalizedBaseDir, normalizedTargetFile);
+                }
+                
+                this.logger.info(`🔍 [PATH] 移除重复项目名前缀: ${normalizedTargetFile} -> ${relativePath}`);
+                return path.join(normalizedBaseDir, relativePath);
+            }
+        }
+        
+        // 如果不是双重项目名，正常拼接
+        return path.join(normalizedBaseDir, normalizedTargetFile);
+    }
+
+    /**
+     * 🚀 检查是否是有意的子目录结构
+     * 例如：MyProject/MyProject/config.json 可能是有意的设计
+     */
+    private isIntentionalSubdirectory(targetFile: string, projectName: string): boolean {
+        const parts = targetFile.split(path.sep);
+        
+        // 如果路径中有多个相同的项目名，可能是有意的
+        const projectNameCount = parts.filter(part => part === projectName).length;
+        
+        // 如果有深层次的目录结构，更可能是有意的
+        if (parts.length > 3 && projectNameCount > 1) {
+            return true;
+        }
+        
+        // 检查是否是常见的有意子目录模式
+        const intentionalPatterns = [
+            `${projectName}/src/${projectName}`,
+            `${projectName}/lib/${projectName}`,
+            `${projectName}/packages/${projectName}`,
+            `${projectName}/modules/${projectName}`
+        ];
+        
+        return intentionalPatterns.some(pattern => targetFile.startsWith(pattern));
+    }
+
+    /**
+     * 🚀 处理缺失项目名的情况
+     */
+    private handleMissingProjectName(targetFile: string, baseDir: string, projectName: string): string {
+        // 检查是否应该插入项目名
+        const shouldInsertProject = this.shouldInsertProjectName(targetFile, baseDir, projectName);
+        
+        if (shouldInsertProject) {
+            const result = path.join(baseDir, projectName, targetFile);
+            this.logger.info(`🔍 [PATH] 插入项目名: ${targetFile} -> ${result}`);
+            return result;
+        }
+        
+        // 否则直接拼接
+        return path.join(baseDir, targetFile);
+    }
+
+    /**
+     * 🚀 判断是否应该插入项目名
+     */
+    private shouldInsertProjectName(targetFile: string, baseDir: string, projectName: string): boolean {
+        // 如果targetFile是常见的项目根文件，不插入项目名
+        const rootFiles = [
+            'package.json', 'README.md', 'SRS.md', 'LICENSE', 
+            '.gitignore', 'tsconfig.json', 'webpack.config.js'
+        ];
+        
+        if (rootFiles.includes(targetFile)) {
+            return false;
+        }
+        
+        // 如果targetFile包含目录分隔符，可能需要插入项目名
+        if (targetFile.includes(path.sep)) {
+            return true;
+        }
+        
+        // 默认不插入
+        return false;
+    }
+
+    /**
+     * 🚀 标准化项目名
+     */
+    private normalizeProjectName(projectName: string): string {
+        // 处理项目名中的特殊字符，但保持原有格式
+        const normalized = projectName.trim();
+        
+        // 检查项目名是否包含路径分隔符（这通常是错误的）
+        if (normalized.includes(path.sep)) {
+            this.logger.warn(`⚠️ 项目名包含路径分隔符，可能存在问题: ${normalized}`);
+        }
+        
+        return normalized;
+    }
+
+    /**
+     * 🚀 检查路径是否以项目名结尾
+     */
+    private pathEndsWithProjectName(pathStr: string, projectName: string): boolean {
+        // 处理项目名包含路径分隔符的情况
+        if (projectName.includes(path.sep) || projectName.includes('/') || projectName.includes('\\')) {
+            // 如果项目名包含路径分隔符，检查路径是否以整个项目名结尾
+            const normalizedPath = pathStr.replace(/[\\\/]/g, path.sep);
+            const normalizedProjectName = projectName.replace(/[\\\/]/g, path.sep);
+            return normalizedPath.endsWith(normalizedProjectName);
+        }
+        
+        // 标准化路径分隔符，确保正确分割
+        const normalizedPath = pathStr.replace(/[\\\/]/g, path.sep);
+        const pathParts = normalizedPath.split(path.sep);
+        const lastPart = pathParts[pathParts.length - 1];
+        return lastPart === projectName;
+    }
+
+    /**
+     * 🚀 检查路径是否以项目名开头
+     */
+    private pathStartsWithProjectName(pathStr: string, projectName: string): boolean {
+        // 处理Windows和Unix路径分隔符的差异
+        const normalizedPath = pathStr.replace(/[\\\/]/g, path.sep);
+        const normalizedProjectName = projectName.replace(/[\\\/]/g, path.sep);
+        
+        // 处理项目名包含路径分隔符的情况
+        if (normalizedProjectName.includes(path.sep)) {
+            return normalizedPath.startsWith(normalizedProjectName + path.sep) || 
+                   normalizedPath === normalizedProjectName;
+        }
+        
+        const pathParts = normalizedPath.split(path.sep);
+        return pathParts.length > 0 && pathParts[0] === normalizedProjectName;
+    }
+
+    /**
+     * 🚀 验证目标文件路径的安全性
+     */
+    private validateTargetFile(targetFile: string): void {
+        // 禁止路径遍历
+        if (targetFile.includes('..')) {
+            throw new Error(`不安全的路径遍历: ${targetFile}`);
+        }
+        
+        // 禁止绝对路径到系统敏感目录
+        if (path.isAbsolute(targetFile)) {
+            const sensitiveDirectories = ['/etc', '/usr/bin', '/bin', '/sbin', '/root'];
+            const normalizedPath = path.normalize(targetFile);
+            
+            for (const sensitiveDir of sensitiveDirectories) {
+                if (normalizedPath.startsWith(sensitiveDir)) {
+                    throw new Error(`不允许访问系统敏感目录: ${targetFile}`);
+                }
+            }
+        }
+        
+        // 禁止空路径
+        if (!targetFile || targetFile.trim() === '') {
+            throw new Error(`目标文件路径不能为空`);
+        }
     }
 
     /**
@@ -1035,6 +1328,214 @@ export class PlanExecutor {
                 executionTime: 0,
                 timestamp: new Date().toISOString(),
                 toolsUsed: []
+            }
+        };
+    }
+
+    /**
+     * 🚀 新增：检查specialist是否需要用户交互
+     */
+    private checkSpecialistNeedsChatInteraction(specialistOutput: SpecialistOutput): boolean {
+        // 检查多种可能的标识方式
+        
+        // 1. 检查结构化数据中的标识
+        if (specialistOutput.structuredData?.needsChatInteraction === true) {
+            return true;
+        }
+        
+        // 2. 检查content中的标识（如果specialist通过content返回了特殊标识）
+        if (specialistOutput.content && typeof specialistOutput.content === 'string') {
+            try {
+                const contentObj = JSON.parse(specialistOutput.content);
+                if (contentObj.needsChatInteraction === true) {
+                    return true;
+                }
+            } catch (e) {
+                // 如果content不是JSON，继续检查其他方式
+            }
+        }
+        
+        // 3. 检查metadata中的标识
+        if (specialistOutput.metadata?.needsChatInteraction === true) {
+            return true;
+        }
+        
+        // 4. 检查是否包含askQuestion工具调用的结果
+        if (specialistOutput.metadata?.toolResults) {
+            const askQuestionResult = specialistOutput.metadata.toolResults.find(
+                (result: any) => result.toolName === 'askQuestion' && result.result?.needsChatInteraction === true
+            );
+            if (askQuestionResult) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * 🚀 新增：构建完整的resumeContext
+     */
+    private buildCompleteResumeContext(
+        specialistId: string,
+        step: any,
+        stepResults: { [key: number]: SpecialistOutput },
+        currentSessionContext: SessionContext,
+        userInput: string,
+        plan: { planId: string; description: string; steps: any[] },
+        loopState: any,
+        specialistOutput: SpecialistOutput,
+        enhancedContext: any
+    ): any {
+        // 提取askQuestion工具的调用信息
+        const askQuestionToolCall = this.extractAskQuestionToolCall(specialistOutput);
+        const question = this.extractQuestionFromSpecialistOutput(specialistOutput);
+        
+        // 构建完整的resumeContext
+        const resumeContext = {
+            // 🚀 原有字段（保持兼容性）
+            ruleId: specialistId,
+            context: enhancedContext,
+            currentIteration: loopState.currentIteration,
+            conversationHistory: loopState.executionHistory.map((h: any) => h.summary),
+            toolExecutionResults: loopState.executionHistory.flatMap((h: any) => 
+                h.toolResults.map((r: any) => `${r.toolName}: ${r.success ? '成功' : '失败'} - ${r.summary || ''}`)
+            ),
+            pendingPlan: plan,
+            
+            // 🚀 新增：PlanExecutor完整状态
+            planExecutorState: {
+                plan: {
+                    planId: plan.planId,
+                    description: plan.description,
+                    steps: plan.steps
+                },
+                currentStep: step,
+                stepResults: stepResults,
+                sessionContext: this.serializeSessionContext(currentSessionContext), // 序列化敏感信息
+                userInput: userInput,
+                
+                // specialist循环状态
+                specialistLoopState: {
+                    specialistId: loopState.specialistId,
+                    currentIteration: loopState.currentIteration,
+                    maxIterations: loopState.maxIterations,
+                    executionHistory: loopState.executionHistory,
+                    isLooping: loopState.isLooping,
+                    startTime: loopState.startTime,
+                    lastContinueReason: loopState.lastContinueReason
+                }
+            },
+            
+            // 🚀 新增：askQuestion工具调用的上下文
+            askQuestionContext: {
+                toolCall: askQuestionToolCall || {
+                    name: 'askQuestion',
+                    args: { question: question }
+                },
+                question: question,
+                originalResult: specialistOutput,
+                timestamp: Date.now()
+            },
+            
+            // 🚀 新增：恢复指导信息
+            resumeGuidance: {
+                nextAction: 'continue_specialist_execution',
+                resumePoint: 'next_iteration',
+                expectedUserResponseType: 'answer',
+                contextualHints: [
+                    `specialist ${specialistId} 在第 ${loopState.currentIteration} 轮迭代中需要用户确认`,
+                    `请基于当前的工作进展回答specialist的问题`,
+                    `您的回答将帮助specialist继续完成任务`
+                ]
+            }
+        };
+        
+        this.logger.info(`🔍 构建完整resumeContext: specialistId=${specialistId}, iteration=${loopState.currentIteration}, question="${question}"`);
+        
+        return resumeContext;
+    }
+
+    /**
+     * 🚀 新增：提取askQuestion工具调用信息
+     */
+    private extractAskQuestionToolCall(specialistOutput: SpecialistOutput): any {
+        // 尝试从多个位置提取askQuestion工具调用信息
+        
+        // 1. 从metadata中提取
+        if (specialistOutput.metadata?.toolCalls) {
+            const askQuestionCall = specialistOutput.metadata.toolCalls.find(
+                (call: any) => call.name === 'askQuestion'
+            );
+            if (askQuestionCall) {
+                return askQuestionCall;
+            }
+        }
+        
+        // 2. 从结构化数据中提取
+        if (specialistOutput.structuredData?.lastToolCall?.name === 'askQuestion') {
+            return specialistOutput.structuredData.lastToolCall;
+        }
+        
+        // 3. 如果没有找到，返回null
+        return null;
+    }
+
+    /**
+     * 🚀 新增：从specialist输出中提取用户问题
+     */
+    private extractQuestionFromSpecialistOutput(specialistOutput: SpecialistOutput): string {
+        // 尝试从多个位置提取问题文本
+        
+        // 1. 从结构化数据中提取
+        if (specialistOutput.structuredData?.chatQuestion) {
+            return specialistOutput.structuredData.chatQuestion;
+        }
+        
+        // 2. 从metadata中提取
+        if (specialistOutput.metadata?.chatQuestion) {
+            return specialistOutput.metadata.chatQuestion;
+        }
+        
+        // 3. 从工具结果中提取
+        if (specialistOutput.metadata?.toolResults) {
+            const askQuestionResult = specialistOutput.metadata.toolResults.find(
+                (result: any) => result.toolName === 'askQuestion' && result.result?.chatQuestion
+            );
+            if (askQuestionResult) {
+                return askQuestionResult.result.chatQuestion;
+            }
+        }
+        
+        // 4. 从content中尝试提取
+        if (specialistOutput.content && typeof specialistOutput.content === 'string') {
+            try {
+                const contentObj = JSON.parse(specialistOutput.content);
+                if (contentObj.chatQuestion) {
+                    return contentObj.chatQuestion;
+                }
+            } catch (e) {
+                // 如果content不是JSON，忽略
+            }
+        }
+        
+        // 5. 默认问题
+        return 'specialist需要您的确认来继续任务';
+    }
+
+    /**
+     * 🚀 新增：序列化SessionContext以避免敏感信息泄露
+     */
+    private serializeSessionContext(sessionContext: SessionContext): any {
+        // 创建安全的sessionContext副本，移除敏感信息
+        return {
+            projectName: sessionContext.projectName,
+            baseDir: sessionContext.baseDir,
+            metadata: {
+                ...sessionContext.metadata,
+                // 移除可能包含敏感信息的字段
+                fileContent: undefined,
+                fullText: undefined
             }
         };
     }

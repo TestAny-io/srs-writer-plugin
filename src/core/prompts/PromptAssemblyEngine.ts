@@ -384,7 +384,7 @@ export class PromptAssemblyEngine {
     
     // 4. 输出要求部分（关键！）
     sections.push('=== FINAL INSTRUCTION: OUTPUT REQUIREMENTS ===');
-    sections.push('Based on all the instructions and context above, your one and only task is to generate a valid JSON object that adheres to the required schema.');
+    sections.push('Based on all the instructions and context above, your one and only task is to generate valid JSON object that adheres to the required schema.');
     sections.push('**CRITICAL: Your entire response MUST be a single JSON object, starting with `{` and ending with `}`. Do not include any introductory text, explanations, or conversational filler.**');
     
     const finalContent = sections.join('\n');

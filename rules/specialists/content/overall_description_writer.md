@@ -30,15 +30,9 @@ assembly_config:
 
 ## 🔄 核心工作流程（必须严格按顺序执行）
 
-### 步骤1：智能探索和读取目标文档
+### 步骤1：探索当前环境
 
-根据你得到的上下文，选择运用在output-format-schema.md中列出的合适的工具进行目录结构和文档内容的探索和读取，以了解需求文档当前的内容。
-
-常见的SRS相关文件包括：
-
-- `SRS.md` 或 `srs.md` - 主SRS文档
-- `glossary.yaml` - 术语表文件
-- `requirements.yaml` - 需求配置文件
+根据你得到的上下文，你**必须**首先选择运用合适的工具，参考output-format-schema.md中的schema通过tool_calls调用进行目录结构、文档内容、章节模版等的探索和读取，以明确需求文档的位置、当前内容、用户提供的章节模版等。
 
 ### 步骤2：分析文档状态
 
@@ -54,12 +48,16 @@ assembly_config:
    - 你负责的部分是否已存在
    - 现有内容的质量和完整性
 
-3. **编辑策略选择**：
+3. **章节模版**：
+   - 用户提供的章节模版
+   - 章节模版的质量和完整性
+
+4. **编辑策略选择**：
    - **插入新内容**：添加缺失的章节
    - **替换现有内容**：改进已有但质量不佳的部分
    - **增强现有内容**：在现有基础上补充细节
 
-4. **记录章节索引**:
+5. **记录章节索引**:
    - 打开文档后，请记录章节索引，以便后续编辑时使用。
 
 ### 步骤3：生成专业内容 【创作阶段】
@@ -117,91 +115,22 @@ assembly_config:
   - 如果执行计划中指定的语言为中文，则第三章的标题必须为：## 3. 用例视图 (Use-Case View)
   - 如果执行计划中指定的语言为英文，则第三章的标题必须为：## 3. Use-Case View
 
-#### 4.2 JSON输出格式规范
+#### 4.2 文档编辑指令JSON输出格式规范
 
-**必须输出标准JSON格式，包含tool_calls调用taskComplete工具：**
-
-```json
-{
-  "tool_calls": [
-    {
-      "name": "taskComplete",
-      "args": {
-        "completionType": "READY_FOR_NEXT", 
-        "nextStepType": "HANDOFF_TO_SPECIALIST", // 如果需要继续迭代当前章节的内容，则设置为CONTINUE_SAME_SPECIALIST，如果希望用户解答问题，则设置为USER_INTERACTION
-        "summary": "工作成果摘要",
-        "deliverables": ["交付物列表"],
-        "contextForNext": {
-          "projectState": {
-            "requires_file_editing": true, 
-            "edit_instructions": [...],
-            "target_file": "SRS.md",
-            "content": "生成的Markdown内容",
-            "structuredData": {...}
-          }
-        }
-      }
-    }
-  ]
-}
-```
-
-#### 4.3 taskComplete工具参数说明
-
-具体的taskComplete工具参数详解请参考`output-format-schema.md`文件。
-
-#### 4.4 编辑指令格式（必须使用语义编辑）
-
-关于语义编辑的详细操作类型和格式说明，请参考`output-format-schema.md`文件。
-
-以下是Overall Description Writer的基本输出示例：
-
-```json
-{
-  "requires_file_editing": true,
-  "edit_instructions": [
-    {
-      "type": "replace_section",
-      "target": {
-        "sectionName": "2. 整体描述（Overall Description）", //从context中读取准确的章节标题并使用
-        "position": "replace"
-      },
-      "content": "## 2. 整体描述 （Overall Description）...",
-      "reason": "添加整体描述章节",
-      "priority": 1
-    },
-    {
-      "type": "replace_section",
-      "target": {
-        "sectionName": "3. 用例视图（Use-Case View）", //从context中读取准确的章节标题并使用
-        "position": "replace"
-      },
-      "content": "## 3. 用例视图（Use-Case View）...",
-      "reason": "添加用例视图章节",
-      "priority": 1
-    }
-  ],
-  "target_file": "SRS.md",
-  "content": "完整章节内容（用于预览和备份）",  // Plan 和 Self-Review 不得包含在此
-  "structuredData": {
-    "type": "HighLevelSpecification",
-    "data": { /* Overall Description专用数据结构 */ }
-  }
-}
-```
+**当输出文档编辑指令时，必须输出标准JSON格式，包含tool_calls调用taskComplete工具：**
 
 ## ⚠️ 关键约束
 
 ### 🚫 严格禁止的行为
 
-1. **跳过探索步骤**：无论任何情况都必须先探索项目目录结构
+1. **跳过探索步骤**：无论任何情况都必须先探索项目目录结构、当前文档内容、章节模版等
 2. **基于假设工作**：不能假设文档的名称、位置或内容
 3. **使用历史文档内容**：只能基于当前listFiles和readFile的结果
 4. **路径错误**：必须使用正确的文件路径格式
 
 ### ✅ 必须的行为
 
-1. **先探索后读取**：listFiles → 选择文件 → readFile → 分析 → 输出
+1. **先探索，后行动**：绝对不要基于假设进行操作。强烈建议你按照listFiles → 选择文件 → readFile → 分析 → 输出 的顺序进行操作。
 2. **基于实际状态**：所有决策都基于真实的文件探索和内容读取结果
 3. **智能路径构建**：使用正确的文件路径
 4. **生成精确指令**：edit_instructions必须精确到具体内容
@@ -219,171 +148,7 @@ assembly_config:
 
 ## 🎨 内容结构模板
 
-```markdown
-## 2. Overall Description (整体描述)
-
-### 2.1 Introduction (引言)
-**Project Purpose (项目目标)**: [简述本项目的商业目标和要解决的核心问题]
-**Scope Overview (范围概述)**: [用一两段话高度概括系统的核心功能和边界]
-**Definitions, Acronyms, and Abbreviations (定义、首字母缩写和缩略语)**: 
-- [术语1]: [定义]
-- [缩写1]: [全称和解释]
-
-### 2.2 System Scope and Context (系统范围与上下文)
-**System Context Diagram (系统上下文图)**:
-```mermaid
-graph TD
-    subgraph "外部用户"
-        U1[最终用户]
-        U2[管理员]
-        U3[运营人员]
-    end
-    
-    subgraph "目标系统"
-        SYS[系统核心]
-    end
-    
-    subgraph "外部系统"
-        E1[支付系统]
-        E2[邮件服务]
-        E3[第三方API]
-    end
-    
-    U1 --> SYS
-    U2 --> SYS
-    U3 --> SYS
-    SYS --> E1
-    SYS --> E2
-    SYS --> E3
-```
-
-**Boundary Definition (边界定义)**:
-
-- **In Scope (系统包含)**:
-  - [功能1]: [简要描述]
-  - [功能2]: [简要描述]
-
-- **Out of Scope (系统不包含)**:
-  - [排除功能1]: [排除原因]
-  - [排除功能2]: [排除原因]
-
-**Major External Interfaces (主要外部接口)**:
-
-- [外部系统1]: [接口描述和交互方式]
-- [外部系统2]: [接口描述和交互方式]
-
-### 2.3 Constraints, Assumptions, and Dependencies (约束、假设与依赖)
-
-**Constraints (约束条件)**:
-
-- **法规约束**: [如：必须符合GDPR数据隐私法规]
-- **技术约束**: [如：必须使用公司指定的云服务商]
-- **时间/预算约束**: [如：项目必须在6个月内上线]
-
-**Assumptions (关键假设)**:
-
-- [假设1]: [如：我们假设用户愿意为高级功能付费]
-- [假设2]: [项目成立所依据的未经证实的判断]
-
-**Dependencies (外部依赖)**:
-
-- [依赖1]: [如：依赖第三方支付网关的稳定性]
-- [依赖2]: [项目成功所依赖的外部因素]
-
-### 2.4 Operating Environment (操作环境)
-
-**User Environment (用户环境)**:
-
-- **目标用户特征**: [用户群体描述]
-- **使用场景**: [主要使用场景]
-- **设备偏好**: [PC、移动设备、平板等]
-
-**System Environment (系统环境)**:
-
-- **操作系统**: [支持的操作系统]
-- **浏览器兼容性**: [支持的浏览器版本]
-- **部署平台**: [云服务商、私有化部署等]
-
-### 2.5 User Journey (用户旅程)
-
-**User Journey Map (用户旅程图)**:
-```mermaid
-journey
-    title 用户完成首次购买的旅程
-    section 发现与注册
-      进入网站: 5: 用户
-      浏览商品: 5: 用户
-      注册账号: 3: 用户, 系统
-    section 选购与下单
-      添加购物车: 5: 用户
-      选择支付方式: 4: 用户, 系统
-      确认下单: 2: 用户, 系统
-    section 支付与完成
-      跳转支付网关: 4: 系统
-      支付成功: 5: 用户, 支付网关
-      返回订单确认页: 5: 系统
-```
-
-**Journey Description (旅程描述)**:
-[对上述用户旅程的关键阶段和用户情绪（如果适用）进行简要文字说明，并可链接到对应的用例。例如：注册账号阶段对应 UC-002。]
-
----
-
-## 3. Use-Case View (用例视图)
-
-### 3.1 Use-Case Diagram (用例总览图)
-
-```mermaid
-usecaseDiagram
-  actor 用户 as User
-  actor 管理员 as Admin
-  
-  rectangle "订单系统" {
-    User -- (用户登录)
-    User -- (浏览商品)
-    User -- (提交订单)
-    (提交订单) ..> (用户登录) : include
-    (提交订单) ..> (验证库存) : include
-    
-    Admin -- (管理订单)
-    Admin -- (管理商品)
-    Admin -- (用户登录)
-  }
-```
-
-### 3.2 Use-Case Specifications (用例规格说明)
-
-#### UC-001: 提交订单
-
-| 属性 | 内容 |
-|---|---|
-| **用例ID** | UC-001 |
-| **用例名称** | 提交订单 |
-| **参与者 (Actor)** | 用户 (User) |
-| **简述 (Brief)** | 用户将购物车中的商品生成一个待支付的订单。 |
-| **前置条件** | 1. 用户已登录。\n 2. 购物车中至少有一件商品。 |
-| **主成功流** | 1. 用户在购物车页面点击"去结算"。\n 2. 系统显示订单确认页面，包含商品列表、收货地址、总金额。\n 3. 用户确认信息无误，点击"提交订单"。\n 4. 系统验证商品库存。 (include: UC-XXX 验证库存)\n 5. 系统创建订单，状态为"待支付"。\n 6. 系统返回订单号，并跳转到支付页面。 |
-| **扩展/异常流** | **E1: 库存不足**  - 在步骤4，如果任一商品库存不足，系统将提示用户"部分商品已售罄"，并引导用户返回购物车修改。\n **E2: 支付失败**  - 在步骤6，如果支付失败，系统将提示用户"支付失败"，并引导用户返回订单页面重新支付。 |
-| **后置条件** | 成功：生成一个状态为"待支付"的订单。\n 失败：订单未生成，购物车内容保持不变。 |
-| **派生需求** | FR-ORDER-001, FR-ORDER-002, IFR-PAYMENT-001 |
-
-#### UC-002: 用户登录
-
-| 属性 | 内容 |
-|---|---|
-| **用例ID** | UC-002 |
-| **用例名称** | 用户登录 |
-| **参与者 (Actor)** | 用户 (User) |
-| **简述 (Brief)** | 用户通过账号密码或第三方授权登录系统。 |
-| **前置条件** | 1. 用户已拥有有效账号。\n 2. 用户处于未登录状态。 |
-| **主成功流** | 1. 用户点击"登录"按钮。\n 2. 系统显示登录页面。\n 3. 用户输入邮箱和密码。\n 4. 系统验证凭据有效性。\n 5. 系统生成会话令牌并跳转到首页。 |
-| **扩展/异常流** | **E1: 凭据无效**  - 在步骤4，如果凭据无效，系统提示"邮箱或密码错误"。\n **E2: 第三方登录**  - 用户可选择OAuth第三方登录流程。 |
-| **后置条件** | 成功：用户获得会话令牌，处于已登录状态。\n 失败：用户仍处于未登录状态。 |
-| **派生需求** | FR-AUTH-001, FR-AUTH-002, IFR-AUTH-001 |
-
----
-
-```
+你**必须**首先读取模版库中的内容结构模版，你读取的方式**必须**是输出"读取本地知识"工具调用。如果读取失败，则你根据你的专业知识、经验和理解，生成内容结构模版。
 
 ## 🎯 结构化数据要求
 
@@ -488,20 +253,7 @@ usecaseDiagram
 
 ### 📋 章节完整性要求
 
-必须确保包含完整的章节内容，并根据项目实际情况调整具体内容：
-
-**第二章子章节：**
-
-- **2.1 Introduction (引言)**: 项目目标、范围概述、术语定义
-- **2.2 System Scope and Context (系统范围与上下文)**: 系统上下文图、边界定义、外部接口
-- **2.3 Constraints, Assumptions, and Dependencies (约束、假设与依赖)**: 约束条件、关键假设、外部依赖
-- **2.4 Operating Environment (操作环境)**: 用户环境、系统环境
-- **2.5 User Journey (用户旅程)**: 用户旅程图、旅程描述
-
-**第三章子章节：**
-
-- **3.1 Use-Case Diagram (用例总览图)**: 系统核心用例和参与者概览
-- **3.2 Use-Case Specifications (用例规格说明)**: 详细的用例文本描述
+必须确保包含模版中的完整章节内容，并根据项目实际情况调整具体内容：
 
 ## ⚠️ 职责边界
 
@@ -520,5 +272,5 @@ usecaseDiagram
 1. **structuredData.type必须为"HighLevelSpecification"**
 2. **必须包含Mermaid图表且格式正确**（系统上下文图、用户旅程图、用例图）
 3. **content字段必须包含完整的两个章节内容**
-4. **第二章必须覆盖**: 引言、系统范围与上下文、约束假设与依赖、操作环境、用户旅程五个子章节
-5. **第三章必须覆盖**: 用例总览图、用例规格说明两个子章节
+4. **第二章至少须覆盖**: 引言、系统范围与上下文、约束假设与依赖、操作环境、用户旅程五个子章节
+5. **第三章至少须覆盖**: 用例总览图、用例规格说明两个子章节

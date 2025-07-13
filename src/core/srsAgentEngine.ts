@@ -216,105 +216,40 @@ export class SRSAgentEngine implements ISessionObserver {
       this.logger.info(`🔄 Resuming specialist execution with user response: ${response}`);
       
       try {
-        // 创建specialist executor实例
-        const specialistExecutor = new SpecialistExecutor();
-        
-        // 准备恢复上下文，添加用户回复
-        const resumeContextWithResponse = {
-          ...this.state.resumeContext,
-          userResponse: response
-        };
-        
-        this.stream.markdown(`🔄 **正在恢复专家任务执行...**\n\n`);
-        
-        // 🚀 新架构重构：不再有resumeSpecialistExecution，由PlanExecutor处理复杂流程
-        // 这个调用应该被重构为使用Orchestrator.planAndExecute()
-        this.stream.markdown(`⚠️ **架构升级通知**\n\n`);
-        this.stream.markdown(`原有的specialist恢复机制已被新的PlanExecutor替代。\n`);
-        this.stream.markdown(`请重新开始您的任务，新架构将提供更强大的多步骤任务编排能力。\n\n`);
-        
-        // 清除状态，引导用户重新开始
-        this.state.resumeContext = undefined;
-        this.state.pendingInteraction = undefined;
-        this.state.stage = 'completed';
-        
-        await this.recordExecution('result', '新架构：specialist恢复功能已升级', true);
-        return;
+        // 🚀 新架构：使用扩展的resumeContext恢复PlanExecutor状态
+        if (this.state.resumeContext.planExecutorState) {
+          this.stream.markdown(`🔄 **正在恢复PlanExecutor执行状态...**\n\n`);
           
-        // 注意：由于已经在上面return了，这个代码块实际上不会执行，
-        // 但保留它以防未来需要实现真正的specialist恢复功能
+          await this.resumePlanExecutorWithUserResponse(response);
+          
+        } else {
+          // 🚀 兼容性：处理旧格式的resumeContext
+          this.stream.markdown(`⚠️ **检测到旧格式的resumeContext**\n\n`);
+          this.stream.markdown(`正在尝试兼容性处理...\n\n`);
+          
+          await this.handleLegacyResumeContext(response);
+        }
+        
+      } catch (error) {
+        this.logger.error(`❌ 恢复specialist执行失败: ${(error as Error).message}`);
+        this.stream.markdown(`❌ **恢复执行失败**: ${(error as Error).message}\n\n`);
+        this.stream.markdown(`请重新开始您的任务。\n\n`);
         
         // 清除状态
         this.state.resumeContext = undefined;
         this.state.pendingInteraction = undefined;
         this.state.stage = 'completed';
         
-        await this.recordExecution('result', '专家任务恢复执行完成', true);
-        this.displayExecutionSummary();
+        await this.recordExecution('result', `恢复执行失败: ${(error as Error).message}`, false);
         return;
-        
-      } catch (error) {
-        this.logger.error('恢复specialist执行失败', error as Error);
-        this.stream.markdown(`❌ 恢复任务执行时出现错误: ${(error as Error).message}\n\n`);
-        
-        // 清除错误状态，回退到正常交互处理
-        this.state.resumeContext = undefined;
-        this.logger.info('Falling back to normal interaction handling');
       }
-    }
-    
-    // 🚀 原有的交互处理逻辑（作为fallback或者非specialist的交互）
-    try {
-        let shouldReturnToWaiting = false;
-        
-        // 根据交互类型处理用户响应
-        switch (interaction.type) {
-            case 'confirmation':
-                const confirmResult = await this.userInteractionHandler.handleConfirmationResponse(
-                  response, 
-                  interaction,
-                  this.stream,
-                  this.recordExecution.bind(this),
-                  this.handleAutonomousTool.bind(this)
-                );
-                shouldReturnToWaiting = confirmResult.shouldReturnToWaiting;
-                break;
-                
-            case 'choice':
-                const choiceResult = await this.userInteractionHandler.handleChoiceResponse(
-                  response, 
-                  interaction,
-                  this.stream,
-                  this.recordExecution.bind(this),
-                  this.handleAutonomousTool.bind(this)
-                );
-                shouldReturnToWaiting = choiceResult.shouldReturnToWaiting;
-                break;
-                
-            case 'input':
-                const inputResult = await this.userInteractionHandler.handleInputResponse(
-                  response, 
-                  interaction,
-                  this.stream,
-                  this.recordExecution.bind(this),
-                  this.handleAutonomousTool.bind(this)
-                );
-                shouldReturnToWaiting = inputResult.shouldReturnToWaiting;
-                break;
-                
-            default:
-                this.stream.markdown(`⚠️ 未知的交互类型: ${interaction.type}\n\n`);
-                break;
-        }
-        
-        if (shouldReturnToWaiting) {
-          this.state.stage = 'awaiting_user';
-          return;
-        }
-        
-    } catch (error) {
-        this.logger.error('处理用户响应时出错', error as Error);
-        this.stream.markdown(`❌ 处理您的回复时出现错误: ${(error as Error).message}\n\n`);
+      
+    } else {
+      // 没有resumeContext，按照原来的逻辑处理
+      this.logger.info(`💬 Processing user response without resume context`);
+      
+      // 处理普通的用户交互
+      await this.handleStandardUserInteraction(response, interaction);
     }
     
     // 清除交互状态
@@ -826,7 +761,35 @@ export class SRSAgentEngine implements ISessionObserver {
             currentIteration: parsedResult.currentIteration || 0,
             conversationHistory: parsedResult.conversationHistory || [],
             toolExecutionResults: parsedResult.toolExecutionResults || [],
-            pendingPlan: parsedResult.pendingPlan || {}
+            pendingPlan: parsedResult.pendingPlan || {},
+            // 🚀 添加必需的新字段（临时空值）
+            planExecutorState: {
+              plan: { planId: 'unknown', description: 'legacy', steps: [] },
+              currentStep: {},
+              stepResults: {},
+              sessionContext: {},
+              userInput: '',
+              specialistLoopState: {
+                specialistId: 'unknown',
+                currentIteration: 0,
+                maxIterations: 5,
+                executionHistory: [],
+                isLooping: false,
+                startTime: Date.now()
+              }
+            },
+            askQuestionContext: {
+              toolCall: { name: 'askQuestion', args: {} },
+              question: parsedResult.chatQuestion || '需要您的确认',
+              originalResult: parsedResult,
+              timestamp: Date.now()
+            },
+            resumeGuidance: {
+              nextAction: 'continue_specialist_execution',
+              resumePoint: 'next_iteration',
+              expectedUserResponseType: 'answer',
+              contextualHints: ['遗留的resumeContext，建议重新开始任务']
+            }
           };
           
           // 设置等待用户输入状态
@@ -903,6 +866,264 @@ export class SRSAgentEngine implements ISessionObserver {
       
       return { needsUserInteraction: false };
     }
+  }
+
+  /**
+   * 🚀 新增：使用用户回复恢复PlanExecutor执行状态
+   */
+  private async resumePlanExecutorWithUserResponse(userResponse: string): Promise<void> {
+    const resumeContext = this.state.resumeContext!;
+    const planExecutorState = resumeContext.planExecutorState;
+    
+    this.logger.info(`🔄 恢复PlanExecutor状态: specialist=${planExecutorState.specialistLoopState.specialistId}, iteration=${planExecutorState.specialistLoopState.currentIteration}`);
+    
+    // 1. 创建PlanExecutor实例
+    const { PlanExecutor } = await import('./orchestrator/PlanExecutor');
+    const { SpecialistExecutor } = await import('./specialistExecutor');
+    
+    const specialistExecutor = new SpecialistExecutor();
+    const planExecutor = new PlanExecutor(specialistExecutor);
+    
+    // 2. 恢复SessionContext
+    const sessionContext = await this.restoreSessionContext(planExecutorState.sessionContext);
+    
+    // 3. 构建带有用户回复的增强上下文
+    const enhancedContext = this.buildResumeContextWithUserResponse(
+      planExecutorState,
+      userResponse,
+      resumeContext
+    );
+    
+    // 4. 恢复specialist的执行
+    this.stream.markdown(`🔄 **恢复specialist执行**: ${planExecutorState.specialistLoopState.specialistId} (第${planExecutorState.specialistLoopState.currentIteration}轮)\n\n`);
+    
+    try {
+      // 🚀 关键：调用specialist继续执行，传入用户回复
+      const continuedResult = await specialistExecutor.execute(
+        planExecutorState.specialistLoopState.specialistId,
+        enhancedContext,
+        this.selectedModel
+      );
+      
+      // 处理specialist的继续执行结果
+      if (continuedResult.success) {
+        this.stream.markdown(`✅ **Specialist执行成功**\n\n`);
+        
+        // 如果specialist完成了任务，更新状态
+        if (continuedResult.structuredData?.nextStepType === 'TASK_FINISHED') {
+          this.state.stage = 'completed';
+          this.stream.markdown(`🎉 **任务完成**: ${continuedResult.structuredData.summary}\n\n`);
+        } else {
+          // 如果specialist需要继续或转交，重新启动计划执行
+          this.stream.markdown(`🔄 **继续执行计划**...\n\n`);
+          
+          // 重新构建计划并继续执行
+          const remainingPlan = this.reconstructRemainingPlan(planExecutorState, continuedResult);
+          
+          const finalResult = await planExecutor.execute(
+            remainingPlan,
+            sessionContext,
+            this.selectedModel,
+            planExecutorState.userInput
+          );
+          
+          await this.handlePlanExecutionResult(finalResult);
+        }
+        
+      } else {
+        this.stream.markdown(`❌ **Specialist执行失败**: ${continuedResult.error}\n\n`);
+        await this.recordExecution('result', `Specialist恢复执行失败: ${continuedResult.error}`, false);
+      }
+      
+    } catch (error) {
+      this.logger.error(`❌ Specialist恢复执行异常: ${(error as Error).message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 🚀 新增：恢复SessionContext
+   */
+  private async restoreSessionContext(serializedContext: any): Promise<any> {
+    try {
+      // 获取当前的SessionContext
+      const currentContext = await this.getCurrentSessionContext();
+      
+      // 如果序列化的上下文包含重要更新，合并它们
+      if (serializedContext) {
+        return {
+          ...currentContext,
+          ...serializedContext,
+          // 确保某些关键字段来自当前上下文
+          baseDir: currentContext?.baseDir || serializedContext.baseDir,
+          projectName: currentContext?.projectName || serializedContext.projectName
+        };
+      }
+      
+      return currentContext;
+      
+    } catch (error) {
+      this.logger.error(`❌ 恢复SessionContext失败: ${(error as Error).message}`);
+      // 返回当前上下文作为fallback
+      return await this.getCurrentSessionContext();
+    }
+  }
+
+  /**
+   * 🚀 新增：构建带有用户回复的增强上下文
+   */
+  private buildResumeContextWithUserResponse(
+    planExecutorState: any,
+    userResponse: string,
+    resumeContext: any
+  ): any {
+    // 从原有上下文开始
+    const baseContext = resumeContext.context || {};
+    
+    // 添加用户回复
+    const enhancedContext = {
+      ...baseContext,
+      
+      // 🚀 关键：添加用户回复到上下文中
+      userResponse: userResponse,
+      
+      // 🚀 恢复specialist循环状态
+      specialistLoopContext: {
+        ...baseContext.specialistLoopContext,
+        
+        // 更新迭代信息
+        currentIteration: planExecutorState.specialistLoopState.currentIteration,
+        totalIterations: planExecutorState.specialistLoopState.executionHistory.length,
+        
+        // 添加用户交互信息
+        userInteractionHistory: [
+          ...(baseContext.specialistLoopContext?.userInteractionHistory || []),
+          {
+            iteration: planExecutorState.specialistLoopState.currentIteration,
+            question: resumeContext.askQuestionContext.question,
+            userResponse: userResponse,
+            timestamp: new Date().toISOString()
+          }
+        ],
+        
+        // 更新指导信息
+        loopGuidance: {
+          ...baseContext.specialistLoopContext?.loopGuidance,
+          userResponseReceived: userResponse,
+          resumeInstructions: [
+            "用户已经回复了您的问题",
+            `用户回复: "${userResponse}"`,
+            "请基于用户的回复继续您的工作",
+            "如果任务完成，请使用taskComplete with nextStepType: 'TASK_FINISHED'"
+          ]
+        }
+      },
+      
+      // 🚀 保持原有的计划上下文
+      currentStep: planExecutorState.currentStep,
+      dependentResults: planExecutorState.stepResults,
+      sessionData: planExecutorState.sessionContext,
+      userInput: planExecutorState.userInput,
+      
+      // 🚀 添加恢复指导
+      resumeGuidance: resumeContext.resumeGuidance
+    };
+    
+    this.logger.info(`🔍 构建增强上下文：添加用户回复 "${userResponse}"`);
+    
+    return enhancedContext;
+  }
+
+  /**
+   * 🚀 新增：重构剩余的计划
+   */
+  private reconstructRemainingPlan(planExecutorState: any, lastResult: any): any {
+    const originalPlan = planExecutorState.plan;
+    const currentStep = planExecutorState.currentStep;
+    
+    // 找到当前步骤在原计划中的位置
+    const currentStepIndex = originalPlan.steps.findIndex(
+      (step: any) => step.step === currentStep.step
+    );
+    
+    // 构建剩余步骤
+    const remainingSteps = originalPlan.steps.slice(currentStepIndex);
+    
+    // 更新第一个步骤的状态（已部分完成）
+    if (remainingSteps.length > 0) {
+      remainingSteps[0] = {
+        ...remainingSteps[0],
+        partialResult: lastResult,
+        resumedFromUserInteraction: true
+      };
+    }
+    
+    return {
+      planId: `${originalPlan.planId}_resumed`,
+      description: `恢复执行: ${originalPlan.description}`,
+      steps: remainingSteps
+    };
+  }
+
+  /**
+   * 🚀 新增：处理计划执行结果
+   */
+  private async handlePlanExecutionResult(result: any): Promise<void> {
+    switch (result.intent) {
+      case 'plan_completed':
+        this.stream.markdown(`✅ **计划执行完成**: ${result.result?.summary}\n\n`);
+        this.state.stage = 'completed';
+        break;
+        
+      case 'plan_failed':
+        this.stream.markdown(`❌ **计划执行失败**: ${result.result?.error}\n\n`);
+        this.state.stage = 'error';
+        break;
+        
+      case 'user_interaction_required':
+        this.stream.markdown(`💬 **需要进一步用户交互**: ${result.result?.question}\n\n`);
+        this.state.stage = 'awaiting_user';
+        this.state.pendingInteraction = {
+          type: 'input',
+          message: result.result?.question || '需要您的确认',
+          options: []
+        };
+        this.state.resumeContext = result.result?.resumeContext;
+        break;
+        
+      default:
+        this.stream.markdown(`ℹ️ **计划执行状态**: ${result.intent}\n\n`);
+        this.state.stage = 'completed';
+        break;
+    }
+    
+    await this.recordExecution('result', `计划执行结果: ${result.intent}`, result.intent !== 'plan_failed');
+  }
+
+  /**
+   * 🚀 新增：处理旧格式的resumeContext（兼容性）
+   */
+  private async handleLegacyResumeContext(userResponse: string): Promise<void> {
+    // 这里可以实现对旧格式resumeContext的兼容处理
+    // 目前暂时显示升级提示
+    this.stream.markdown(`⚠️ **架构升级通知**\n\n`);
+    this.stream.markdown(`检测到旧格式的恢复上下文。新架构提供了更强大的状态管理能力。\n`);
+    this.stream.markdown(`您的回复已记录: "${userResponse}"\n\n`);
+    this.stream.markdown(`请重新开始您的任务以使用新的架构特性。\n\n`);
+    
+    await this.recordExecution('result', `旧格式resumeContext处理: ${userResponse}`, true);
+  }
+
+  /**
+   * 🚀 新增：处理标准用户交互（非specialist恢复）
+   */
+  private async handleStandardUserInteraction(userResponse: string, interaction: any): Promise<void> {
+    this.stream.markdown(`💬 **处理用户交互**: ${userResponse}\n\n`);
+    
+    // 这里可以实现对非specialist恢复的用户交互处理
+    // 例如确认操作、选择选项等
+    
+    await this.recordExecution('user_interaction', `标准用户交互: ${userResponse}`, true);
   }
 
   // ============================================================================

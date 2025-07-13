@@ -9,8 +9,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![DeepWiki](https://img.shields.io/badge/DeepWiki-TestAny--io%2Fsrs--writer--plugin-blue.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==)](https://deepwiki.com/TestAny-io/srs-writer-plugin)
 
-
-
 **Advanced Multi-Agent AI System for Professional Requirements Engineering**
 
 [Quick Start](#-quick-start) • [Features](#-features) • [Architecture](#-architecture) • [Multi-Agent System](#-multi-agent-system) • [Documentation](#-documentation)
@@ -24,6 +22,7 @@
 SRS Writer is a production-ready VSCode extension that leverages advanced multi-agent AI architecture to transform natural language conversations into comprehensive, professional-grade Software Requirements Specification (SRS) documents. Built with sophisticated agent orchestration and intelligent specialist coordination, it represents a breakthrough in automated requirements engineering.
 
 **Revolutionary Multi-Agent Architecture:**
+
 - **Intelligent Orchestrator** - Master coordinator with 400+ decision rules
 - **Specialist Agent System** - 9 specialized content and process experts
 - **Plan Execution Engine** - Complex multi-step task coordination
@@ -31,6 +30,7 @@ SRS Writer is a production-ready VSCode extension that leverages advanced multi-
 - **Iterative Refinement** - Self-improving agent loops with quality validation
 
 **Enterprise-Grade Capabilities:**
+
 - **Complete SRS Generation** - IEEE-standard compliant documentation
 - **Multi-Project Management** - Isolated agent contexts per project
 - **Professional Tool Ecosystem** - 33+ specialized tools across 4 layers
@@ -42,7 +42,8 @@ SRS Writer is a production-ready VSCode extension that leverages advanced multi-
 
 **Intelligent Agent Coordination**: Master orchestrator automatically analyzes user intent and creates detailed execution plans, coordinating multiple specialist agents in complex workflows. Each agent maintains full context awareness and can iteratively refine their work.
 
-**Specialist Agent System**: 
+**Specialist Agent System**:
+
 - **Content Specialists**: `project_initializer`, `overall_description_writer`, `fr_writer`, `nfr_writer`, `user_journey_writer`, `summary_writer`, `prototype_designer`
 - **Process Specialists**: `requirement_syncer`, `document_formatter`, `git_operator`
 
@@ -53,6 +54,7 @@ SRS Writer is a production-ready VSCode extension that leverages advanced multi-
 ### 📋 Professional Document Generation
 
 **IEEE-Compliant SRS Documents**: Multi-agent collaboration produces comprehensive requirements specifications with structured sections including:
+
 - Executive summaries and project overviews (Summary Writer Agent)
 - System context and use-case modeling (Overall Description Writer Agent)
 - Detailed functional requirements with traceability (FR Writer Agent)
@@ -60,7 +62,8 @@ SRS Writer is a production-ready VSCode extension that leverages advanced multi-
 - User journeys and acceptance criteria (User Journey Writer Agent)
 - Professional formatting and consistency (Document Formatter Agent)
 
-**Multi-Format Support**: 
+**Multi-Format Support**:
+
 - **Markdown SRS**: Human-readable, version-control friendly
 - **YAML Requirements**: Machine-readable, structured data with auto-synchronization
 - **Tabular Requirements**: Organized functional and non-functional requirements
@@ -80,7 +83,7 @@ SRS Writer is a production-ready VSCode extension that leverages advanced multi-
 
 **Production-grade tool ecosystem designed for agent coordination:**
 
-```
+```text
 📊 Total: 33 Specialized Tools for Agent Coordination
 
 🟡 Atomic Layer (19 tools) - 57.6%
@@ -164,16 +167,19 @@ npm run package
 ### Advanced Multi-Agent Workflows
 
 **Complex Project Creation with Agent Coordination**:
+
 ```text
 @srs-writer Create a comprehensive healthcare management system with patient records, appointment scheduling, billing integration, and mobile app support
 ```
 
 **Iterative Requirement Enhancement**:
+
 ```text
 @srs-writer Add real-time collaboration features and audit trail capabilities to my existing project
 ```
 
 **Multi-Agent Quality Assurance**:
+
 ```text
 @srs-writer Review my requirements document for completeness and compliance, then suggest improvements
 ```
@@ -327,7 +333,7 @@ sequenceDiagram
 
 ## 📁 Project Structure
 
-```
+```text
 srs-writer-plugin/
 ├── 📦 src/                          # Multi-Agent TypeScript Implementation
 │   ├── 🧠 core/                     # Agent Orchestration & Coordination
@@ -397,11 +403,13 @@ srs-writer-plugin/
 ### Complex Multi-Agent SRS Creation
 
 **Input**:
+
 ```text
 @srs-writer Create a comprehensive requirements document for a university course management system with student enrollment, grade tracking, course scheduling, instructor management, and mobile app integration.
 ```
 
 **Multi-Agent Execution Flow**:
+
 1. **Master Orchestrator**: Analyzes intent, creates 8-step execution plan
 2. **Project Initializer Agent**: Creates project structure and base files
 3. **Overall Description Writer Agent**: Generates system context and use cases
@@ -420,6 +428,7 @@ srs-writer-plugin/
 ```
 
 **Agent Coordination**:
+
 - **Context Manager**: Loads existing project state and requirements
 - **FR Writer Agent**: Analyzes existing requirements and adds new features
 - **NFR Writer Agent**: Updates performance and integration requirements
@@ -433,6 +442,7 @@ srs-writer-plugin/
 ```
 
 **Quality Assurance Agents**:
+
 - **Specialist Quality Monitor**: Validates agent output quality
 - **Loop Detector**: Ensures agent convergence and prevents infinite loops
 - **Context Manager**: Validates inter-agent communication consistency
@@ -530,16 +540,19 @@ npm run test:integration # Agent workflow testing
 ### Upcoming Multi-Agent Enhancements
 
 **Enhanced Agent Intelligence**
+
 - **Learning Agents**: Agents that improve through experience and feedback
 - **Collaborative Agents**: Real-time agent-to-agent negotiation and consensus
 - **Predictive Agents**: Anticipating user needs and proactive requirement suggestions
 
 **Advanced Agent Coordination**
+
 - **Parallel Agent Execution**: Safe concurrent agent operation with conflict resolution
 - **Agent Specialization**: Domain-specific agent variants for different industries
 - **Agent Composition**: Dynamic agent team formation based on task complexity
 
 **Enterprise Agent Features**
+
 - **Agent Governance**: Compliance and audit trail for agent decisions
 - **Agent Security**: Role-based access control and agent authentication
 - **Agent Scalability**: Distributed agent execution across multiple instances
@@ -556,6 +569,7 @@ npm run test:integration # Agent workflow testing
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for complete details.
 
 **License Highlights:**
+
 - ✅ Commercial use permitted
 - ✅ Modification and distribution allowed
 - ✅ Patent protection included

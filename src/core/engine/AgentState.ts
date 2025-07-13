@@ -13,8 +13,10 @@ export interface AgentState {
 
 /**
  * 专家恢复上下文接口 - 用于恢复specialist执行状态
+ * 🚀 v4.0升级：支持完整的PlanExecutor和specialist循环状态恢复
  */
 export interface SpecialistResumeContext {
+  // 🚀 原有字段（保持兼容性）
   ruleId: string;
   context: any;
   currentIteration: number;
@@ -22,6 +24,135 @@ export interface SpecialistResumeContext {
   toolExecutionResults: string[];
   pendingPlan: any;
   userResponse?: string; // 用户的回复内容
+  
+  // 🚀 新增：PlanExecutor完整状态
+  planExecutorState: {
+    plan: {
+      planId: string;
+      description: string;
+      steps: any[];
+    };
+    currentStep: any;                // 当前正在执行的步骤
+    stepResults: { [key: number]: SpecialistOutput }; // 已完成步骤的结果
+    sessionContext: any;             // 会话上下文（可能包含敏感信息的序列化版本）
+    userInput: string;               // 原始用户输入
+    
+    // specialist循环状态
+    specialistLoopState: {
+      specialistId: string;
+      currentIteration: number;
+      maxIterations: number;
+      executionHistory: SpecialistExecutionHistory[];
+      isLooping: boolean;
+      startTime: number;
+      lastContinueReason?: string;
+    };
+  };
+  
+  // 🚀 新增：askQuestion工具调用的上下文
+  askQuestionContext: {
+    toolCall: {
+      name: string;
+      args: any;
+    };
+    question: string;
+    originalResult: any;             // askQuestion工具返回的原始结果
+    timestamp: number;
+  };
+  
+  // 🚀 新增：恢复指导信息
+  resumeGuidance: {
+    nextAction: 'continue_specialist_execution' | 'retry_tool_call' | 'escalate_to_user';
+    resumePoint: 'before_tool_call' | 'after_tool_call' | 'next_iteration';
+    expectedUserResponseType: 'answer' | 'confirmation' | 'choice';
+    contextualHints: string[];       // 给LLM的上下文提示
+  };
+}
+
+/**
+ * 🚀 新增：Specialist循环状态接口
+ */
+export interface SpecialistLoopState {
+  specialistId: string;
+  currentIteration: number;
+  maxIterations: number;
+  executionHistory: SpecialistExecutionHistory[];
+  isLooping: boolean;
+  startTime: number;
+  lastContinueReason?: string;
+}
+
+/**
+ * 🚀 新增：Specialist交互结果接口
+ * 当specialist需要用户交互时返回的特殊结果
+ */
+export interface SpecialistInteractionResult {
+  success: false;
+  needsChatInteraction: true;
+  resumeContext: any;
+  question: string;
+}
+
+/**
+ * 🚀 新增：Specialist输出接口（从PlanExecutor引入）
+ */
+export interface SpecialistOutput {
+  success: boolean;
+  content?: string;
+  error?: string;
+  requires_file_editing?: boolean;
+  target_file?: string;
+  edit_instructions?: any[];
+  structuredData?: any;
+  metadata?: {
+    iterations?: number;
+    loopIterations?: number;
+    totalLoopTime?: number;
+    iterationHistory?: Array<{
+      iteration: number;
+      summary: string;
+      executionTime: number;
+    }>;
+    // 🚀 新增：支持用户交互的属性
+    needsChatInteraction?: boolean;
+    chatQuestion?: string;
+    toolCalls?: Array<{
+      name: string;
+      args: any;
+    }>;
+    toolResults?: Array<{
+      toolName: string;
+      success: boolean;
+      result: any;
+      error?: string;
+    }>;
+    // 🚀 修复：添加缺失的属性
+    specialist?: string;
+    executionTime?: number;
+    timestamp?: string;
+    toolsUsed?: string[];
+  };
+}
+
+/**
+ * 🚀 新增：Specialist执行历史记录接口（从PlanExecutor引入）
+ */
+export interface SpecialistExecutionHistory {
+  iteration: number;
+  toolCalls: Array<{
+    name: string;
+    args: any;
+  }>;
+  toolResults: Array<{
+    toolName: string;
+    success: boolean;
+    result: any;
+    error?: string;
+  }>;
+  aiResponse: string;
+  timestamp: string;
+  summary: string;
+  executionTime: number;
 }
 
 /**
