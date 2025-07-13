@@ -171,34 +171,6 @@ assembly_config:
 - **用户旅程图 (Journey Diagram)**: 可选，用于展示高层用户体验流
 - **用例图 (Use-Case Diagram)**: 必须，用于总览系统核心功能和参与者
 
-### 图表示例
-
-```mermaid
-usecaseDiagram
-  actor 用户 as User
-  actor 管理员 as Admin
-  actor 系统管理员 as SysAdmin
-  
-  rectangle "电商平台" {
-    User -- (用户注册)
-    User -- (用户登录)
-    User -- (浏览商品)
-    User -- (提交订单)
-    User -- (支付订单)
-    
-    Admin -- (管理商品)
-    Admin -- (处理订单)
-    Admin -- (用户登录)
-    
-    SysAdmin -- (系统监控)
-    SysAdmin -- (用户管理)
-    SysAdmin -- (用户登录)
-    
-    (提交订单) ..> (用户登录) : include
-    (支付订单) ..> (提交订单) : include
-  }
-```
-
 ## 🔍 质量检查清单
 
 **第二章 Overall Description:**

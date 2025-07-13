@@ -11,9 +11,9 @@ export class PlanGenerator {
   private logger = Logger.getInstance();
 
   /**
-   * 🚀 生成统一的AI执行计划（v3.0版本：支持智能分诊、对话式执行和状态管理）
+   * 🚀 生成统一的AI执行计划（v4.0版本：支持结构化prompt和智能分诊）
    * 
-   * Code Review优化：支持分离的上下文参数
+   * 重构说明：使用结构化prompt，明确分离系统指令和用户输入
    */
   public async generateUnifiedPlan(
     userInput: string,
@@ -25,33 +25,55 @@ export class PlanGenerator {
       historyContext: string,
       toolResultsContext: string
     ) => Promise<string>,
-    historyContext?: string, // 🚀 Code Review修复：接受字符串历史上下文
-    toolResultsContext?: string // 🚀 Code Review修复：接受字符串工具结果上下文
+    historyContext?: string,
+    toolResultsContext?: string
   ): Promise<AIPlan> {
     try {
-      const prompt = await buildAdaptiveToolPlanningPrompt(
+      // 构建结构化提示词 - 系统指令和用户输入已经分离
+      const structuredPrompt = await buildAdaptiveToolPlanningPrompt(
         userInput,
         sessionContext,
-        historyContext || '', // 传递字符串而不是数组
-        toolResultsContext || '' // 传递工具结果上下文
+        historyContext || '',
+        toolResultsContext || ''
       );
 
-      const messages = [vscode.LanguageModelChatMessage.User(prompt)];
-      const response = await selectedModel.sendRequest(messages, { justification: 'Generate unified AI plan' });
+      // 🚀 重构：使用结构化的User消息，符合VSCode最佳实践
+      // 由于VSCode不支持System消息，我们在User消息中明确标识系统指令和用户输入
+      const messages = [
+        vscode.LanguageModelChatMessage.User(structuredPrompt)
+      ];
+
+      // 🐛 DEBUG: 记录消息结构
+      this.logger.info(`🔍 [DEBUG] Sending structured message to AI model:`);
+      this.logger.info(`🔍 [DEBUG] - Message type: User`);
+      this.logger.info(`🔍 [DEBUG] - Message length: ${structuredPrompt.length}`);
+      this.logger.info(`🔍 [DEBUG] - Model name: ${selectedModel.name}`);
+
+      // 发送请求到AI模型
+      const response = await selectedModel.sendRequest(messages, { 
+        justification: 'Generate unified AI plan with structured prompt' 
+      });
 
       let resultText = '';
-      for await (const fragment of response.text) { resultText += fragment; }
+      for await (const fragment of response.text) { 
+        resultText += fragment; 
+      }
 
-      // 使用一个更健壮的解析器来处理AI的响应
+      // 🐛 DEBUG: 记录AI响应
+      this.logger.info(`🔍 [DEBUG] AI response received:`);
+      this.logger.info(`🔍 [DEBUG] - Response length: ${resultText.length}`);
+      this.logger.info(`🔍 [DEBUG] - Response preview: ${resultText.substring(0, 200)}...`);
+
+      // 解析AI响应
       return this.parseAIPlanFromResponse(resultText);
 
     } catch (error) {
-      this.logger.error('Failed to generate unified plan', error as Error);
+      this.logger.error('Failed to generate unified plan with structured prompt', error as Error);
       // 在失败时，返回一个安全的、无害的默认规划
       return {
-        thought: 'Error during planning, defaulting to safe response.',
+        thought: 'Error during planning with structured prompt, defaulting to safe response.',
         response_mode: AIResponseMode.KNOWLEDGE_QA,
-        direct_response: '抱歉，我在思考时遇到了一些问题。能请您换一种方式提问吗？',
+        direct_response: '抱歉，我在处理结构化提示时遇到了问题。能请您换一种方式提问吗？',
         tool_calls: []
       };
     }
