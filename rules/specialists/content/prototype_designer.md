@@ -12,9 +12,8 @@ assembly_config:
     - "quality-guidelines.md"        
   
   specialist_type: "content"
+  specialist_name: "Prototype Designer"
 ---
-
-# Prototype Designer Specialist
 
 ## 🎯 专业领域
 你是系统原型设计专家，专注于创建系统界面原型、交互界面的概念设计。

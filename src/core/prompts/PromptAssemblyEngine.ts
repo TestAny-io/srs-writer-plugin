@@ -31,6 +31,9 @@ export interface AssemblyConfig {
   exclude_base?: string[];
   domain_template?: string;
   specialist_type?: string;
+  specialist_name?: string;
+  // 🚀 v3.0新增：角色定义配置
+  role_definition?: string;
 }
 
 export interface ValidationReport {
@@ -118,36 +121,49 @@ export class PromptAssemblyEngine {
         //this.logger.info(`🔍 [PromptAssembly] - domain模板前200字符: ${domainTemplate.substring(0, 200)}`);
       }
       
-      // 4. 组装最终prompt
+      // 4. 组装最终prompt - 🚀 新架构：分离base和content模板
       //this.logger.info(`📄 [PromptAssembly] 步骤4: 合并所有模板`);
-      const allTemplates = [...baseTemplates, domainTemplate, specificTemplate];
-      //this.logger.info(`🔍 [PromptAssembly] 合并前模板统计:`);
-      //this.logger.info(`🔍 [PromptAssembly] - 总模板数量: ${allTemplates.length}`);
-      //this.logger.info(`🔍 [PromptAssembly] - 各模板长度: ${allTemplates.map(t => t.length).join(', ')}`);
       
-      const assembledPrompt = this.mergeTemplates(allTemplates, context, config);
+      // 🚀 新架构：分离模板组
+      const contentTemplates = [domainTemplate, specificTemplate].filter(t => t.trim().length > 0);
+      const allTemplates = [...baseTemplates, ...contentTemplates]; // 保持向后兼容的统计
+      
+      //this.logger.info(`🔍 [PromptAssembly] 合并前模板统计:`);
+      //this.logger.info(`🔍 [PromptAssembly] - Content模板数量: ${contentTemplates.length}`);
+      //this.logger.info(`🔍 [PromptAssembly] - Base模板数量: ${baseTemplates.length}`);
+      //this.logger.info(`🔍 [PromptAssembly] - 总模板数量: ${allTemplates.length}`);
+      //this.logger.info(`🔍 [PromptAssembly] - 各模板长度: content=[${contentTemplates.map(t => t.length).join(', ')}], base=[${baseTemplates.map(t => t.length).join(', ')}]`);
+      
+      // 🚀 v3.0: 增强配置，包含specialistName信息
+      const enhancedConfig = {
+        ...config,
+        specialist_name: config.specialist_name || specialistType.name
+      };
+      
+      // 🚀 使用新的模板分组方式调用mergeTemplates
+      const assembledPrompt = this.mergeTemplates(allTemplates, context, enhancedConfig, baseTemplates, contentTemplates);
       
       // 5. 验证组装结果
       //this.logger.info(`📄 [PromptAssembly] 步骤5: 验证组装结果`);
       await this.validateAssembledPrompt(assembledPrompt);
       
-      // 🔥 详细记录最终输出 - v2.0结构化版本
-      //this.logger.info(`🎯 [PromptAssembly] === 组装完成 ${specialistType.name} (v2.0结构化版本) ===`);
-      //this.logger.info(`🎯 [PromptAssembly] 最终提示词统计:`);
-      //this.logger.info(`🎯 [PromptAssembly] - 总长度: ${assembledPrompt.length} 字符`);
-      //this.logger.info(`🎯 [PromptAssembly] - 估算token数量: ${Math.ceil(assembledPrompt.length / 4)} tokens`);
+      // 🚀 v3.0: 验证结构化格式
+      this.logger.debug(`🎯 [PromptAssembly] 提示词结构验证:`);
+      this.logger.debug(`🎯 [PromptAssembly] - SPECIALIST INSTRUCTIONS: ${assembledPrompt.includes('# SPECIALIST INSTRUCTIONS') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - CURRENT TASK: ${assembledPrompt.includes('# CURRENT TASK') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - CONTEXT INFORMATION: ${assembledPrompt.includes('# CONTEXT INFORMATION') ? '✅' : '❌'}`);
+      this.logger.info(`🎯 [PromptAssembly] - FINAL INSTRUCTION: ${assembledPrompt.includes('# FINAL INSTRUCTION') ? '✅' : '❌'}`);
       
-      // 🚀 v2.0: 验证结构化格式
-      //this.logger.info(`🎯 [PromptAssembly] 提示词结构验证:`);
-      //this.logger.info(`🎯 [PromptAssembly] - SYSTEM INSTRUCTIONS: ${assembledPrompt.includes('=== SYSTEM INSTRUCTIONS ===') ? '✅' : '❌'}`);
-      //this.logger.info(`🎯 [PromptAssembly] - CURRENT TASK: ${assembledPrompt.includes('=== CURRENT TASK ===') ? '✅' : '❌'}`);
-      //this.logger.info(`🎯 [PromptAssembly] - CONTEXT INFORMATION: ${assembledPrompt.includes('=== CONTEXT INFORMATION ===') ? '✅' : '❌'}`);
-      this.logger.info(`🎯 [PromptAssembly] - OUTPUT REQUIREMENTS: ${assembledPrompt.includes('=== FINAL INSTRUCTION: OUTPUT REQUIREMENTS ===') ? '✅' : '❌'}`);
+      // 🚀 v3.0: 记录重构完成
+      this.logger.info(`🎯 [PromptAssembly] === v3.0 组装完成 ${specialistType.name} (结构化User消息格式) ===`);
+      this.logger.info(`🎯 [PromptAssembly] 最终提示词统计:`);
+      this.logger.info(`🎯 [PromptAssembly] - 总长度: ${assembledPrompt.length} 字符`);
+      this.logger.info(`🎯 [PromptAssembly] - 估算token数量: ${Math.ceil(assembledPrompt.length / 4)} tokens`);
       
       // 输出完整的最终提示词（仅在debug模式下）
-      //this.logger.info(`🔥 [PromptAssembly] === 完整结构化提示词 for ${specialistType.name} ===`);
-      //this.logger.info(`🔥 [PromptAssembly] ${assembledPrompt}`);
-      //this.logger.info(`🔥 [PromptAssembly] === 提示词结束 ===`);
+      // this.logger.info(`🔥 [PromptAssembly] === 完整结构化提示词 for ${specialistType.name} ===`);
+      // this.logger.info(`🔥 [PromptAssembly] ${assembledPrompt}`);
+      // this.logger.info(`🔥 [PromptAssembly] === 提示词结束 ===`);
       
       return assembledPrompt;
     } catch (error) {
@@ -311,86 +327,111 @@ export class PromptAssemblyEngine {
   }
 
   /**
-   * 🚀 v2.0: 结构化模板合并 - 使用清晰的分隔符和强制JSON输出
+   * 🚀 v3.0: 结构化模板合并 - 采用VSCode最佳实践的结构化User消息格式
+   * 
+   * 重构说明：
+   * - 使用明确的角色定义和指令分离
+   * - 符合VSCode官方文档最佳实践
+   * - 不再使用===分隔符，改用#标题结构
+   * - 直接替换原有实现，不考虑向后兼容性
+   * - 🚀 新顺序：content/process模板 → current task → context information → base模板
    */
-  private mergeTemplates(templates: string[], context: SpecialistContext, config?: AssemblyConfig): string {
-    //this.logger.info(`🔧 [PromptAssembly] 开始结构化合并模板，总数: ${templates.length}`);
+  private mergeTemplates(templates: string[], context: SpecialistContext, config?: AssemblyConfig, baseTemplates: string[] = [], contentTemplates: string[] = []): string {
+    this.logger.info(`🔧 [PromptAssembly] v3.0 开始结构化合并模板，总数: ${templates.length}`);
     
     // 过滤掉空模板
     const validTemplates = templates.filter(template => template.trim().length > 0);
-    //this.logger.info(`🔧 [PromptAssembly] 有效模板数量: ${validTemplates.length}/${templates.length}`);
+    const validBaseTemplates = baseTemplates.filter(template => template.trim().length > 0);
+    const validContentTemplates = contentTemplates.filter(template => template.trim().length > 0);
     
-    // 处理变量替换（保持原有功能）
-    let processedTemplates = validTemplates.map(template => {
-      let processed = template;
-      const variableMatches = processed.match(/\{\{(\w+)\}\}/g);
-      if (variableMatches) {
-        //this.logger.info(`🔧 [PromptAssembly] 发现变量占位符: ${variableMatches.join(', ')}`);
-        processed = processed.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-          const replacement = context[key] || match;
-          if (replacement !== match) {
-            //this.logger.info(`🔧 [PromptAssembly] 替换变量: ${match} -> ${replacement.substring(0, 50)}...`);
-          }
-          return replacement;
-        });
-      }
-      return processed;
-    });
+    this.logger.info(`🔧 [PromptAssembly] 有效模板数量: content=${validContentTemplates.length}, base=${validBaseTemplates.length}, total=${validTemplates.length}`);
     
-    const sections: string[] = [];
+    // 处理变量替换（保持原有功能，增强错误处理）
+    const processVariables = (templateArray: string[]) => {
+      return templateArray.map(template => {
+        let processed = template;
+        const variableMatches = processed.match(/\{\{(\w+)\}\}/g);
+        if (variableMatches) {
+          this.logger.debug(`🔧 [PromptAssembly] 发现变量占位符: ${variableMatches.join(', ')}`);
+          processed = processed.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+            // 优先从context直接属性获取，然后从structuredContext获取
+            const replacement = context[key] || context.structuredContext?.[key] || match;
+            if (replacement !== match) {
+              this.logger.debug(`🔧 [PromptAssembly] 替换变量: ${match} -> ${replacement.toString().substring(0, 50)}...`);
+            }
+            return replacement;
+          });
+        }
+        return processed;
+      });
+    };
     
-    // 1. 系统指令部分
-    sections.push('=== SYSTEM INSTRUCTIONS ===');
-    sections.push(processedTemplates.join('\n\n---\n\n')); // 使用---作为模板间的分隔符，更清晰
-    sections.push('');
+    const processedContentTemplates = processVariables(validContentTemplates);
+    const processedBaseTemplates = processVariables(validBaseTemplates);
     
-    // 2. 当前任务部分  
-    if (context.userRequirements) {
-        sections.push('=== CURRENT TASK ===');
-        sections.push('```text');
-        sections.push(context.userRequirements);
-        sections.push('```');
-        sections.push('');
-        //this.logger.info(`🔧 [PromptAssembly] 添加当前任务 (${context.userRequirements.length}字符)`);
-    }
+    // 🚀 v3.0: 构建结构化User消息 - 符合VSCode最佳实践
+    // 优先从context获取specialist_type，然后从config获取specialist_name，最后使用默认值
+    const contextSpecialistType = context.specialist_type || context.structuredContext?.specialist_type;
+    const configSpecialistName = config?.specialist_name;
+    const fallbackSpecialistType = 'specialist'; // 默认值
     
-    // 3. 上下文信息部分
-    sections.push('=== CONTEXT INFORMATION ===');
+    const finalSpecialistType = contextSpecialistType || configSpecialistName || fallbackSpecialistType;
+    const roleDefinition = config?.role_definition || `${finalSpecialistType} specialist`;
     
-    if (context.projectMetadata) {
-        sections.push('**Project Metadata:**');
-        sections.push('```json');
-        sections.push(JSON.stringify(context.projectMetadata, null, 2));
-        sections.push('```');
-        //this.logger.info(`🔧 [PromptAssembly] 添加项目元数据`);
-    }
+    // 🚀 新顺序实现：
+    // 1. SPECIALIST INSTRUCTIONS (content/process模板)
+    // 2. CURRENT TASK 
+    // 3. CONTEXT INFORMATION
+    // 4. BASE GUIDELINES (base模板)
     
-    if (context.structuredContext) {
-        sections.push('**Structured Context (Current Step & History):**');
-        sections.push('```json');
-        sections.push(JSON.stringify(context.structuredContext, null, 2));
-        sections.push('```');
-        //this.logger.info(`🔧 [PromptAssembly] 添加结构化上下文`);
-    }
+    const structuredPrompt = `# SPECIALIST INSTRUCTIONS
+
+You are a ${roleDefinition}. Follow these instructions carefully:
+
+${processedContentTemplates.join('\n\n---\n\n')}
+
+# CURRENT TASK
+
+The specific task you need to complete:
+
+\`\`\`text
+${context.userRequirements || 'No specific task provided'}
+\`\`\`
+
+# CONTEXT INFORMATION
+
+## Project Metadata
+\`\`\`json
+${context.projectMetadata ? JSON.stringify(context.projectMetadata, null, 2) : 'No project metadata available'}
+\`\`\`
+
+## Structured Context (Current Step & History)
+\`\`\`json
+${context.structuredContext ? JSON.stringify(context.structuredContext, null, 2) : 'No structured context available'}
+\`\`\`
+
+${finalSpecialistType !== fallbackSpecialistType ? `## Specialist Type
+Current specialist type: ${finalSpecialistType}` : ''}
+
+# GUIDELINES
+
+${processedBaseTemplates.join('\n\n---\n\n')}
+
+# FINAL INSTRUCTION
+
+Based on all the instructions and context above, generate a valid JSON object that adheres to the required schema.
+
+**CRITICAL: Your entire response MUST be a single JSON object, starting with \`{\` and ending with \`}\`. Do not include any introductory text, explanations, or conversational filler.**`;
+
+    this.logger.info(`✅ [PromptAssembly] v3.0 结构化模板合并完成，最终长度: ${structuredPrompt.length} 字符`);
+    this.logger.debug(`🔍 [PromptAssembly] v3.0 结构验证:`);
+    this.logger.debug(`🔍 [PromptAssembly] - SPECIALIST INSTRUCTIONS: ${structuredPrompt.includes('# SPECIALIST INSTRUCTIONS') ? '✅' : '❌'}`);
+    this.logger.debug(`🔍 [PromptAssembly] - CURRENT TASK: ${structuredPrompt.includes('# CURRENT TASK') ? '✅' : '❌'}`);
+    this.logger.debug(`🔍 [PromptAssembly] - CONTEXT INFORMATION: ${structuredPrompt.includes('# CONTEXT INFORMATION') ? '✅' : '❌'}`);
+    this.logger.debug(`🔍 [PromptAssembly] - GUIDELINES: ${structuredPrompt.includes('# GUIDELINES') ? '✅' : '❌'}`);
+    this.logger.debug(`🔍 [PromptAssembly] - FINAL INSTRUCTION: ${structuredPrompt.includes('# FINAL INSTRUCTION') ? '✅' : '❌'}`);
     
-    // 如果有配置信息，添加专家类型说明
-    if (config && config.specialist_type) {
-        sections.push('**Specialist Type:**');
-        sections.push(`Current specialist type: ${config.specialist_type}`);
-        //this.logger.info(`🔧 [PromptAssembly] 添加专家类型说明: ${config.specialist_type}`);
-    }
-    
-    sections.push('');
-    
-    // 4. 输出要求部分（关键！）
-    sections.push('=== FINAL INSTRUCTION: OUTPUT REQUIREMENTS ===');
-    sections.push('Based on all the instructions and context above, your one and only task is to generate valid JSON object that adheres to the required schema.');
-    sections.push('**CRITICAL: Your entire response MUST be a single JSON object, starting with `{` and ending with `}`. Do not include any introductory text, explanations, or conversational filler.**');
-    
-    const finalContent = sections.join('\n');
-    this.logger.info(`✅ [PromptAssembly] 结构化模板合并完成，最终长度: ${finalContent.length} 字符`);
-    
-    return finalContent;
+    return structuredPrompt;
   }
 
   /**
@@ -704,8 +745,8 @@ export class PromptAssemblyEngine {
         specialist: structure.specialistTemplates.length
       }
     };
-    
+
     // this.logger.info(`📊 [PromptAssembly] 模板统计: ${JSON.stringify(stats, null, 2)}`);
     return stats;
   }
-} 
+}

@@ -54,27 +54,7 @@ export interface TaskContext {
   };
 }
 
-/**
- * 交付成果数据接口
- */
-export interface DeliverableData {
-  /** 文件路径 */
-  path: string;
-  /** 文件内容 */
-  content: string;
-  /** 可选的文件类型 */
-  type?: string;
-  /** 可选的说明 */
-  description?: string;
-}
 
-/**
- * 交付成果类型 - 支持多种格式
- */
-export type Deliverables = 
-  | string[]                           // 格式1: 字符串数组
-  | DeliverableData[]                  // 格式2: 对象数组
-  | Record<string, DeliverableData>;   // 格式3: 对象字典
 
 /**
  * 下一步详情接口
@@ -100,8 +80,6 @@ export interface TaskCompletionResult {
   nextStepType: NextStepType;
   /** 任务完成总结 */
   summary: string;
-  /** 交付成果列表 */
-  deliverables: Deliverables;
   /** 下一步详情 */
   nextStepDetails?: NextStepDetails;
   /** 传递给下一步的上下文 */

@@ -141,7 +141,6 @@
     }
   ],
   "target_file": "{{baseDir}}/SRS.md",
-  "content": "完整章节内容（用于预览和备份）",  // Plan 和 Self-Review 不得包含在此
   "structuredData": {
     "type": "YourSpecialistType",
     "data": { /* 你的结构化数据 */ }

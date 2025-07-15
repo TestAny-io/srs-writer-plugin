@@ -12,13 +12,16 @@
 本工具采用**分层复用**设计，充分利用atomic层的文件操作工具：
 
 ### **复用的Atomic层工具**
+
 - `readFile()` - 文件读取操作
 - `writeFile()` - 文件写入操作  
 - `createDirectory()` - 目录创建操作
 - `renameFile()` - 文件移动/重命名操作
 - `listFiles()` - 目录内容列表
+- `listAllFiles()` - 所有文件列表
 
 ### **路径管理策略**
+
 - **统一使用相对路径** - 所有文件路径都相对于workspace根目录
 - **标准化路径格式** - `.vscode/srs-writer-session.json` 和 `.vscode/session-archives/`
 
@@ -26,7 +29,7 @@
 
 ### 核心概念分离
 
-```
+```text
 SessionContext (内存对象)              srs-writer-session.json (文件)
 ├─ sessionContextId: UUID              ├─ fileVersion: "1.0"  
 ├─ projectName: string                 ├─ timeRange: { start, end }
@@ -40,7 +43,7 @@ SessionContext (内存对象)              srs-writer-session.json (文件)
 
 ### 文件管理策略
 
-```
+```text
 .vscode/                             # 相对于workspace根目录
 ├─ srs-writer-session.json           # 当前15天的操作日志
 └─ session-archives/                 # 归档目录
@@ -208,14 +211,17 @@ export async function createComprehensiveSRS_deprecated(args: any) {
 ## ⚡ 自动化特性
 
 ### 1. 兼容性处理
+
 - 自动为现有会话生成`sessionContextId`
 - 向后兼容旧的SessionContext格式
 
 ### 2. 错误恢复
+
 - JSON解析失败时自动创建新的日志文件
 - 空文件检测和清理
 
 ### 3. 15天自动归档
+
 - 每次`updateWriterSession`调用时自动检查归档条件
 - 超过15天自动移动到归档目录
 - 保持文件命名一致性：`srs-writer-session-YYYYMMDD-YYYYMMDD.json`
@@ -223,29 +229,36 @@ export async function createComprehensiveSRS_deprecated(args: any) {
 ## 🔒 数据一致性保证
 
 ### Schema一致性
+
 - 无论从内存还是文件读取，数据结构完全一致
 - 统一的验证和转换逻辑
 
 ### 操作原子性
+
 - 日志记录失败不影响主要工具功能
 - 归档过程中的错误处理和回滚
 
 ### 并发安全
+
 - 文件操作的适当同步机制
 - 观察者模式确保状态一致性
 
 ## 🐛 常见问题
 
 ### Q: 如果srs-writer-session.json损坏怎么办？
+
 A: 工具会自动检测并创建新的日志文件，记录错误信息到日志。
 
 ### Q: 15天归档会丢失数据吗？
+
 A: 不会，所有数据都移动到`session-archives`目录，可以通过`getOperationHistory`查询。
 
 ### Q: 多个项目的日志会混在一起吗？
+
 A: 是的，这是设计特性。一个日志文件记录多个项目的操作，通过`sessionContextId`区分。
 
 ### Q: 如何查看某个项目的完整历史？
+
 A: 使用`getOperationHistory(sessionContextId)`，它会自动搜索当前文件和归档文件。
 
 ## 📈 性能考虑
@@ -253,4 +266,4 @@ A: 使用`getOperationHistory(sessionContextId)`，它会自动搜索当前文�
 - 日志文件大小控制（15天一个文件）
 - 懒加载归档文件（仅在需要时读取）
 - 内存中SessionContext缓存
-- 异步文件操作避免阻塞UI 
+- 异步文件操作避免阻塞UI

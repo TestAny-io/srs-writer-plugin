@@ -171,10 +171,19 @@ export async function executeSemanticEdits(
                 
                 logger.info(`🎉 Semantic editing complete: ${totalSuccess} success, ${totalFailed} failed`);
                 
+                // 🔧 修复：为失败情况生成清晰的错误信息
+                let errorMessage: string | undefined = undefined;
+                if (totalFailed > 0) {
+                    const failureReasons = semanticErrors.length > 0 ? semanticErrors : 
+                        failedIntents.map(intent => `${intent.type} -> ${intent.target.sectionName}`);
+                    errorMessage = `语义编辑失败: ${failureReasons.join('; ')}`;
+                }
+                
                 return {
                     success: totalSuccess > 0 && totalFailed === 0,
                     appliedIntents,
                     failedIntents,
+                    error: errorMessage,  // 🔧 修复：添加清晰的错误信息
                     saveResult,  // 🆕 包含保存结果
                     semanticErrors: semanticErrors.length > 0 ? semanticErrors : undefined,
                     metadata: {
@@ -193,10 +202,19 @@ export async function executeSemanticEdits(
         
         logger.info(`🎉 Semantic editing complete: ${totalSuccess} success, ${totalFailed} failed (no edits applied)`);
         
+        // 🔧 修复：为失败情况生成清晰的错误信息（保持一致性）
+        let errorMessage: string | undefined = undefined;
+        if (totalFailed > 0) {
+            const failureReasons = semanticErrors.length > 0 ? semanticErrors : 
+                failedIntents.map(intent => `${intent.type} -> ${intent.target.sectionName}`);
+            errorMessage = `语义编辑失败: ${failureReasons.join('; ')}`;
+        }
+        
         return {
             success: totalSuccess === 0 && totalFailed === 0, // 没有编辑时也算成功
             appliedIntents,
             failedIntents,
+            error: errorMessage,  // 🔧 修复：添加清晰的错误信息
             semanticErrors: semanticErrors.length > 0 ? semanticErrors : undefined,
             metadata: {
                 executionTime: Date.now() - startTime,
@@ -236,7 +254,7 @@ async function applySemanticIntent(
     locator: SemanticLocator
 ): Promise<boolean> {
     try {
-        // 🚀 自动设置position以支持append_to_section和prepend_to_section操作
+        // 🚀 自动设置position以支持所有section操作类型
         let adjustedTarget = { ...intent.target };
         
         if (intent.type === 'append_to_section') {
@@ -245,6 +263,12 @@ async function applySemanticIntent(
         } else if (intent.type === 'prepend_to_section') {
             adjustedTarget.position = 'prepend';
             logger.info(`🔧 Auto-setting position to 'prepend' for prepend_to_section operation`);
+        } else if (intent.type === 'insert_after_section') {
+            adjustedTarget.position = 'after';
+            logger.info(`🔧 Auto-setting position to 'after' for insert_after_section operation`);
+        } else if (intent.type === 'insert_before_section') {
+            adjustedTarget.position = 'before';
+            logger.info(`🔧 Auto-setting position to 'before' for insert_before_section operation`);
         }
         
         // 使用语义定位器找到目标位置
@@ -470,6 +494,11 @@ export const executeSemanticEditsToolDefinition = {
                                 contentToRemove: {
                                     type: "string",
                                     description: "Specific content to remove (for remove_content_in_section)"
+                                },
+                                // ✨ 新增：上下文锚点字段
+                                contextAnchor: {
+                                    type: "string",
+                                    description: "Context anchor to precisely locate targetContent when multiple identical content exists (e.g., 'req-id: FR-PDF-005'). The system will first find this anchor, then search for targetContent within 10 lines of the anchor."
                                 }
                             },
                             required: ["sectionName"]

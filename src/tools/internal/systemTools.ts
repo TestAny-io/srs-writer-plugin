@@ -83,34 +83,6 @@ Usage: Call this when you have successfully completed the user's request, whethe
         ]
     },
     {
-        name: 'reportProgress',
-        description: `Report current progress on a multi-step task. Use for long-running operations to keep user informed.`,
-        parameters: {
-            type: 'object',
-            properties: {
-                currentStep: {
-                    type: 'string',
-                    description: 'Description of current step being executed'
-                },
-                completedSteps: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'List of steps already completed'
-                },
-                remainingSteps: {
-                    type: 'array', 
-                    items: { type: 'string' },
-                    description: 'List of steps still to be completed'
-                },
-                estimatedTimeRemaining: {
-                    type: 'string',
-                    description: 'Estimated time to completion (optional)'
-                }
-            },
-            required: ['currentStep', 'completedSteps', 'remainingSteps']
-        }
-    },
-    {
         name: 'getSystemStatus',
         description: `Get comprehensive system status including current project, available tools, and session information.`,
         parameters: {
@@ -125,7 +97,13 @@ Usage: Call this when you have successfully completed the user's request, whethe
                     description: 'Whether to include detailed session information'
                 }
             }
-        }
+        },
+        // 🚀 访问控制：系统状态查询，不暴露给specialist
+        accessibleBy: [
+            CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator需要了解系统状态
+            CallerType.ORCHESTRATOR_KNOWLEDGE_QA     // 回答用户关于系统状态的问题
+            // 注意：移除了CallerType.SPECIALIST，specialist不需要直接查询系统状态
+        ]
     }
 ];
 
@@ -162,35 +140,7 @@ export const systemToolImplementations = {
         return finalAnswer;
     },
 
-    /**
-     * 报告当前进度
-     */
-    reportProgress: async (params: {
-        currentStep: string;
-        completedSteps: string[];
-        remainingSteps: string[];
-        estimatedTimeRemaining?: string;
-    }): Promise<{ status: string; progress: any }> => {
-        const totalSteps = params.completedSteps.length + 1 + params.remainingSteps.length;
-        const progressPercentage = Math.round((params.completedSteps.length / totalSteps) * 100);
 
-        const progress = {
-            currentStep: params.currentStep,
-            completedSteps: params.completedSteps,
-            remainingSteps: params.remainingSteps,
-            progressPercentage,
-            estimatedTimeRemaining: params.estimatedTimeRemaining,
-            totalSteps
-        };
-
-        console.log(`[SystemTools] Progress Update: ${progressPercentage}% complete`);
-        console.log(`[SystemTools] Current Step: ${params.currentStep}`);
-
-        return {
-            status: 'progress_reported',
-            progress
-        };
-    },
 
     /**
      * 获取系统状态

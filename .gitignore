@@ -46,7 +46,10 @@ cg.html
 INLINE-EDITING-COMPLETE.md
 SEMANTIC-EDIT-REFACTOR-COMPLETE.md
 temp.md
+temp-log.md
 test-reports/
+debug-semantic-locator.js
+jest.config.js
 
 
 # 代码停车场 - 暂不使用的代码

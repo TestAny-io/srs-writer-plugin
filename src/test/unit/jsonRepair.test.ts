@@ -72,11 +72,7 @@ describe('JSON Repair Integration', () => {
                     "args": {
                         "summary": "这是一个包含\n换行符的\n复杂JSON",
                         "completionType": "FULLY_COMPLETED",
-                        "nextStepType": "TASK_FINISHED",
-                        "deliverables": [
-                            "文档已创建",
-                            "包含多个\n换行符"
-                        ]
+                        "nextStepType": "TASK_FINISHED"
                     }
                 }
             ]
@@ -178,11 +174,6 @@ describe('JSON Repair Integration', () => {
                         "completionType": "FULLY_COMPLETED",
                         "nextStepType": "TASK_FINISHED", 
                         "summary": "SRS文档创建完成，包含所有必要章节：\n1. 引言\n2. 整体说明\n3. 功能需求\n4. 非功能性需求\n5. 验收标准",
-                        "deliverables": [
-                            "SRS.md - 完整的软件需求规格说明书",
-                            "功能需求表格 - 包含23个详细需求项",
-                            "非功能性需求表格 - 包含性能、安全、可用性需求"
-                        ],
                         "contextForNext": {
                             "projectState": {
                                 "phase": "requirements_complete",
@@ -198,7 +189,5 @@ describe('JSON Repair Integration', () => {
         const parsed = JSON.parse(repaired);
         expect(parsed.tool_calls).toBeDefined();
         expect(parsed.tool_calls[0].name).toBe('taskComplete');
-        expect(parsed.tool_calls[0].args.deliverables).toBeDefined();
-        expect(parsed.tool_calls[0].args.deliverables.length).toBe(3);
     });
 }); 

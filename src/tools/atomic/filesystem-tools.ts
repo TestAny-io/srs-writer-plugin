@@ -140,11 +140,11 @@ export const appendTextToFileToolDefinition = {
     interactionType: 'confirmation',
     riskLevel: 'medium',
     requiresConfirmation: true,
-    // 🚀 访问控制：追加文件是写操作，需要明确执行权限
+    // 🚀 访问控制：追加文件是写操作，不暴露给specialist
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的文件操作任务
-        CallerType.SPECIALIST,                    // 专家工具需要生成内容
         CallerType.DOCUMENT                       // 文档层的核心功能
+        // 注意：移除了CallerType.SPECIALIST，specialist应使用高层文档工具
     ]
 };
 
@@ -300,7 +300,7 @@ export async function createDirectory(args: {
  */
 export const listFilesToolDefinition = {
     name: "listFiles",
-    description: "List all files and directories in a directory",
+    description: "List all files and directories in a specific directory",
     parameters: {
         type: "object",
         properties: {
@@ -345,6 +345,162 @@ export async function listFiles(args: { path: string }): Promise<{
         return { success: true, files };
     } catch (error) {
         const errorMsg = `Failed to list files in ${args.path}: ${(error as Error).message}`;
+        logger.error(errorMsg);
+        return { success: false, error: errorMsg };
+    }
+}
+
+/**
+ * Recursively list all files and directories
+ */
+export const listAllFilesToolDefinition = {
+    name: "listAllFiles",
+    description: "Recursively list all non-hidden files and directories from workspace root (automatically excludes all hidden directories starting with '.')",
+    parameters: {
+        type: "object",
+        properties: {
+            maxDepth: {
+                type: "number",
+                description: "Maximum recursion depth to prevent excessively deep directory structures, defaults to 10 levels",
+                default: 10
+            },
+            maxItems: {
+                type: "number",
+                description: "Maximum number of items to prevent excessively long output, defaults to 1000",
+                default: 1000
+            },
+            excludePatterns: {
+                type: "array",
+                items: { type: "string" },
+                description: "Array of directory/file patterns to exclude, defaults to common non-source directories",
+                default: ["node_modules", "coverage", "dist", "build"]
+            },
+            dirsOnly: {
+                type: "boolean",
+                description: "Whether to return only directory structure (excluding files), defaults to false",
+                default: false
+            }
+        }
+    },
+    // 🚀 智能分类属性
+    interactionType: 'autonomous',
+    riskLevel: 'low',
+    requiresConfirmation: false,
+    // 🚀 Access control: Consistent with listFiles, safe query operation
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // Key tool for AI project structure exploration
+        CallerType.SPECIALIST,                    // Specialists exploring project structure
+        CallerType.DOCUMENT                       // Document layer needs to understand file structure
+    ]
+};
+
+export async function listAllFiles(args: {
+    maxDepth?: number;
+    maxItems?: number;
+    excludePatterns?: string[];
+    dirsOnly?: boolean;
+}): Promise<{
+    success: boolean;
+    structure?: {
+        paths: string[];
+        totalCount: number;
+        truncated: boolean;
+        depth: number;
+    };
+    error?: string;
+}> {
+    try {
+        const workspaceFolder = getCurrentWorkspaceFolder();
+        if (!workspaceFolder) {
+            return { success: false, error: 'No workspace folder is open' };
+        }
+
+        const {
+            maxDepth = 10,
+            maxItems = 1000,
+            excludePatterns = ["node_modules", "coverage", "dist", "build"],
+            dirsOnly = false
+        } = args;
+
+        // 🚀 固定从workspace根目录开始扫描
+        const startPath = '.';
+
+        const results: string[] = [];
+        let totalCount = 0;
+        let maxDepthReached = 0;
+
+        // Helper function: Check if a file/directory should be excluded
+        function shouldExclude(name: string, patterns: string[]): boolean {
+            return patterns.some(pattern => {
+                if (pattern.includes('*')) {
+                    // Simple wildcard matching
+                    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+                    return regex.test(name);
+                }
+                return name === pattern;
+            });
+        }
+
+        // Recursively traverse directory
+        async function traverseDirectory(relativePath: string, currentDepth: number): Promise<void> {
+            if (currentDepth > maxDepth || totalCount >= maxItems) {
+                return;
+            }
+
+            maxDepthReached = Math.max(maxDepthReached, currentDepth);
+
+            try {
+                const dirUri = relativePath === '.'
+                    ? workspaceFolder!.uri
+                    : vscode.Uri.joinPath(workspaceFolder!.uri, relativePath);
+
+                const entries = await vscode.workspace.fs.readDirectory(dirUri);
+
+                for (const [name, type] of entries) {
+                    // Skip hidden files and excluded patterns
+                    if (name.startsWith('.') || shouldExclude(name, excludePatterns)) {
+                        continue;
+                    }
+
+                    if (totalCount >= maxItems) break;
+
+                    const fullPath = relativePath === '.' ? name : `${relativePath}/${name}`;
+                    const isDirectory = type === vscode.FileType.Directory;
+
+                    // Add to results based on dirsOnly parameter
+                    if (!dirsOnly || isDirectory) {
+                        results.push(fullPath);
+                        totalCount++;
+                    }
+
+                    // Recursively process subdirectories
+                    if (isDirectory) {
+                        await traverseDirectory(fullPath, currentDepth + 1);
+                    }
+                }
+            } catch (error) {
+                // Ignore inaccessible directories, log warning but continue processing
+                logger.warn(`Cannot access directory: ${relativePath} - ${(error as Error).message}`);
+            }
+        }
+
+        await traverseDirectory(startPath, 0);
+
+        logger.info(`✅ Listed ${results.length} items recursively from: ${startPath} (depth: ${maxDepthReached})`);
+
+        return {
+            success: true,
+            structure: {
+                paths: results.sort(), // Sort alphabetically for easy viewing
+                totalCount: results.length,
+                truncated: totalCount >= maxItems,
+                depth: maxDepthReached
+            }
+        };
+
+    } catch (error) {
+        const errorMsg = `Failed to list all files from workspace root: ${(error as Error).message}`;
         logger.error(errorMsg);
         return { success: false, error: errorMsg };
     }
@@ -501,6 +657,7 @@ export const filesystemToolDefinitions = [
     appendTextToFileToolDefinition,
     createDirectoryToolDefinition,
     listFilesToolDefinition,
+    listAllFilesToolDefinition,
     deleteFileToolDefinition,
     renameFileToolDefinition
 ];
@@ -510,6 +667,7 @@ export const filesystemToolImplementations = {
     appendTextToFile,
     createDirectory,
     listFiles,
+    listAllFiles,
     deleteFile,
     renameFile,
     _internalReadFile

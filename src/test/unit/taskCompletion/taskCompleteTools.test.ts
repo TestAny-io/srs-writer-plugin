@@ -16,7 +16,6 @@ describe('taskComplete Tool', () => {
       expect(required).toContain('completionType');
       expect(required).toContain('nextStepType');
       expect(required).toContain('summary');
-      expect(required).toContain('deliverables');
     });
   });
 
@@ -25,8 +24,7 @@ describe('taskComplete Tool', () => {
       const params = {
         completionType: TaskCompletionType.FULLY_COMPLETED,
         nextStepType: NextStepType.TASK_FINISHED,
-        summary: 'SRS document completed successfully',
-        deliverables: ['project/SRS.md', 'Functional requirements: 10 items']
+        summary: 'SRS document completed successfully'
       };
 
       const result = await taskComplete(params);
@@ -35,7 +33,6 @@ describe('taskComplete Tool', () => {
         completionType: TaskCompletionType.FULLY_COMPLETED,
         nextStepType: NextStepType.TASK_FINISHED,
         summary: 'SRS document completed successfully',
-        deliverables: ['project/SRS.md', 'Functional requirements: 10 items'],
         nextStepDetails: undefined,
         contextForNext: undefined
       });
@@ -46,7 +43,6 @@ describe('taskComplete Tool', () => {
         completionType: TaskCompletionType.READY_FOR_NEXT,
         nextStepType: NextStepType.HANDOFF_TO_SPECIALIST,
         summary: 'SRS completed, need prototype',
-        deliverables: ['project/SRS.md'],
         nextStepDetails: {
           specialistType: '300_prototype',
           taskDescription: 'Create interactive prototype'
@@ -67,30 +63,19 @@ describe('taskComplete Tool', () => {
       const params = {
         completionType: TaskCompletionType.FULLY_COMPLETED,
         nextStepType: NextStepType.TASK_FINISHED,
-        summary: '',
-        deliverables: ['project/SRS.md']
+        summary: ''
       };
 
       await expect(taskComplete(params)).rejects.toThrow('summary is required and cannot be empty');
     });
 
-    test('should throw error for invalid deliverables', async () => {
-      const params: any = {
-        completionType: TaskCompletionType.FULLY_COMPLETED,
-        nextStepType: NextStepType.TASK_FINISHED,
-        summary: 'Task completed',
-        deliverables: null
-      };
 
-      await expect(taskComplete(params)).rejects.toThrow('deliverables must be a non-empty array');
-    });
 
     test('should handle user interaction scenario', async () => {
       const params = {
         completionType: TaskCompletionType.REQUIRES_REVIEW,
         nextStepType: NextStepType.USER_INTERACTION,
         summary: 'SRS ready for review',
-        deliverables: ['project/SRS.md'],
         nextStepDetails: {
           userQuestion: 'Please confirm the technology stack choice'
         }

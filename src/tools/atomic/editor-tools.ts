@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
+import { CallerType } from '../../types/index';
 
 /**
  * 编辑器操作工具 - 基于 vscode.window 和 vscode.workspace API
@@ -27,7 +28,14 @@ export const getActiveDocumentContentToolDefinition = {
         type: "object",
         properties: {},
         required: []
-    }
+    },
+    // 🚀 访问控制：底层编辑器操作，不暴露给specialist
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以直接使用
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 用于代码查看分析
+        CallerType.DOCUMENT                       // 文档层包装使用
+        // 注意：移除了CallerType.SPECIALIST，specialist应使用高层抽象
+    ]
 };
 
 export async function getActiveDocumentContent(): Promise<{ 

@@ -90,7 +90,7 @@ export class SpecialistExecutor {
             // 内部迭代状态管理（仅为单个任务）
             let internalHistory: string[] = [];
             let iteration = 0;
-            const MAX_INTERNAL_ITERATIONS = 5; // 单个任务的迭代限制
+            const MAX_INTERNAL_ITERATIONS = 8; // 单个任务的迭代限制
 
             while (iteration < MAX_INTERNAL_ITERATIONS) {
                 iteration++;
@@ -238,7 +238,7 @@ export class SpecialistExecutor {
                         let requiresFileEditing = false;
                         let editInstructions = undefined;
                         let targetFile = undefined;
-                        let content = undefined;
+
                         let structuredData = taskResult;
                         
                         // 检查contextForNext.projectState中是否有文件编辑信息
@@ -252,7 +252,6 @@ export class SpecialistExecutor {
                                 editInstructions = this.processEditInstructions(projectState.edit_instructions);
                                 
                                 targetFile = projectState.target_file;
-                                content = projectState.content;
                                 structuredData = projectState.structuredData || taskResult;
                             } else if (projectState.requires_file_editing === false) {
                                 requiresFileEditing = false;
@@ -272,7 +271,7 @@ export class SpecialistExecutor {
                         
                         return {
                             success: true,
-                            content: content || taskResult?.summary || '任务已完成',
+                            content: taskResult?.summary || '任务已完成',
                             requires_file_editing: requiresFileEditing, // ✅ 智能判断，不再硬编码
                             edit_instructions: editInstructions,
                             target_file: targetFile,
@@ -347,7 +346,11 @@ export class SpecialistExecutor {
             const specialistType = this.mapSpecialistIdToType(specialistId);
             this.logger.info(`🔍 [DEBUG] Mapped to type: ${JSON.stringify(specialistType)}`);
             
-            // 2. 构建SpecialistContext
+            // 2. 获取可用工具定义 (方案一：为TOOLS_JSON_SCHEMA模板变量准备数据)
+            const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
+            this.logger.info(`🛠️ [DEBUG] Retrieved ${toolsInfo.definitions.length} tool definitions for specialist context`);
+            
+            // 3. 构建SpecialistContext
             const specialistContext: SpecialistContext = {
                 userRequirements: context.userInput || context.currentStep?.description || '',
                 language: context.currentStep?.language || 'en-US',  // 🚀 新增：language参数传递，默认为en-US
@@ -360,11 +363,14 @@ export class SpecialistExecutor {
                     projectName: context.sessionData?.projectName || 'Unknown',
                     baseDir: context.sessionData?.baseDir || '',
                     timestamp: new Date().toISOString()
-                }
+                },
+                // 🚀 方案一实现：直接将工具schema作为模板变量数据传入
+                TOOLS_JSON_SCHEMA: toolsInfo.jsonSchema
             };
             
-            // 3. 调用PromptAssemblyEngine组装提示词
+            // 4. 调用PromptAssemblyEngine组装提示词
             this.logger.info(`🔍 [DEBUG] Calling promptAssemblyEngine.assembleSpecialistPrompt...`);
+            this.logger.info(`🔍 [DEBUG] SpecialistContext contains TOOLS_JSON_SCHEMA: ${!!specialistContext.TOOLS_JSON_SCHEMA}`);
             const assembledPrompt = await this.promptAssemblyEngine.assembleSpecialistPrompt(
                 specialistType,
                 specialistContext
@@ -723,16 +729,138 @@ ${context.dependentResults?.length > 0
                 this.logger.info(`✅ 工具 ${toolCall.name} 执行成功`);
                 
             } catch (error) {
-                this.logger.error(`❌ 工具 ${toolCall.name} 执行失败`, error as Error);
+                const e = error as Error;
+                const originalError = e.message;
+                
+                // 🚀 智能错误增强机制 - Phase 1 & 2
+                // 将技术错误转换为AI可理解的行动指导
+                let enhancedErrorMessage = this.enhanceErrorMessage(toolCall.name, originalError);
+                
+                this.logger.error(`❌ 工具 ${toolCall.name} 执行失败`, e);
+                this.logger.info(`🔍 错误增强: "${originalError}" => "${enhancedErrorMessage}"`);
+                
                 results.push({
                     toolName: toolCall.name,
                     success: false,
-                    error: (error as Error).message
+                    error: enhancedErrorMessage
                 });
             }
         }
 
         return results;
+    }
+
+    /**
+     * 🚀 智能错误增强机制 - Phase 1 & 2
+     * 将技术错误转换为AI可理解的行动指导
+     */
+    private enhanceErrorMessage(toolName: string, originalError: string): string {
+        const errorLower = originalError.toLowerCase();
+        
+        // ====== Phase 1: 战略性错误（AI必须改变策略）======
+        
+        // 1. 工具不存在错误 - 最高优先级
+        if (originalError.includes('Tool implementation not found')) {
+            return `CRITICAL ERROR: Tool '${toolName}' does not exist in the system. This is NOT a temporary failure. You MUST:
+1. Stop retrying this tool immediately
+2. Review your available tool list carefully
+3. Select a valid tool name to accomplish your task
+4. Do NOT attempt to use '${toolName}' again
+Original error: ${originalError}`;
+        }
+        
+        // 2. 参数相关错误
+        if (errorLower.includes('missing required parameter') || 
+            errorLower.includes('parameter') && errorLower.includes('required')) {
+            return `PARAMETER ERROR: Tool '${toolName}' is missing required parameters. This is a format issue, NOT a system failure. You MUST:
+1. Check the tool's parameter schema carefully
+2. Provide ALL required arguments with correct types
+3. Retry with properly formatted parameters
+Original error: ${originalError}`;
+        }
+        
+        // 3. 工作区错误
+        if (errorLower.includes('workspace') || errorLower.includes('工作区') || 
+            originalError.includes('No workspace folder is open')) {
+            return `WORKSPACE ERROR: No workspace is open or accessible. This requires USER ACTION, not retrying. You SHOULD:
+1. Inform the user that a workspace folder must be opened
+2. Ask the user to open a project folder in VS Code
+3. Do NOT retry this operation until workspace is available
+Original error: ${originalError}`;
+        }
+        
+        // ====== Phase 2: 配置和操作错误 ======
+        
+        // 4. 文件操作错误
+        if (errorLower.includes('file not found') || errorLower.includes('无法读取文件') ||
+            errorLower.includes('enoent') || errorLower.includes('path') && errorLower.includes('not found')) {
+            return `FILE ERROR: File or path does not exist. This is a path issue, NOT a temporary failure. You SHOULD:
+1. Verify the file path is correct
+2. Use a file listing tool to check available files
+3. Create the file first if it needs to exist
+4. Do NOT retry with the same invalid path
+Original error: ${originalError}`;
+        }
+        
+        // 5. 权限错误
+        if (errorLower.includes('permission') || errorLower.includes('access denied') ||
+            errorLower.includes('eacces') || errorLower.includes('unauthorized')) {
+            return `PERMISSION ERROR: Access denied due to insufficient permissions. This is a system configuration issue that retrying won't fix. You SHOULD:
+1. Inform the user about the permission issue
+2. Suggest the user check file/folder permissions
+3. Do NOT retry the same operation
+Original error: ${originalError}`;
+        }
+        
+        // 6. 行号范围错误（编辑相关）
+        if (errorLower.includes('行号') && errorLower.includes('超出') ||
+            errorLower.includes('line number') && errorLower.includes('out of range')) {
+            return `EDIT ERROR: Line number is out of file range. This is a calculation error, NOT a system failure. You MUST:
+1. Read the target file first to get correct line counts
+2. Recalculate the line numbers based on actual file content
+3. Retry with valid line numbers within file range
+Original error: ${originalError}`;
+        }
+        
+        // 7. JSON格式错误
+        if (errorLower.includes('json') && (errorLower.includes('parse') || errorLower.includes('invalid') || errorLower.includes('syntax'))) {
+            return `FORMAT ERROR: Invalid JSON format in tool parameters. This is a syntax error, NOT a system failure. You MUST:
+1. Review and fix the JSON structure in your tool call
+2. Ensure proper quotes, brackets, and commas
+3. Retry with correctly formatted JSON
+Original error: ${originalError}`;
+        }
+        
+        // 8. 语义编辑特定错误
+        if (errorLower.includes('semantic editing failed') || errorLower.includes('语义编辑失败')) {
+            return `SEMANTIC EDIT ERROR: Semantic editing approach failed. You SHOULD try alternative approach:
+1. Use traditional line-based editing instead
+2. Read the file first to get specific line numbers
+3. Create precise line-by-line edit instructions
+4. Do NOT retry semantic editing for this content
+Original error: ${originalError}`;
+        }
+        
+        // 9. 编辑指令格式错误
+        if (errorLower.includes('指令') && (errorLower.includes('格式') || errorLower.includes('无效')) ||
+            errorLower.includes('instruction') && errorLower.includes('invalid')) {
+            return `EDIT INSTRUCTION ERROR: Edit instruction format is invalid. This is a structure error, NOT a system failure. You MUST:
+1. Review the required edit instruction format
+2. Ensure all required fields are present (action, lines, content)
+3. Use correct action types ('insert' or 'replace')
+4. Retry with properly structured edit instructions
+Original error: ${originalError}`;
+        }
+        
+        // ====== 默认增强（未匹配的错误）======
+        // 为未明确分类的错误提供基本指导
+        return `EXECUTION ERROR: Tool '${toolName}' failed with: ${originalError}
+
+SUGGESTED ACTIONS:
+1. Check if the tool parameters are correctly formatted
+2. Verify any file paths or references exist
+3. Consider if the operation requires specific prerequisites
+4. If error persists, try a different approach or inform the user`;
     }
 
     // ============================================================================

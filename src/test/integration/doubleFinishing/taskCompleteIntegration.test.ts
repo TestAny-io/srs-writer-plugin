@@ -57,8 +57,7 @@ describe('TaskComplete Integration Tests', () => {
         result: {
           completionType: TaskCompletionType.FULLY_COMPLETED,
           nextStepType: NextStepType.TASK_FINISHED,
-          summary: 'SRS document completed successfully',
-          deliverables: ['project/SRS.md']
+          summary: 'SRS document completed successfully'
         }
       });
 
@@ -82,8 +81,7 @@ describe('TaskComplete Integration Tests', () => {
             args: {
               completionType: 'FULLY_COMPLETED',
               nextStepType: 'TASK_FINISHED',
-              summary: 'SRS document completed successfully',
-              deliverables: ['project/SRS.md']
+              summary: 'SRS document completed successfully'
             }
           }
         ]
@@ -131,7 +129,6 @@ describe('TaskComplete Integration Tests', () => {
           completionType: TaskCompletionType.READY_FOR_NEXT,
           nextStepType: NextStepType.HANDOFF_TO_SPECIALIST,
           summary: 'SRS completed, need prototype',
-          deliverables: ['project/SRS.md'],
           nextStepDetails: {
             specialistType: '300_prototype',
             taskDescription: 'Create interactive prototype'
@@ -153,7 +150,6 @@ describe('TaskComplete Integration Tests', () => {
               completionType: 'READY_FOR_NEXT',
               nextStepType: 'HANDOFF_TO_SPECIALIST',
               summary: 'SRS completed, need prototype',
-              deliverables: ['project/SRS.md'],
               nextStepDetails: {
                 specialistType: '300_prototype',
                 taskDescription: 'Create interactive prototype'
@@ -198,7 +194,6 @@ describe('TaskComplete Integration Tests', () => {
           completionType: TaskCompletionType.REQUIRES_REVIEW,
           nextStepType: NextStepType.USER_INTERACTION,
           summary: 'SRS ready for review',
-          deliverables: ['project/SRS.md'],
           nextStepDetails: {
             userQuestion: 'Please confirm the technology stack choice'
           }
@@ -216,7 +211,6 @@ describe('TaskComplete Integration Tests', () => {
               completionType: 'REQUIRES_REVIEW',
               nextStepType: 'USER_INTERACTION',
               summary: 'SRS ready for review',
-              deliverables: ['project/SRS.md'],
               nextStepDetails: {
                 userQuestion: 'Please confirm the technology stack choice'
               }
@@ -260,8 +254,7 @@ describe('TaskComplete Integration Tests', () => {
         result: {
           completionType: TaskCompletionType.FULLY_COMPLETED,
           nextStepType: NextStepType.TASK_FINISHED,
-          summary: 'Task completed',
-          deliverables: ['test.md']
+          summary: 'Task completed'
         }
       });
 

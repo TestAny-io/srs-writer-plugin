@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
+import { CallerType } from '../../types/index';
 
 /**
  * 用户交互工具 - 基于 vscode.window API
@@ -32,7 +33,14 @@ export const showInformationMessageToolDefinition = {
             }
         },
         required: ["message"]
-    }
+    },
+    // 🚀 访问控制：用户消息显示，不暴露给specialist
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以显示状态信息
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 回答用户问题时可能需要显示信息
+        CallerType.DOCUMENT                       // 文档层工具可能需要提示用户
+        // 注意：移除了CallerType.SPECIALIST，specialist应通过taskComplete等方式传递消息
+    ]
 };
 
 export async function showInformationMessage(args: { message: string }): Promise<{ success: boolean }> {
@@ -56,7 +64,14 @@ export const showWarningMessageToolDefinition = {
             }
         },
         required: ["message"]
-    }
+    },
+    // 🚀 访问控制：警告消息显示，不暴露给specialist
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以显示警告
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 回答用户问题时可能需要显示警告
+        CallerType.DOCUMENT                       // 文档层工具可能需要警告用户
+        // 注意：移除了CallerType.SPECIALIST，specialist应通过taskComplete等方式传递警告
+    ]
 };
 
 export async function showWarningMessage(args: { message: string }): Promise<{ success: boolean }> {

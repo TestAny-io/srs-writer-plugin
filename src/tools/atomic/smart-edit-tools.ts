@@ -118,11 +118,11 @@ export const findAndReplaceToolDefinition = {
     interactionType: 'autonomous',
     riskLevel: 'medium',
     requiresConfirmation: false,
-    // 🚀 访问控制：智能查找替换是强大的编辑操作
+    // 🚀 访问控制：智能查找替换是强大的编辑操作，不暴露给specialist
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的查找替换任务
-        CallerType.SPECIALIST,                    // 专家需要智能修改代码
         CallerType.DOCUMENT                       // 文档层的智能编辑
+        // 注意：移除了CallerType.SPECIALIST，specialist应使用语义编辑等高层工具
     ]
 };
 
@@ -318,12 +318,12 @@ export const findInFileToolDefinition = {
     interactionType: 'autonomous',
     riskLevel: 'low',
     requiresConfirmation: false,
-    // 🚀 访问控制：查找是安全的操作
+    // 🚀 访问控制：查找是安全的操作，但不暴露给specialist
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 用户询问"某个函数在哪里"
-        CallerType.SPECIALIST,
         CallerType.DOCUMENT
+        // 注意：移除了CallerType.SPECIALIST，specialist应使用高层抽象工具
     ]
 };
 
@@ -482,11 +482,11 @@ export const replaceInSelectionToolDefinition = {
     interactionType: 'autonomous',
     riskLevel: 'low',
     requiresConfirmation: false,
-    // 🚀 访问控制：选区替换是精确的操作
+    // 🚀 访问控制：选区替换是精确的操作，不暴露给specialist
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.SPECIALIST,
         CallerType.DOCUMENT
+        // 注意：移除了CallerType.SPECIALIST，specialist应使用语义编辑等高层工具
     ]
 };
 

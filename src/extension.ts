@@ -228,9 +228,9 @@ async function showEnhancedStatus(): Promise<void> {
                 detail: '项目信息、引擎状态、同步状态'
             },
             {
-                label: '$(report) 详细报告',
-                description: '生成完整状态报告',
-                detail: '所有组件状态、配置信息、性能数据'
+                label: '$(arrow-swap) 切换项目',
+                description: '切换到workspace中的其他项目',
+                detail: '扫描项目列表，archive当前session，创建新session'
             },
             {
                 label: '$(sync) 同步状态检查', 
@@ -253,8 +253,8 @@ async function showEnhancedStatus(): Promise<void> {
             case '$(dashboard) 快速概览':
                 await showQuickOverview();
                 break;
-            case '$(report) 详细报告':
-                await showDetailedReport();
+            case '$(arrow-swap) 切换项目':
+                await switchProject();
                 break;
             case '$(sync) 同步状态检查':
                 await showSyncStatus();
@@ -305,73 +305,7 @@ ${syncStatus.inconsistencies.length > 0 ? `• 问题: ${syncStatus.inconsistenc
     vscode.window.showInformationMessage(statusMessage);
 }
 
-/**
- * 显示详细报告
- */
-async function showDetailedReport(): Promise<void> {
-    const session = await sessionManager.getCurrentSession();
-    const orchestratorStatus = await orchestrator.getSystemStatus();
-    const syncStatus = await sessionManager.checkSyncStatus();
-    const observerStats = sessionManager.getObserverStats();
-    const chatStatus = chatParticipant ? await chatParticipant.getStatus() : '聊天参与者未初始化';
-    
-    const channel = vscode.window.createOutputChannel('SRS Writer 详细状态');
-    channel.show();
-    channel.clear();
-    
-    const report = `
-=== SRS Writer v3.0 详细状态报告 ===
-生成时间: ${new Date().toLocaleString()}
 
-📊 会话管理器状态
-  单例模式: ✅ 已启用
-  当前项目: ${session?.projectName || '无'}
-  基础目录: ${session?.baseDir || '无'}
-  活跃文件: ${session?.activeFiles.length || 0}个
-  创建时间: ${session?.metadata.created || 'N/A'}
-  最后修改: ${session?.metadata.lastModified || 'N/A'}
-  会话版本: ${session?.metadata.version || 'N/A'}
-  SRS版本: ${session?.metadata.srsVersion || 'N/A'}
-
-🔄 观察者模式状态
-  活跃观察者: ${observerStats.count}个
-  观察者类型: ${observerStats.types.join(', ')}
-
-🚀 同步状态检查
-  数据一致性: ${syncStatus.isConsistent ? '✅ 正常' : '❌ 异常'}
-  检查时间: ${syncStatus.lastSyncCheck}
-  ${syncStatus.inconsistencies.length > 0 ? `发现问题:\n  ${syncStatus.inconsistencies.map(i => `• ${i}`).join('\n  ')}` : '  无同步问题'}
-
-🤖 Orchestrator状态
-  架构版本: ${orchestratorStatus.version}
-  运行模式: ${orchestratorStatus.mode}
-  状态: ${orchestratorStatus.status}
-  能力: ${orchestratorStatus.capabilities?.join(', ') || 'N/A'}
-
-💬 聊天参与者状态
-${chatStatus}
-
-🔧 系统配置
-  工作区路径: ${vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '无'}
-  扩展版本: v3.0
-  架构模式: 单例SessionManager + 观察者模式
-
-📋 性能指标
-  内存中会话对象: ${session ? '1个' : '0个'}
-  文件同步频率: 实时
-  观察者通知延迟: <1ms
-  状态检查耗时: ${Date.now() - new Date(syncStatus.lastSyncCheck).getTime()}ms
-
-💡 建议操作
-  ${syncStatus.isConsistent ? '• 系统运行正常，可以开始使用' : '• 建议执行"Force Sync Context"修复同步问题'}
-  • 使用 Cmd+Shift+P → "SRS Writer: Force Sync Context" 手动同步
-  • 使用 @srs-writer 在聊天中开始智能对话
-
-=== 报告结束 ===
-    `;
-    
-    channel.appendLine(report);
-}
 
 /**
  * 显示同步状态
@@ -588,6 +522,146 @@ async function viewArchiveHistoryCommand(): Promise<void> {
     } catch (error) {
         logger.error('Failed to view archive history', error as Error);
         vscode.window.showErrorMessage(`查看归档失败: ${(error as Error).message}`);
+    }
+}
+
+/**
+ * 🚀 v4.0新增：工作空间项目信息
+ */
+interface WorkspaceProject {
+    name: string;
+    baseDir: string;
+    isCurrentProject: boolean;
+}
+
+/**
+ * 🚀 v4.0新增：扫描workspace中的项目
+ */
+async function scanWorkspaceProjects(): Promise<WorkspaceProject[]> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        return [];
+    }
+
+    const projects: WorkspaceProject[] = [];
+    const currentSession = await sessionManager.getCurrentSession();
+    const currentProjectName = currentSession?.projectName;
+
+    // 扫描workspace根目录下的子文件夹
+    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+    
+    try {
+        const items = await vscode.workspace.fs.readDirectory(workspaceFolders[0].uri);
+        
+        for (const [itemName, fileType] of items) {
+            // 只处理文件夹，跳过文件和隐藏文件夹
+            if (fileType === vscode.FileType.Directory && !itemName.startsWith('.')) {
+                // 检查是否像项目文件夹
+                if (isLikelyProjectDirectory(itemName)) {
+                    projects.push({
+                        name: itemName,
+                        baseDir: `${workspaceRoot}/${itemName}`,
+                        isCurrentProject: itemName === currentProjectName
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        logger.error('Failed to scan workspace projects', error as Error);
+    }
+
+    // 如果当前有项目但不在扫描列表中，添加它
+    if (currentProjectName && !projects.find(p => p.name === currentProjectName)) {
+        projects.push({
+            name: currentProjectName,
+            baseDir: currentSession?.baseDir || `${workspaceRoot}/${currentProjectName}`,
+            isCurrentProject: true
+        });
+    }
+
+    return projects;
+}
+
+/**
+ * 检测文件夹是否像项目目录
+ */
+function isLikelyProjectDirectory(dirName: string): boolean {
+    const projectIndicators = [
+        'project', 'srs-', '项目', 'webapp', 'app', 'system', '系统',
+        'Project', 'SRS', 'System', 'App', 'Web'
+    ];
+    
+    const lowerName = dirName.toLowerCase();
+    return projectIndicators.some(indicator => 
+        lowerName.includes(indicator.toLowerCase())
+    ) || dirName.length > 3; // 或者名称足够长（可能是项目名）
+}
+
+/**
+ * 🚀 v4.0新增：切换项目功能
+ */
+async function switchProject(): Promise<void> {
+    try {
+        const currentSession = await sessionManager.getCurrentSession();
+        const currentProjectName = currentSession?.projectName || '无项目';
+
+        const projects = await scanWorkspaceProjects();
+        const projectItems = projects.map(project => ({
+            label: `📁 ${project.name}${project.isCurrentProject ? ' (当前)' : ''}`,
+            description: `基础目录: ${project.baseDir}`,
+            detail: project.isCurrentProject ? '当前活跃项目' : '可切换到此项目',
+            project
+        }));
+
+        const selectedProject = await vscode.window.showQuickPick(projectItems, {
+            placeHolder: `选择要切换到的项目 (当前: ${currentProjectName})`,
+            matchOnDescription: true,
+            matchOnDetail: true
+        });
+
+        if (!selectedProject) {
+            return;
+        }
+
+        const targetProject = selectedProject.project;
+        const targetProjectName = targetProject.name;
+
+        // 如果选择的是当前项目，无需切换
+        if (targetProject.isCurrentProject) {
+            vscode.window.showInformationMessage(`✅ 已经是当前项目: ${targetProjectName}`);
+            return;
+        }
+
+        const confirmMessage = `📁 当前项目 "${currentProjectName}" 将被归档保存，不会丢失任何文件。\n\n🚀 切换到项目 "${targetProjectName}" 吗？`;
+        const confirmed = await vscode.window.showInformationMessage(
+            confirmMessage,
+            { modal: true },
+            '切换项目',
+            '取消'
+        );
+
+        if (confirmed !== '切换项目') {
+            return;
+        }
+
+        const result = await sessionManager.archiveCurrentAndStartNew(targetProjectName);
+
+        if (result.success) {
+            const preservedCount = result.filesPreserved.length;
+            const archiveInfo = result.archivedSession ? 
+                `\n📦 原项目已归档: ${result.archivedSession.archiveFileName}` : '';
+            
+            vscode.window.showInformationMessage(
+                `✅ 项目已切换到 "${targetProjectName}"！${archiveInfo}\n💾 已保护 ${preservedCount} 个用户文件`
+            );
+            logger.info(`Project switched to ${targetProjectName}. Preserved ${preservedCount} files.`);
+        } else {
+            throw new Error(result.error || '未知错误');
+        }
+
+    } catch (error) {
+        logger.error('Failed to switch project', error as Error);
+        vscode.window.showErrorMessage(`切换项目失败: ${(error as Error).message}`);
     }
 }
 

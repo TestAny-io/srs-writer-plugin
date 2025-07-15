@@ -70,15 +70,15 @@
       },
       {
         "step": 2,
-        "description": "Create comprehensive Overall Description and Use-Case View, including system context diagrams, user journey maps, use-case diagrams, and detailed use-case specifications.",
+        "description": "Create comprehensive Overall Description, including project background, purpose, scope, success metrics and high-level system overview (Operating Environements).",
         "specialist": "overall_description_writer",
         "context_dependencies": [1],
-        "output_chapter_titles": ["2. Overall Description"， "3. Use-Case View"],
+        "output_chapter_titles": ["2. Overall Description"],
         "language": "zh"
       },
       {
         "step": 3,
-        "description": "Design the user journeys and write user stories for key interactions like starting a game, playing a level, and viewing scores.",
+        "description": "Design the user journeys and write user stories for key interactions like starting a game, playing a level, and viewing scores, as well as Use-Case View.",
         "specialist": "user_journey_writer",
         "context_dependencies": [1, 2],
         "output_chapter_titles": ["4. User Journey & Stories"],
@@ -102,25 +102,26 @@
       },
       {
         "step": 6,
-        "description": "Extract all defined requirements and synchronize them into the structured `requirements.yaml` file for tracking.",
-        "specialist": "requirement_syncer",
-        "context_dependencies": [1, 5],
+        "description": "Summarize ADC (assumpotions, Dependecies, Constraints) and write the Executive Summary of the SRS document, including high-level overview and key takeaways.",
+        "specialist": "summary_writer",
+        "context_dependencies": [1, 2, 3, 4, 5],
+        "output_chapter_titles": ["1. Executive Summary", "9. Assumptions, Dependencies and Constraints"],
         "language": "zh"
       },
       {
         "step": 7,
-        "description": "Write the Executive Summary of the SRS document.",
-        "specialist": "summary_writer",
+        "description": "Format the complete SRS document, generate a table of contents, and ensure professional presentation.",
+        "specialist": "doc_formatter",
         "context_dependencies": [1, 2, 3, 4, 5, 6],
         "language": "zh"
       },
       {
         "step": 8,
-        "description": "Format the complete SRS document, generate a table of contents, and ensure professional presentation.",
-        "specialist": "doc_formatter",
-        "context_dependencies": [1, 2, 3, 4, 5, 6, 7],
+        "description": "Extract all defined requirements and synchronize them into the structured `requirements.yaml` file for tracking.",
+        "specialist": "requirement_syncer",
+        "context_dependencies": [1, 2, 3, 4, 5, 6],
         "language": "zh"
-      }
+      },
     ]
   }
 }
@@ -256,12 +257,12 @@ When creating an `execution_plan`, you can delegate steps to the following speci
 
 * **Content Specialists**:
   * `project_initializer`: Initialize new projects by creating project directory, basic SRS.md framework, requirements.yaml, log files, and prototype folder. Updates session to new project context. Use this as step 1 when user wants to create a NEW project.
-  * `summary_writer`: Write the Executive Summary of the SRS document, providing high-level overview and key takeaways.
-  * `overall_description_writer`: Create comprehensive Overall Description and Use-Case View, including system context diagrams, user journey maps, use-case diagrams, and detailed use-case specifications for project overview and core behavioral framework.
+  * `summary_writer`: Summarize ADC (assumpotions, Dependecies, Constraints) and write the Executive Summary of the SRS document, including high-level overview and key takeaways.
+  * `overall_description_writer`: Create comprehensive Overall Description, including project background, purpose, scope, success metrics and high-level system overview (Operating Environements).
   * `fr_writer`: Detail core functional requirements with specific mechanics and business logic, such as game board logic, matching rules, scoring systems, and user interface interactions.
   * `nfr_writer`: Analyze use cases and functional requirements to define comprehensive system specifications, including non-functional requirements (performance, security, availability), interface requirements (authentication, payment, notification protocols), and data requirements (constraints, integrity, lifecycle management).
-  * `user_journey_writer`: Design detailed user journeys and write user stories for key interactions, covering end-to-end user experience flows and interaction scenarios.
-  * `prototype_designer`: Create Mermaid/PlantUML diagrams for system visualization and architectural representation.
+  * `user_journey_writer`: Design detailed user journeys, write user stories for key interactions, covering end-to-end user experience flows and interaction scenarios, as well as Use-Case View.
+  * `prototype_designer`: Create html code or mermaid diagrams for prototype.
 * **Process Specialists**:
   * `requirement_syncer`: For synchronizing requirements with external files (e.g., YAML).
   * `doc_formatter`: For final document formatting, linting, and TOC generation.

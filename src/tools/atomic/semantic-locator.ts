@@ -26,6 +26,9 @@ export interface SemanticTarget {
     afterContent?: string;       // 在此内容之后插入
     beforeContent?: string;      // 在此内容之前插入
     contentToRemove?: string;    // 要删除的具体内容
+    
+    // ✨ 新增：上下文锚点 - 用于精确定位重复内容
+    contextAnchor?: string;      // 例如 "req-id: FR-PDF-005"，确保在正确的上下文中定位目标内容
 }
 
 /**
@@ -75,6 +78,12 @@ export class SemanticLocator {
             this.sections = this.extractSections();
             
             logger.info(`🎯 SemanticLocator initialized with AST: ${this.sections.length} sections found`);
+            
+            // 🔍 DEBUG: 详细输出所有解析的章节信息
+            logger.info(`🔍 [DEBUG] All parsed sections:`);
+            this.sections.forEach((section, index) => {
+                logger.info(`🔍 [DEBUG] Section ${index}: "${section.name}" (level=${section.level}, lines=${section.startLine}-${section.endLine})`);
+            });
         } catch (error) {
             logger.error(`Failed to parse markdown: ${(error as Error).message}`);
             this.ast = { type: 'root', children: [] };
@@ -216,31 +225,48 @@ export class SemanticLocator {
     }
     
     /**
+     * 标准化章节名称，去除markdown前缀以提高匹配容错性
+     * @param sectionName 原始章节名称
+     * @returns 标准化后的章节名称
+     */
+    private normalizeSectionName(sectionName: string): string {
+        return sectionName
+            .toLowerCase()
+            .trim()
+            .replace(/^#{1,6}\s*/, '')        // 去除 # ## ### 等markdown标题前缀
+            .replace(/^[-*+]\s*/, '')         // 去除 - * + 列表前缀  
+            .trim();                          // 再次去除可能的空格
+    }
+
+    /**
      * 根据名称查找section
      * @param sectionName section名称
      * @returns 找到的section或undefined
      */
     findSectionByName(sectionName: string): ASTSectionInfo | undefined {
-        // 直接匹配
-        let section = this.sections.find(s => 
-            this.normalizeText(s.name) === this.normalizeText(sectionName)
-        );
+        // 🔍 DEBUG: 显示查找目标
+        logger.info(`🔍 [DEBUG] Searching for section: "${sectionName}"`);
         
-        if (section) {
-            return section;
+        const normalizedTargetName = this.normalizeSectionName(sectionName);
+        
+        const result = this.sections.find(section => {
+            const normalizedSectionName = this.normalizeSectionName(section.name);
+            const isMatch = normalizedSectionName === normalizedTargetName || 
+                           normalizedSectionName.includes(normalizedTargetName);
+            
+            // 🔍 DEBUG: 显示每个章节的匹配过程
+            logger.info(`🔍 [DEBUG] Comparing "${section.name}" vs "${sectionName}" (normalized: "${normalizedSectionName}" vs "${normalizedTargetName}") -> match: ${isMatch}`);
+            
+            return isMatch;
+        });
+        
+        if (result) {
+            logger.info(`🔍 [DEBUG] Found matching section: "${result.name}" (level=${result.level}, lines=${result.startLine}-${result.endLine})`);
+        } else {
+            logger.warn(`🔍 [DEBUG] No matching section found for: "${sectionName}"`);
         }
         
-        // 模糊匹配
-        section = this.sections.find(s => 
-            this.normalizeText(s.name).includes(this.normalizeText(sectionName)) ||
-            this.normalizeText(sectionName).includes(this.normalizeText(s.name))
-        );
-        
-        if (section) {
-            logger.info(`📍 Found section by fuzzy match: '${sectionName}' -> '${section.name}'`);
-        }
-        
-        return section;
+        return result;
     }
     
     /**
@@ -250,21 +276,34 @@ export class SemanticLocator {
      * @returns 插入点位置
      */
     calculateInsertionPoint(section: ASTSectionInfo, position?: 'before' | 'after'): vscode.Position {
+        // 🔍 DEBUG: 开始计算插入点
+        logger.info(`🔍 [DEBUG] Calculating insertion point for "${section.name}" with position="${position}"`);
+        logger.info(`🔍 [DEBUG] Section info: startLine=${section.startLine}, endLine=${section.endLine}, level=${section.level}`);
+        
         switch (position) {
             case 'before':
-                return new vscode.Position(section.startLine, 0);
+                const beforePos = new vscode.Position(section.startLine, 0);
+                logger.info(`🔍 [DEBUG] Before position calculated: line ${section.startLine + 1}`);
+                return beforePos;
                 
             case 'after':
+                logger.info(`🔍 [DEBUG] Calculating after position - searching for next same-level section...`);
                 // 找到下一个同级或更高级别的section
                 const nextSection = this.findNextSameLevelSection(section);
                 if (nextSection) {
-                    return new vscode.Position(nextSection.startLine - 1, 0);
+                    const afterPos = new vscode.Position(nextSection.startLine - 1, 0);
+                    logger.info(`🔍 [DEBUG] After position calculated using next section: line ${nextSection.startLine} (inserting at line ${nextSection.startLine})`);
+                    return afterPos;
                 } else {
-                    return new vscode.Position(section.endLine + 1, 0);
+                    const afterPos = new vscode.Position(section.endLine + 1, 0);
+                    logger.info(`🔍 [DEBUG] After position calculated using section end: line ${section.endLine + 2} (total lines: ${this.lines.length})`);
+                    return afterPos;
                 }
                 
             default:
-                return new vscode.Position(section.startLine, 0);
+                const defaultPos = new vscode.Position(section.startLine, 0);
+                logger.info(`🔍 [DEBUG] Default position calculated: line ${section.startLine + 1}`);
+                return defaultPos;
         }
     }
     
@@ -337,9 +376,12 @@ export class SemanticLocator {
                 };
                 
             case 'after':
+                const insertionPoint = this.calculateInsertionPoint(section, 'after');
+                logger.info(`🔍 [DEBUG] After case - insertionPoint calculated: line ${insertionPoint.line + 1}, character ${insertionPoint.character}`);
+                
                 return {
                     found: true,
-                    insertionPoint: this.calculateInsertionPoint(section, 'after'),
+                    insertionPoint: insertionPoint,
                     context: this.buildContext(section)
                 };
                 
@@ -359,16 +401,30 @@ export class SemanticLocator {
      * 查找下一个同级section
      */
     private findNextSameLevelSection(currentSection: ASTSectionInfo): ASTSectionInfo | undefined {
+        // 🔍 DEBUG: 开始查找下一个同级章节
+        logger.info(`🔍 [DEBUG] Finding next same-level section for: "${currentSection.name}" (level=${currentSection.level})`);
+        
         const currentIndex = this.sections.indexOf(currentSection);
-        if (currentIndex === -1) return undefined;
+        if (currentIndex === -1) {
+            logger.warn(`🔍 [DEBUG] Current section not found in sections array`);
+            return undefined;
+        }
+        
+        logger.info(`🔍 [DEBUG] Current section index: ${currentIndex} of ${this.sections.length} sections`);
         
         for (let i = currentIndex + 1; i < this.sections.length; i++) {
             const section = this.sections[i];
+            logger.info(`🔍 [DEBUG] Checking section ${i}: "${section.name}" (level=${section.level}) vs current level ${currentSection.level}`);
+            
             if (section.level <= currentSection.level) {
+                logger.info(`🔍 [DEBUG] Found next same-level section: "${section.name}" at index ${i}`);
                 return section;
+            } else {
+                logger.info(`🔍 [DEBUG] Skipping section "${section.name}" (level ${section.level} > ${currentSection.level})`);
             }
         }
         
+        logger.info(`🔍 [DEBUG] No next same-level section found after "${currentSection.name}"`);
         return undefined;
     }
     
@@ -438,11 +494,16 @@ export class SemanticLocator {
             
             // 处理不同类型的内容定位
             if (target.targetContent) {
-                return this.findTargetContent(section, target.targetContent, lines);
+                // ✨ 使用新的上下文感知定位方法
+                return this.findTargetContentWithContext(section, target, lines);
             }
             
             if (target.contentToRemove) {
-                return this.findTargetContent(section, target.contentToRemove, lines);
+                // ✨ 对contentToRemove也使用上下文感知定位
+                return this.findTargetContentWithContext(section, { 
+                    ...target, 
+                    targetContent: target.contentToRemove 
+                }, lines);
             }
             
             if (target.afterContent) {
@@ -487,6 +548,74 @@ export class SemanticLocator {
         }
         
         logger.warn(`❌ Target content not found: ${targetContent}`);
+        return { found: false };
+    }
+
+    /**
+     * ✨ 新增：基于上下文锚点的精确内容定位
+     * 解决重复内容定位问题：当文档中存在多个相同的targetContent时，
+     * 通过contextAnchor确保定位到正确的目标
+     */
+    private findTargetContentWithContext(section: ASTSectionInfo, target: SemanticTarget, lines: string[]): LocationResult {
+        const { targetContent, contextAnchor } = target;
+
+        if (!targetContent) {
+            logger.warn(`⚠️ targetContent is missing`);
+            return { found: false };
+        }
+
+        let anchorFound = !contextAnchor; // 如果没有提供锚点，则默认已找到
+        let anchorLineIndex = -1;
+        let searchStartIndex = 0;
+
+        // 第一遍：寻找上下文锚点
+        if (contextAnchor) {
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i].toLowerCase().includes(contextAnchor.toLowerCase())) {
+                    anchorFound = true;
+                    anchorLineIndex = i;
+                    searchStartIndex = i;
+                    logger.info(`✅ Context anchor found: "${contextAnchor}" at line ${section.startLine + i + 1}`);
+                    break;
+                }
+            }
+
+            if (!anchorFound) {
+                logger.warn(`❌ Context anchor "${contextAnchor}" not found in section`);
+                return { found: false };
+            }
+        }
+
+        // 第二遍：在锚点附近寻找目标内容
+        const searchRange = contextAnchor ? 10 : lines.length; // 锚点附近10行内搜索
+        const searchEndIndex = Math.min(lines.length, searchStartIndex + searchRange);
+
+        for (let i = searchStartIndex; i < searchEndIndex; i++) {
+            const line = lines[i];
+            const startIndex = line.toLowerCase().indexOf(targetContent.toLowerCase());
+
+            if (startIndex !== -1) {
+                const startPos = new vscode.Position(section.startLine + i, startIndex);
+                const endPos = new vscode.Position(section.startLine + i, startIndex + targetContent.length);
+                
+                if (contextAnchor) {
+                    logger.info(`✅ Found target content with context anchor: "${targetContent}" at line ${section.startLine + i + 1}, cols ${startIndex}-${startIndex + targetContent.length} (near anchor "${contextAnchor}")`);
+                } else {
+                    logger.info(`✅ Found target content: "${targetContent}" at line ${section.startLine + i + 1}, cols ${startIndex}-${startIndex + targetContent.length}`);
+                }
+                
+                return {
+                    found: true,
+                    range: new vscode.Range(startPos, endPos),
+                    context: this.buildContext(section)
+                };
+            }
+        }
+
+        const searchInfo = contextAnchor 
+            ? `within ${searchRange} lines of anchor "${contextAnchor}"`
+            : `in section`;
+        logger.warn(`❌ Target content "${targetContent}" not found ${searchInfo}`);
         return { found: false };
     }
     
@@ -604,4 +733,4 @@ export class SemanticLocator {
      * const prependTarget = SemanticLocator.createPrependToSectionTarget('项目概述');
      * ```
      */
-} 
+}

@@ -277,18 +277,29 @@ export class PlanExecutor {
 
     /**
      * 格式化步骤结果，供最终输出使用
+     * 🔧 重构：移除冗余的content和有毒的执行细节，只保留AI系统需要的核心信息
      */
     private formatStepResults(stepResults: { [key: number]: SpecialistOutput }): any {
         const formatted: any = {};
         
         for (const [stepNum, result] of Object.entries(stepResults)) {
             formatted[stepNum] = {
-                specialist: result.metadata?.specialist || 'unknown',
-                success: result.success,
-                iterations: result.metadata?.iterations || 0,
-                executionTime: result.metadata?.executionTime || 0,
-                contentLength: result.content?.length || 0,
-                hasStructuredData: !!result.structuredData
+                // ✅ 保留：AI系统需要的核心信息
+                structuredData: result.structuredData,              // 完整的语义信息
+                success: result.success,                            // 任务执行状态
+                specialist: result.metadata?.specialist || 'unknown', // 执行的specialist
+                
+                // ❌ 移除：冗余信息 (content已保存在workspace，用户可随时查看)
+                // content: result.content,                         
+                // contentLength: result.content?.length || 0,      
+                // hasStructuredData: !!result.structuredData,      
+                
+                // ❌ 移除：有毒的执行细节 (会干扰orchestrator判断)
+                // iterations: result.metadata?.iterations || 0,
+                // executionTime: result.metadata?.executionTime || 0,
+                // timestamp: result.metadata?.timestamp,
+                // iterationHistory: result.metadata?.iterationHistory,
+                // toolsUsed: result.metadata?.toolsUsed
             };
         }
         
@@ -297,6 +308,7 @@ export class PlanExecutor {
 
     /**
      * 提取最终输出（通常是最后一个步骤的内容）
+     * 🔧 重构：移除冗余的content和有毒的执行细节，只保留AI系统需要的核心信息
      */
     private extractFinalOutput(stepResults: { [key: number]: SpecialistOutput }): any {
         const stepNumbers = Object.keys(stepResults).map(Number).sort((a, b) => b - a);
@@ -304,9 +316,15 @@ export class PlanExecutor {
         
         if (lastStep && stepResults[lastStep]) {
             return {
-                content: stepResults[lastStep].content,
-                structuredData: stepResults[lastStep].structuredData,
-                metadata: stepResults[lastStep].metadata
+                // ✅ 保留：AI系统需要的核心信息
+                structuredData: stepResults[lastStep].structuredData,    // 完整的语义信息
+                specialist: stepResults[lastStep].metadata?.specialist,  // 执行的specialist
+                
+                // ❌ 移除：冗余信息 (content已保存在workspace，用户可随时查看)
+                // content: stepResults[lastStep].content,
+                
+                // ❌ 移除：有毒的执行细节 (完整的metadata包含大量执行细节)
+                // metadata: stepResults[lastStep].metadata
             };
         }
         
@@ -551,11 +569,51 @@ export class PlanExecutor {
                     } as SpecialistInteractionResult;
                 }
                 
-                // 记录本轮执行历史
+                // 🚀 统一错误处理：执行文件编辑
+                let fileEditResult: { success: boolean; error?: string; appliedCount?: number } = { success: true };
+                if (specialistOutput.requires_file_editing === true) {
+                    this.logger.info(`🔧 执行specialist的文件编辑指令 (第${loopState.currentIteration}轮)`);
+                    
+                    fileEditResult = await this.executeFileEditsInLoop(specialistOutput, currentSessionContext);
+                    
+                    if (fileEditResult.success) {
+                        // 更新session context以反映文件变化
+                        currentSessionContext = await this.refreshOrUpdateSessionContext(
+                            currentSessionContext,
+                            specialistOutput.target_file!
+                        );
+                        
+                        this.logger.info(`✅ 第${loopState.currentIteration}轮文件编辑完成: ${fileEditResult.appliedCount}个操作`);
+                    } else {
+                        this.logger.warn(`⚠️ 第${loopState.currentIteration}轮文件编辑失败: ${fileEditResult.error}`);
+                        this.logger.info(`🔄 错误将记录到历史中，AI可在下轮循环中查看并修正`);
+                    }
+                }
+
+                // 🚀 记录本轮执行历史（包含文件编辑结果）
                 const executionRecord: SpecialistExecutionHistory = {
                     iteration: loopState.currentIteration,
-                    toolCalls: enhancedContext.lastToolCalls || [], // 从SpecialistExecutor获取
-                    toolResults: enhancedContext.lastToolResults || [], // 从SpecialistExecutor获取
+                    toolCalls: enhancedContext.lastToolCalls || [],
+                    toolResults: [
+                        ...(enhancedContext.lastToolResults || []),
+                        // 🚀 新增：将文件编辑结果也作为工具结果记录
+                        ...(specialistOutput.requires_file_editing === true ? [{
+                            toolName: 'fileEdit',
+                            success: fileEditResult.success,
+                            result: fileEditResult.success 
+                                ? { 
+                                    appliedCount: fileEditResult.appliedCount, 
+                                    message: `成功应用 ${fileEditResult.appliedCount} 个编辑操作`,
+                                    targetFile: specialistOutput.target_file
+                                }
+                                : { 
+                                    error: fileEditResult.error,
+                                    targetFile: specialistOutput.target_file,
+                                    instructionCount: specialistOutput.edit_instructions?.length || 0
+                                },
+                            error: fileEditResult.success ? undefined : fileEditResult.error
+                        }] : [])
+                    ],
                     aiResponse: specialistOutput.content || '',
                     timestamp: new Date().toISOString(),
                     summary: this.extractIterationSummary(specialistOutput),
@@ -563,21 +621,6 @@ export class PlanExecutor {
                 };
                 
                 this.recordSpecialistExecution(loopState, executionRecord);
-                
-                // 🚀 关键修复：无论是否继续循环，都先执行文件编辑
-                if (specialistOutput.requires_file_editing === true) {
-                    this.logger.info(`🔧 执行specialist的文件编辑指令 (第${loopState.currentIteration}轮)`);
-                    
-                    await this.executeFileEditsInLoop(specialistOutput, currentSessionContext);
-                    
-                    // 更新session context以反映文件变化
-                    currentSessionContext = await this.refreshOrUpdateSessionContext(
-                        currentSessionContext,
-                        specialistOutput.target_file!
-                    );
-                    
-                    this.logger.info(`✅ 第${loopState.currentIteration}轮文件编辑完成`);
-                }
                 
                 // 检查是否需要继续循环
                 const shouldContinue = this.shouldContinueLoop(specialistOutput, loopState);
@@ -884,11 +927,14 @@ export class PlanExecutor {
     }
 
     /**
-     * 🚀 辅助方法：在循环内部执行文件编辑
+     * 🚀 辅助方法：在循环内部执行文件编辑 - 统一错误处理版本
      */
-    private async executeFileEditsInLoop(specialistOutput: SpecialistOutput, currentSessionContext: SessionContext): Promise<void> {
+    private async executeFileEditsInLoop(
+        specialistOutput: SpecialistOutput, 
+        currentSessionContext: SessionContext
+    ): Promise<{ success: boolean; error?: string; appliedCount?: number }> {
         if (!specialistOutput.edit_instructions || !specialistOutput.target_file) {
-            return;
+            return { success: true, appliedCount: 0 }; // 没有编辑任务算成功
         }
 
         // 🚀 使用智能路径解析替代简单拼接
@@ -900,15 +946,33 @@ export class PlanExecutor {
 
         this.logger.info(`🔍 [PATH] 智能路径解析: ${specialistOutput.target_file} -> ${fullPath}`);
 
-        // 使用现有的统一编辑执行器
-        const editResult = await executeUnifiedEdits(specialistOutput.edit_instructions, fullPath);
-        
-        if (!editResult.success) {
-            this.logger.error(`❌ 循环内文件编辑失败: ${editResult.error}`);
-            throw new Error(`文件编辑失败: ${editResult.error}`);
+        try {
+            // 使用现有的统一编辑执行器
+            const editResult = await executeUnifiedEdits(specialistOutput.edit_instructions, fullPath);
+            
+            if (!editResult.success) {
+                this.logger.error(`❌ 循环内文件编辑失败: ${editResult.error}`);
+                return { 
+                    success: false, 
+                    error: editResult.error || '文件编辑失败，原因未知',
+                    appliedCount: editResult.appliedCount || 0
+                };
+            }
+            
+            this.logger.info(`✅ 循环内文件编辑成功: ${editResult.appliedCount}个操作应用`);
+            return { 
+                success: true, 
+                appliedCount: editResult.appliedCount || 0 
+            };
+        } catch (error) {
+            const errorMessage = `文件编辑异常: ${(error as Error).message}`;
+            this.logger.error(`❌ ${errorMessage}`);
+            return { 
+                success: false, 
+                error: errorMessage,
+                appliedCount: 0
+            };
         }
-        
-        this.logger.info(`✅ 循环内文件编辑成功: ${editResult.appliedCount}个操作应用`);
     }
 
     /**

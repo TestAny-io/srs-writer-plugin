@@ -365,7 +365,7 @@ export class ConversationalExecutor {
           'finalAnswer',
           {
             summary: `任务圆满完成。${completionData.summary}`,
-            achievements: completionData.deliverables || [],
+            achievements: [completionData.summary],
             nextSteps: ['项目已完成，可以进行测试或部署'],
             taskType: 'specialist_collaboration'
           },
@@ -378,7 +378,7 @@ export class ConversationalExecutor {
           result: {
             mode: 'specialist_collaboration_completed',
             summary: completionData.summary,
-            deliverables: completionData.deliverables,
+            deliverables: [completionData.summary],
             finalResult: finalResult.result,
             collaborationType: 'single_specialist_completion'
           }
@@ -479,7 +479,7 @@ export class ConversationalExecutor {
             userInput: taskDescription,
             inheritedContext: completionData.contextForNext,
             previousSpecialistSummary: completionData.summary,
-            previousDeliverables: completionData.deliverables
+            previousDeliverables: [completionData.summary]
           }
         }
       ]

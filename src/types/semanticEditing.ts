@@ -41,6 +41,9 @@ export interface SemanticTarget {
     afterContent?: string;       // 在此内容之后插入（用于insert_line_in_section）
     beforeContent?: string;      // 在此内容之前插入
     contentToRemove?: string;    // 要删除的具体内容（用于remove_content_in_section）
+    
+    // ✨ 新增：上下文锚点 - 用于精确定位重复内容
+    contextAnchor?: string;      // 例如 "req-id: FR-PDF-005"，确保在正确的上下文中定位目标内容
 }
 
 /**

@@ -15,6 +15,7 @@ assembly_config:
   # 说明：project_initializer是特殊的specialist，负责项目初始化
   # 与其他content specialists不同，它主要执行操作而非生成内容
   specialist_type: "operational"   # operational vs content
+  specialist_name: "Project Initializer"
 ---
 
 # Project Initializer Specialist
@@ -91,7 +92,7 @@ assembly_config:
         "deliverables": [
           {
             "path": "项目名称/SRS.md",
-            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用例视图 (Use-Case View)\n待补充...\n\n## 4. 用户旅程和用户故事 (User Journeys & Stories)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
+            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories & Use-Case View)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
             "type": "markdown",
             "description": "SRS.md初始内容"
           },
@@ -168,12 +169,12 @@ SRS.md初始内容生成规则：
 - 示例：
   - 如果执行计划中指定的语言为中文，则第一章的标题必须为：## 1. 执行摘要 (Executive Summary)
   - 如果执行计划中指定的语言为英文，则第一章的标题必须为：## 1. Executive Summary
-  - 如果执行计划中指定的语言为中文，则第二章的标题必须为：## 2. 整体描述 (Overall Description)
+  - 如果执行计划中指定的语言为中文，则第二章的标题必须为：## 2. 总体描述 (Overall Description)
   - 如果执行计划中指定的语言为英文，则第二章的标题必须为：## 2. Overall Description
-  - 如果执行计划中指定的语言为中文，则第三章的标题必须为：## 3. 用例视图 (Use-Case View)
-  - 如果执行计划中指定的语言为英文，则第三章的标题必须为：## 3. Use-Case View
-  - 如果执行计划中指定的语言为中文，则第四章的标题必须为：## 4. 用户旅程和用户故事 (User Journeys & Stories)
-  - 如果执行计划中指定的语言为英文，则第四章的标题必须为：## 4. User Journeys & Stories
+  - 如果执行计划中指定的语言为中文，则第三章的标题必须为：## 3. 用户旅程 (User Journeys)
+  - 如果执行计划中指定的语言为英文，则第三章的标题必须为：## 3. User Journeys
+  - 如果执行计划中指定的语言为中文，则第四章的标题必须为：## 4. 用户故事和用例视图 (User Stories & Use-Case View)
+  - 如果执行计划中指定的语言为英文，则第四章的标题必须为：## 4. User Stories & Use-Case View
   - 如果执行计划中指定的语言为中文，则第五章的标题必须为：## 5. 功能需求 (Functional Requirements)
   - 如果执行计划中指定的语言为英文，则第五章的标题必须为：## 5. Functional Requirements
   - 如果执行计划中指定的语言为中文，则第六章的标题必须为：## 6. 非功能需求 (Non-Functional Requirements)
@@ -307,7 +308,7 @@ notes:
       "name": "writeFile", 
       "args": {
         "path": "JiraMacClient/SRS.md",
-        "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用例视图 (Use-Case View)\n待补充...\n\n## 4. 用户旅程和用户故事 (User Journeys & Stories)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*"
+        "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories & Use-Case View)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*"
       }
     },
     {
@@ -339,7 +340,7 @@ notes:
         "deliverables": [
           {
             "path": "JiraMacClient/SRS.md",
-            "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用例视图 (Use-Case View)\n待补充...\n\n## 4. 用户旅程和用户故事 (User Journeys & Stories)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
+            "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories & Use-Case View)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
             "type": "markdown",
             "description": "SRS.md初始内容"
           },
