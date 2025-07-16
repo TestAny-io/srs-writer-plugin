@@ -6,6 +6,7 @@
  * 🧠 智能错误处理：类型安全的参数验证和详细错误信息
  * ⚡ 并行执行支持：支持多个工具的并行调用优化
  * 🎯 统一接口：所有工具通过相同的接口调用，简化上层逻辑
+ * 🚀 智能成功检测：根据返回结果中的success字段判断业务操作是否成功
  */
 
 import { Logger } from '../utils/logger';
@@ -77,13 +78,13 @@ export class ToolExecutor {
 
     /**
      * 执行单个工具
-     * 🚀 升级：使用新的统一工具执行接口 + 访问控制 + model 参数支持
+     * 🚀 升级：使用新的统一工具执行接口 + 访问控制 + model 参数支持 + 智能成功检测
      */
     async executeTool(
         toolName: string, 
         args: any, 
         caller?: CallerType,
-        selectedModel?: vscode.LanguageModelChat  // 🚀 新增：支持专家工具的 model 参数
+        selectedModel?: vscode.LanguageModelChat  // �� 新增：支持专家工具的 model 参数
     ): Promise<any> {
         const startTime = Date.now();
         this.executionCount++;
@@ -126,19 +127,55 @@ export class ToolExecutor {
             const result = await toolRegistry.executeTool(toolName, toolArgs);
             
             const duration = Date.now() - startTime;
-            logger.info(`✅ Tool ${toolName} executed successfully in ${duration}ms`);
             
-            return {
-                success: true,
-                result,
-                metadata: {
-                    toolName,
-                    category: toolDefinition.category,
-                    layer: toolDefinition.layer,
-                    executionTime: duration,
-                    timestamp: this.lastExecutionTime.toISOString()
+            // 🚀 智能成功检测：检查返回结果中的success字段
+            let actualSuccess = true;
+            let errorMessage: string | undefined;
+            
+            if (result && typeof result === 'object') {
+                // 如果返回结果有success字段，使用它来判断成功/失败
+                if ('success' in result && typeof result.success === 'boolean') {
+                    actualSuccess = result.success;
+                    if (!actualSuccess && 'error' in result) {
+                        errorMessage = result.error as string;
+                    }
                 }
-            };
+                // 如果没有success字段但有error字段，也认为是失败
+                else if ('error' in result && result.error) {
+                    actualSuccess = false;
+                    errorMessage = result.error as string;
+                }
+            }
+            
+            if (actualSuccess) {
+                logger.info(`✅ Tool ${toolName} executed successfully in ${duration}ms`);
+                return {
+                    success: true,
+                    result,
+                    metadata: {
+                        toolName,
+                        category: toolDefinition.category,
+                        layer: toolDefinition.layer,
+                        executionTime: duration,
+                        timestamp: this.lastExecutionTime.toISOString()
+                    }
+                };
+            } else {
+                // 业务操作失败，但工具调用本身成功
+                logger.warn(`⚠️ Tool ${toolName} executed but operation failed: ${errorMessage}`);
+                return {
+                    success: false,
+                    error: errorMessage || `Tool ${toolName} operation failed`,
+                    result,
+                    metadata: {
+                        toolName,
+                        category: toolDefinition.category,
+                        layer: toolDefinition.layer,
+                        executionTime: duration,
+                        timestamp: this.lastExecutionTime.toISOString()
+                    }
+                };
+            }
 
         } catch (error) {
             const duration = Date.now() - startTime;

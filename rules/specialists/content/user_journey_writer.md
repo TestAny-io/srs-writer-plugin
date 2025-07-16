@@ -32,11 +32,11 @@ assembly_config:
 
 ### 步骤1：探索当前环境
 
-根据你得到的上下文，你**必须**首先选择运用合适的工具，参考output-format-schema.md中的schema通过tool_calls分步骤调用读取以下内容：
+在开始工作时，你**必须**首先了解当前环境，包括：
 
-- 需求文档的目录结构（工具：listFiles或listAllFiles）
-- 需求文档的当前内容（工具：readFile）
-- 用户提供的章节模版（工具：readLocalKnowledge）
+- 探索需求文档的目录结构（工具：listAllFiles）
+- 探索需求文档的当前内容（工具：readFile）
+- 探索用户提供的章节模版（工具：readLocalKnowledge，模版目录在工作区的`templates`目录下）
 
 ### 步骤2：分析文档状态
 
@@ -102,7 +102,7 @@ assembly_config:
 > 3. 引用/链接正确可跳转
 > 4. 通过终检后立即准备输出编辑指令
 
-### 步骤4：输出精确编辑指令 （这一步的输出必须包含且仅包含tool_calls，并调用taskComplete工具，不得输出任何其他内容）
+### 步骤4：输出JSON格式的精确编辑指令 【输出阶段】
 
 > **进入此阶段前，必须保证 Self-Review 全部通过。**  
 > **输出前，必须先检查章节索引，确保章节索引与章节内容一致。**
@@ -119,7 +119,7 @@ assembly_config:
 
 #### 4.2 文档编辑指令JSON输出格式规范
 
-**当输出文档编辑指令时，必须输出标准JSON格式，包含tool_calls调用taskComplete工具：**
+**当输出文档编辑指令时，必须输出标准JSON格式，包含tool_calls调用executeSemanticEdits工具：**
 
 #### 4.3 关键输出要求
 

@@ -48,22 +48,22 @@ describe('Semantic Edit Engine Integration', () => {
             // Step 2: Create semantic edit intents based on structure analysis
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_section',
+                    type: 'replace_entire_section',
                     target: {
                         sectionName: '功能需求',
-                        position: 'replace'
+                        startFromAnchor: '# 功能需求'
                     },
                     content: '# 功能需求\n\n这是更新后的功能需求内容。',
                     reason: '更新功能需求内容',
                     priority: 1
                 },
                 {
-                    type: 'insert_after_section',
+                    type: 'replace_entire_section',
                     target: {
                         sectionName: '用户管理',
-                        position: 'after'
+                        startFromAnchor: '## 用户管理'
                     },
-                    content: '## 权限管理\n\n新增的权限管理功能。',
+                    content: '## 用户管理\n\n用户管理功能描述。\n\n## 权限管理\n\n新增的权限管理功能。',
                     reason: '新增权限管理章节',
                     priority: 2
                 }
@@ -86,20 +86,20 @@ describe('Semantic Edit Engine Integration', () => {
         it('should handle partial editing failures gracefully', async () => {
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_section',
+                    type: 'replace_entire_section',
                     target: {
                         sectionName: '功能需求',
-                        position: 'replace'
+                        startFromAnchor: '# 功能需求'
                     },
                     content: '# 功能需求\n\n这是更新后的功能需求内容。',
                     reason: '更新功能需求内容',
                     priority: 1
                 },
                 {
-                    type: 'insert_after_section',
+                    type: 'replace_entire_section',
                     target: {
                         sectionName: '不存在的章节',
-                        position: 'after'
+                        startFromAnchor: '## 不存在的章节'
                     },
                     content: '## 新章节\n\n新增内容。',
                     reason: '新增章节',
@@ -118,10 +118,10 @@ describe('Semantic Edit Engine Integration', () => {
         it('should provide detailed metadata and execution information', async () => {
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'update_subsection',
+                    type: 'replace_entire_section',
                     target: {
                         sectionName: '用户管理',
-                        position: 'replace'
+                        startFromAnchor: '## 用户管理'
                     },
                     content: '## 用户管理\n\n更新后的用户管理内容。',
                     reason: '更新用户管理功能描述',
@@ -143,22 +143,31 @@ describe('Semantic Edit Engine Integration', () => {
         it('should execute edits in priority order', async () => {
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'insert_after_section',
-                    target: { sectionName: '功能需求' },
+                    type: 'replace_entire_section',
+                    target: { 
+                        sectionName: '功能需求',
+                        startFromAnchor: '# 功能需求'
+                    },
                     content: '## 低优先级内容',
                     reason: '低优先级编辑',
                     priority: 1
                 },
                 {
-                    type: 'replace_section',
-                    target: { sectionName: '用户管理' },
+                    type: 'replace_entire_section',
+                    target: { 
+                        sectionName: '用户管理',
+                        startFromAnchor: '## 用户管理'
+                    },
                     content: '## 高优先级内容',
                     reason: '高优先级编辑',
                     priority: 5
                 },
                 {
-                    type: 'append_to_list',
-                    target: { sectionName: '数据管理' },
+                    type: 'replace_entire_section',
+                    target: { 
+                        sectionName: '数据管理',
+                        startFromAnchor: '## 数据管理'
+                    },
                     content: '中等优先级内容',
                     reason: '中等优先级编辑',
                     priority: 3
@@ -184,7 +193,10 @@ describe('Semantic Edit Engine Integration', () => {
             const invalidIntents: SemanticEditIntent[] = [
                 {
                     type: 'invalid_type' as any,
-                    target: { sectionName: '功能需求' },
+                    target: { 
+                        sectionName: '功能需求',
+                        startFromAnchor: '# 功能需求'
+                    },
                     content: '',
                     reason: '',
                     priority: -1
@@ -206,8 +218,11 @@ describe('Semantic Edit Engine Integration', () => {
 
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_section',
-                    target: { sectionName: '功能需求' },
+                    type: 'replace_entire_section',
+                    target: { 
+                        sectionName: '功能需求',
+                        startFromAnchor: '# 功能需求'
+                    },
                     content: '新内容',
                     reason: '测试编辑',
                     priority: 1

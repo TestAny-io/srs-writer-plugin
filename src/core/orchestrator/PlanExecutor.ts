@@ -571,7 +571,7 @@ export class PlanExecutor {
                 
                 // 🚀 统一错误处理：执行文件编辑
                 let fileEditResult: { success: boolean; error?: string; appliedCount?: number } = { success: true };
-                if (specialistOutput.requires_file_editing === true) {
+                if ('requires_file_editing' in specialistOutput && specialistOutput.requires_file_editing === true) {
                     this.logger.info(`🔧 执行specialist的文件编辑指令 (第${loopState.currentIteration}轮)`);
                     
                     fileEditResult = await this.executeFileEditsInLoop(specialistOutput, currentSessionContext);
@@ -580,7 +580,7 @@ export class PlanExecutor {
                         // 更新session context以反映文件变化
                         currentSessionContext = await this.refreshOrUpdateSessionContext(
                             currentSessionContext,
-                            specialistOutput.target_file!
+                            (specialistOutput as SpecialistOutput).target_file!
                         );
                         
                         this.logger.info(`✅ 第${loopState.currentIteration}轮文件编辑完成: ${fileEditResult.appliedCount}个操作`);
@@ -597,7 +597,7 @@ export class PlanExecutor {
                     toolResults: [
                         ...(enhancedContext.lastToolResults || []),
                         // 🚀 新增：将文件编辑结果也作为工具结果记录
-                        ...(specialistOutput.requires_file_editing === true ? [{
+                        ...('requires_file_editing' in specialistOutput && specialistOutput.requires_file_editing === true ? [{
                             toolName: 'fileEdit',
                             success: fileEditResult.success,
                             result: fileEditResult.success 
@@ -614,7 +614,7 @@ export class PlanExecutor {
                             error: fileEditResult.success ? undefined : fileEditResult.error
                         }] : [])
                     ],
-                    aiResponse: specialistOutput.content || '',
+                    aiResponse: ('content' in specialistOutput) ? specialistOutput.content || '' : '',
                     timestamp: new Date().toISOString(),
                     summary: this.extractIterationSummary(specialistOutput),
                     executionTime: iterationTime

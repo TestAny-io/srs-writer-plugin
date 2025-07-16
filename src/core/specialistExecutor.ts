@@ -6,6 +6,7 @@ import { Logger } from '../utils/logger';
 import { ToolAccessController } from './orchestrator/ToolAccessController';
 import { ToolCacheManager } from './orchestrator/ToolCacheManager';
 import { CallerType, SpecialistOutput } from '../types';
+import { SpecialistInteractionResult } from './engine/AgentState';
 import { toolRegistry } from '../tools';
 import { PromptAssemblyEngine, SpecialistType, SpecialistContext } from './prompts/PromptAssemblyEngine';
 
@@ -82,7 +83,7 @@ export class SpecialistExecutor {
         specialistId: string,
         contextForThisStep: any,
         model: vscode.LanguageModelChat
-    ): Promise<SpecialistOutput> {
+    ): Promise<SpecialistOutput | SpecialistInteractionResult> {
         const startTime = Date.now();
         this.logger.info(`🚀 执行专家任务: ${specialistId}`);
 
@@ -90,7 +91,7 @@ export class SpecialistExecutor {
             // 内部迭代状态管理（仅为单个任务）
             let internalHistory: string[] = [];
             let iteration = 0;
-            const MAX_INTERNAL_ITERATIONS = 8; // 单个任务的迭代限制
+            const MAX_INTERNAL_ITERATIONS = 10; // 单个任务的迭代限制
 
             while (iteration < MAX_INTERNAL_ITERATIONS) {
                 iteration++;
@@ -225,6 +226,36 @@ export class SpecialistExecutor {
                     const toolResults = await this.executeToolCalls(aiPlan.tool_calls);
                     const toolsUsed = toolResults.map(result => result.toolName);
 
+                    // 🔄 检查是否有工具需要用户交互
+                    const needsInteractionResult = toolResults.find(result => 
+                        result.result && typeof result.result === 'object' && 
+                        'needsChatInteraction' in result.result && 
+                        result.result.needsChatInteraction === true
+                    );
+
+                    if (needsInteractionResult) {
+                        this.logger.info(`💬 专家 ${specialistId} 需要用户交互，暂停执行`);
+                        
+                        // 提取问题内容
+                        const question = needsInteractionResult.result?.chatQuestion || '需要您的确认';
+                        
+                        // 返回SpecialistInteractionResult
+                        return {
+                            success: false,
+                            needsChatInteraction: true,
+                            question: question,
+                            resumeContext: {
+                                specialist: specialistId,
+                                iteration: iteration,
+                                internalHistory: [...internalHistory],
+                                currentPlan: aiPlan,
+                                contextForThisStep: contextForThisStep,
+                                toolResults: toolResults,
+                                startTime: startTime
+                            }
+                        } as SpecialistInteractionResult;
+                    }
+
                     // 检查是否有taskComplete调用（任务完成信号）
                     const taskCompleteResult = toolResults.find(result => 
                         result.toolName === 'taskComplete' && result.success
@@ -233,48 +264,27 @@ export class SpecialistExecutor {
                     if (taskCompleteResult) {
                         this.logger.info(`✅ 专家 ${specialistId} 通过taskComplete完成任务，迭代次数: ${iteration}`);
                         
-                        // 🚀 Phase 4新增：智能提取文件编辑信息，支持语义编辑格式
+                        // 获取任务结果
                         const taskResult = taskCompleteResult.result;
-                        let requiresFileEditing = false;
-                        let editInstructions = undefined;
-                        let targetFile = undefined;
-
-                        let structuredData = taskResult;
                         
-                        // 检查contextForNext.projectState中是否有文件编辑信息
-                        if (taskResult?.contextForNext?.projectState) {
-                            const projectState = taskResult.contextForNext.projectState;
-                            
-                            if (projectState.requires_file_editing === true) {
-                                requiresFileEditing = true;
-                                
-                                // 🚀 Phase 4新增：智能检测和处理语义编辑格式
-                                editInstructions = this.processEditInstructions(projectState.edit_instructions);
-                                
-                                targetFile = projectState.target_file;
-                                structuredData = projectState.structuredData || taskResult;
-                            } else if (projectState.requires_file_editing === false) {
-                                requiresFileEditing = false;
-                            }
-                        }
+                        // 提取结构化数据
+                        let structuredData = taskResult?.contextForNext?.structuredData || taskResult;
                         
                         // 🚀 智能判断requires_file_editing：基于specialist类型和工作模式
-                        if (requiresFileEditing === false && taskResult?.contextForNext?.projectState?.requires_file_editing === undefined) {
-                            requiresFileEditing = this.shouldRequireFileEditing(specialistId, toolsUsed);
-                            
-                            if (requiresFileEditing) {
-                                this.logger.info(`🔍 [DEBUG] 基于specialist类型判断requires_file_editing=true: ${specialistId}`);
-                            } else {
-                                this.logger.info(`🔍 [DEBUG] 基于specialist类型判断requires_file_editing=false: ${specialistId}`);
-                            }
+                        const requiresFileEditing = this.shouldRequireFileEditing(specialistId, toolsUsed);
+                        
+                        if (requiresFileEditing) {
+                            this.logger.info(`🔍 [DEBUG] 基于specialist类型判断requires_file_editing=true: ${specialistId}`);
+                        } else {
+                            this.logger.info(`🔍 [DEBUG] 基于specialist类型判断requires_file_editing=false: ${specialistId}`);
                         }
                         
                         return {
                             success: true,
                             content: taskResult?.summary || '任务已完成',
-                            requires_file_editing: requiresFileEditing, // ✅ 智能判断，不再硬编码
-                            edit_instructions: editInstructions,
-                            target_file: targetFile,
+                            requires_file_editing: requiresFileEditing,
+                            edit_instructions: undefined, // specialist直接调用executeSemanticEdits，不再通过taskComplete传递
+                            target_file: undefined, // specialist直接调用executeSemanticEdits，不再通过taskComplete传递
                             structuredData: structuredData,
                             metadata: {
                                 specialist: specialistId,
@@ -349,6 +359,7 @@ export class SpecialistExecutor {
             // 2. 获取可用工具定义 (方案一：为TOOLS_JSON_SCHEMA模板变量准备数据)
             const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
             this.logger.info(`🛠️ [DEBUG] Retrieved ${toolsInfo.definitions.length} tool definitions for specialist context`);
+            this.logger.info(`🔍 [DEBUG] Tools JSON schema length for specialist: ${toolsInfo.jsonSchema.length}`);
             
             // 3. 构建SpecialistContext
             const specialistContext: SpecialistContext = {
@@ -933,22 +944,24 @@ SUGGESTED ACTIONS:
 
         // 必须有type字段且值在支持的语义编辑类型中
         const semanticTypes = [
-            'replace_section',
-            'insert_after_section', 
-            'insert_before_section',
-            'append_to_list',
-            'update_subsection',
-            // 🚀 新增：行内编辑类型
-            'update_content_in_section',
-            'insert_line_in_section',
-            'remove_content_in_section',
-            'append_to_section',
-            'prepend_to_section'
+            'replace_entire_section',
+            'replace_lines_in_section'
         ];
 
-        return semanticTypes.includes(instruction.type) && 
-               instruction.target && 
-               typeof instruction.target.sectionName === 'string';
+        // 基本字段验证
+        const hasValidType = semanticTypes.includes(instruction.type);
+        const hasValidTarget = instruction.target && 
+                              typeof instruction.target.sectionName === 'string' &&
+                              typeof instruction.target.startFromAnchor === 'string';
+
+        // 条件验证：replace_lines_in_section 需要 targetContent
+        if (instruction.type === 'replace_lines_in_section') {
+            return hasValidType && hasValidTarget && 
+                   instruction.target.targetContent && 
+                   typeof instruction.target.targetContent === 'string';
+        }
+
+        return hasValidType && hasValidTarget;
     }
 
     /**
@@ -979,6 +992,10 @@ SUGGESTED ACTIONS:
             errors.push('Missing target.sectionName field');
         }
 
+        if (!instruction.target || !instruction.target.startFromAnchor) {
+            errors.push('Missing target.startFromAnchor field (required)');
+        }
+
         if (typeof instruction.content !== 'string') {
             errors.push('Content must be a string');
         }
@@ -988,14 +1005,16 @@ SUGGESTED ACTIONS:
         }
 
         // 验证type值
-        const validTypes = [
-            'replace_section', 'insert_after_section', 'insert_before_section', 'append_to_list', 'update_subsection',
-            // 🚀 新增：行内编辑类型
-            'update_content_in_section', 'insert_line_in_section', 'remove_content_in_section', 
-            'append_to_section', 'prepend_to_section'
-        ];
+        const validTypes = ['replace_entire_section', 'replace_lines_in_section'];
         if (instruction.type && !validTypes.includes(instruction.type)) {
-            errors.push(`Invalid type: ${instruction.type}`);
+            errors.push(`Invalid type: ${instruction.type}. Valid types are: ${validTypes.join(', ')}`);
+        }
+
+        // 条件验证：replace_lines_in_section 必须有 targetContent
+        if (instruction.type === 'replace_lines_in_section') {
+            if (!instruction.target || !instruction.target.targetContent) {
+                errors.push('replace_lines_in_section operation requires target.targetContent field');
+            }
         }
 
         // 验证priority（如果存在）

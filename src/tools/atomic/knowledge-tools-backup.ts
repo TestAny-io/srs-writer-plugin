@@ -420,8 +420,8 @@ export const customRAGRetrievalToolDefinition = {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 执行模式中的知识增强
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 知识问答的核心工具（现在包含通用对话）
-        CallerType.SPECIALIST,                    // 专家内容生成支持
-        CallerType.DOCUMENT                       // 文档层可能需要知识支持
+        // CallerType.SPECIALIST,                    // 专家内容生成支持
+        // CallerType.DOCUMENT                       // 文档层可能需要知识支持
     ]
 };
 

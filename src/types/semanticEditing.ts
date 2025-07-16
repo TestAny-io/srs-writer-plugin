@@ -3,6 +3,12 @@
  * 
  * 定义语义编辑系统的所有接口和类型，
  * 支持基于VSCode原生API的精确文档编辑
+ * 
+ * 重构后的简化架构：
+ * - 仅2种操作类型：replace_entire_section, replace_lines_in_section  
+ * - 仅3个核心字段：sectionName, startFromAnchor, targetContent
+ * - startFromAnchor为必需字段，提供精确定位
+ * - 搜索范围：前向5行，提高定位精度
  */
 
 import * as vscode from 'vscode';
@@ -15,35 +21,16 @@ import * as vscode from 'vscode';
  * 语义编辑意图类型枚举
  */
 export type SemanticEditType = 
-    | 'replace_section'          // 替换整个章节
-    | 'insert_after_section'     // 在章节后插入
-    | 'insert_before_section'    // 在章节前插入
-    | 'append_to_list'           // 追加到列表
-    | 'update_subsection'        // 更新子章节
-    // 🚀 新增：行内编辑类型
-    | 'update_content_in_section'  // 更新章节内特定内容
-    | 'insert_line_in_section'     // 在章节内插入新行
-    | 'remove_content_in_section'  // 删除章节内特定内容
-    | 'append_to_section'          // 在章节末尾追加内容
-    | 'prepend_to_section';        // 在章节开头插入内容
+    | 'replace_entire_section'     // 替换整个章节
+    | 'replace_lines_in_section';  // 替换章节内特定内容
 
 /**
  * 语义目标定位接口
  */
 export interface SemanticTarget {
-    sectionName: string;                                    // 目标章节名称
-    subsection?: string;                                    // 子章节名称（可选）
-    position?: 'before' | 'after' | 'replace' | 'append';  // 位置类型
-    anchor?: string;                                        // 锚点文本（用于精确定位）
-    
-    // 🚀 新增：行内编辑定位字段
-    targetContent?: string;      // 要修改/删除的目标内容（用于精确定位）
-    afterContent?: string;       // 在此内容之后插入（用于insert_line_in_section）
-    beforeContent?: string;      // 在此内容之前插入
-    contentToRemove?: string;    // 要删除的具体内容（用于remove_content_in_section）
-    
-    // ✨ 新增：上下文锚点 - 用于精确定位重复内容
-    contextAnchor?: string;      // 例如 "req-id: FR-PDF-005"，确保在正确的上下文中定位目标内容
+    sectionName: string;                    // 目标章节名称（required）
+    targetContent?: string;                 // 要替换的目标内容（replace_lines_in_section时required）
+    startFromAnchor: string;                // 前置锚点，从此处开始搜索targetContent（required）
 }
 
 /**
@@ -250,20 +237,12 @@ export interface DocumentAnalysisOptions {
 // ============================================================================
 
 /**
- * 语义编辑操作联合类型
+ * 语义编辑操作联合类型 - 简化版本
+ * 重构后只保留两种核心操作类型
  */
 export type SemanticEditOperation = 
-    | { type: 'replace_section'; target: SemanticTarget; content: string; }
-    | { type: 'insert_after_section'; target: SemanticTarget; content: string; }
-    | { type: 'insert_before_section'; target: SemanticTarget; content: string; }
-    | { type: 'append_to_list'; target: SemanticTarget; content: string; }
-    | { type: 'update_subsection'; target: SemanticTarget; content: string; }
-    // 🚀 新增：行内编辑操作类型
-    | { type: 'update_content_in_section'; target: SemanticTarget; content: string; }
-    | { type: 'insert_line_in_section'; target: SemanticTarget; content: string; }
-    | { type: 'remove_content_in_section'; target: SemanticTarget; content?: string; }
-    | { type: 'append_to_section'; target: SemanticTarget; content: string; }
-    | { type: 'prepend_to_section'; target: SemanticTarget; content: string; };
+    | { type: 'replace_entire_section'; target: SemanticTarget; content: string; }
+    | { type: 'replace_lines_in_section'; target: SemanticTarget; content: string; };
 
 /**
  * 位置类型联合

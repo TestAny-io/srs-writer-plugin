@@ -1,8 +1,6 @@
 /**
- * Context Anchor Precision Tests
- * 
- * 专门测试 contextAnchor 功能，确保在存在重复内容时能够精确定位目标
- * 这些测试解决了社区用户反馈的"第一个匹配"问题
+ * Context Anchor Precision Integration Test
+ * 专门测试 startFromAnchor 功能，确保在存在重复内容时能够精确定位目标
  */
 
 import * as vscode from 'vscode';
@@ -71,11 +69,11 @@ req-id: FR-PDF-006
     });
 
     describe('精确定位重复内容', () => {
-        it('应该使用contextAnchor正确定位FR-PDF-005的优先级（而非FR-PDF-001）', () => {
+        it('应该使用startFromAnchor正确定位FR-PDF-005的优先级（而非FR-PDF-001）', () => {
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
                 targetContent: "**优先级**：must-have",
-                contextAnchor: "req-id: FR-PDF-005"  // 指定要修改FR-PDF-005
+                startFromAnchor: "req-id: FR-PDF-005"  // 指定要修改FR-PDF-005
             };
 
             const result: LocationResult = locator.findTarget(target);
@@ -91,11 +89,11 @@ req-id: FR-PDF-006
             }
         });
 
-        it('应该使用contextAnchor正确定位FR-PDF-001的优先级', () => {
+        it('应该使用startFromAnchor正确定位FR-PDF-001的优先级', () => {
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
                 targetContent: "**优先级**：must-have",
-                contextAnchor: "req-id: FR-PDF-001"  // 指定要修改FR-PDF-001
+                startFromAnchor: "req-id: FR-PDF-001"  // 指定要修改FR-PDF-001
             };
 
             const result: LocationResult = locator.findTarget(target);
@@ -109,11 +107,11 @@ req-id: FR-PDF-006
             }
         });
 
-        it('当contextAnchor不存在时应该返回失败', () => {
+        it('当startFromAnchor不存在时应该返回失败', () => {
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
                 targetContent: "**优先级**：must-have",
-                contextAnchor: "req-id: FR-PDF-999"  // 不存在的需求ID
+                startFromAnchor: "req-id: FR-PDF-999"  // 不存在的需求ID
             };
 
             const result: LocationResult = locator.findTarget(target);
@@ -121,11 +119,11 @@ req-id: FR-PDF-006
             expect(result.found).toBe(false);
         });
 
-        it('没有contextAnchor时应该保持向后兼容（返回第一个匹配）', () => {
+        it('有startFromAnchor时应该精确定位（返回第一个匹配）', () => {
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
-                targetContent: "**优先级**：must-have"
-                // 没有 contextAnchor
+                targetContent: "**优先级**：must-have",
+                startFromAnchor: "req-id: FR-PDF-001"  // 使用第一个需求作为锚点
             };
 
             const result: LocationResult = locator.findTarget(target);
@@ -145,7 +143,7 @@ req-id: FR-PDF-006
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
                 targetContent: "**优先级**：must-have",
-                contextAnchor: "REQ-ID: FR-PDF-005"  // 大写的锚点
+                startFromAnchor: "REQ-ID: FR-PDF-005"  // 大写的锚点
             };
 
             const result: LocationResult = locator.findTarget(target);
@@ -157,7 +155,7 @@ req-id: FR-PDF-006
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
                 targetContent: "**复杂度**：中等",
-                contextAnchor: "FR-PDF-005"  // 只使用需求ID部分
+                startFromAnchor: "FR-PDF-005"  // 只使用需求ID部分
             };
 
             const result: LocationResult = locator.findTarget(target);
@@ -171,7 +169,7 @@ req-id: FR-PDF-006
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
                 targetContent: "",
-                contextAnchor: "req-id: FR-PDF-005"
+                startFromAnchor: "req-id: FR-PDF-005"
             };
 
             const result: LocationResult = locator.findTarget(target);
@@ -179,12 +177,12 @@ req-id: FR-PDF-006
             expect(result.found).toBe(false);
         });
 
-        it('应该在锚点附近10行范围内搜索目标内容', () => {
+        it('应该在锚点附近5行范围内搜索目标内容', () => {
             // 这个测试确保搜索范围被正确限制
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
                 targetContent: "**优先级**：must-have",
-                contextAnchor: "FR-PDF-005"
+                startFromAnchor: "FR-PDF-005"
             };
 
             const result: LocationResult = locator.findTarget(target);
@@ -201,7 +199,7 @@ req-id: FR-PDF-006
             const target: SemanticTarget = {
                 sectionName: "功能需求 (Functional Requirements)",
                 targetContent: "**优先级**：must-have",
-                contextAnchor: "req-id: FR-PDF-005"
+                startFromAnchor: "req-id: FR-PDF-005"
             };
 
             locator.findTarget(target);

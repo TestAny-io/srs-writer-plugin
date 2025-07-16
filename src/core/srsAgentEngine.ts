@@ -931,8 +931,9 @@ export class SRSAgentEngine implements ISessionObserver {
         }
         
       } else {
-        this.stream.markdown(`❌ **Specialist执行失败**: ${continuedResult.error}\n\n`);
-        await this.recordExecution('result', `Specialist恢复执行失败: ${continuedResult.error}`, false);
+        const errorMsg = ('error' in continuedResult) ? continuedResult.error : '执行失败';
+        this.stream.markdown(`❌ **Specialist执行失败**: ${errorMsg}\n\n`);
+        await this.recordExecution('result', `Specialist恢复执行失败: ${errorMsg}`, false);
       }
       
     } catch (error) {

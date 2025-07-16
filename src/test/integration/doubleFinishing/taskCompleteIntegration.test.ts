@@ -1,7 +1,7 @@
 import { ConversationalExecutor } from '../../../core/orchestrator/ConversationalExecutor';
 import { SessionContext } from '../../../types/session';
 import { AIPlan, CallerType } from '../../../types/index';
-import { TaskCompletionType, NextStepType } from '../../../types/taskCompletion';
+import { NextStepType } from '../../../types/taskCompletion';
 
 // Mock dependencies
 jest.mock('../../../core/toolExecutor');
@@ -55,7 +55,6 @@ describe('TaskComplete Integration Tests', () => {
       mockToolExecutor.executeTool.mockResolvedValueOnce({
         success: true,
         result: {
-          completionType: TaskCompletionType.FULLY_COMPLETED,
           nextStepType: NextStepType.TASK_FINISHED,
           summary: 'SRS document completed successfully'
         }
@@ -79,7 +78,6 @@ describe('TaskComplete Integration Tests', () => {
           {
             name: 'taskComplete',
             args: {
-              completionType: 'FULLY_COMPLETED',
               nextStepType: 'TASK_FINISHED',
               summary: 'SRS document completed successfully'
             }
@@ -126,15 +124,10 @@ describe('TaskComplete Integration Tests', () => {
       mockToolExecutor.executeTool.mockResolvedValueOnce({
         success: true,
         result: {
-          completionType: TaskCompletionType.READY_FOR_NEXT,
           nextStepType: NextStepType.HANDOFF_TO_SPECIALIST,
           summary: 'SRS completed, need prototype',
-          nextStepDetails: {
-            specialistType: '300_prototype',
-            taskDescription: 'Create interactive prototype'
-          },
           contextForNext: {
-            projectState: { srsCompleted: true }
+            structuredData: { srsCompleted: true }
           }
         }
       });
@@ -147,13 +140,8 @@ describe('TaskComplete Integration Tests', () => {
           {
             name: 'taskComplete',
             args: {
-              completionType: 'READY_FOR_NEXT',
               nextStepType: 'HANDOFF_TO_SPECIALIST',
-              summary: 'SRS completed, need prototype',
-              nextStepDetails: {
-                specialistType: '300_prototype',
-                taskDescription: 'Create interactive prototype'
-              }
+              summary: 'SRS completed, need prototype'
             }
           }
         ]
@@ -186,34 +174,22 @@ describe('TaskComplete Integration Tests', () => {
       );
     });
 
-    test('should handle USER_INTERACTION completion type', async () => {
-      // Mock taskComplete tool execution
-      mockToolExecutor.executeTool.mockResolvedValueOnce({
-        success: true,
-        result: {
-          completionType: TaskCompletionType.REQUIRES_REVIEW,
-          nextStepType: NextStepType.USER_INTERACTION,
-          summary: 'SRS ready for review',
-          nextStepDetails: {
-            userQuestion: 'Please confirm the technology stack choice'
-          }
-        }
-      });
+    // 注意：USER_INTERACTION功能已移除，specialist现在通过askQuestion工具实现用户交互
+
+    test('should handle errors during taskComplete execution', async () => {
+      // Mock taskComplete tool execution to fail
+      mockToolExecutor.executeTool.mockRejectedValueOnce(new Error('Failed to complete task'));
 
       const initialPlan: AIPlan = {
-        thought: 'Completing SRS but need user confirmation',
+        thought: 'Completing SRS task',
         response_mode: 'TOOL_EXECUTION' as any,
         direct_response: null,
         tool_calls: [
           {
             name: 'taskComplete',
             args: {
-              completionType: 'REQUIRES_REVIEW',
-              nextStepType: 'USER_INTERACTION',
-              summary: 'SRS ready for review',
-              nextStepDetails: {
-                userQuestion: 'Please confirm the technology stack choice'
-              }
+              nextStepType: 'TASK_FINISHED',
+              summary: 'SRS document completed successfully'
             }
           }
         ]
@@ -229,10 +205,15 @@ describe('TaskComplete Integration Tests', () => {
         CallerType.ORCHESTRATOR_TOOL_EXECUTION
       );
 
-      expect(result.intent).toBe('user_interaction_required');
-      expect(result.result?.mode).toBe('chat_question');
-      expect(result.result?.question).toBe('Please confirm the technology stack choice');
-      expect(result.result?.awaitingUserResponse).toBe(true);
+      expect(result.intent).toBe('task_failed');
+      expect(result.result?.mode).toBe('specialist_collaboration_failed');
+      expect(result.result?.summary).toBe('Failed to complete task');
+      expect(mockToolExecutor.executeTool).toHaveBeenCalledWith(
+        'taskComplete',
+        expect.any(Object),
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        mockSelectedModel
+      );
     });
   });
 
@@ -252,7 +233,6 @@ describe('TaskComplete Integration Tests', () => {
       mockToolExecutor.executeTool.mockResolvedValueOnce({
         success: true,
         result: {
-          completionType: TaskCompletionType.FULLY_COMPLETED,
           nextStepType: NextStepType.TASK_FINISHED,
           summary: 'Task completed'
         }

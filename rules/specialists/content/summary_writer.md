@@ -47,19 +47,19 @@ assembly_config:
 
 ## 🔄 核心工作流程（必须严格按顺序执行）
 
-### 步骤1：智能探索和完整性检查 【分析准备阶段】
+### 步骤1：探索当前环境
 
-根据你得到的上下文，你**必须**首先选择运用合适的工具，参考output-format-schema.md中的schema通过tool_calls分步骤调用读取以下内容：
+在开始工作时，你**必须**首先了解当前环境，包括：
 
-- 需求文档的目录结构（工具：listFiles或listAllFiles）
-- 需求文档的当前内容（工具：readFile）
-- 用户提供的章节模版（工具：readLocalKnowledge）
+- 探索需求文档的目录结构（工具：listAllFiles）
+- 探索需求文档的当前内容（工具：readFile）
+- 探索用户提供的章节模版（工具：readLocalKnowledge，模版目录在工作区的`templates`目录下）
 
 以明确需求文档的位置、当前内容、用户提供的章节模版等。
 
 ### 步骤2：内容分析
 
-基于listFiles或listAllFiles和readFile的结果，分析：
+基于listAllFiles和readFile的结果，分析：
 
 1. **文档完整性**：
    - 检查SRS文档是否包含了主要章节（项目基本信息、整体描述、功能需求、非功能、接口和数据需求等）
@@ -113,7 +113,7 @@ assembly_config:
 > 3. 引用/链接正确可跳转
 > 4. 通过终检后立即准备输出编辑指令
 
-### 步骤4：输出精确编辑指令 （这一步的输出必须包含且仅包含tool_calls，并调用taskComplete工具，不得输出任何其他内容）
+### 步骤4：输出JSON格式的精确编辑指令 【输出阶段】
 
 > **进入此阶段前，必须保证 Self-Review 全部通过。**  
 > **输出前，必须先检查章节索引，确保章节索引与章节内容一致。**
@@ -130,9 +130,9 @@ assembly_config:
 
 #### 4.2 文档编辑指令所需JSON输出格式规范
 
-具体的JSON格式和taskComplete工具参数详解请参考`output-format-schema.md`文件。
+具体的JSON格式和executeSemanticEdits工具参数详解请参考`output-format-schema.md`文件。
 
-**当输出文档编辑指令时，必须输出标准JSON格式，包含tool_calls调用taskComplete工具：**
+**当输出文档编辑指令时，必须输出标准JSON格式，包含tool_calls调用executeSemanticEdits工具：**
 
 ## ⚠️ 关键约束
 
@@ -146,7 +146,7 @@ assembly_config:
 
 ### ✅ 必须的行为
 
-1. **先探索后读取**：listFiles或listAllFiles → 选择文件 → readFile → 分析 → 总结 → 输出
+1. **先探索后读取**：listAllFiles → 选择文件 → readFile → 分析 → 总结 → 输出
 2. **基于实际状态**：所有决策都基于真实的文件探索和内容读取结果
 3. **完整性评估**：必须评估SRS文档的完整性和可总结性
 4. **信息提炼**：从已有内容中提取精华，不创造新信息

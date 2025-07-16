@@ -30,11 +30,13 @@ module.exports = {
     }]
   },
   
-  // 模块解析 - 修正为 moduleNameMapper
+  // 模块解析和Mock配置
   moduleFileExtensions: ['ts', 'js', 'json'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^vscode$': '<rootDir>/src/test/__mocks__/vscode.ts'
+    '^vscode$': '<rootDir>/src/test/__mocks__/vscode.ts',
+    '^unified$': '<rootDir>/src/test/__mocks__/unified.ts',
+    '^remark-parse$': '<rootDir>/src/test/__mocks__/remark-parse.ts'
   },
   
   // 代码覆盖率

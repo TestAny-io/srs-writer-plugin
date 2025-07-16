@@ -315,7 +315,7 @@ export const listFilesToolDefinition = {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // "项目里有什么文件？"现在归入知识问答模式
-        CallerType.SPECIALIST,                    // 专家探索项目结构
+        //CallerType.SPECIALIST,                    // 专家探索项目结构
         CallerType.DOCUMENT                       // 文档层需要了解文件结构
     ]
 };
@@ -355,7 +355,7 @@ export async function listFiles(args: { path: string }): Promise<{
  */
 export const listAllFilesToolDefinition = {
     name: "listAllFiles",
-    description: "Recursively list all non-hidden files and directories from workspace root (automatically excludes all hidden directories starting with '.')",
+    description: "Recursively list all non-hidden files and directories from workspace root with optional keyword search (automatically excludes all hidden directories starting with '.')",
     parameters: {
         type: "object",
         properties: {
@@ -379,6 +379,11 @@ export const listAllFilesToolDefinition = {
                 type: "boolean",
                 description: "Whether to return only directory structure (excluding files), defaults to false",
                 default: false
+            },
+            searchKeywords: {
+                type: "array",
+                items: { type: "string" },
+                description: "Keywords to search in file/directory names. Only items containing any of these keywords will be returned. Case insensitive search."
             }
         }
     },
@@ -400,6 +405,7 @@ export async function listAllFiles(args: {
     maxItems?: number;
     excludePatterns?: string[];
     dirsOnly?: boolean;
+    searchKeywords?: string[];
 }): Promise<{
     success: boolean;
     structure?: {
@@ -411,8 +417,15 @@ export async function listAllFiles(args: {
     error?: string;
 }> {
     try {
+        // 🔍 [DEBUG] 添加详细调试信息
+        logger.info(`🔍 [listAllFiles DEBUG] === 开始执行 listAllFiles ===`);
+        logger.info(`🔍 [listAllFiles DEBUG] 参数: ${JSON.stringify(args)}`);
+        
         const workspaceFolder = getCurrentWorkspaceFolder();
+        logger.info(`🔍 [listAllFiles DEBUG] getCurrentWorkspaceFolder() 返回: ${workspaceFolder ? workspaceFolder.uri.fsPath : 'undefined'}`);
+        
         if (!workspaceFolder) {
+            logger.error(`🔍 [listAllFiles DEBUG] 错误: 没有工作区文件夹打开`);
             return { success: false, error: 'No workspace folder is open' };
         }
 
@@ -420,7 +433,8 @@ export async function listAllFiles(args: {
             maxDepth = 10,
             maxItems = 1000,
             excludePatterns = ["node_modules", "coverage", "dist", "build"],
-            dirsOnly = false
+            dirsOnly = false,
+            searchKeywords
         } = args;
 
         // 🚀 固定从workspace根目录开始扫描
@@ -442,9 +456,23 @@ export async function listAllFiles(args: {
             });
         }
 
+        // Helper function: Check if a file/directory matches search keywords
+        function matchesSearchKeywords(name: string, keywords?: string[]): boolean {
+            if (!keywords || keywords.length === 0) return true;
+            
+            const targetName = name.toLowerCase(); // Case insensitive search
+            const searchTerms = keywords.map(k => k.toLowerCase());
+            
+            // Contains matching mode
+            return searchTerms.some(keyword => targetName.includes(keyword));
+        }
+
         // Recursively traverse directory
         async function traverseDirectory(relativePath: string, currentDepth: number): Promise<void> {
+            logger.info(`🔍 [listAllFiles DEBUG] 📁 遍历目录: "${relativePath}" (深度: ${currentDepth})`);
+            
             if (currentDepth > maxDepth || totalCount >= maxItems) {
+                logger.info(`🔍 [listAllFiles DEBUG] ⏹️ 停止遍历: 深度=${currentDepth}, 最大深度=${maxDepth}, 计数=${totalCount}, 最大项目=${maxItems}`);
                 return;
             }
 
@@ -455,41 +483,77 @@ export async function listAllFiles(args: {
                     ? workspaceFolder!.uri
                     : vscode.Uri.joinPath(workspaceFolder!.uri, relativePath);
 
+                logger.info(`🔍 [listAllFiles DEBUG] 📍 目录URI: ${dirUri.toString()}`);
+                
                 const entries = await vscode.workspace.fs.readDirectory(dirUri);
+                logger.info(`🔍 [listAllFiles DEBUG] 📋 找到 ${entries.length} 个条目`);
 
                 for (const [name, type] of entries) {
+                    const isDirectory = type === vscode.FileType.Directory;
+                    logger.info(`🔍 [listAllFiles DEBUG]   🔍 检查: "${name}" (${isDirectory ? '目录' : '文件'})`);
+                    
                     // Skip hidden files and excluded patterns
-                    if (name.startsWith('.') || shouldExclude(name, excludePatterns)) {
+                    if (name.startsWith('.')) {
+                        logger.info(`🔍 [listAllFiles DEBUG]     ⏭️ 跳过隐藏文件: ${name}`);
+                        continue;
+                    }
+                    
+                    if (shouldExclude(name, excludePatterns)) {
+                        logger.info(`🔍 [listAllFiles DEBUG]     ⏭️ 被排除模式忽略: ${name}`);
                         continue;
                     }
 
-                    if (totalCount >= maxItems) break;
+                    // Skip items that don't match search keywords
+                    const matchesKeywords = matchesSearchKeywords(name, searchKeywords);
+                    logger.info(`🔍 [listAllFiles DEBUG]     🔎 关键词匹配: ${name} -> ${matchesKeywords}`);
+                    if (!matchesKeywords) {
+                        logger.info(`🔍 [listAllFiles DEBUG]     ⏭️ 不匹配关键词: ${name}`);
+                        continue;
+                    }
+
+                    if (totalCount >= maxItems) {
+                        logger.info(`🔍 [listAllFiles DEBUG]     ⏹️ 达到最大项目数限制: ${maxItems}`);
+                        break;
+                    }
 
                     const fullPath = relativePath === '.' ? name : `${relativePath}/${name}`;
-                    const isDirectory = type === vscode.FileType.Directory;
 
                     // Add to results based on dirsOnly parameter
                     if (!dirsOnly || isDirectory) {
                         results.push(fullPath);
                         totalCount++;
+                        logger.info(`🔍 [listAllFiles DEBUG]     ✅ 添加到结果: "${fullPath}" (总计: ${totalCount})`);
                     }
 
                     // Recursively process subdirectories
                     if (isDirectory) {
+                        logger.info(`🔍 [listAllFiles DEBUG]     📁 递归进入子目录: ${fullPath}`);
                         await traverseDirectory(fullPath, currentDepth + 1);
                     }
                 }
             } catch (error) {
                 // Ignore inaccessible directories, log warning but continue processing
-                logger.warn(`Cannot access directory: ${relativePath} - ${(error as Error).message}`);
+                logger.warn(`🔍 [listAllFiles DEBUG] ❌ 遍历目录出错: ${relativePath} - ${(error as Error).message}`);
+                logger.warn(`🔍 [listAllFiles DEBUG] 错误详情: ${JSON.stringify(error)}`);
             }
         }
 
         await traverseDirectory(startPath, 0);
 
-        logger.info(`✅ Listed ${results.length} items recursively from: ${startPath} (depth: ${maxDepthReached})`);
+        const searchInfo = searchKeywords && searchKeywords.length > 0 
+            ? ` with keywords: [${searchKeywords.join(', ')}]` 
+            : '';
+            
+        logger.info(`🔍 [listAllFiles DEBUG] === 遍历完成 ===`);
+        logger.info(`🔍 [listAllFiles DEBUG] 找到文件数: ${results.length}`);
+        logger.info(`🔍 [listAllFiles DEBUG] 最大深度: ${maxDepthReached}`);
+        if (results.length > 0) {
+            logger.info(`🔍 [listAllFiles DEBUG] 匹配文件列表: ${results.slice(0, 10).join(', ')}${results.length > 10 ? `... (共${results.length}个)` : ''}`);
+        }
+        
+        logger.info(`✅ Listed ${results.length} items recursively from: ${startPath} (depth: ${maxDepthReached})${searchInfo}`);
 
-        return {
+        const finalResult = {
             success: true,
             structure: {
                 paths: results.sort(), // Sort alphabetically for easy viewing
@@ -498,10 +562,17 @@ export async function listAllFiles(args: {
                 depth: maxDepthReached
             }
         };
+        
+        logger.info(`🔍 [listAllFiles DEBUG] === 最终返回结果 ===`);
+        logger.info(`🔍 [listAllFiles DEBUG] ${JSON.stringify(finalResult, null, 2)}`);
+        
+        return finalResult;
 
     } catch (error) {
         const errorMsg = `Failed to list all files from workspace root: ${(error as Error).message}`;
-        logger.error(errorMsg);
+        logger.error(`🔍 [listAllFiles DEBUG] ❌ 顶层错误: ${errorMsg}`);
+        logger.error(`🔍 [listAllFiles DEBUG] 错误对象: ${JSON.stringify(error)}`);
+        logger.error(`🔍 [listAllFiles DEBUG] 错误堆栈: ${(error as Error).stack}`);
         return { success: false, error: errorMsg };
     }
 }

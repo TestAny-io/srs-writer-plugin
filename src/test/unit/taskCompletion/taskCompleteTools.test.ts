@@ -1,5 +1,5 @@
 import { taskComplete, taskCompleteToolDefinition } from '../../../tools/internal/taskCompleteTools';
-import { TaskCompletionType, NextStepType } from '../../../types/taskCompletion';
+import { NextStepType } from '../../../types/taskCompletion';
 
 describe('taskComplete Tool', () => {
   describe('Tool Definition', () => {
@@ -13,16 +13,15 @@ describe('taskComplete Tool', () => {
 
     test('should have required parameters', () => {
       const required = taskCompleteToolDefinition.parameters.required;
-      expect(required).toContain('completionType');
       expect(required).toContain('nextStepType');
       expect(required).toContain('summary');
+      expect(required).not.toContain('completionType'); // 已移除
     });
   });
 
   describe('Tool Implementation', () => {
     test('should execute successfully with valid parameters', async () => {
       const params = {
-        completionType: TaskCompletionType.FULLY_COMPLETED,
         nextStepType: NextStepType.TASK_FINISHED,
         summary: 'SRS document completed successfully'
       };
@@ -30,38 +29,31 @@ describe('taskComplete Tool', () => {
       const result = await taskComplete(params);
 
       expect(result).toEqual({
-        completionType: TaskCompletionType.FULLY_COMPLETED,
         nextStepType: NextStepType.TASK_FINISHED,
         summary: 'SRS document completed successfully',
-        nextStepDetails: undefined,
         contextForNext: undefined
       });
     });
 
     test('should execute with specialist handoff parameters', async () => {
       const params = {
-        completionType: TaskCompletionType.READY_FOR_NEXT,
         nextStepType: NextStepType.HANDOFF_TO_SPECIALIST,
-        summary: 'SRS completed, need prototype',
-        nextStepDetails: {
-          specialistType: '300_prototype',
-          taskDescription: 'Create interactive prototype'
-        },
+        summary: 'SRS completed, need next step',
         contextForNext: {
-          projectState: { srsCompleted: true }
+          structuredData: { srsCompleted: true },
+          deliverables: ['SRS document']
         }
       };
 
       const result = await taskComplete(params);
 
       expect(result.nextStepType).toBe(NextStepType.HANDOFF_TO_SPECIALIST);
-      expect(result.nextStepDetails?.specialistType).toBe('300_prototype');
-      expect(result.contextForNext?.projectState).toEqual({ srsCompleted: true });
+      expect(result.contextForNext?.structuredData).toEqual({ srsCompleted: true });
+      expect(result.contextForNext?.deliverables).toEqual(['SRS document']);
     });
 
     test('should throw error for empty summary', async () => {
       const params = {
-        completionType: TaskCompletionType.FULLY_COMPLETED,
         nextStepType: NextStepType.TASK_FINISHED,
         summary: ''
       };
@@ -69,22 +61,19 @@ describe('taskComplete Tool', () => {
       await expect(taskComplete(params)).rejects.toThrow('summary is required and cannot be empty');
     });
 
-
-
-    test('should handle user interaction scenario', async () => {
+    test('should handle continue same specialist scenario', async () => {
       const params = {
-        completionType: TaskCompletionType.REQUIRES_REVIEW,
-        nextStepType: NextStepType.USER_INTERACTION,
-        summary: 'SRS ready for review',
-        nextStepDetails: {
-          userQuestion: 'Please confirm the technology stack choice'
+        nextStepType: NextStepType.CONTINUE_SAME_SPECIALIST,
+        summary: 'Partial work completed, continuing',
+        contextForNext: {
+          structuredData: { currentPhase: 'requirements_analysis' }
         }
       };
 
       const result = await taskComplete(params);
 
-      expect(result.nextStepType).toBe(NextStepType.USER_INTERACTION);
-      expect(result.nextStepDetails?.userQuestion).toBe('Please confirm the technology stack choice');
+      expect(result.nextStepType).toBe(NextStepType.CONTINUE_SAME_SPECIALIST);
+      expect(result.contextForNext?.structuredData).toEqual({ currentPhase: 'requirements_analysis' });
     });
   });
 }); 

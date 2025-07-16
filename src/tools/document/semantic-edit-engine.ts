@@ -8,6 +8,7 @@
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
 import { SemanticLocator, SemanticTarget } from '../atomic/semantic-locator';
+import { CallerType } from '../../types/index';
 
 const logger = Logger.getInstance();
 
@@ -15,10 +16,7 @@ const logger = Logger.getInstance();
  * 语义编辑意图接口
  */
 export interface SemanticEditIntent {
-    type: 'replace_section' | 'insert_after_section' | 'append_to_list' | 'update_subsection' | 'insert_before_section'
-        // 🚀 新增：行内编辑类型
-        | 'update_content_in_section' | 'insert_line_in_section' | 'remove_content_in_section' 
-        | 'append_to_section' | 'prepend_to_section';
+    type: 'replace_entire_section' | 'replace_lines_in_section';
     target: SemanticTarget;
     content: string;
     reason: string;
@@ -254,25 +252,8 @@ async function applySemanticIntent(
     locator: SemanticLocator
 ): Promise<boolean> {
     try {
-        // 🚀 自动设置position以支持所有section操作类型
-        let adjustedTarget = { ...intent.target };
-        
-        if (intent.type === 'append_to_section') {
-            adjustedTarget.position = 'append';
-            logger.info(`🔧 Auto-setting position to 'append' for append_to_section operation`);
-        } else if (intent.type === 'prepend_to_section') {
-            adjustedTarget.position = 'prepend';
-            logger.info(`🔧 Auto-setting position to 'prepend' for prepend_to_section operation`);
-        } else if (intent.type === 'insert_after_section') {
-            adjustedTarget.position = 'after';
-            logger.info(`🔧 Auto-setting position to 'after' for insert_after_section operation`);
-        } else if (intent.type === 'insert_before_section') {
-            adjustedTarget.position = 'before';
-            logger.info(`🔧 Auto-setting position to 'before' for insert_before_section operation`);
-        }
-        
         // 使用语义定位器找到目标位置
-        const location = locator.findTarget(adjustedTarget);
+        const location = locator.findTarget(intent.target);
         
         if (!location.found) {
             logger.warn(`⚠️ Target not found for intent: ${intent.target.sectionName}`);
@@ -281,91 +262,22 @@ async function applySemanticIntent(
         
         // 根据意图类型执行不同的编辑操作
         switch (intent.type) {
-            case 'replace_section':
+            case 'replace_entire_section':
                 if (!location.range) {
-                    logger.error(`Replace operation requires range, but none found`);
+                    logger.error(`Replace entire section operation requires range, but none found`);
                     return false;
                 }
                 workspaceEdit.replace(targetFileUri, location.range, intent.content);
+                logger.info(`📝 Replacing entire section with new content`);
                 break;
                 
-            case 'insert_after_section':
-                if (!location.insertionPoint) {
-                    logger.error(`Insert operation requires insertion point, but none found`);
-                    return false;
-                }
-                workspaceEdit.insert(targetFileUri, location.insertionPoint, intent.content + '\n');
-                break;
-                
-            case 'insert_before_section':
-                if (!location.insertionPoint) {
-                    logger.error(`Insert operation requires insertion point, but none found`);
-                    return false;
-                }
-                workspaceEdit.insert(targetFileUri, location.insertionPoint, intent.content + '\n');
-                break;
-                
-            case 'append_to_list':
-                if (!location.insertionPoint) {
-                    logger.error(`Append operation requires insertion point, but none found`);
-                    return false;
-                }
-                workspaceEdit.insert(targetFileUri, location.insertionPoint, '\n' + intent.content);
-                break;
-                
-            case 'update_subsection':
+            case 'replace_lines_in_section':
                 if (!location.range) {
-                    logger.error(`Update operation requires range, but none found`);
+                    logger.error(`Replace lines in section operation requires range, but none found`);
                     return false;
                 }
                 workspaceEdit.replace(targetFileUri, location.range, intent.content);
-                break;
-                
-            // 🚀 新增：行内编辑操作
-            case 'update_content_in_section':
-                if (!location.range) {
-                    logger.error(`Update content operation requires range, but none found`);
-                    return false;
-                }
-                workspaceEdit.replace(targetFileUri, location.range, intent.content);
-                break;
-                
-            case 'insert_line_in_section':
-                if (!location.insertionPoint) {
-                    logger.error(`Insert line operation requires insertion point, but none found`);
-                    return false;
-                }
-                workspaceEdit.insert(targetFileUri, location.insertionPoint, intent.content + '\n');
-                break;
-                
-            case 'remove_content_in_section':
-                if (!location.range) {
-                    logger.error(`Remove content operation requires range, but none found`);
-                    return false;
-                }
-                workspaceEdit.delete(targetFileUri, location.range);
-                break;
-                
-            case 'append_to_section':
-                if (!location.insertionPoint) {
-                    logger.error(`Append to section operation requires insertion point, but none found`);
-                    return false;
-                }
-                // 🚀 在章节末尾追加内容，前面加换行符确保格式正确
-                const appendContent = '\n' + intent.content;
-                workspaceEdit.insert(targetFileUri, location.insertionPoint, appendContent);
-                logger.info(`📝 Appending content to section with proper formatting`);
-                break;
-                
-            case 'prepend_to_section':
-                if (!location.insertionPoint) {
-                    logger.error(`Prepend to section operation requires insertion point, but none found`);
-                    return false;
-                }
-                // 🚀 在章节开头插入内容，后面加换行符确保格式正确
-                const prependContent = intent.content + '\n';
-                workspaceEdit.insert(targetFileUri, location.insertionPoint, prependContent);
-                logger.info(`📝 Prepending content to section with proper formatting`);
+                logger.info(`📝 Replacing specific lines in section with new content`);
                 break;
                 
             default:
@@ -373,7 +285,6 @@ async function applySemanticIntent(
                 return false;
         }
         
-        logger.info(`📝 Added ${intent.type} operation to workspace edit`);
         return true;
         
     } catch (error) {
@@ -398,6 +309,10 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
             errors.push('Intent missing target.sectionName field');
         }
         
+        if (!intent.target || !intent.target.startFromAnchor) {
+            errors.push('Intent missing target.startFromAnchor field (required)');
+        }
+        
         if (typeof intent.content !== 'string') {
             errors.push('Intent content must be a string');
         }
@@ -407,14 +322,16 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
         }
         
         // 验证intent类型
-        const validTypes = [
-            'replace_section', 'insert_after_section', 'append_to_list', 'update_subsection', 'insert_before_section',
-            // 🚀 新增：行内编辑类型
-            'update_content_in_section', 'insert_line_in_section', 'remove_content_in_section', 
-            'append_to_section', 'prepend_to_section'
-        ];
-        if (!validTypes.includes(intent.type)) {
-            errors.push(`Invalid intent type: ${intent.type}`);
+        const validTypes = ['replace_entire_section', 'replace_lines_in_section'];
+        if (intent.type && !validTypes.includes(intent.type)) {
+            errors.push(`Invalid intent type: ${intent.type}. Valid types are: ${validTypes.join(', ')}`);
+        }
+        
+        // 条件验证：replace_lines_in_section 必须有 targetContent
+        if (intent.type === 'replace_lines_in_section') {
+            if (!intent.target || !intent.target.targetContent) {
+                errors.push('replace_lines_in_section operation requires target.targetContent field');
+            }
         }
         
         // 验证优先级
@@ -438,7 +355,7 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
  */
 export const executeSemanticEditsToolDefinition = {
     name: "executeSemanticEdits",
-    description: "Execute semantic editing operations on documents using VSCode native APIs",
+    description: "Execute semantic editing operations on markdown documents.",
     parameters: {
         type: "object",
         properties: {
@@ -451,61 +368,32 @@ export const executeSemanticEditsToolDefinition = {
                         type: {
                             type: "string",
                             enum: [
-                                "replace_section", "insert_after_section", "append_to_list", "update_subsection", "insert_before_section",
-                                // 🚀 新增：行内编辑类型
-                                "update_content_in_section", "insert_line_in_section", "remove_content_in_section", 
-                                "append_to_section", "prepend_to_section"
+                                "replace_entire_section",
+                                "replace_lines_in_section"
                             ],
-                            description: "Type of semantic edit operation"
+                            description: "Type of semantic edit operation. 'replace_entire_section': replaces entire section content. 'replace_lines_in_section': replaces specific targetContent within section, requires both targetContent and startFromAnchor."
                         },
                         target: {
                             type: "object",
                             properties: {
                                 sectionName: {
                                     type: "string",
-                                    description: "Name of the target section"
+                                    description: "Name of the target section (required)"
                                 },
-                                subsection: {
-                                    type: "string",
-                                    description: "Name of the target subsection (optional)"
-                                },
-                                position: {
-                                    type: "string",
-                                    enum: ["before", "after", "replace", "append", "prepend"],
-                                    description: "Position type for the edit"
-                                },
-                                anchor: {
-                                    type: "string",
-                                    description: "Anchor text for precise positioning (optional)"
-                                },
-                                // 🚀 新增：行内编辑定位字段
                                 targetContent: {
                                     type: "string",
-                                    description: "Target content to modify/replace within the section (for inline editing)"
+                                    description: "Exact content to replace within the section. REQUIRED for 'replace_lines_in_section' operation. Must be precise match including whitespace."
                                 },
-                                afterContent: {
+                                startFromAnchor: {
                                     type: "string",
-                                    description: "Content after which to insert new line (for insert_line_in_section)"
-                                },
-                                beforeContent: {
-                                    type: "string",
-                                    description: "Content before which to insert new content"
-                                },
-                                contentToRemove: {
-                                    type: "string",
-                                    description: "Specific content to remove (for remove_content_in_section)"
-                                },
-                                // ✨ 新增：上下文锚点字段
-                                contextAnchor: {
-                                    type: "string",
-                                    description: "Context anchor to precisely locate targetContent when multiple identical content exists (e.g., 'req-id: FR-PDF-005'). The system will first find this anchor, then search for targetContent within 10 lines of the anchor."
+                                    description: "Anchor text to start searching from. REQUIRED. System finds this anchor first, then searches for targetContent within next 5 lines. Must appear before targetContent in the section."
                                 }
                             },
-                            required: ["sectionName"]
+                            required: ["sectionName", "startFromAnchor"]
                         },
                         content: {
                             type: "string",
-                            description: "Content for the edit operation"
+                            description: "Replacement content for the edit operation"
                         },
                         reason: {
                             type: "string",
@@ -529,9 +417,9 @@ export const executeSemanticEditsToolDefinition = {
     },
     // 访问控制
     accessibleBy: [
-        'ORCHESTRATOR_TOOL_EXECUTION',
-        'SPECIALIST',
-        'DOCUMENT'
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        CallerType.SPECIALIST,
+        CallerType.DOCUMENT
     ],
     // 智能分类属性
     interactionType: 'confirmation',

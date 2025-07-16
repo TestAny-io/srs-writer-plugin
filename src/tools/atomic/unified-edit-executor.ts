@@ -184,23 +184,25 @@ function isSemanticEditInstruction(instruction: any): boolean {
     }
     
     const semanticTypes = [
-        'replace_section',
-        'insert_after_section',
-        'insert_before_section', 
-        'append_to_list',
-        'update_subsection',
-        // 🚀 新增：行内编辑类型
-        'update_content_in_section',
-        'insert_line_in_section',
-        'remove_content_in_section',
-        'append_to_section',
-        'prepend_to_section'
+        'replace_entire_section',
+        'replace_lines_in_section'
     ];
     
-    return semanticTypes.includes(instruction.type) &&
-           instruction.target &&
-           typeof instruction.target.sectionName === 'string' &&
-           (typeof instruction.content === 'string' || instruction.type === 'remove_content_in_section');
+    // 基本字段验证
+    const hasValidType = semanticTypes.includes(instruction.type);
+    const hasValidTarget = instruction.target && 
+                          typeof instruction.target.sectionName === 'string' &&
+                          typeof instruction.target.startFromAnchor === 'string';
+    const hasValidContent = typeof instruction.content === 'string';
+    
+    // 条件验证：replace_lines_in_section 需要 targetContent
+    if (instruction.type === 'replace_lines_in_section') {
+        return hasValidType && hasValidTarget && hasValidContent && 
+               instruction.target.targetContent && 
+               typeof instruction.target.targetContent === 'string';
+    }
+    
+    return hasValidType && hasValidTarget && hasValidContent;
 }
 
 /**

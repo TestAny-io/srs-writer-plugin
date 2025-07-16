@@ -125,7 +125,7 @@ export class ConversationalExecutor {
         
         if (taskCompleteResult.success) {
           const completionData: TaskCompletionResult = taskCompleteResult.result;
-          return await this.handleTaskCompletion(completionData, taskCompleteCall, userInput, sessionContext, selectedModel, generateUnifiedPlan, formatToolResults, callerType);
+          return await this.handleTaskCompletion(completionData, taskCompleteCall, userInput, sessionContext, selectedModel, generateUnifiedPlan, formatToolResults, callerType, toolExecutor);
         } else {
           this.logger.error('❌ taskComplete execution failed:', taskCompleteResult.error);
           // 继续执行，不中断流程
@@ -340,34 +340,28 @@ export class ConversationalExecutor {
     completionData: TaskCompletionResult,
     originalToolCall: any,
     userInput: string,
-    sessionContext: SessionContext,
-    selectedModel: vscode.LanguageModelChat,
-    generateUnifiedPlan: (
-      userInput: string,
-      sessionContext: SessionContext,
-      selectedModel: vscode.LanguageModelChat,
-      historyContext: string,
-      toolResultsContext: string
-    ) => Promise<AIPlan>,
-    formatToolResults: (toolResults: any[]) => string,
-    callerType?: CallerType
-  ): Promise<{ intent: string; result?: any }> {
+    sessionContext: any,
+    selectedModel: any,
+    generateUnifiedPlan: any,
+    formatToolResults: any,
+    callerType: any,
+    toolExecutor: any
+  ): Promise<any> {
+    this.logger.info(`🎯 Processing task completion with nextStepType: ${completionData.nextStepType}`);
     
-    this.logger.info(`🎯 Processing task completion: ${completionData.nextStepType}`);
-    
-    // 分析下一步类型并执行相应逻辑
     switch (completionData.nextStepType) {
       case NextStepType.TASK_FINISHED:
-        // 真正完成，调用finalAnswer结束对话
-        this.logger.info('✅ Task fully completed, calling finalAnswer');
+        // 任务完成
+        this.logger.info('✅ Task completed');
         
+        // 获取最终结果
         const finalResult = await toolExecutor.executeTool(
           'finalAnswer',
           {
-            summary: `任务圆满完成。${completionData.summary}`,
-            achievements: [completionData.summary],
-            nextSteps: ['项目已完成，可以进行测试或部署'],
-            taskType: 'specialist_collaboration'
+            summary: completionData.summary,
+            result: completionData.summary,
+            achievements: completionData.contextForNext?.deliverables || [],
+            nextSteps: []
           },
           callerType,
           selectedModel
@@ -376,7 +370,7 @@ export class ConversationalExecutor {
         return {
           intent: 'task_completed',
           result: {
-            mode: 'specialist_collaboration_completed',
+            mode: 'single_specialist_completion',
             summary: completionData.summary,
             deliverables: [completionData.summary],
             finalResult: finalResult.result,
@@ -385,42 +379,17 @@ export class ConversationalExecutor {
         };
         
       case NextStepType.HANDOFF_TO_SPECIALIST:
-        // 转交给其他专家
-        if (!completionData.nextStepDetails?.specialistType) {
-          throw new Error('HANDOFF_TO_SPECIALIST requires nextStepDetails.specialistType');
-        }
+        // 转交给其他专家（当前架构下很少使用，简化处理）
+        this.logger.info('🔄 Specialist handoff requested but not supported in current architecture');
         
-        this.logger.info(`🔄 Handing off to specialist: ${completionData.nextStepDetails.specialistType}`);
-        
-        return await this.executeSpecialistHandoff(
-          completionData,
-          userInput,
-          sessionContext,
-          selectedModel,
-          generateUnifiedPlan,
-          formatToolResults,
-          callerType
-        );
-        
-      case NextStepType.USER_INTERACTION:
-        // 需要用户交互
-        this.logger.info('💬 Requesting user interaction');
-        
+        // 在当前架构下，specialist转交通过orchestrator处理，这里简化为任务完成
         return {
-          intent: 'user_interaction_required',
+          intent: 'task_completed',
           result: {
-            mode: 'chat_question',
-            question: completionData.nextStepDetails?.userQuestion || '需要您的确认来继续任务',
-            summary: `${completionData.summary}\n\n${completionData.nextStepDetails?.userQuestion}`,
-            response: completionData.summary,
-            thought: `专家已完成阶段性工作，需要用户确认：${completionData.nextStepDetails?.userQuestion}`,
-            awaitingUserResponse: true,
-            resumeContext: {
-              completionData,
-              originalToolCall,
-              userInput,
-              sessionContext
-            }
+            mode: 'specialist_handoff_completed',
+            summary: completionData.summary,
+            deliverables: completionData.contextForNext?.deliverables || [completionData.summary],
+            collaborationType: 'specialist_handoff'
           }
         };
         
@@ -434,7 +403,6 @@ export class ConversationalExecutor {
           result: {
             mode: 'specialist_continuation',
             summary: completionData.summary,
-            continueInstructions: completionData.nextStepDetails?.continueInstructions,
             // 不返回最终结果，让外层循环继续
           }
         };
@@ -445,7 +413,7 @@ export class ConversationalExecutor {
   }
 
   /**
-   * 执行专家转交
+   * 执行专家转交 (已简化 - 现在通过orchestrator处理专家转交)
    */
   private async executeSpecialistHandoff(
     completionData: TaskCompletionResult,
@@ -463,38 +431,18 @@ export class ConversationalExecutor {
     callerType?: CallerType
   ): Promise<{ intent: string; result?: any }> {
     
-    const nextSpecialistType = completionData.nextStepDetails!.specialistType!;
-    const taskDescription = completionData.nextStepDetails!.taskDescription || 
-      `继续${userInput}的工作，基于之前专家的成果`;
+    // 注意：nextStepDetails已被移除，这个方法现在返回简化的完成状态
+    this.logger.info('🔄 Specialist handoff requested but simplified in current architecture');
     
-    // 构建包含上下文的新计划
-    const handoffPlan: AIPlan = {
-      thought: `专家转交：${completionData.summary}。现在将任务转交给${nextSpecialistType}专家继续处理。`,
-      response_mode: 'TOOL_EXECUTION' as any,
-      direct_response: null,
-      tool_calls: [
-        {
-          name: nextSpecialistType,
-          args: {
-            userInput: taskDescription,
-            inheritedContext: completionData.contextForNext,
-            previousSpecialistSummary: completionData.summary,
-            previousDeliverables: [completionData.summary]
-          }
-        }
-      ]
+    return {
+      intent: 'task_completed',
+      result: {
+        mode: 'specialist_handoff_completed',
+        summary: completionData.summary,
+        deliverables: completionData.contextForNext?.deliverables || [completionData.summary],
+        collaborationType: 'specialist_handoff'
+      }
     };
-    
-    // 继续执行新专家（递归调用对话式执行器）
-    return await this.executeConversationalPlanning(
-      taskDescription,
-      sessionContext,
-      selectedModel,
-      handoffPlan,
-      generateUnifiedPlan,
-      formatToolResults,
-      callerType
-    );
   }
 
   /**
