@@ -37,11 +37,11 @@ export interface StructuredReadFileResult {
 }
 
 /**
- * 统一的文件读取工具定义
+ * Markdown文件读取工具定义
  */
-export const readFileToolDefinition = {
-    name: "readFile",
-    description: "Read file content. Can optionally include basic document structure information for files like Markdown.",
+export const readMarkdownFileToolDefinition = {
+    name: "readMarkdownFile",
+    description: "Read Markdown file content with optional document structure analysis. Specialized for .md files and Markdown-based documents.",
     parameters: {
         type: "object",
         properties: {
@@ -70,11 +70,11 @@ export const readFileToolDefinition = {
 };
 
 /**
- * 统一的文件读取函数
+ * Markdown文件读取函数
  * @param args 读取参数
  * @returns 结构化读取结果
  */
-export async function readFile(args: {
+export async function readMarkdownFile(args: {
     path: string;
     includeStructure?: boolean;
 }): Promise<StructuredReadFileResult> {
@@ -150,23 +150,23 @@ function getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
 /**
  * 工具实现映射
  */
-export const readFileToolImplementations = {
-    readFile
+export const readMarkdownFileToolImplementations = {
+    readMarkdownFile
 };
 
 /**
  * 工具定义数组
  */
-export const readFileToolDefinitions = [
-    readFileToolDefinition
+export const readMarkdownFileToolDefinitions = [
+    readMarkdownFileToolDefinition
 ];
 
 /**
- * ReadFile 工具分类信息
+ * ReadMarkdownFile 工具分类信息
  */
-export const readFileToolsCategory = {
-    name: 'ReadFile Tool',
-    description: 'Unified file reading with optional document structure information',
-    tools: readFileToolDefinitions.map(tool => tool.name),
+export const readMarkdownFileToolsCategory = {
+    name: 'ReadMarkdownFile Tool',
+    description: 'Markdown file reading with optional document structure analysis',
+    tools: readMarkdownFileToolDefinitions.map(tool => tool.name),
     layer: 'document'
 }; 

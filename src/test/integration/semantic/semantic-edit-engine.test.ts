@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { executeSemanticEdits, validateSemanticIntents, SemanticEditIntent } from '../../../tools/document/semantic-edit-engine';
-import { readFile } from '../../../tools/document/enhanced-readfile-tools';
+import { readMarkdownFile } from '../../../tools/document/enhanced-readfile-tools';
 
 describe('Semantic Edit Engine Integration', () => {
     let testFileUri: vscode.Uri;
@@ -37,7 +37,7 @@ describe('Semantic Edit Engine Integration', () => {
     describe('Complete Semantic Editing Workflow', () => {
         it('should execute a complete read-analyze-edit workflow', async () => {
             // Step 1: Read file with structure analysis
-            const readResult = await readFile({
+            const readResult = await readMarkdownFile({
                 path: 'test-document.md',
                 includeStructure: true
             });
@@ -50,8 +50,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: {
-                        sectionName: '功能需求',
-                        startFromAnchor: '# 功能需求'
+                        path: ['功能需求']
                     },
                     content: '# 功能需求\n\n这是更新后的功能需求内容。',
                     reason: '更新功能需求内容',
@@ -60,8 +59,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: {
-                        sectionName: '用户管理',
-                        startFromAnchor: '## 用户管理'
+                        path: ['用户管理']
                     },
                     content: '## 用户管理\n\n用户管理功能描述。\n\n## 权限管理\n\n新增的权限管理功能。',
                     reason: '新增权限管理章节',
@@ -88,8 +86,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: {
-                        sectionName: '功能需求',
-                        startFromAnchor: '# 功能需求'
+                        path: ['功能需求']
                     },
                     content: '# 功能需求\n\n这是更新后的功能需求内容。',
                     reason: '更新功能需求内容',
@@ -98,8 +95,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: {
-                        sectionName: '不存在的章节',
-                        startFromAnchor: '## 不存在的章节'
+                        path: ['不存在的章节']
                     },
                     content: '## 新章节\n\n新增内容。',
                     reason: '新增章节',
@@ -120,8 +116,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: {
-                        sectionName: '用户管理',
-                        startFromAnchor: '## 用户管理'
+                        path: ['用户管理']
                     },
                     content: '## 用户管理\n\n更新后的用户管理内容。',
                     reason: '更新用户管理功能描述',
@@ -145,8 +140,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: { 
-                        sectionName: '功能需求',
-                        startFromAnchor: '# 功能需求'
+                        path: ['功能需求']
                     },
                     content: '## 低优先级内容',
                     reason: '低优先级编辑',
@@ -155,8 +149,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: { 
-                        sectionName: '用户管理',
-                        startFromAnchor: '## 用户管理'
+                        path: ['用户管理']
                     },
                     content: '## 高优先级内容',
                     reason: '高优先级编辑',
@@ -165,8 +158,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: { 
-                        sectionName: '数据管理',
-                        startFromAnchor: '## 数据管理'
+                        path: ['数据管理']
                     },
                     content: '中等优先级内容',
                     reason: '中等优先级编辑',
@@ -194,8 +186,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'invalid_type' as any,
                     target: { 
-                        sectionName: '功能需求',
-                        startFromAnchor: '# 功能需求'
+                        path: ['功能需求']
                     },
                     content: '',
                     reason: '',
@@ -220,8 +211,7 @@ describe('Semantic Edit Engine Integration', () => {
                 {
                     type: 'replace_entire_section',
                     target: { 
-                        sectionName: '功能需求',
-                        startFromAnchor: '# 功能需求'
+                        path: ['功能需求']
                     },
                     content: '新内容',
                     reason: '测试编辑',
@@ -235,6 +225,209 @@ describe('Semantic Edit Engine Integration', () => {
             expect(editResult.error).toBe('Failed to apply workspace edit');
             expect(editResult.appliedIntents).toHaveLength(0);
             expect(editResult.failedIntents).toHaveLength(1);
+        });
+    });
+
+    describe('replace_lines_in_section', () => {
+        it('应该成功替换章节内的特定内容', async () => {
+            const intents: SemanticEditIntent[] = [{
+                type: 'replace_lines_in_section',
+                target: {
+                    path: ['功能需求'],
+                    targetContent: '用户注册功能'
+                },
+                content: '增强的用户注册功能（支持多种验证方式）',
+                reason: '增强用户注册功能描述',
+                priority: 1
+            }];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(true);
+            expect(result.appliedIntents.length).toBe(1);
+        });
+
+        it('应该成功在子章节中替换内容', async () => {
+            const intents: SemanticEditIntent[] = [{
+                type: 'replace_lines_in_section',
+                target: {
+                    path: ['用户管理'],
+                    targetContent: '用户信息'
+                },
+                content: '详细的用户信息管理',
+                reason: '更新用户信息描述',
+                priority: 1
+            }];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(true);
+        });
+    });
+
+    describe('replace_entire_section', () => {
+        it('应该成功替换整个章节', async () => {
+            const intents: SemanticEditIntent[] = [{
+                type: 'replace_entire_section',
+                target: {
+                    path: ['功能需求']
+                },
+                content: '# 新的功能需求\n\n这是完全重写的功能需求章节。\n',
+                reason: '重写功能需求章节',
+                priority: 1
+            }];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(true);
+        });
+
+        it('当目标章节不存在时应该返回失败', async () => {
+            const intents: SemanticEditIntent[] = [{
+                type: 'replace_entire_section',
+                target: {
+                    path: ['不存在的章节']
+                },
+                content: '新内容',
+                reason: '测试不存在的章节',
+                priority: 1
+            }];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(false);
+            expect(result.failedIntents.length).toBe(1);
+        });
+    });
+
+    describe('insert_lines_in_section', () => {
+        it('应该在章节内插入内容', async () => {
+            const intents: SemanticEditIntent[] = [{
+                type: 'insert_lines_in_section',
+                target: {
+                    path: ['用户管理'],
+                    insertionPosition: 'inside'
+                },
+                content: '新增功能：用户权限管理\n',
+                reason: '添加权限管理功能',
+                priority: 1
+            }];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(true);
+        });
+    });
+
+    describe('insert_entire_section', () => {
+        it('应该在指定位置插入新章节', async () => {
+            const intents: SemanticEditIntent[] = [{
+                type: 'insert_entire_section',
+                target: {
+                    path: ['功能需求'],
+                    insertionPosition: 'after'
+                },
+                content: '# 性能需求\n\n系统性能相关的需求...\n',
+                reason: '添加性能需求章节',
+                priority: 1
+            }];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(true);
+        });
+
+        it('应该支持同时插入多个章节', async () => {
+            const intents: SemanticEditIntent[] = [
+                {
+                    type: 'insert_entire_section',
+                    target: {
+                        path: ['用户管理'],
+                        insertionPosition: 'after'
+                    },
+                    content: '# 安全管理\n\n安全相关功能...\n',
+                    reason: '添加安全管理',
+                    priority: 1
+                },
+                {
+                    type: 'insert_entire_section',
+                    target: {
+                        path: ['数据管理'],
+                        insertionPosition: 'before'
+                    },
+                    content: '# 备份管理\n\n数据备份功能...\n',
+                    reason: '添加备份管理',
+                    priority: 2
+                }
+            ];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(true);
+            expect(result.appliedIntents.length).toBe(2);
+        });
+    });
+
+    describe('组合操作测试', () => {
+        it('应该正确处理混合类型的编辑意图', async () => {
+            const intents: SemanticEditIntent[] = [
+                {
+                    type: 'replace_lines_in_section',
+                    target: {
+                        path: ['功能需求'],
+                        targetContent: '现有内容'
+                    },
+                    content: '替换后的内容',
+                    reason: '替换操作',
+                    priority: 1
+                },
+                {
+                    type: 'insert_entire_section',
+                    target: {
+                        path: ['功能需求'],
+                        insertionPosition: 'after'
+                    },
+                    content: '# 新章节\n\n新的内容...\n',
+                    reason: '插入操作',
+                    priority: 2
+                }
+            ];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(true);
+        });
+
+        it('应该正确处理优先级排序', async () => {
+            const intents: SemanticEditIntent[] = [
+                {
+                    type: 'replace_lines_in_section',
+                    target: {
+                        path: ['功能需求'],
+                        targetContent: '低优先级内容'
+                    },
+                    content: '低优先级替换',
+                    reason: '低优先级操作',
+                    priority: 1
+                },
+                {
+                    type: 'replace_lines_in_section',
+                    target: {
+                        path: ['功能需求'],
+                        targetContent: '高优先级内容'
+                    },
+                    content: '高优先级替换',
+                    reason: '高优先级操作',
+                    priority: 10
+                }
+            ];
+
+            const result = await executeSemanticEdits(intents, testFileUri);
+
+            expect(result.success).toBe(true);
+            // 高优先级应该先执行
+            expect(result.appliedIntents[0].priority).toBe(10);
+            expect(result.appliedIntents[1].priority).toBe(1);
         });
     });
 });

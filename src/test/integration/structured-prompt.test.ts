@@ -54,8 +54,7 @@ describe('Structured Prompt Refactoring Tests', () => {
       sessionContext,
       historyContext,
       toolResultsContext,
-      mockGetTools,
-      mockRetrieveKnowledge
+      mockGetTools
     );
 
     // 验证结构化提示词的基本结构
@@ -117,8 +116,7 @@ describe('Structured Prompt Refactoring Tests', () => {
       sessionContext,
       '历史记录内容',
       '工具结果内容',
-      mockGetTools,
-      mockRetrieveKnowledge
+      mockGetTools
     );
 
     // 验证占位符被正确替换
@@ -164,8 +162,7 @@ describe('Structured Prompt Refactoring Tests', () => {
       sessionContext,
       '',
       '',
-      mockGetTools,
-      mockRetrieveKnowledge
+      mockGetTools
     );
 
     // 验证提示词结构符合VSCode最佳实践
@@ -240,8 +237,7 @@ describe('Structured Prompt Refactoring Tests', () => {
         sessionContext,
         '',
         '',
-        mockGetTools,
-        mockRetrieveKnowledge
+        mockGetTools
       );
 
       // 验证用户输入被正确包含
@@ -293,8 +289,7 @@ export async function runManualStructuredPromptTest() {
       sessionContext,
       '用户之前询问过项目框架选择',
       '上次工具调用结果：已创建项目目录',
-      mockGetTools,
-      mockRetrieveKnowledge
+      mockGetTools
     );
 
     console.log('📋 生成的结构化提示词预览：');

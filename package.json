@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode with Hybrid Intelligence Architecture",
-  "version": "1.6.3-debug-9",
+  "version": "1.6.4-debug-8",
   "publisher": "testany-co",
   "enabledApiProposals": [
     "languageModelTools"
@@ -219,6 +219,102 @@
           },
           "default": [],
           "description": "本地知识库路径列表"
+        },
+        "srs-writer.templates.frWriter": {
+          "type": "object",
+          "default": {
+            "FR_TEMPLATE": "templates/functional-requirements/fr-template.md"
+          },
+          "description": "功能需求编写器的模板文件路径配置",
+          "properties": {
+            "FR_TEMPLATE": {
+              "type": "string",
+              "description": "功能需求主模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.nfrWriter": {
+          "type": "object",
+          "default": {
+            "NFR_TEMPLATE": "templates/non-functional-requirements/nfr-template.md"
+          },
+          "description": "非功能需求编写器的模板文件路径配置",
+          "properties": {
+            "NFR_TEMPLATE": {
+              "type": "string",
+              "description": "非功能需求主模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.summaryWriter": {
+          "type": "object",
+          "default": {
+            "SUMMARY_TEMPLATE": "templates/summary/summary-template.md"
+          },
+          "description": "摘要编写器的模板文件路径配置",
+          "properties": {
+            "SUMMARY_TEMPLATE": {
+              "type": "string",
+              "description": "摘要模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.userJourneyWriter": {
+          "type": "object",
+          "default": {
+            "JOURNEY_TEMPLATE": "templates/user-journey/journey-template.md"
+          },
+          "description": "用户旅程编写器的模板文件路径配置",
+          "properties": {
+            "JOURNEY_TEMPLATE": {
+              "type": "string",
+              "description": "用户旅程模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.overallDescWriter": {
+          "type": "object",
+          "default": {
+            "DESCRIPTION_TEMPLATE": "templates/overall-description/description-template.md"
+          },
+          "description": "整体描述编写器的模板文件路径配置",
+          "properties": {
+            "DESCRIPTION_TEMPLATE": {
+              "type": "string",
+              "description": "整体描述模板文件路径"
+            }
+          }
+        },
+        "srs-writer.requirementScaffold.schemaPath": {
+          "type": "object",
+          "default": {
+            "SCHEMA_PATH": "config/schemas/requirement-entity-schemas.yaml"
+          },
+          "description": "需求实体Schema文件路径配置",
+          "properties": {
+            "SCHEMA_PATH": {
+              "type": "string",
+              "description": "需求实体Schema文件路径"
+            }
+          }
+        },
+        "srs-writer.projectSwitching.excludeDirectories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "templates",
+            "knowledge",
+            "node_modules",
+            ".git",
+            ".vscode",
+            "coverage",
+            "dist",
+            "build"
+          ],
+          "description": "切换项目时要排除的目录列表",
+          "markdownDescription": "在切换项目功能中要排除的目录名称列表。这些目录不会出现在项目选择列表中。\n\n**默认排除**：\n- `templates` - 用户模板目录\n- `knowledge` - 知识库目录\n- `node_modules` - Node.js依赖\n- `.git` - Git仓库\n- `.vscode` - VSCode配置\n- `coverage` - 测试覆盖率报告\n- `dist` - 构建产物\n- `build` - 构建产物"
         }
       }
     }

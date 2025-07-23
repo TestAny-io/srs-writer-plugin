@@ -37,6 +37,11 @@ export class PlanGenerator {
         toolResultsContext || ''
       );
 
+      // 🔍 [DEBUG] 输出即将发送给AI模型的完整提示词
+      // this.logger.info(`🔍 [DEBUG] === FINAL PROMPT BEFORE AI MODEL ===`);
+      //this.logger.info(`🔍 [DEBUG] About to send this complete prompt to AI model:\n${structuredPrompt}`);
+      //this.logger.info(`🔍 [DEBUG] === END FINAL PROMPT BEFORE AI MODEL ===`);
+
       // 🚀 重构：使用结构化的User消息，符合VSCode最佳实践
       // 由于VSCode不支持System消息，我们在User消息中明确标识系统指令和用户输入
       const messages = [

@@ -614,3 +614,56 @@ export enum CallerType {
     ATOMIC = 'atomic', 
     INTERNAL = 'internal'
 }
+
+// ============================================================================
+// 🚀 Specialist进度回调系统 - 改善UX
+// ============================================================================
+
+/**
+ * 🚀 新增：Specialist进度回调接口
+ * 用于向上层报告specialist执行状态，改善用户体验
+ */
+export interface SpecialistProgressCallback {
+    /**
+     * specialist开始工作回调
+     * @param specialistId specialist标识符
+     */
+    onSpecialistStart?(specialistId: string): void;
+
+    /**
+     * 迭代开始回调
+     * @param currentIteration 当前迭代次数 (1-based)
+     * @param maxIterations 最大迭代次数
+     */
+    onIterationStart?(currentIteration: number, maxIterations: number): void;
+
+    /**
+     * 工具执行开始回调 - 智能显示策略
+     * @param toolCalls 要执行的工具调用数组
+     */
+    onToolsStart?(toolCalls: Array<{ name: string; args: any }>): void;
+
+    /**
+     * 工具执行完成回调 - 包含错误处理
+     * @param toolCalls 执行的工具调用数组
+     * @param results 工具执行结果数组
+     * @param totalDuration 总执行时长(ms)
+     */
+    onToolsComplete?(
+        toolCalls: Array<{ name: string; args: any }>, 
+        results: Array<{
+            toolName: string;
+            success: boolean;
+            result?: any;
+            error?: string;
+        }>,
+        totalDuration: number
+    ): void;
+
+    /**
+     * specialist任务完成回调
+     * @param summary 任务完成摘要
+     * @param success 是否成功完成
+     */
+    onTaskComplete?(summary: string, success: boolean): void;
+}

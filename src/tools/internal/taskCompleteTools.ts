@@ -39,30 +39,10 @@ export const taskCompleteToolDefinition = {
             contextForNext: {
                 type: 'object',
                 properties: {
-                    structuredData: {
-                        type: 'object',
-                        description: '结构化数据'
-                    },
                     deliverables: {
                         type: 'array',
                         items: { type: 'string' },
                         description: '已完成的交付成果'
-                    },
-                    decisions: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                decision: { type: 'string' },
-                                reason: { type: 'string' },
-                                timestamp: { type: 'string' }
-                            }
-                        },
-                        description: '关键决策记录'
-                    },
-                    userPreferences: {
-                        type: 'object',
-                        description: '用户偏好设置'
                     }
                 },
                 description: '传递给下一步的上下文信息'

@@ -20,20 +20,8 @@ export enum NextStepType {
  * 任务上下文接口
  */
 export interface TaskContext {
-  /** 结构化数据 */
-  structuredData?: any;
   /** 工作成果列表 */
   deliverables?: string[];
-  /** 关键决策记录 */
-  decisions?: Array<{
-    decision: string;
-    reason: string;
-    timestamp: string;
-  }>;
-  /** 用户偏好设置 */
-  userPreferences?: {
-    [key: string]: any;
-  };
 }
 
 /**

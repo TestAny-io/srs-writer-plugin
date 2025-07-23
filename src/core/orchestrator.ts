@@ -1,14 +1,13 @@
 import * as vscode from 'vscode';
 import { Logger } from '../utils/logger';
 import { SessionContext } from '../types/session';
-import { AIPlan, AIResponseMode, CallerType } from '../types/index';
+import { AIPlan, AIResponseMode, CallerType, SpecialistProgressCallback } from '../types/index';
 import { toolExecutor } from './toolExecutor';
 
 // 导入拆分后的模块
 import { PlanGenerator } from './orchestrator/PlanGenerator';
 import { ConversationalExecutor } from './orchestrator/ConversationalExecutor';
 import { PromptManager } from './orchestrator/PromptManager';
-import { KnowledgeRetriever } from './orchestrator/KnowledgeRetriever';
 import { ToolCacheManager } from './orchestrator/ToolCacheManager';
 import { ResultFormatter } from './orchestrator/ResultFormatter';
 import { ContextWindowManager } from './orchestrator/ContextWindowManager';
@@ -34,7 +33,6 @@ export class Orchestrator {
   private planGenerator: PlanGenerator;
   private conversationalExecutor: ConversationalExecutor;
   private promptManager: PromptManager;
-  private knowledgeRetriever: KnowledgeRetriever;
   private toolCacheManager: ToolCacheManager;
   private resultFormatter: ResultFormatter;
   private contextWindowManager: ContextWindowManager;
@@ -48,7 +46,6 @@ export class Orchestrator {
     this.planGenerator = new PlanGenerator();
     this.conversationalExecutor = new ConversationalExecutor();
     this.promptManager = new PromptManager();
-    this.knowledgeRetriever = new KnowledgeRetriever();
     this.resultFormatter = new ResultFormatter();
     this.contextWindowManager = new ContextWindowManager();
     
@@ -68,7 +65,8 @@ export class Orchestrator {
     userInput: string,
     sessionContext: SessionContext,
     selectedModel: vscode.LanguageModelChat,
-    existingPlan?: AIPlan  // 🚀 新增：可选的已有计划，避免重复调用LLM
+    existingPlan?: AIPlan,  // 🚀 新增：可选的已有计划，避免重复调用LLM
+    progressCallback?: SpecialistProgressCallback  // 🚀 新增：specialist进度回调
   ): Promise<{ intent: string; result?: any }> {
     this.logger.info(`🎯 Planning for: ${userInput}`);
 
@@ -95,7 +93,8 @@ export class Orchestrator {
           initialPlan.execution_plan,
           sessionContext,
           selectedModel,
-          userInput
+          userInput,
+          progressCallback
         );
         
         this.logger.info(`🔍 [DEBUG] PlanExecutor returned: intent=${planExecutionResult.intent}`);
@@ -258,8 +257,7 @@ export class Orchestrator {
       sessionContext,
       historyContext,
       toolResultsContext,
-      this.toolCacheManager.getTools.bind(this.toolCacheManager),
-      this.knowledgeRetriever.retrieveRelevantKnowledge.bind(this.knowledgeRetriever)
+      this.toolCacheManager.getTools.bind(this.toolCacheManager)
     );
   }
 

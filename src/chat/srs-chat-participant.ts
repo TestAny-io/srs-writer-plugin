@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SessionContext } from '../types/session';
+import { SessionContext, ISessionObserver } from '../types/session';
 import { Logger } from '../utils/logger';
 import { CHAT_PARTICIPANT_ID } from '../constants';
 import { Orchestrator } from '../core/orchestrator';
@@ -19,28 +19,78 @@ import { toolExecutor } from '../core/toolExecutor';
  * - 引擎持久化：每个会话一个长生命周期引擎
  * - 状态保持：智能判断新任务vs用户响应
  * - 透明代理：完全委托给持久化的SRSAgentEngine
+ * - 🚀 新增：观察者模式自动清理孤儿engines
  */
-export class SRSChatParticipant {
+export class SRSChatParticipant implements ISessionObserver {
     private logger = Logger.getInstance();
     
     // 核心依赖组件
     private orchestrator: Orchestrator;
     private sessionManager: SessionManager;
     
-    // 🚀 新架构：引擎注册表 - 支持多会话并发
-    private engineRegistry: Map<string, SRSAgentEngine> = new Map();
+    // 🚀 新架构：全局单例引擎（v5.0重构）
+    private static globalEngine: SRSAgentEngine | null = null;
+    private static globalEngineLastActivity: number = 0;
+    
+    // 🔄 兼容层：保留现有引擎注册表作为fallback
+    private _engineRegistry: Map<string, SRSAgentEngine> = new Map();
+    
+    // 🚀 新增：架构模式切换标志（用于渐进式迁移）
+    private readonly useGlobalEngine: boolean = true; // 🎯 默认使用新架构
+    
+    // 🚨 新增：添加getter/setter来追踪Registry访问
+    private get engineRegistry(): Map<string, SRSAgentEngine> {
+        // 如果使用新架构，则注册表应该为空
+        if (this.useGlobalEngine) {
+            this.logger.warn(`🚨 [LEGACY REGISTRY] Accessing legacy registry in global engine mode!`);
+        }
+        
+        // 定期检查Registry状态
+        if (this._engineRegistry.size === 0) {
+            const stack = new Error().stack;
+            this.logger.warn(`🚨 [REGISTRY ACCESS] Registry is EMPTY when accessed!`);
+            this.logger.warn(`🚨 [REGISTRY ACCESS] Access stack:`);
+            this.logger.warn(stack || 'No stack trace available');
+        }
+        return this._engineRegistry;
+    }
+    
+    private set engineRegistry(value: Map<string, SRSAgentEngine>) {
+        const oldSize = this._engineRegistry.size;
+        const newSize = value.size;
+        const stack = new Error().stack;
+        
+        this.logger.warn(`🚨 [REGISTRY SET] Engine Registry being REPLACED!`);
+        this.logger.warn(`🚨 [REGISTRY SET] Size change: ${oldSize} → ${newSize}`);
+        this.logger.warn(`🚨 [REGISTRY SET] Set stack:`);
+        this.logger.warn(stack || 'No stack trace available');
+        
+        this._engineRegistry = value;
+    }
+    
+    // 🚀 新增：跟踪当前会话ID，用于检测会话变更
+    private currentSessionId: string | null = null;
     
     private constructor() {
         // 🕵️ 添加构造函数调用追踪
+        const timestamp = new Date().toISOString();
+        const instanceId = Math.random().toString(36).substr(2, 9);
         const stack = new Error().stack;
-        this.logger.warn('🔍 [CONSTRUCTOR] SRSChatParticipant constructor called! Stack:');
+        
+        this.logger.warn(`🚨 [CONSTRUCTOR] SRSChatParticipant constructor called at ${timestamp}!`);
+        this.logger.warn(`🚨 [CONSTRUCTOR] Instance ID: ${instanceId}`);
+        this.logger.warn(`🚨 [CONSTRUCTOR] Call stack:`);
         this.logger.warn(stack || 'No stack trace available');
         
         this.orchestrator = new Orchestrator();
         this.sessionManager = SessionManager.getInstance();
         
+        // 🚀 新增：订阅SessionManager的会话变更通知
+        this.sessionManager.subscribe(this);
+        
         // 🕵️ 记录registry初始化
         this.logger.warn(`🔍 [CONSTRUCTOR] engineRegistry initialized, size: ${this.engineRegistry.size}`);
+        this.logger.warn(`🚨 [CONSTRUCTOR] This is a NEW SRSChatParticipant instance (${instanceId})`);
         
         // 🕵️ 记录autoInitialize调用
         this.logger.warn('🔍 [CONSTRUCTOR] About to call sessionManager.autoInitialize()...');
@@ -191,20 +241,87 @@ export class SRSChatParticipant {
     }
 
     /**
-     * 🚀 核心方法：获取或创建持久化的引擎实例 - v3.0重构版
+     * 🚀 v5.0新架构：全局引擎管理方法
      * 
-     * 这是解决"金鱼智能代理"问题的关键方法
-     * v3.0变更：移除sessionContext参数，引擎内部动态获取
+     * 关键改进：
+     * - 单一全局引擎实例，生命周期绑定到插件
+     * - 动态获取会话上下文，不绑定特定会话
+     * - 避免会话切换导致的执行中断
+     */
+    private getOrCreateGlobalEngine(
+        stream: vscode.ChatResponseStream,
+        model: vscode.LanguageModelChat
+    ): SRSAgentEngine {
+        this.logger.warn(`🌐 [GLOBAL ENGINE] getOrCreateGlobalEngine called`);
+        
+        // 更新最后活动时间
+        SRSChatParticipant.globalEngineLastActivity = Date.now();
+        
+        if (!SRSChatParticipant.globalEngine) {
+            this.logger.warn(`🚨 [GLOBAL ENGINE] Creating NEW global engine instance`);
+            
+            // 创建全局引擎实例
+            SRSChatParticipant.globalEngine = new SRSAgentEngine(stream, model);
+            SRSChatParticipant.globalEngine.setDependencies(this.orchestrator, toolExecutor);
+            
+            this.logger.info(`🌐 Created global persistent engine`);
+        } else {
+            this.logger.warn(`🔄 [GLOBAL ENGINE] Reusing existing global engine`);
+            // 更新当前交互的参数
+            SRSChatParticipant.globalEngine.updateStreamAndModel(stream, model);
+            this.logger.info(`♻️  Reusing global engine with updated stream/model`);
+        }
+        
+        this.logger.warn(`🌐 [GLOBAL ENGINE] Global engine ready for use`);
+        return SRSChatParticipant.globalEngine;
+    }
+    
+    /**
+     * 🚀 v5.0新架构：检查全局引擎状态
+     */
+    private getGlobalEngineStatus(): { exists: boolean; state?: string; lastActivity?: number } {
+        if (!SRSChatParticipant.globalEngine) {
+            return { exists: false };
+        }
+        
+        const engineState = SRSChatParticipant.globalEngine.getState();
+        return {
+            exists: true,
+            state: engineState.stage,
+            lastActivity: SRSChatParticipant.globalEngineLastActivity
+        };
+    }
+
+    /**
+     * 🚀 核心方法：获取或创建持久化的引擎实例 - v5.0兼容版
+     * 
+     * 支持新旧架构的渐进式迁移
      */
     private getOrCreateEngine(
         sessionId: string, 
         stream: vscode.ChatResponseStream,
         model: vscode.LanguageModelChat
     ): SRSAgentEngine {
+        // 🚀 v5.0新架构：优先使用全局引擎
+        if (this.useGlobalEngine) {
+            this.logger.warn(`🌐 [ARCHITECTURE] Using global engine architecture (v5.0)`);
+            this.logger.warn(`🌐 [ARCHITECTURE] SessionId ${sessionId} will be handled by global engine`);
+            
+            return this.getOrCreateGlobalEngine(stream, model);
+        }
+        
+        // 🔄 兼容层：fallback到旧的会话基础架构
+        this.logger.warn(`📡 [LEGACY] Using legacy session-based engine architecture`);
+        
         // 🕵️ 添加engine registry详细追踪
         this.logger.warn(`🔍 [ENGINE REGISTRY] getOrCreateEngine called for sessionId: ${sessionId}`);
         this.logger.warn(`🔍 [ENGINE REGISTRY] Current registry size: ${this.engineRegistry.size}`);
         this.logger.warn(`🔍 [ENGINE REGISTRY] Registry keys: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+        
+        // 🚨 新增：详细的Registry操作追踪
+        const stackTrace = new Error().stack;
+        this.logger.warn(`🔍 [ENGINE REGISTRY] Call stack for getOrCreateEngine:`);
+        this.logger.warn(stackTrace || 'No stack trace available');
         
         let engine = this.engineRegistry.get(sessionId);
         this.logger.warn(`🔍 [ENGINE REGISTRY] Registry.get(${sessionId}) returned: ${engine ? 'ENGINE_FOUND' : 'NULL'}`);
@@ -214,8 +331,13 @@ export class SRSChatParticipant {
             // 🚀 v3.0重构：创建新引擎，移除sessionContext参数
             engine = new SRSAgentEngine(stream, model);
             engine.setDependencies(this.orchestrator, toolExecutor);
+            
+            // 🚨 新增：Registry SET操作追踪
+            this.logger.warn(`🔍 [ENGINE REGISTRY] About to SET engine for sessionId: ${sessionId}`);
             this.engineRegistry.set(sessionId, engine);
-            this.logger.warn(`🔍 [ENGINE REGISTRY] After set() - registry size: ${this.engineRegistry.size}`);
+            this.logger.warn(`🔍 [ENGINE REGISTRY] After SET - registry size: ${this.engineRegistry.size}`);
+            this.logger.warn(`🔍 [ENGINE REGISTRY] After SET - registry keys: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+            
             this.logger.info(`🧠 Created new persistent engine for session: ${sessionId}`);
         } else {
             this.logger.warn(`🔍 [ENGINE REGISTRY] Reusing existing engine for sessionId: ${sessionId}`);
@@ -448,55 +570,283 @@ export class SRSChatParticipant {
     }
 
     /**
-     * 🚀 v3.0新增：清理过期引擎（用于强制同步）
+     * 🚀 v5.0重构：智能引擎清理 - 架构感知版本
+     * 
+     * 新架构：保护全局引擎，只清理会话状态
+     * 旧架构：保持原有的完整清理逻辑
      */
     public async clearStaleEngines(): Promise<void> {
         // 🕵️ 添加clearStaleEngines详细追踪
         const stack = new Error().stack;
         this.logger.warn('🚨 [CLEAR ENGINES] clearStaleEngines() called! Call stack:');
         this.logger.warn(stack || 'No stack trace available');
+        this.logger.warn(`🚨 [CLEAR ENGINES] Architecture mode: ${this.useGlobalEngine ? 'GLOBAL' : 'LEGACY'}`);
         
-        const engineCount = this.engineRegistry.size;
-        this.logger.warn(`🔍 [CLEAR ENGINES] Registry size before clear: ${engineCount}`);
-        this.logger.warn(`🔍 [CLEAR ENGINES] Registry keys before clear: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
-        
-        // 清理所有引擎，它们会重新获取最新的SessionContext
-        this.engineRegistry.forEach((engine, sessionId) => {
-            this.logger.warn(`🔍 [CLEAR ENGINES] Disposing engine for sessionId: ${sessionId}`);
-            engine.dispose(); // 取消观察者订阅
-        });
-        this.engineRegistry.clear();
-        
-        this.logger.warn(`🔍 [CLEAR ENGINES] Registry size after clear: ${this.engineRegistry.size}`);
-        this.logger.info(`🧹 Cleared ${engineCount} stale engines from registry`);
+        if (this.useGlobalEngine) {
+            // 🌐 新架构：保护全局引擎，只重置其会话感知状态
+            this.logger.warn('🌐 [GLOBAL ENGINE] Protecting global engine from cleanup');
+            
+            const globalStatus = this.getGlobalEngineStatus();
+            if (globalStatus.exists) {
+                this.logger.warn(`🌐 [GLOBAL ENGINE] Global engine exists in state: ${globalStatus.state}`);
+                this.logger.warn(`🌐 [GLOBAL ENGINE] Preserving engine but allowing session context refresh`);
+                
+                // 🚀 关键：不清理引擎，但允许其自然刷新会话上下文
+                // SRSAgentEngine已经通过getCurrentSessionContext()动态获取最新会话
+                this.logger.info(`✅ [GLOBAL ENGINE] Global engine preserved, will adapt to current session context`);
+            } else {
+                this.logger.warn(`⚠️ [GLOBAL ENGINE] No global engine to protect`);
+            }
+            
+            // 🧹 清理遗留的注册表条目（如果有的话）
+            const legacyEngineCount = this._engineRegistry.size;
+            if (legacyEngineCount > 0) {
+                this.logger.warn(`🧹 [CLEANUP] Cleaning up ${legacyEngineCount} legacy registry entries`);
+                
+                this._engineRegistry.forEach((engine, sessionId) => {
+                    this.logger.warn(`🧹 [CLEANUP] Disposing legacy engine for sessionId: ${sessionId}`);
+                    try {
+                        engine.dispose(); // 取消观察者订阅
+                    } catch (error) {
+                        this.logger.error(`❌ [CLEANUP] Failed to dispose legacy engine: ${(error as Error).message}`);
+                    }
+                });
+                
+                this._engineRegistry.clear();
+                this.logger.info(`🧹 [CLEANUP] Cleared ${legacyEngineCount} legacy engines`);
+            }
+            
+        } else {
+            // 📡 兼容层：在旧架构下保持原有的完整清理逻辑
+            this.logger.warn('📡 [LEGACY] Using legacy engine cleanup logic');
+            
+            const engineCount = this.engineRegistry.size;
+            this.logger.warn(`🔍 [CLEAR ENGINES] Registry size before clear: ${engineCount}`);
+            this.logger.warn(`🔍 [CLEAR ENGINES] Registry keys before clear: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+            
+            // 🚨 新增：记录每个Engine的状态信息
+            this.engineRegistry.forEach((engine, sessionId) => {
+                const engineState = engine.getState();
+                this.logger.warn(`🔍 [CLEAR ENGINES] Engine ${sessionId} state: stage=${engineState.stage}, task="${engineState.currentTask}", historyLength=${engineState.executionHistory.length}`);
+            });
+            
+            // 清理所有引擎，它们会重新获取最新的SessionContext
+            this.engineRegistry.forEach((engine, sessionId) => {
+                this.logger.warn(`🔍 [CLEAR ENGINES] Disposing engine for sessionId: ${sessionId}`);
+                engine.dispose(); // 取消观察者订阅
+            });
+            
+            // 🚨 新增：Registry CLEAR操作追踪
+            this.logger.warn(`🔍 [CLEAR ENGINES] About to CLEAR entire registry...`);
+            this.engineRegistry.clear();
+            this.logger.warn(`🔍 [CLEAR ENGINES] Registry CLEARED - new size: ${this.engineRegistry.size}`);
+            
+            this.logger.warn(`🔍 [CLEAR ENGINES] Registry size after clear: ${this.engineRegistry.size}`);
+            this.logger.info(`🧹 Cleared ${engineCount} stale engines from registry`);
+        }
     }
 
     /**
-     * 获取参与者状态（用于调试和监控）
+     * 🚀 v5.0重构：会话观察者 - 智能引擎管理
+     * 
+     * 关键改进：
+     * - 新架构：会话切换不影响全局引擎
+     * - 旧架构：保持原有清理逻辑作为兼容
+     * - 智能检测：避免执行中断
+     */
+    public onSessionChanged(newContext: SessionContext | null): void {
+        const newSessionId = newContext?.sessionContextId || null;
+        const oldSessionId = this.currentSessionId;
+        
+        // 🚨 新增：Session变更详细追踪
+        const changeTimestamp = new Date().toISOString();
+        const changeStack = new Error().stack;
+        
+        this.logger.warn(`🚨 [SESSION OBSERVER] Session changed at ${changeTimestamp}`);
+        this.logger.warn(`🚨 [SESSION OBSERVER] Change: ${oldSessionId} → ${newSessionId}`);
+        this.logger.warn(`🚨 [SESSION OBSERVER] New project: ${newContext?.projectName || 'null'}`);
+        this.logger.warn(`🚨 [SESSION OBSERVER] Architecture mode: ${this.useGlobalEngine ? 'GLOBAL' : 'LEGACY'}`);
+        this.logger.warn(`🚨 [SESSION OBSERVER] Call stack:`);
+        this.logger.warn(changeStack || 'No stack trace available');
+        
+        this.logger.info(`🔄 [SESSION OBSERVER] Session changed: ${oldSessionId} → ${newSessionId}`);
+        
+        // 🚀 v5.0新架构：会话切换不影响全局引擎
+        if (this.useGlobalEngine) {
+            this.logger.info(`🌐 [GLOBAL ENGINE] Session changed, but global engine persists`);
+            this.logger.info(`🌐 [GLOBAL ENGINE] Global engine will dynamically adapt to new session context`);
+            
+            // 检查全局引擎状态
+            const globalStatus = this.getGlobalEngineStatus();
+            if (globalStatus.exists) {
+                this.logger.info(`🌐 [GLOBAL ENGINE] Current state: ${globalStatus.state}, last activity: ${new Date(globalStatus.lastActivity || 0).toISOString()}`);
+                
+                // 🚀 关键：在新架构下，不清理引擎，让其自然适应新会话
+                this.logger.info(`✅ [GLOBAL ENGINE] Preserving engine state across session change`);
+            } else {
+                this.logger.warn(`⚠️ [GLOBAL ENGINE] No global engine exists yet`);
+            }
+        } else {
+            // 🔄 兼容层：在旧架构下保持原有的清理逻辑
+            this.logger.warn(`📡 [LEGACY] Using legacy engine cleanup logic`);
+            this.logger.warn(`🚨 [SESSION OBSERVER] Current engine registry size: ${this.engineRegistry.size}`);
+            this.logger.warn(`🚨 [SESSION OBSERVER] Registry keys: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+            
+            // 检测到会话ID变更，需要清理旧engines
+            if (oldSessionId && newSessionId && oldSessionId !== newSessionId) {
+                this.logger.warn(`🧹 [SESSION OBSERVER] Detected session change, cleaning up old engines...`);
+                this.logger.warn(`🧹 [SESSION OBSERVER] Old session: ${oldSessionId}`);
+                this.logger.warn(`🧹 [SESSION OBSERVER] New session: ${newSessionId}`);
+                
+                // 异步清理旧engines，避免阻塞session变更流程
+                this.cleanupSpecificEngine(oldSessionId).catch((error: Error) => {
+                    this.logger.error(`❌ [SESSION OBSERVER] Engine cleanup failed: ${error.message}`, error);
+                });
+            }
+        }
+        
+        // 更新当前会话ID跟踪
+        this.currentSessionId = newSessionId;
+        
+        this.logger.info(`🔄 [SESSION OBSERVER] Current session ID updated to: ${newSessionId}`);
+    }
+
+    /**
+     * 🚀 精确清理特定会话的engine，避免误清理当前使用的engine
+     */
+    private async cleanupSpecificEngine(sessionId: string): Promise<void> {
+        // 🚨 新增：清理特定Engine的详细追踪
+        const cleanupTimestamp = new Date().toISOString();
+        const cleanupStack = new Error().stack;
+        
+        this.logger.warn(`🚨 [CLEANUP] Starting cleanup for specific session at ${cleanupTimestamp}`);
+        this.logger.warn(`🚨 [CLEANUP] Target sessionId: ${sessionId}`);
+        this.logger.warn(`🚨 [CLEANUP] Registry size before cleanup: ${this.engineRegistry.size}`);
+        this.logger.warn(`🚨 [CLEANUP] Registry keys before cleanup: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+        this.logger.warn(`🚨 [CLEANUP] Call stack:`);
+        this.logger.warn(cleanupStack || 'No stack trace available');
+        
+        this.logger.warn(`🧹 [CLEANUP] Starting cleanup for specific session: ${sessionId}`);
+        
+        const engine = this.engineRegistry.get(sessionId);
+        if (engine) {
+            this.logger.warn(`🧹 [CLEANUP] Found engine for session ${sessionId}, disposing...`);
+            
+            // 🚨 新增：记录被清理Engine的状态
+            const engineState = engine.getState();
+            this.logger.warn(`🚨 [CLEANUP] Engine to be cleaned: stage=${engineState.stage}, task="${engineState.currentTask}", historyLength=${engineState.executionHistory.length}`);
+            
+            try {
+                // 取消观察者订阅，释放资源
+                engine.dispose();
+                
+                // 从registry中移除
+                this.logger.warn(`🚨 [CLEANUP] About to DELETE engine from registry...`);
+                this.engineRegistry.delete(sessionId);
+                this.logger.warn(`🚨 [CLEANUP] Engine DELETED from registry`);
+                
+                this.logger.info(`✅ [CLEANUP] Successfully cleaned up engine for session: ${sessionId}`);
+                this.logger.warn(`🧹 [CLEANUP] Registry size after cleanup: ${this.engineRegistry.size}`);
+                this.logger.warn(`🚨 [CLEANUP] Registry keys after cleanup: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+            } catch (error) {
+                this.logger.error(`❌ [CLEANUP] Failed to dispose engine for session ${sessionId}: ${(error as Error).message}`, error as Error);
+            }
+        } else {
+            this.logger.info(`ℹ️ [CLEANUP] No engine found for session ${sessionId}, no cleanup needed`);
+        }
+    }
+
+    /**
+     * 🚀 v5.0重构：获取参与者状态 - 架构感知版本
      */
     public async getStatus(): Promise<string> {
         try {
             const sessionContext = await this.getOrCreateSessionContext();
-            const sessionId = this.getSessionId(sessionContext);
             const orchestratorStatus = await this.orchestrator.getSystemStatus();
             
-            return [
-                '=== SRS Chat Participant v4.0 Status ===',
-                `Architecture: 智能状态机 + 分层工具执行`,
+            // 基础信息
+            const baseInfo = [
+                '=== SRS Chat Participant v5.0 Status ===',
+                `Architecture Mode: ${this.useGlobalEngine ? 'Global Engine (v5.0)' : 'Legacy Session-based (v3.0)'}`,
                 `Current Project: ${sessionContext.projectName || 'None'}`,
                 `Base Directory: ${sessionContext.baseDir || 'None'}`,
                 `Active Files: ${sessionContext.activeFiles.length}`,
-                `Agent Engine: ${this.engineRegistry.has(sessionId) ? 'Active' : 'Inactive'}`,
-                `Engine State: ${this.engineRegistry.has(sessionId) ? this.engineRegistry.get(sessionId)?.getState().stage : 'None'}`,
-                `Awaiting User: ${this.engineRegistry.has(sessionId) ? this.engineRegistry.get(sessionId)?.isAwaitingUser() : false}`,
-                `Orchestrator Status: ${orchestratorStatus.aiMode ? 'Active' : 'Inactive'}`,
-                `Available Tools: ${orchestratorStatus.availableTools.length}`,
+                `Session ID: ${sessionContext.sessionContextId}`,
                 `Session Version: ${sessionContext.metadata.version}`,
-                `Session ID: ${sessionId}`,
-                `Active Sessions: ${this.engineRegistry.size}`
-            ].join('\n');
+                `Orchestrator Status: ${orchestratorStatus.aiMode ? 'Active' : 'Inactive'}`,
+                `Available Tools: ${orchestratorStatus.availableTools.length}`
+            ];
+            
+            // 架构特定信息
+            if (this.useGlobalEngine) {
+                // 🌐 新架构状态
+                const globalStatus = this.getGlobalEngineStatus();
+                const engineInfo = [
+                    '--- Global Engine Status ---',
+                    `Global Engine: ${globalStatus.exists ? 'Active' : 'Inactive'}`,
+                    `Engine State: ${globalStatus.state || 'None'}`,
+                    `Last Activity: ${globalStatus.lastActivity ? new Date(globalStatus.lastActivity).toISOString() : 'Never'}`,
+                    `Awaiting User: ${globalStatus.exists && SRSChatParticipant.globalEngine ? SRSChatParticipant.globalEngine.isAwaitingUser() : false}`,
+                    `Legacy Registry Size: ${this._engineRegistry.size} (should be 0)`
+                ];
+                
+                return [...baseInfo, ...engineInfo].join('\n');
+            } else {
+                // 📡 旧架构状态
+                const sessionId = sessionContext.sessionContextId;
+                const legacyInfo = [
+                    '--- Legacy Session-based Engine Status ---',
+                    `Session Engine: ${this.engineRegistry.has(sessionId) ? 'Active' : 'Inactive'}`,
+                    `Engine State: ${this.engineRegistry.has(sessionId) ? this.engineRegistry.get(sessionId)?.getState().stage : 'None'}`,
+                    `Awaiting User: ${this.engineRegistry.has(sessionId) ? this.engineRegistry.get(sessionId)?.isAwaitingUser() : false}`,
+                    `Active Sessions: ${this.engineRegistry.size}`
+                ];
+                
+                return [...baseInfo, ...legacyInfo].join('\n');
+            }
         } catch (error) {
             return `Status Error: ${error}`;
         }
+    }
+    
+    /**
+     * 🚀 v5.0新增：全局引擎销毁方法
+     * 
+     * 用于插件关闭或需要完全重置时清理全局引擎
+     */
+    public static disposeGlobalEngine(): void {
+        const logger = Logger.getInstance();
+        
+        if (SRSChatParticipant.globalEngine) {
+            logger.warn(`🌐 [GLOBAL ENGINE] Disposing global engine at plugin shutdown`);
+            
+            try {
+                const engineState = SRSChatParticipant.globalEngine.getState();
+                logger.warn(`🌐 [GLOBAL ENGINE] Final state: stage=${engineState.stage}, task="${engineState.currentTask}"`);
+                
+                // 销毁引擎
+                SRSChatParticipant.globalEngine.dispose();
+                SRSChatParticipant.globalEngine = null;
+                SRSChatParticipant.globalEngineLastActivity = 0;
+                
+                logger.info(`✅ [GLOBAL ENGINE] Global engine disposed successfully`);
+            } catch (error) {
+                logger.error(`❌ [GLOBAL ENGINE] Failed to dispose global engine: ${(error as Error).message}`);
+            }
+        } else {
+            logger.warn(`⚠️ [GLOBAL ENGINE] No global engine to dispose`);
+        }
+    }
+    
+    /**
+     * 🚀 v5.0新增：架构模式切换方法（用于测试和调试）
+     */
+    public toggleArchitectureMode(): boolean {
+        // 注意：这个方法设计为只读，因为useGlobalEngine是readonly
+        // 在实际使用中，架构模式在构造时确定
+        this.logger.warn(`🔧 [ARCHITECTURE] Current mode: ${this.useGlobalEngine ? 'GLOBAL' : 'LEGACY'}`);
+        this.logger.warn(`🔧 [ARCHITECTURE] Mode is readonly, cannot be changed at runtime`);
+        
+        return this.useGlobalEngine;
     }
 }

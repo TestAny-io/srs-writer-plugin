@@ -35,11 +35,12 @@ import {
     documentGeneratorToolsCategory 
 } from './document/documentGeneratorTools';
 
-import { 
-    documentImporterToolDefinitions, 
-    documentImporterToolImplementations,
-    documentImporterToolsCategory 
-} from './document/documentImporterTools';
+// 🚨 DEPRECATED: Document importer tools are deprecated and no longer used
+// import { 
+//     documentImporterToolDefinitions, 
+//     documentImporterToolImplementations,
+//     documentImporterToolsCategory 
+// } from './document/documentImporterTools';
 
 import { 
     systemToolDefinitions, 
@@ -59,11 +60,17 @@ import {
     taskCompleteToolsCategory 
 } from './internal/taskCompleteTools';
 
-// 🚀 统一的文件读取工具
 import { 
-    readFileToolDefinitions, 
-    readFileToolImplementations,
-    readFileToolsCategory 
+    recordThoughtToolDefinitions, 
+    recordThoughtToolImplementations,
+    recordThoughtToolsCategory 
+} from './internal/recordThoughtTools';
+
+// 🚀 Markdown文件读取工具
+import { 
+    readMarkdownFileToolDefinitions, 
+    readMarkdownFileToolImplementations,
+    readMarkdownFileToolsCategory 
 } from './document/enhanced-readfile-tools';
 
 import { 
@@ -71,6 +78,18 @@ import {
     semanticEditEngineToolImplementations,
     semanticEditEngineToolsCategory 
 } from './document/semantic-edit-engine';
+
+import { 
+    requirementScaffoldToolDefinitions, 
+    requirementScaffoldToolImplementations,
+    requirementScaffoldToolsCategory 
+} from './document/requirementScaffoldTools';
+
+import {
+    yamlEditorToolDefinitions,
+    yamlEditorToolImplementations,
+    yamlEditorToolsCategory
+} from './document/yamlEditorTools';
 
 // 导入访问控制类型
 import { CallerType } from '../types/index';
@@ -188,12 +207,12 @@ class ToolRegistry {
         );
 
         // 注册文档层工具 - 导入器
-        this.registerToolsFromCategory(
-            documentImporterToolDefinitions,
-            documentImporterToolImplementations,
-            documentImporterToolsCategory,
-            'document'
-        );
+        // this.registerToolsFromCategory(
+        //     documentImporterToolDefinitions,
+        //     documentImporterToolImplementations,
+        //     documentImporterToolsCategory,
+        //     'document'
+        // );
 
         // 注册文档层工具 - 需求管理
         this.registerToolsFromCategory(
@@ -227,11 +246,19 @@ class ToolRegistry {
             'internal'
         );
 
-        // 🚀 Phase 1新增：注册语义编辑工具
+        // 注册思考记录工具
         this.registerToolsFromCategory(
-            readFileToolDefinitions,
-            readFileToolImplementations,
-            readFileToolsCategory,
+            recordThoughtToolDefinitions,
+            recordThoughtToolImplementations,
+            recordThoughtToolsCategory,
+            'internal'
+        );
+
+        // 🚀 Phase 1新增：注册Markdown文件读取工具
+        this.registerToolsFromCategory(
+            readMarkdownFileToolDefinitions,
+            readMarkdownFileToolImplementations,
+            readMarkdownFileToolsCategory,
             'document'
         );
 
@@ -239,6 +266,21 @@ class ToolRegistry {
             semanticEditEngineToolDefinitions,
             semanticEditEngineToolImplementations,
             semanticEditEngineToolsCategory,
+            'document'
+        );
+
+        // 🚀 新增：注册需求脚手架生成工具
+        this.registerToolsFromCategory(
+            requirementScaffoldToolDefinitions,
+            requirementScaffoldToolImplementations,
+            requirementScaffoldToolsCategory,
+            'document'
+        );
+
+        this.registerToolsFromCategory(
+            yamlEditorToolDefinitions,
+            yamlEditorToolImplementations,
+            yamlEditorToolsCategory,
             'document'
         );
 
@@ -546,8 +588,8 @@ export {
     requirementToolImplementations,
     documentGeneratorToolDefinitions,
     documentGeneratorToolImplementations,
-    documentImporterToolDefinitions,
-    documentImporterToolImplementations,
+    // documentImporterToolDefinitions, // DEPRECATED
+    // documentImporterToolImplementations, // DEPRECATED
     systemToolDefinitions,
     systemToolImplementations,
     createNewProjectFolderToolDefinitions,

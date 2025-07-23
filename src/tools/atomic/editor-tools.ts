@@ -91,7 +91,13 @@ export const openAndShowFileToolDefinition = {
             }
         },
         required: ["path"]
-    }
+    },
+    // 🚀 访问控制：文件打开操作，只允许orchestrator使用
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
+        CallerType.DOCUMENT
+    ]
 };
 
 export async function openAndShowFile(args: { path: string }): Promise<{ success: boolean; error?: string }> {

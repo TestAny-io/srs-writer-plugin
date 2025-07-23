@@ -110,10 +110,18 @@ export class SessionManager implements ISessionManager {
             return null;
         }
         
+        // 🔍 [DEBUG-SESSION-SYNC] 记录SessionManager中的session状态
+        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === SessionManager.getCurrentSession ===`);
+        //this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] SessionManager sessionId: ${this.currentSession.sessionContextId}`);
+        //this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] SessionManager lastModified: ${this.currentSession.metadata.lastModified}`);
+        //this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] SessionManager projectName: ${this.currentSession.projectName}`);
+        
         // 🚀 修复：在实际使用时检查过期，而不是在autoInitialize时
         const isExpired = await this.isSessionExpired();
         if (isExpired) {
             this.logger.warn('🚨 [GET SESSION] Current session is expired, clearing it now');
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] *** CLEARING EXPIRED SESSION ***`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] This will cause NEW session creation on next request!`);
             await this.clearSession();
             return null;
         }
@@ -534,15 +542,34 @@ export class SessionManager implements ISessionManager {
      * 🚀 v3.0新增：通知所有观察者
      */
     private notifyObservers(): void {
+        // 🚨 新增：观察者通知详细追踪
+        const notifyTimestamp = new Date().toISOString();
+        const notifyStack = new Error().stack;
+        
+        this.logger.warn(`🚨 [NOTIFY OBSERVERS] Starting observer notification at ${notifyTimestamp}`);
+        this.logger.warn(`🚨 [NOTIFY OBSERVERS] Total observers: ${this.observers.size}`);
+        this.logger.warn(`🚨 [NOTIFY OBSERVERS] Current session: ${this.currentSession?.sessionContextId || 'null'}`);
+        this.logger.warn(`🚨 [NOTIFY OBSERVERS] Call stack:`);
+        this.logger.warn(notifyStack || 'No stack trace available');
+        
+        let observerIndex = 0;
         this.observers.forEach(observer => {
+            observerIndex++;
+            this.logger.warn(`🚨 [NOTIFY OBSERVERS] Calling observer ${observerIndex}/${this.observers.size}`);
+            this.logger.warn(`🚨 [NOTIFY OBSERVERS] Observer type: ${observer.constructor.name}`);
+            
             try {
                 observer.onSessionChanged(this.currentSession);
+                this.logger.warn(`🚨 [NOTIFY OBSERVERS] Observer ${observerIndex} completed successfully`);
             } catch (error) {
-                this.logger.error('Observer notification failed', error as Error);
+                this.logger.error(`❌ [NOTIFY OBSERVERS] Observer ${observerIndex} failed: ${(error as Error).message}`, error as Error);
                 // 移除有问题的观察者
                 this.observers.delete(observer);
+                this.logger.warn(`🚨 [NOTIFY OBSERVERS] Removed faulty observer ${observerIndex}`);
             }
         });
+        
+        this.logger.warn(`🚨 [NOTIFY OBSERVERS] All observers notified`);
     }
 
     /**
@@ -637,14 +664,17 @@ export class SessionManager implements ISessionManager {
         
         // 🐛 修复日志：记录过期检查的详细信息
         const hoursInactive = Math.round(inactivityPeriod / (1000 * 60 * 60) * 10) / 10;
-        // this.logger.warn(`🔍 [EXPIRY CALCULATION] Last activity: ${new Date(lastActivity).toISOString()}`);
-        // this.logger.warn(`🔍 [EXPIRY CALCULATION] Current time: ${new Date(currentTime).toISOString()}`);
-        // this.logger.warn(`🔍 [EXPIRY CALCULATION] Inactivity period: ${inactivityPeriod}ms (${hoursInactive}h)`);
-        // this.logger.warn(`🔍 [EXPIRY CALCULATION] Max inactivity: ${maxInactivityMs}ms (${maxAgeHours}h)`);
-        // this.logger.debug(`Session expiry check: ${hoursInactive}h inactive (max: ${maxAgeHours}h)`);
+        
+        // 🔍 [DEBUG-SESSION-SYNC] 详细的过期检查日志
+        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === SESSION EXPIRY CHECK ===`);
+        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Last activity: ${new Date(lastActivity).toISOString()}`);
+        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Current time: ${new Date(currentTime).toISOString()}`);
+        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Inactivity period: ${inactivityPeriod}ms (${hoursInactive} hours)`);
+        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Max allowed inactivity: ${maxInactivityMs}ms (${maxAgeHours} hours)`);
+        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Time since last activity: ${hoursInactive}h vs limit: ${maxAgeHours}h`);
         
         const isExpired = inactivityPeriod > maxInactivityMs;
-        // this.logger.warn(`🔍 [EXPIRY RESULT] Session is expired: ${isExpired}`);
+        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] *** SESSION EXPIRED: ${isExpired} ***`);
         
         return isExpired;
     }

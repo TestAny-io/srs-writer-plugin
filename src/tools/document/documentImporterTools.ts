@@ -1,6 +1,8 @@
 /**
  * 文档导入工具 v2.0 - 从Markdown导入并解析到独立文件
  * 
+ * ⚠️ DEPRECATED: 这个文件中的工具已经不再使用，建议使用新的文档处理工具
+ * 
  * 这里保存了原 srs-parser.ts 的宝贵解析逻辑：
  * - 表格解析：从Markdown表格提取结构化数据
  * - YAML转换：将表格数据转换为YAML格式
@@ -13,11 +15,13 @@ import { Logger } from '../../utils/logger';
 
 /**
  * 工具定义
+ * ⚠️ DEPRECATED: 这些工具已经不再使用
  */
 export const documentImporterToolDefinitions = [
     {
         name: 'importFromMarkdown',
-        description: '从一份Markdown格式的SRS文档中解析并提取内容，自动填充到项目的独立文件中（fr.yaml, nfr.yaml等）',
+        description: '⚠️ DEPRECATED: 此工具已废弃，请使用新的文档处理工具。从一份Markdown格式的SRS文档中解析并提取内容，自动填充到项目的独立文件中（fr.yaml, nfr.yaml等）',
+        deprecated: true, // 🚨 标记为已废弃
         parameters: {
             type: 'object',
             properties: {
@@ -40,7 +44,8 @@ export const documentImporterToolDefinitions = [
     },
     {
         name: 'parseMarkdownTable',
-        description: '解析Markdown表格并转换为指定格式（YAML或JSON）',
+        description: '⚠️ DEPRECATED: 此工具已废弃，请使用新的文档处理工具。解析Markdown表格并转换为指定格式（YAML或JSON）',
+        deprecated: true, // 🚨 标记为已废弃
         parameters: {
             type: 'object',
             properties: {
@@ -67,10 +72,12 @@ export const documentImporterToolDefinitions = [
 
 /**
  * 工具实现
+ * ⚠️ DEPRECATED: 这些工具已经不再使用
  */
 export const documentImporterToolImplementations = {
     /**
      * 从Markdown导入SRS内容
+     * ⚠️ DEPRECATED: 此工具已废弃，不建议使用
      */
     async importFromMarkdown(params: {
         markdownContent: string;
@@ -78,6 +85,11 @@ export const documentImporterToolImplementations = {
         overwriteExisting?: boolean;
     }) {
         const logger = Logger.getInstance();
+        
+        // 🚨 Deprecation警告
+        logger.warn('⚠️ DEPRECATED: importFromMarkdown工具已废弃，请使用新的文档处理工具');
+        console.warn('⚠️ DEPRECATED: importFromMarkdown工具已废弃，请使用新的文档处理工具');
+
         const { markdownContent, projectPath, overwriteExisting = false } = params;
 
         try {
@@ -206,12 +218,18 @@ export const documentImporterToolImplementations = {
 
     /**
      * 解析Markdown表格
+     * ⚠️ DEPRECATED: 此工具已废弃，不建议使用
      */
     async parseMarkdownTable(params: {
         tableContent: string;
         tableType: 'functional_requirements' | 'non_functional_requirements' | 'glossary';
         outputFormat?: 'yaml' | 'json';
     }) {
+        // 🚨 Deprecation警告
+        const logger = Logger.getInstance();
+        logger.warn('⚠️ DEPRECATED: parseMarkdownTable工具已废弃，请使用新的文档处理工具');
+        console.warn('⚠️ DEPRECATED: parseMarkdownTable工具已废弃，请使用新的文档处理工具');
+        
         const { tableContent, tableType, outputFormat = 'yaml' } = params;
 
         try {
@@ -492,3 +510,25 @@ export const documentImporterToolsCategory = {
     tools: documentImporterToolDefinitions.map(def => def.name),
     layer: 'document'
 }; 
+
+/**
+ * ============================================================================
+ * 🚨 DEPRECATION NOTICE 废弃通知
+ * ============================================================================
+ * 
+ * 这个文件中的工具已经废弃，不再使用：
+ * - importFromMarkdown
+ * - parseMarkdownTable
+ * 
+ * 📅 废弃日期：2025-07-21
+ * 
+ * 🔄 替代方案：
+ * - 使用 semantic-edit-engine.ts 中的语义编辑工具
+ * - 使用 requirementTools.ts 中的需求管理工具
+ * - 使用 yamlEditorTools.ts 中的YAML编辑工具
+ * 
+ * ⚠️ 如果您仍在使用这些工具，请迁移到新的工具集
+ * 
+ * 📧 如有疑问，请联系开发团队
+ * ============================================================================
+ */ 

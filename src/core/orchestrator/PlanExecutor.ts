@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Logger } from '../../utils/logger';
 import { SessionContext } from '../../types/session';
 import { SpecialistExecutor } from '../specialistExecutor';
+import { SpecialistProgressCallback } from '../../types';
 import { SpecialistOutput, SpecialistExecutionHistory, SpecialistInteractionResult, SpecialistLoopState } from '../engine/AgentState';
 // 🚀 Phase 1新增：编辑指令支持（传统）
 import { executeEditInstructions } from '../../tools/atomic/edit-execution-tools';
@@ -69,7 +70,8 @@ export class PlanExecutor {
         plan: { planId: string; description: string; steps: any[] },
         sessionContext: SessionContext,
         selectedModel: vscode.LanguageModelChat,
-        userInput: string
+        userInput: string,
+        progressCallback?: SpecialistProgressCallback
     ): Promise<{ intent: string; result?: any }> {
         this.logger.info(`🚀 执行计划: ${plan.description} (${plan.steps.length}个步骤)`);
         this.logger.info(`🔍 [DEBUG] PlanExecutor.execute called with:`);
@@ -93,16 +95,17 @@ export class PlanExecutor {
                 this.logger.info(`🔍 [DEBUG] - context_dependencies: ${JSON.stringify(step.context_dependencies || [])}`);
                 
                 // 🚀 新增：带循环支持的specialist执行
-                let specialistOutput: SpecialistOutput;
+                let specialistResult: SpecialistOutput | SpecialistInteractionResult;
                 try {
-                    specialistOutput = await this.executeSpecialistWithLoopSupport(
-                        step, 
-                        stepResults, 
-                        currentSessionContext, 
-                        userInput, 
-                        selectedModel, 
-                        plan
-                    );
+                                    specialistResult = await this.executeSpecialistWithLoopSupport(
+                    step, 
+                    stepResults, 
+                    currentSessionContext, 
+                    userInput, 
+                    selectedModel, 
+                    plan,
+                    progressCallback
+                );
                 } catch (error) {
                     this.logger.error(`❌ 步骤 ${step.step} specialist循环执行异常: ${(error as Error).message}`);
                     return {
@@ -111,11 +114,60 @@ export class PlanExecutor {
                             summary: `计划 '${plan.description}' 在步骤 ${step.step} 执行异常`,
                             error: `specialist循环执行异常: ${(error as Error).message}`,
                             failedStep: step.step,
+                            completedSteps: Object.keys(stepResults).length,
+                            // 🚀 新增：完整的计划执行上下文
+                            planExecutionContext: {
+                                originalExecutionPlan: plan,
+                                totalSteps: plan.steps.length,
+                                completedSteps: Object.keys(stepResults).length,
+                                failedStep: step.step,
+                                failedSpecialist: step.specialist,
+                                completedWork: Object.keys(stepResults).map(stepNum => ({
+                                    step: parseInt(stepNum),
+                                    specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                                    description: plan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                                    status: 'completed'
+                                })),
+                                error: `specialist循环执行异常: ${(error as Error).message}`
+                            }
+                        }
+                    };
+                }
+
+                // 🚀 修复核心bug：首先检查是否需要用户交互
+                this.logger.info(`🔍 [DEBUG] 步骤 ${step.step} specialist返回结果类型检查:`);
+                this.logger.info(`🔍 [DEBUG] - 结果包含needsChatInteraction: ${'needsChatInteraction' in specialistResult}`);
+                this.logger.info(`🔍 [DEBUG] - needsChatInteraction值: ${(specialistResult as any).needsChatInteraction}`);
+                this.logger.info(`🔍 [DEBUG] - 结果包含success: ${'success' in specialistResult}`);
+                this.logger.info(`🔍 [DEBUG] - success值: ${(specialistResult as any).success}`);
+                this.logger.info(`🔍 [DEBUG] - 结果包含error: ${'error' in specialistResult}`);
+                this.logger.info(`🔍 [DEBUG] - 结果包含question: ${'question' in specialistResult}`);
+                
+                if ('needsChatInteraction' in specialistResult && specialistResult.needsChatInteraction === true) {
+                    this.logger.info(`💬 步骤 ${step.step} specialist需要用户交互: "${specialistResult.question}"`);
+                    this.logger.info(`🔍 [DEBUG] 返回intent: 'user_interaction_required'，而非'plan_failed'`);
+                    
+                    // 返回用户交互需求，而不是错误
+                    return {
+                        intent: 'user_interaction_required',
+                        result: {
+                            mode: 'specialist_interaction',
+                            question: specialistResult.question,
+                            summary: `计划执行至步骤 ${step.step} (${step.description}) 时需要用户确认`,
+                            stepInfo: {
+                                step: step.step,
+                                specialist: step.specialist,
+                                description: step.description
+                            },
+                            resumeContext: specialistResult.resumeContext,
                             completedSteps: Object.keys(stepResults).length
                         }
                     };
                 }
 
+                // 现在可以安全地将结果当作SpecialistOutput处理
+                const specialistOutput = specialistResult as SpecialistOutput;
+                
                 // 检查specialist是否执行成功
                 if (!specialistOutput.success) {
                     this.logger.error(`❌ 步骤 ${step.step} specialist执行失败: ${specialistOutput.error}`);
@@ -130,6 +182,21 @@ export class PlanExecutor {
                                 specialist: step.specialist,
                                 iterations: specialistOutput.metadata?.iterations || 0,
                                 loopIterations: specialistOutput.metadata?.loopIterations || 0
+                            },
+                            // 🚀 新增：完整的计划执行上下文
+                            planExecutionContext: {
+                                originalExecutionPlan: plan,
+                                totalSteps: plan.steps.length,
+                                completedSteps: Object.keys(stepResults).length,
+                                failedStep: step.step,
+                                failedSpecialist: step.specialist,
+                                completedWork: Object.keys(stepResults).map(stepNum => ({
+                                    step: parseInt(stepNum),
+                                    specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                                    description: plan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                                    status: 'completed'
+                                })),
+                                error: `specialist执行失败: ${specialistOutput.error}`
                             }
                         }
                     };
@@ -157,6 +224,14 @@ export class PlanExecutor {
             const executionTime = Date.now() - startTime;
             this.logger.info(`✅ 计划执行完成，耗时: ${executionTime}ms`);
 
+            // 🔍 [DEBUG-SESSION-SYNC] 计划执行完成时的session状态检查
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === PLAN EXECUTION COMPLETED (Path 1) ===`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] SessionContext at completion:`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - sessionId: ${sessionContext.sessionContextId}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - lastModified: ${sessionContext.metadata.lastModified}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - projectName: ${sessionContext.projectName}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] ⚠️ This sessionContext may NOT be synced back to SessionManager!`);
+
             return {
                 intent: 'plan_completed',
                 result: {
@@ -164,7 +239,22 @@ export class PlanExecutor {
                     executionTime,
                     totalSteps: plan.steps.length,
                     stepResults: this.formatStepResults(stepResults),
-                    finalOutput: this.extractFinalOutput(stepResults)
+                    finalOutput: this.extractFinalOutput(stepResults),
+                    // 🚀 新增：完整的计划执行上下文
+                    planExecutionContext: {
+                        originalExecutionPlan: plan,
+                        totalSteps: plan.steps.length,
+                        completedSteps: Object.keys(stepResults).length,
+                        failedStep: null,
+                        failedSpecialist: null,
+                        completedWork: Object.keys(stepResults).map(stepNum => ({
+                            step: parseInt(stepNum),
+                            specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                            description: plan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                            status: 'completed'
+                        })),
+                        error: null
+                    }
                 }
             };
 
@@ -176,7 +266,22 @@ export class PlanExecutor {
                 result: {
                     summary: `计划 '${plan.description}' 执行时发生异常`,
                     error: (error as Error).message,
-                    completedSteps: Object.keys(stepResults).length
+                    completedSteps: Object.keys(stepResults).length,
+                    // 🚀 新增：完整的计划执行上下文
+                    planExecutionContext: {
+                        originalExecutionPlan: plan,
+                        totalSteps: plan.steps.length,
+                        completedSteps: Object.keys(stepResults).length,
+                        failedStep: null,
+                        failedSpecialist: null,
+                        completedWork: Object.keys(stepResults).map(stepNum => ({
+                            step: parseInt(stepNum),
+                            specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                            description: plan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                            status: 'completed'
+                        })),
+                        error: (error as Error).message
+                    }
                 }
             };
         }
@@ -483,7 +588,8 @@ export class PlanExecutor {
         currentSessionContext: SessionContext,
         userInput: string,
         selectedModel: vscode.LanguageModelChat,
-        plan: { planId: string; description: string; steps: any[] }
+        plan: { planId: string; description: string; steps: any[] },
+        progressCallback?: SpecialistProgressCallback
     ): Promise<SpecialistOutput | SpecialistInteractionResult> {
         const specialistId = step.specialist;
         const maxIterations = 5; // 最大循环次数限制
@@ -530,17 +636,67 @@ export class PlanExecutor {
                 );
                 
                 // 执行specialist
-                const specialistOutput = await this.specialistExecutor.execute(
+                const specialistResult = await this.specialistExecutor.execute(
                     specialistId,
                     enhancedContext,
-                    selectedModel
+                    selectedModel,
+                    undefined, // resumeState
+                    progressCallback
                 );
                 
                 const iterationTime = Date.now() - iterationStart;
                 
-                // 🚀 新增：检查specialist是否需要用户交互（askQuestion工具调用）
+                // 🚀 修复：首先检查是否直接返回了用户交互需求（SpecialistInteractionResult）
+                this.logger.info(`🔍 [DEBUG] ${specialistId} 第 ${loopState.currentIteration} 轮结果类型检查:`);
+                this.logger.info(`🔍 [DEBUG] - 是否为SpecialistInteractionResult: ${'needsChatInteraction' in specialistResult && specialistResult.needsChatInteraction === true}`);
+                this.logger.info(`🔍 [DEBUG] - 结果keys: ${Object.keys(specialistResult).join(', ')}`);
+                
+                if ('needsChatInteraction' in specialistResult && specialistResult.needsChatInteraction === true) {
+                    this.logger.info(`💬 ${specialistId} 在第 ${loopState.currentIteration} 轮直接返回用户交互需求: "${specialistResult.question}"`);
+                    
+                    // 🚀 修复：为直接返回的SpecialistInteractionResult构建完整resumeContext
+                    const completeResumeContext = this.buildCompleteResumeContext(
+                        specialistId,
+                        step,
+                        stepResults,
+                        currentSessionContext,
+                        userInput,
+                        plan,
+                        loopState,
+                        specialistResult as any, // 将SpecialistInteractionResult当作SpecialistOutput处理
+                        enhancedContext
+                    );
+                    
+                    // 🚀 合并specialist原始resumeContext和完整planExecutorState
+                    const enhancedResumeContext = {
+                        ...specialistResult.resumeContext, // 保留specialist的原始状态
+                        ...completeResumeContext,          // 添加完整的planExecutorState
+                        
+                        // 🚀 确保specialist原始信息优先级更高
+                        ruleId: specialistResult.resumeContext?.specialist || specialistId,
+                        specialist: specialistResult.resumeContext?.specialist || specialistId,
+                        iteration: specialistResult.resumeContext?.iteration || loopState.currentIteration,
+                        internalHistory: specialistResult.resumeContext?.internalHistory || [],
+                        contextForThisStep: specialistResult.resumeContext?.contextForThisStep || enhancedContext,
+                    };
+                    
+                    this.logger.info(`🔍 [DEBUG] 构建完整resumeContext完成，包含planExecutorState: ${!!enhancedResumeContext.planExecutorState}`);
+                    
+                    // 返回增强的SpecialistInteractionResult
+                    return {
+                        success: false,
+                        needsChatInteraction: true,
+                        resumeContext: enhancedResumeContext, // ✅ 现在包含完整的planExecutorState
+                        question: specialistResult.question
+                    } as SpecialistInteractionResult;
+                }
+                
+                // 现在可以安全地将结果当作SpecialistOutput处理
+                const specialistOutput = specialistResult as SpecialistOutput;
+                
+                // 🚀 检查SpecialistOutput是否包含隐含的用户交互需求（通过工具调用结果）
                 if (this.checkSpecialistNeedsChatInteraction(specialistOutput)) {
-                    this.logger.info(`💬 ${specialistId} 在第 ${loopState.currentIteration} 轮需要用户交互`);
+                    this.logger.info(`💬 ${specialistId} 在第 ${loopState.currentIteration} 轮通过工具调用需要用户交互`);
                     
                     // 构建完整的resumeContext
                     const resumeContext = this.buildCompleteResumeContext(
@@ -578,10 +734,20 @@ export class PlanExecutor {
                     
                     if (fileEditResult.success) {
                         // 更新session context以反映文件变化
+                        const oldSessionContext = currentSessionContext;
                         currentSessionContext = await this.refreshOrUpdateSessionContext(
                             currentSessionContext,
                             (specialistOutput as SpecialistOutput).target_file!
                         );
+                        
+                        // 🔍 [DEBUG-SESSION-SYNC] 验证本地更新
+                        if (oldSessionContext.metadata.lastModified !== currentSessionContext.metadata.lastModified) {
+                            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] ✅ Local session context updated successfully`);
+                            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Old: ${oldSessionContext.metadata.lastModified}`);
+                            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] New: ${currentSessionContext.metadata.lastModified}`);
+                        } else {
+                            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] ⚠️ Local session context NOT changed!`);
+                        }
                         
                         this.logger.info(`✅ 第${loopState.currentIteration}轮文件编辑完成: ${fileEditResult.appliedCount}个操作`);
                     } else {
@@ -1247,6 +1413,12 @@ export class PlanExecutor {
         try {
             this.logger.info(`🔄 刷新session context: 文件 ${targetFile} 已被修改`);
             
+            // 🔍 [DEBUG-SESSION-SYNC] 记录更新前的状态
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === BEFORE SESSION UPDATE ===`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Current sessionId: ${currentSessionContext.sessionContextId}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Current lastModified: ${currentSessionContext.metadata.lastModified}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Target file: ${targetFile}`);
+            
             // 对于大多数情况，session context的核心信息（projectName, baseDir等）不会改变
             // 但某些specialist的文件编辑可能会影响项目状态，需要特殊处理
             
@@ -1261,6 +1433,12 @@ export class PlanExecutor {
             
             // 2. 对于影响session的文件，尝试部分更新
             const updatedContext = await this.performPartialSessionUpdate(currentSessionContext, targetFile);
+            
+            // 🔍 [DEBUG-SESSION-SYNC] 记录更新后的状态
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === AFTER SESSION UPDATE ===`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Updated sessionId: ${updatedContext.sessionContextId}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Updated lastModified: ${updatedContext.metadata.lastModified}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] ⚠️ This is LOCAL update only - NOT synced to SessionManager yet!`);
             
             this.logger.info(`✅ Session context部分更新完成: ${targetFile}`);
             return updatedContext;
@@ -1613,7 +1791,8 @@ export class PlanExecutor {
         currentSessionContext: SessionContext,
         userInput: string,
         selectedModel: vscode.LanguageModelChat,
-        plan: { planId: string; description: string; steps: any[] }
+        plan: { planId: string; description: string; steps: any[] },
+        progressCallback?: SpecialistProgressCallback
     ): Promise<SpecialistOutput | { success: false; planFailed: true; intent: string; result: any }> {
         const maxRetries = 1; // 最多重试1次（总共2次尝试）
         let attempt = 0;
@@ -1645,7 +1824,9 @@ export class PlanExecutor {
                 specialistOutput = await this.specialistExecutor.execute(
                     step.specialist,
                     contextForThisStep,
-                    selectedModel
+                    selectedModel,
+                    undefined, // resumeState
+                    progressCallback
                 );
 
                 this.logger.info(`🔍 [DEBUG] SpecialistExecutor returned for step ${step.step} attempt ${attempt}:`);
@@ -1667,7 +1848,22 @@ export class PlanExecutor {
                         error: `专家执行异常: ${(error as Error).message}`,
                         failedStep: step.step,
                         completedSteps: Object.keys(stepResults).length,
-                        attempt: attempt
+                        attempt: attempt,
+                        // 🚀 新增：完整的计划执行上下文
+                        planExecutionContext: {
+                            originalExecutionPlan: plan,
+                            totalSteps: plan.steps.length,
+                            completedSteps: Object.keys(stepResults).length,
+                            failedStep: step.step,
+                            failedSpecialist: step.specialist,
+                            completedWork: Object.keys(stepResults).map(stepNum => ({
+                                step: parseInt(stepNum),
+                                specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                                description: plan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                                status: 'completed'
+                            })),
+                            error: `专家执行异常: ${(error as Error).message}`
+                        }
                     }
                 };
             }
@@ -1708,7 +1904,22 @@ export class PlanExecutor {
                         totalAttempts: attempt,
                         validationFailure: validation.reason,
                         shouldRetry: validation.shouldRetry,
-                        errorType: validation.errorType
+                        errorType: validation.errorType,
+                        // 🚀 新增：完整的计划执行上下文
+                        planExecutionContext: {
+                            originalExecutionPlan: plan,
+                            totalSteps: plan.steps.length,
+                            completedSteps: Object.keys(stepResults).length,
+                            failedStep: step.step,
+                            failedSpecialist: step.specialist,
+                            completedWork: Object.keys(stepResults).map(stepNum => ({
+                                step: parseInt(stepNum),
+                                specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                                description: plan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                                status: 'completed'
+                            })),
+                            error: errorMessage
+                        }
                     }
                 };
             }
@@ -1728,4 +1939,102 @@ export class PlanExecutor {
     // 原因：新的验证和重试机制已经替代了编辑修复专家的功能
     // 删除时间：实施requires_file_editing字段验证方案时
     // ============================================================================
+
+    // ============================================================================
+    // 🚀 状态恢复和继续执行方法
+    // ============================================================================
+
+    /**
+     * 恢复specialist循环状态
+     * @param specialistId specialist标识符
+     * @param loopState 循环状态数据
+     */
+    public restoreLoopState(specialistId: string, loopState: any): void {
+        this.specialistLoopStates.set(specialistId, {
+            specialistId: loopState.specialistId,
+            currentIteration: loopState.currentIteration,
+            maxIterations: loopState.maxIterations,
+            executionHistory: loopState.executionHistory,
+            isLooping: loopState.isLooping,
+            startTime: loopState.startTime,
+            lastContinueReason: loopState.lastContinueReason
+        });
+        
+        this.logger.info(`🔄 恢复specialist循环状态: ${specialistId}, iteration=${loopState.currentIteration}`);
+    }
+
+    /**
+     * 从指定状态继续执行计划
+     * @param plan 执行计划
+     * @param currentStep 当前步骤
+     * @param stepResults 已完成的步骤结果
+     * @param sessionContext 会话上下文
+     * @param selectedModel VSCode语言模型
+     * @param userInput 原始用户输入
+     * @param latestSpecialistResult 最新的specialist结果
+     */
+    public async continueExecution(
+        plan: any,
+        currentStep: any,
+        stepResults: any,
+        sessionContext: SessionContext,
+        selectedModel: vscode.LanguageModelChat,
+        userInput: string,
+        latestSpecialistResult: SpecialistOutput
+    ): Promise<{ intent: string; result?: any }> {
+        this.logger.info(`🔄 从步骤 ${currentStep.step} 继续执行计划`);
+        
+        // 将最新的specialist结果添加到stepResults
+        stepResults[currentStep.step] = latestSpecialistResult;
+        
+        // 继续执行计划的下一步（如果有的话）
+        const remainingSteps = plan.steps.filter((step: any) => step.step > currentStep.step);
+        
+        if (remainingSteps.length > 0) {
+            this.logger.info(`🔄 继续执行剩余 ${remainingSteps.length} 个步骤`);
+            
+            // 继续执行剩余步骤
+            const continuationPlan = {
+                ...plan,
+                steps: remainingSteps
+            };
+            
+            return await this.execute(continuationPlan, sessionContext, selectedModel, userInput);
+        } else {
+            // 所有步骤完成
+            this.logger.info(`✅ 所有计划步骤已完成`);
+            
+            // 🔍 [DEBUG-SESSION-SYNC] 计划执行完成时的session状态检查
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === PLAN EXECUTION COMPLETED (Path 2) ===`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] SessionContext at completion:`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - sessionId: ${sessionContext.sessionContextId}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - lastModified: ${sessionContext.metadata.lastModified}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - projectName: ${sessionContext.projectName}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] ⚠️ This sessionContext may NOT be synced back to SessionManager!`);
+            
+            return {
+                intent: 'plan_completed',
+                result: {
+                    summary: '计划执行完成',
+                    completedSteps: Object.keys(stepResults).length,
+                    finalResult: latestSpecialistResult,
+                    // 🚀 新增：完整的计划执行上下文
+                    planExecutionContext: {
+                        originalExecutionPlan: plan,
+                        totalSteps: plan.steps.length,
+                        completedSteps: Object.keys(stepResults).length,
+                        failedStep: null,
+                        failedSpecialist: null,
+                        completedWork: Object.keys(stepResults).map(stepNum => ({
+                            step: parseInt(stepNum),
+                            specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                            description: plan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                            status: 'completed'
+                        })),
+                        error: null
+                    }
+                }
+            };
+        }
+    }
 } 

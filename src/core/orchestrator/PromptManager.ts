@@ -24,8 +24,7 @@ export class PromptManager {
     sessionContext: SessionContext,
     historyContext: string,
     toolResultsContext: string,
-    getTools: (caller?: any) => Promise<{ definitions: any[], jsonSchema: string }>,
-    retrieveRelevantKnowledge: (userInput: string, sessionContext: SessionContext) => Promise<string | null>
+    getTools: (caller?: any) => Promise<{ definitions: any[], jsonSchema: string }>
   ): Promise<string> {
     // 1. 读取 orchestrator.md 模板文件作为系统指令
     const templatePath = await this.resolveTemplatePath('orchestrator.md');
@@ -40,16 +39,26 @@ export class PromptManager {
     // 2. 准备上下文数据
     const callerType = this.detectIntentType(userInput);
     const { jsonSchema: toolsJsonSchema } = await getTools(callerType);
-    const relevantKnowledge = await retrieveRelevantKnowledge(userInput, sessionContext);
+
+    // 🔍 [DEBUG-CONTEXT] === PromptManager Context Check ===
+    this.logger.info(`🔍 [DEBUG-CONTEXT] PromptManager received:`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] - historyContext: ${historyContext ? `"${historyContext.substring(0, 100)}..."` : 'NULL/EMPTY'}`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] - toolResultsContext: ${toolResultsContext ? `"${toolResultsContext.substring(0, 100)}..."` : 'NULL/EMPTY'}`);
+    
+    const finalHistoryContext = historyContext || 'No actions have been taken yet.';
+    const finalToolResultsContext = toolResultsContext || 'No tool results available.';
+    
+    this.logger.info(`🔍 [DEBUG-CONTEXT] Final contexts that will be used:`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] - finalHistoryContext: "${finalHistoryContext}"`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] - finalToolResultsContext: "${finalToolResultsContext}"`);
 
     // 3. 构建结构化提示词 - 明确分离系统指令和用户输入
     const structuredPrompt = this.buildStructuredPrompt(
       systemInstructions,
       userInput,
-      historyContext || 'No actions have been taken yet.',
-      toolResultsContext || 'No tool results available.',
-      toolsJsonSchema,
-      relevantKnowledge || 'No specific knowledge retrieved.'
+      finalHistoryContext,
+      finalToolResultsContext,
+      toolsJsonSchema
     );
 
     // 🐛 DEBUG: 记录结构化提示词的构建过程
@@ -59,11 +68,15 @@ export class PromptManager {
     this.logger.info(`🔍 [DEBUG] - History context length: ${historyContext?.length || 0}`);
     this.logger.info(`🔍 [DEBUG] - Tool results context length: ${toolResultsContext?.length || 0}`);
     this.logger.info(`🔍 [DEBUG] - Tools JSON schema length: ${toolsJsonSchema.length}`);
-    this.logger.info(`🔍 [DEBUG] - Relevant knowledge length: ${relevantKnowledge?.length || 0}`);
     
     // 🐛 DEBUG: 预览最终结构化提示词
     const promptPreview = structuredPrompt.substring(0, 500);
-    this.logger.info(`🔍 [DEBUG] Final structured prompt preview (first 500 chars): "${promptPreview}..."`);
+    // this.logger.info(`🔍 [DEBUG] Final structured prompt preview (first 500 chars): "${promptPreview}..."`);
+    
+    // 🔍 [DEBUG] 输出完整的最终提示词
+    // this.logger.info(`🔍 [DEBUG] === COMPLETE FINAL PROMPT ===`);
+    // this.logger.info(`🔍 [DEBUG] Complete structured prompt:\n${structuredPrompt}`);
+    // this.logger.info(`🔍 [DEBUG] === END COMPLETE FINAL PROMPT ===`);
 
     return structuredPrompt;
   }
@@ -77,8 +90,7 @@ export class PromptManager {
     userInput: string,
     historyContext: string,
     toolResultsContext: string,
-    toolsJsonSchema: string,
-    relevantKnowledge: string
+    toolsJsonSchema: string
   ): string {
     // 替换系统指令中的占位符
     let processedSystemInstructions = systemInstructions;
@@ -88,7 +100,6 @@ export class PromptManager {
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{USER_INPUT\}\}/g, '[USER_INPUT_PLACEHOLDER]');
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{CONVERSATION_HISTORY\}\}/g, '[CONVERSATION_HISTORY_PLACEHOLDER]');
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{TOOL_RESULTS_CONTEXT\}\}/g, '[TOOL_RESULTS_CONTEXT_PLACEHOLDER]');
-    processedSystemInstructions = processedSystemInstructions.replace(/\{\{RELEVANT_KNOWLEDGE\}\}/g, '[RELEVANT_KNOWLEDGE_PLACEHOLDER]');
 
     // 构建结构化提示词
     const structuredPrompt = `# SYSTEM INSTRUCTIONS
@@ -110,9 +121,6 @@ ${historyContext}
 
 ## Tool Results Context
 ${toolResultsContext}
-
-## Relevant Knowledge
-${relevantKnowledge}
 
 # FINAL INSTRUCTION
 

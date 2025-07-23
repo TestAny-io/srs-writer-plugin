@@ -1,0 +1,204 @@
+# 需求实体Schema配置文件
+# 版本: 1.0
+# 最后更新: 2024-01-15
+# 描述: 为需求脚手架生成器提供实体结构定义
+
+version: "1.0"
+last_updated: "2024-01-15"
+compatible_versions: ["1.0"]
+description: "Requirements entity schemas for scaffold generator"
+
+# 通用元数据模板
+metadata_template: &metadata
+  status: 'draft'
+  created_date: null
+  last_modified: null
+  created_by: ''
+  last_modified_by: ''
+  version: '1.0'
+
+# 基础需求实体映射
+entity_mappings:
+  # User Stories - 用户故事
+  US:
+    yaml_key: 'user_stories'
+    description: 'User Stories - 用户故事'
+    template:
+      id: ''
+      summary: ''
+      description: []
+      as_a: []
+      i_want_to: []
+      so_that: []
+      acceptance_criteria: []
+      derived_fr: []
+      metadata: *metadata
+
+  # Use Cases - 用例
+  UC:
+    yaml_key: 'use_cases'
+    description: 'Use Cases - 用例'
+    template:
+      id: ''
+      summary: ''
+      description: []
+      actor: []
+      preconditions: []
+      postconditions: []
+      main_success_scenario: []
+      extensions: []
+      derived_fr: []
+      metadata: *metadata
+
+  # Functional Requirements - 功能需求
+  FR:
+    yaml_key: 'functional_requirements'
+    description: 'Functional Requirements - 功能需求'
+    template:
+      id: ''
+      summary: ''
+      description: []
+      priority: null  # enum: critical/high/medium/low
+      source_requirements: []
+      acceptance_criteria: []
+      metadata: *metadata
+
+  # Non-Functional Requirements - 非功能需求
+  NFR:
+    yaml_key: 'non_functional_requirements'
+    description: 'Non-Functional Requirements - 非功能需求'
+    template:
+      id: ''
+      summary: ''
+      category: null  # enum: performance/security/reliability/maintainability/portability/compatibility/usability/scalability/availability/compliance
+      description: []
+      target_measure:
+        - metric: ''
+          target_value: null
+      priority: null  # enum: critical/high/medium/low
+      source_requirements: []
+      metadata: *metadata
+
+  # Interface Requirements - 接口需求
+  IFR:
+    yaml_key: 'interface_requirements'
+    description: 'Interface Requirements - 接口需求'
+    template:
+      id: ''
+      summary: ''
+      description: []
+      interface_type: null  # enum: api/ui/database/file/other
+      input_data: []
+      output_data: []
+      core_validation_rules: []
+      source_requirements: []
+      metadata: *metadata
+
+  # Data Requirements - 数据需求
+  DAR:
+    yaml_key: 'data_requirements'
+    description: 'Data Requirements - 数据需求'
+    template:
+      id: ''
+      summary: ''
+      description: []
+      data_entity: []
+      core_attributes: []
+      core_validation_rules: []
+      source_requirements: []
+      metadata: *metadata
+
+# ADC (Assumptions, Dependencies, Constraints) 复合实体映射
+adc_mappings:
+  # Assumptions - 假设条件
+  ASSU:
+    yaml_key: 'assumptions'
+    description: 'Assumptions - 假设条件'
+    template:
+      id: ''
+      summary: ''
+      assumptions: []
+      risk_if_false: []
+      impacted_requirements: []
+      validation_method: []
+      owner: ''
+      metadata: *metadata
+
+  # Dependencies - 依赖关系
+  DEPEN:
+    yaml_key: 'dependencies'
+    description: 'Dependencies - 依赖关系'
+    template:
+      id: ''
+      summary: ''
+      dependencies: []
+      impacted_requirements: []
+      risk_level: null  # enum: critical/high/medium/low
+      mitigation_strategy: []
+      owner: ''
+      metadata: *metadata
+
+  # Constraints - 约束条件
+  CONST:
+    yaml_key: 'constraints'
+    description: 'Constraints - 约束条件'
+    template:
+      id: ''
+      summary: ''
+      constraints: []
+      justification: []
+      mitigation_strategy: []
+      owner: ''
+      metadata: *metadata
+
+# 实体类型输出顺序（必须严格遵循）
+entity_output_order:
+  - 'user_stories'
+  - 'use_cases'
+  - 'functional_requirements'
+  - 'non_functional_requirements'
+  - 'interface_requirements'
+  - 'data_requirements'
+  - 'assumptions'
+  - 'dependencies'
+  - 'constraints'
+
+# 枚举值定义
+enums:
+  status:
+    - 'draft'
+    - 'approved'
+    - 'implemented'
+    - 'verified'
+    - 'deprecated'
+  
+  priority:
+    - 'critical'
+    - 'high'
+    - 'medium'
+    - 'low'
+  
+  nfr_category:
+    - 'performance'
+    - 'security'
+    - 'reliability'
+    - 'maintainability'
+    - 'portability'
+    - 'compatibility'
+    - 'usability'
+    - 'scalability'
+    - 'availability'
+    - 'compliance'
+  
+  interface_type:
+    - 'api'
+    - 'ui'
+    - 'database'
+    - 'file'
+    - 'other'
+  
+  risk_level:
+    - 'critical'
+    - 'high'
+    - 'medium'
+    - 'low' 

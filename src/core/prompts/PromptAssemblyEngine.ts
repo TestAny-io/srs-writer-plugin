@@ -23,6 +23,19 @@ export interface SpecialistContext {
   language?: string;  // 🚀 新增：明确定义language字段，用于指定specialist输出的语言
   structuredContext?: any;
   projectMetadata?: any;
+  // 🚀 新增：迭代状态信息，用于让AI了解资源约束
+  iterationInfo?: {
+    currentIteration: number;
+    maxIterations: number;
+    remainingIterations: number;
+    phase: 'early' | 'middle' | 'final';
+    strategyGuidance: string;
+  };
+  // 🚀 新增：项目文件内容
+  SRS_CONTENT?: string;
+  CURRENT_SRS?: string;
+  REQUIREMENTS_YAML_CONTENT?: string;
+  CURRENT_REQUIREMENTS_YAML?: string;
   [key: string]: any;
 }
 
@@ -111,14 +124,20 @@ export class PromptAssemblyEngine {
         //this.logger.info(`🔍 [PromptAssembly] - base模板${index + 1}长度: ${template.length} 字符`);
       });
       
-      // 3. 根据配置加载领域模板
-      //this.logger.info(`📄 [PromptAssembly] 步骤3: 根据配置加载domain模板`);
-      const domainTemplate = await this.loadDomainTemplateByConfig(specialistType.category, config);
+      // 3. 🚀 移除domain模板加载（根据用户反馈，当前不使用domain模板）
+      //this.logger.info(`📄 [PromptAssembly] 步骤3: 跳过domain模板加载`);
+      const domainTemplate = ''; // 直接使用空字符串，不再加载domain模板
       
-      //this.logger.info(`🔍 [PromptAssembly] domain模板加载结果:`);
+      //this.logger.info(`🔍 [PromptAssembly] domain模板已跳过加载`);
       //this.logger.info(`🔍 [PromptAssembly] - domain模板长度: ${domainTemplate.length} 字符`);
-      if (domainTemplate.length > 0) {
-        //this.logger.info(`🔍 [PromptAssembly] - domain模板前200字符: ${domainTemplate.substring(0, 200)}`);
+      
+      // 🚀 新增步骤3.5：为需要SRS内容的specialist动态加载当前项目SRS内容
+      // Content specialist默认需要，某些Process specialist（如requirement_syncer）也需要
+      const needsSRSContent = specialistType.category === 'content' || 
+                              ['requirement_syncer'].includes(specialistType.name);
+
+      if (needsSRSContent) {
+        await this.loadProjectSRSContent(context);
       }
       
       // 4. 组装最终prompt - 🚀 新架构：分离base和content模板
@@ -147,15 +166,20 @@ export class PromptAssemblyEngine {
       //this.logger.info(`📄 [PromptAssembly] 步骤5: 验证组装结果`);
       await this.validateAssembledPrompt(assembledPrompt);
       
-      // 🚀 v3.0: 验证结构化格式
+      // 🚀 v4.0: 验证结构化格式
       this.logger.debug(`🎯 [PromptAssembly] 提示词结构验证:`);
       this.logger.debug(`🎯 [PromptAssembly] - SPECIALIST INSTRUCTIONS: ${assembledPrompt.includes('# SPECIALIST INSTRUCTIONS') ? '✅' : '❌'}`);
       this.logger.debug(`🎯 [PromptAssembly] - CURRENT TASK: ${assembledPrompt.includes('# CURRENT TASK') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - TEMPLATE FOR YOUR CHAPTERS: ${assembledPrompt.includes('# TEMPLATE FOR YOUR CHAPTERS') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - CURRENT SRS DOCUMENT: ${assembledPrompt.includes('# CURRENT SRS DOCUMENT') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - CURRENT REQUIREMENTS DATA: ${assembledPrompt.includes('# CURRENT REQUIREMENTS DATA') ? '✅' : '❌'}`);
       this.logger.debug(`🎯 [PromptAssembly] - CONTEXT INFORMATION: ${assembledPrompt.includes('# CONTEXT INFORMATION') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - YOUR TOOLS LIST: ${assembledPrompt.includes('# YOUR TOOLS LIST') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - GUIDELINES AND SAMPLE OF TOOLS USING: ${assembledPrompt.includes('# GUIDELINES AND SAMPLE OF TOOLS USING') ? '✅' : '❌'}`);
       this.logger.info(`🎯 [PromptAssembly] - FINAL INSTRUCTION: ${assembledPrompt.includes('# FINAL INSTRUCTION') ? '✅' : '❌'}`);
       
-      // 🚀 v3.0: 记录重构完成
-      this.logger.info(`🎯 [PromptAssembly] === v3.0 组装完成 ${specialistType.name} (结构化User消息格式) ===`);
+      // 🚀 v4.0: 记录重构完成
+      this.logger.info(`🎯 [PromptAssembly] === v4.0 组装完成 ${specialistType.name} (10部分结构化User消息格式) ===`);
       this.logger.info(`🎯 [PromptAssembly] 最终提示词统计:`);
       this.logger.info(`🎯 [PromptAssembly] - 总长度: ${assembledPrompt.length} 字符`);
       this.logger.info(`🎯 [PromptAssembly] - 估算token数量: ${Math.ceil(assembledPrompt.length / 4)} tokens`);
@@ -327,14 +351,15 @@ export class PromptAssemblyEngine {
   }
 
   /**
-   * 🚀 v3.0: 结构化模板合并 - 采用VSCode最佳实践的结构化User消息格式
+   * 🚀 v4.0: 10部分结构化模板合并 - 增强的用户体验架构
    * 
    * 重构说明：
    * - 使用明确的角色定义和指令分离
    * - 符合VSCode官方文档最佳实践
-   * - 不再使用===分隔符，改用#标题结构
-   * - 直接替换原有实现，不考虑向后兼容性
-   * - 🚀 新顺序：content/process模板 → current task → context information → base模板
+   * - 新增专门的章节模板、SRS文档和requirements.yaml部分
+   * - 新增工具列表部分，提供可用工具的JSON Schema
+   * - 提高specialist对当前项目状态的理解能力
+   * - 🚀 v4.0新顺序：专家指令 → 用户任务 → 章节模板 → SRS文档 → 需求数据 → 上下文 → 工具列表 → 指导原则和工具使用示例 → 最终指令
    */
   private mergeTemplates(templates: string[], context: SpecialistContext, config?: AssemblyConfig, baseTemplates: string[] = [], contentTemplates: string[] = []): string {
     this.logger.info(`🔧 [PromptAssembly] v3.0 开始结构化合并模板，总数: ${templates.length}`);
@@ -378,11 +403,23 @@ export class PromptAssemblyEngine {
     const finalSpecialistType = contextSpecialistType || configSpecialistName || fallbackSpecialistType;
     const roleDefinition = config?.role_definition || `${finalSpecialistType} specialist`;
     
-    // 🚀 新顺序实现：
+    // 🚀 v4.0新结构实现：10部分提示词架构
     // 1. SPECIALIST INSTRUCTIONS (content/process模板)
-    // 2. CURRENT TASK 
-    // 3. CONTEXT INFORMATION
-    // 4. BASE GUIDELINES (base模板)
+    // 2. CURRENT TASK (用户输入)
+    // 3. LATEST RESPONSE FROM USER (用户最新响应)
+    // 4. TEMPLATE FOR YOUR CHAPTERS (你所负责的章节模版)
+    // 5. CURRENT SRS DOCUMENT (当前的SRS.md内容)
+    // 6. CURRENT REQUIREMENTS DATA (当前的requirements.yaml内容)
+    // 7. CONTEXT INFORMATION (上下文信息)
+    // 8. YOUR TOOLS LIST (可用工具的JSON Schema)
+    // 9. GUIDELINES AND SAMPLE OF TOOLS USING (基础指导原则和工具使用示例)
+    // 10. FINAL INSTRUCTION (最终执行指令)
+    
+    // 🚀 新增：收集所有template变量用于TEMPLATE FOR YOUR CHAPTERS部分
+    const templateVariables = Object.keys(context)
+      .filter(key => key.endsWith('_TEMPLATE'))
+      .map(key => context[key] || 'Chapter template not available')
+      .join('\n\n');
     
     const structuredPrompt = `# SPECIALIST INSTRUCTIONS
 
@@ -398,9 +435,42 @@ The specific task you need to complete:
 ${context.userRequirements || 'No specific task provided'}
 \`\`\`
 
+# LATEST RESPONSE FROM USER
+
+${context.userResponse ? `**User's latest response**: ${context.userResponse}
+
+${context.resumeGuidance ? `**Resume Instructions**: 
+${context.resumeGuidance.continueInstructions?.join('\n') || 'Continue based on user response'}
+
+**Previous Question Asked**: ${context.resumeGuidance.userQuestion || 'No previous question recorded'}
+
+**Resume Context**: You were waiting for user input and now the user has responded. Please continue your work based on their response.` : ''}` : 'No user response provided - this is the initial execution.'}
+
+# TEMPLATE FOR YOUR CHAPTERS
+
+${templateVariables || 'No chapter templates provided for this specialist'}
+
+# CURRENT SRS DOCUMENT
+
+${context.SRS_CONTENT || context.CURRENT_SRS || 'No SRS document available'}
+
+# CURRENT REQUIREMENTS DATA
+
+\`\`\`yaml
+${context.REQUIREMENTS_YAML_CONTENT || context.CURRENT_REQUIREMENTS_YAML || 'No requirements.yaml document available'}
+\`\`\`
+
 # CONTEXT INFORMATION
 
-## Project Metadata
+${context.iterationInfo ? `## 🎯 Resource Budget & Strategy
+**Iteration Progress**: You are on iteration **${context.iterationInfo.currentIteration}/${context.iterationInfo.maxIterations}** (${context.iterationInfo.remainingIterations} attempts remaining)
+
+**Current Phase**: ${context.iterationInfo.phase === 'early' ? 'Early exploration (abundant resources available)' : 
+                     context.iterationInfo.phase === 'middle' ? 'Active development (moderate resources)' : 
+                     'Final phase (limited resources)'}
+**Strategy**: ${context.iterationInfo.strategyGuidance}
+
+` : ''}## Project Metadata
 \`\`\`json
 ${context.projectMetadata ? JSON.stringify(context.projectMetadata, null, 2) : 'No project metadata available'}
 \`\`\`
@@ -410,10 +480,13 @@ ${context.projectMetadata ? JSON.stringify(context.projectMetadata, null, 2) : '
 ${context.structuredContext ? JSON.stringify(context.structuredContext, null, 2) : 'No structured context available'}
 \`\`\`
 
-${finalSpecialistType !== fallbackSpecialistType ? `## Specialist Type
-Current specialist type: ${finalSpecialistType}` : ''}
+# YOUR TOOLS LIST
 
-# GUIDELINES
+\`\`\`json
+${context.TOOLS_JSON_SCHEMA || 'No tools available'}
+\`\`\`
+
+# GUIDELINES AND SAMPLE OF TOOLS USING
 
 ${processedBaseTemplates.join('\n\n---\n\n')}
 
@@ -423,13 +496,17 @@ Based on all the instructions and context above, generate a valid JSON object th
 
 **CRITICAL: Your entire response MUST be a single JSON object, starting with \`{\` and ending with \`}\`. Do not include any introductory text, explanations, or conversational filler.**`;
 
-    this.logger.info(`✅ [PromptAssembly] v3.0 结构化模板合并完成，最终长度: ${structuredPrompt.length} 字符`);
-    this.logger.debug(`🔍 [PromptAssembly] v3.0 结构验证:`);
-    this.logger.debug(`🔍 [PromptAssembly] - SPECIALIST INSTRUCTIONS: ${structuredPrompt.includes('# SPECIALIST INSTRUCTIONS') ? '✅' : '❌'}`);
-    this.logger.debug(`🔍 [PromptAssembly] - CURRENT TASK: ${structuredPrompt.includes('# CURRENT TASK') ? '✅' : '❌'}`);
-    this.logger.debug(`🔍 [PromptAssembly] - CONTEXT INFORMATION: ${structuredPrompt.includes('# CONTEXT INFORMATION') ? '✅' : '❌'}`);
-    this.logger.debug(`🔍 [PromptAssembly] - GUIDELINES: ${structuredPrompt.includes('# GUIDELINES') ? '✅' : '❌'}`);
-    this.logger.debug(`🔍 [PromptAssembly] - FINAL INSTRUCTION: ${structuredPrompt.includes('# FINAL INSTRUCTION') ? '✅' : '❌'}`);
+    // this.logger.info(`✅ [PromptAssembly] v4.0 结构化模板合并完成，最终长度: ${structuredPrompt.length} 字符`);
+    // this.logger.debug(`🔍 [PromptAssembly] v4.0 10部分结构验证:`);
+    // this.logger.debug(`🔍 [PromptAssembly] - SPECIALIST INSTRUCTIONS: ${structuredPrompt.includes('# SPECIALIST INSTRUCTIONS') ? '✅' : '❌'}`);
+    // this.logger.debug(`🔍 [PromptAssembly] - CURRENT TASK: ${structuredPrompt.includes('# CURRENT TASK') ? '✅' : '❌'}`);
+    // this.logger.debug(`🔍 [PromptAssembly] - TEMPLATE FOR YOUR CHAPTERS: ${structuredPrompt.includes('# TEMPLATE FOR YOUR CHAPTERS') ? '✅' : '❌'}`);
+    // this.logger.debug(`🔍 [PromptAssembly] - CURRENT SRS DOCUMENT: ${structuredPrompt.includes('# CURRENT SRS DOCUMENT') ? '✅' : '❌'}`);
+    // this.logger.debug(`🔍 [PromptAssembly] - CURRENT REQUIREMENTS DATA: ${structuredPrompt.includes('# CURRENT REQUIREMENTS DATA') ? '✅' : '❌'}`);
+    // this.logger.debug(`🔍 [PromptAssembly] - CONTEXT INFORMATION: ${structuredPrompt.includes('# CONTEXT INFORMATION') ? '✅' : '❌'}`);
+    // this.logger.debug(`🔍 [PromptAssembly] - YOUR TOOLS LIST: ${structuredPrompt.includes('# YOUR TOOLS LIST') ? '✅' : '❌'}`);
+    // this.logger.debug(`🔍 [PromptAssembly] - GUIDELINES AND SAMPLE OF TOOLS USING: ${structuredPrompt.includes('# GUIDELINES AND SAMPLE OF TOOLS USING') ? '✅' : '❌'}`);
+    // this.logger.debug(`🔍 [PromptAssembly] - FINAL INSTRUCTION: ${structuredPrompt.includes('# FINAL INSTRUCTION') ? '✅' : '❌'}`);
     
     return structuredPrompt;
   }
@@ -487,11 +564,11 @@ Based on all the instructions and context above, generate a valid JSON object th
 
     // 检查prompt长度
     if (prompt.length > 15000) {
-      this.logger.warn(`⚠️ [PromptAssembly] 组装后的提示词较长 (${prompt.length} 字符), 考虑优化`);
+      // this.logger.warn(`⚠️ [PromptAssembly] 组装后的提示词较长 (${prompt.length} 字符), 考虑优化`);
     } else if (prompt.length < 500) {
-      this.logger.warn(`⚠️ [PromptAssembly] 组装后的提示词较短 (${prompt.length} 字符), 可能缺少必要指导`);
+      // this.logger.warn(`⚠️ [PromptAssembly] 组装后的提示词较短 (${prompt.length} 字符), 可能缺少必要指导`);
     } else {
-      this.logger.info(`✅ [PromptAssembly] 提示词长度合适 (${prompt.length} 字符)`);
+      // this.logger.info(`✅ [PromptAssembly] 提示词长度合适 (${prompt.length} 字符)`);
     }
     
     // this.logger.info(`✅ [PromptAssembly] 组装结果验证完成`);
@@ -748,5 +825,87 @@ Based on all the instructions and context above, generate a valid JSON object th
 
     // this.logger.info(`📊 [PromptAssembly] 模板统计: ${JSON.stringify(stats, null, 2)}`);
     return stats;
+  }
+
+  /**
+   * 🚀 新增：为content specialist动态加载当前项目的SRS.md内容和requirements.yaml内容
+   */
+  private async loadProjectSRSContent(context: SpecialistContext): Promise<void> {
+    try {
+      const baseDir = context.projectMetadata?.baseDir;
+      if (!baseDir) {
+        this.logger.warn('No baseDir available for SRS content loading');
+        return;
+      }
+
+      // 尝试多种可能的SRS文件路径
+      const possibleSRSPaths = [
+        'SRS.md',
+        'srs.md', 
+        'Software_Requirements_Specification.md',
+        'requirements.md'
+      ];
+
+      for (const srsPath of possibleSRSPaths) {
+        try {
+          const fullPath = path.join(baseDir, srsPath);
+          const content = await fs.readFile(fullPath, 'utf-8');
+          
+          // 将SRS内容添加到context中
+          context.SRS_CONTENT = content;
+          context.CURRENT_SRS = content; // 提供别名
+          
+          this.logger.info(`✅ 成功加载项目SRS内容: ${srsPath} (${content.length}字符)`);
+          break;
+          
+        } catch (error) {
+          // 继续尝试下一个路径
+          continue;
+        }
+      }
+      
+      if (!context.SRS_CONTENT) {
+        this.logger.warn('⚠️ 未找到项目SRS文件，使用空内容');
+        context.SRS_CONTENT = '';
+        context.CURRENT_SRS = '';
+      }
+
+      // 尝试多种可能的requirements.yaml文件路径
+      const possibleRequirementsYamlPaths = [
+        'requirements.yaml',
+        'requirements.yml',
+        'Requirements.yaml',
+        'Requirements.yml'
+      ];
+
+      for (const yamlPath of possibleRequirementsYamlPaths) {
+        try {
+          const fullPath = path.join(baseDir, yamlPath);
+          const content = await fs.readFile(fullPath, 'utf-8');
+          
+          // 将requirements.yaml内容添加到context中
+          context.REQUIREMENTS_YAML_CONTENT = content;
+          context.CURRENT_REQUIREMENTS_YAML = content; // 提供别名
+          
+          this.logger.info(`✅ 成功加载项目requirements.yaml内容: ${yamlPath} (${content.length}字符)`);
+          return;
+          
+        } catch (error) {
+          // 继续尝试下一个路径
+          continue;
+        }
+      }
+      
+      this.logger.warn('⚠️ 未找到项目requirements.yaml文件，使用空内容');
+      context.REQUIREMENTS_YAML_CONTENT = '';
+      context.CURRENT_REQUIREMENTS_YAML = '';
+      
+    } catch (error) {
+      this.logger.error('Failed to load project SRS content', error as Error);
+      context.SRS_CONTENT = '';
+      context.CURRENT_SRS = '';
+      context.REQUIREMENTS_YAML_CONTENT = '';
+      context.CURRENT_REQUIREMENTS_YAML = '';
+    }
   }
 }

@@ -4,9 +4,9 @@
  * 定义语义编辑系统的所有接口和类型，
  * 支持基于VSCode原生API的精确文档编辑
  * 
- * 重构后的简化架构：
- * - 仅2种操作类型：replace_entire_section, replace_lines_in_section  
- * - 仅3个核心字段：sectionName, startFromAnchor, targetContent
+ * 重构后的架构：
+ * - 4种操作类型：replace_entire_section, replace_lines_in_section, insert_entire_section, insert_lines_in_section
+ * - 核心字段：sectionName, startFromAnchor, targetContent, insertionPosition
  * - startFromAnchor为必需字段，提供精确定位
  * - 搜索范围：前向5行，提高定位精度
  */
@@ -22,15 +22,26 @@ import * as vscode from 'vscode';
  */
 export type SemanticEditType = 
     | 'replace_entire_section'     // 替换整个章节
-    | 'replace_lines_in_section';  // 替换章节内特定内容
+    | 'replace_lines_in_section'   // 替换章节内特定内容
+    | 'insert_entire_section'      // 插入整个章节
+    | 'insert_lines_in_section';   // 插入内容到章节内
+
+/**
+ * 插入位置枚举
+ */
+export type InsertionPosition = 
+    | 'before'    // 在参照章节之前插入
+    | 'after'     // 在参照章节之后插入
+    | 'inside';   // 在参照章节内部插入
 
 /**
  * 语义目标定位接口
  */
 export interface SemanticTarget {
-    sectionName: string;                    // 目标章节名称（required）
+    sectionName: string;                    // 目标/参照章节名称（required）
     targetContent?: string;                 // 要替换的目标内容（replace_lines_in_section时required）
     startFromAnchor: string;                // 前置锚点，从此处开始搜索targetContent（required）
+    insertionPosition?: InsertionPosition;  // 插入位置（insert操作时required）
 }
 
 /**
@@ -237,12 +248,14 @@ export interface DocumentAnalysisOptions {
 // ============================================================================
 
 /**
- * 语义编辑操作联合类型 - 简化版本
- * 重构后只保留两种核心操作类型
+ * 语义编辑操作联合类型 - 完整版本
+ * 支持四种核心操作类型
  */
 export type SemanticEditOperation = 
     | { type: 'replace_entire_section'; target: SemanticTarget; content: string; }
-    | { type: 'replace_lines_in_section'; target: SemanticTarget; content: string; };
+    | { type: 'replace_lines_in_section'; target: SemanticTarget; content: string; }
+    | { type: 'insert_entire_section'; target: SemanticTarget; content: string; }
+    | { type: 'insert_lines_in_section'; target: SemanticTarget; content: string; };
 
 /**
  * 位置类型联合

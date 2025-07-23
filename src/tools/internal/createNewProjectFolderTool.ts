@@ -60,10 +60,9 @@ When to use:
         },
         required: ['reason']
     },
-    // 🚀 访问控制：只有主要的AI代理可以创建新项目
+    // 🚀 访问控制：只有specialist可以创建新项目
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator 在工具执行模式下调用
-        CallerType.SPECIALIST                   // 🚀 新增：specialist（特别是project_initializer）可以调用
+        CallerType.SPECIALIST                   // specialist（特别是project_initializer）可以调用
     ]
 };
 
@@ -104,6 +103,7 @@ export async function createNewProjectFolder(args: {
             const archivedProject = result.archivedSession?.archiveFileName;
 
             // 🚀 4. 创建实际的项目目录
+            // 注意：Engine Registry的清理现在通过观察者模式自动处理
             let directoryCreated = false;
             if (newProjectName && newProjectName !== 'unnamed') {
                 try {

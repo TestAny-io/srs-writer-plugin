@@ -20,6 +20,15 @@ const logger = Logger.getInstance();
  * @param context 扩展上下文
  */
 export function activate(context: vscode.ExtensionContext) {
+    // 🚨 新增：扩展激活追踪
+    const activateTimestamp = new Date().toISOString();
+    const activateStack = new Error().stack;
+    
+    logger.warn(`🚨 [EXTENSION ACTIVATE] Extension activating at ${activateTimestamp}`);
+    logger.warn(`🚨 [EXTENSION ACTIVATE] Activation reason: ${context.extensionMode}`);
+    logger.warn(`🚨 [EXTENSION ACTIVATE] Call stack:`);
+    logger.warn(activateStack || 'No stack trace available');
+    
     logger.info('SRS Writer Plugin v1.3 is now activating...');
     
     try {
@@ -553,9 +562,20 @@ async function scanWorkspaceProjects(): Promise<WorkspaceProject[]> {
     try {
         const items = await vscode.workspace.fs.readDirectory(workspaceFolders[0].uri);
         
+        // 🚀 获取排除目录列表
+        const excludeList = getProjectSwitchingExcludeList();
+        const excludeSet = new Set(excludeList.map(dir => dir.toLowerCase()));
+        logger.info(`🔍 Project scanning excludes: [${excludeList.join(', ')}]`);
+        
         for (const [itemName, fileType] of items) {
             // 只处理文件夹，跳过文件和隐藏文件夹
             if (fileType === vscode.FileType.Directory && !itemName.startsWith('.')) {
+                // 🚀 检查排除列表
+                if (excludeSet.has(itemName.toLowerCase())) {
+                    logger.debug(`⏭️ Skipping excluded directory: ${itemName}`);
+                    continue; // 跳过被排除的目录
+                }
+                
                 // 检查是否像项目文件夹
                 if (isLikelyProjectDirectory(itemName)) {
                     projects.push({
@@ -580,6 +600,18 @@ async function scanWorkspaceProjects(): Promise<WorkspaceProject[]> {
     }
 
     return projects;
+}
+
+/**
+ * 获取项目切换时要排除的目录列表
+ */
+function getProjectSwitchingExcludeList(): string[] {
+    const config = vscode.workspace.getConfiguration('srs-writer');
+    const excludeList = config.get<string[]>('projectSwitching.excludeDirectories');
+    return excludeList || [
+        'templates', 'knowledge', 'node_modules', 
+        '.git', '.vscode', 'coverage', 'dist', 'build'
+    ];
 }
 
 /**
@@ -669,22 +701,40 @@ async function switchProject(): Promise<void> {
  * 扩展停用时调用
  */
 export function deactivate() {
+    // 🚨 新增：扩展停用追踪
+    const deactivateTimestamp = new Date().toISOString();
+    const deactivateStack = new Error().stack;
+    
+    logger.warn(`🚨 [EXTENSION DEACTIVATE] Extension deactivating at ${deactivateTimestamp}`);
+    logger.warn(`🚨 [EXTENSION DEACTIVATE] Call stack:`);
+    logger.warn(deactivateStack || 'No stack trace available');
+    
     logger.info('SRS Writer Plugin is deactivating...');
     
     try {
+        // 🚀 v5.0新增：清理全局引擎
+        logger.info('Step 1: Disposing global engine...');
+        SRSChatParticipant.disposeGlobalEngine();
+        logger.info('✅ Global engine disposed successfully');
+        
         // 清理Chat Participant会话
         if (chatParticipant) {
+            logger.info('Step 2: Cleaning up chat participant...');
             // 已移除过期会话清理功能 - 现在由 SessionManager 自动处理
+            logger.info('✅ Chat participant cleanup completed');
         }
         
         // 保存会话状态
         if (sessionManager) {
+            logger.info('Step 3: Saving session state...');
             sessionManager.saveSessionToFile().catch(error => {
                 logger.error('Failed to save session during deactivation', error as Error);
             });
+            logger.info('✅ Session state save initiated');
         }
         
         // 清理Logger资源
+        logger.info('Step 4: Disposing logger...');
         logger.dispose();
         
         logger.info('SRS Writer Plugin deactivated successfully');

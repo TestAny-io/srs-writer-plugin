@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { Logger } from '../utils/logger';
 import { SessionContext, ISessionObserver, OperationType } from '../types/session';
 import { SessionManager } from './session-manager';
-import { AIPlan, AIResponseMode, ToolExecutionResult, createToolExecutionResult, ErrorCodes } from '../types/index';
+import { AIPlan, AIResponseMode, ToolExecutionResult, createToolExecutionResult, ErrorCodes, SpecialistProgressCallback } from '../types/index';
 import { toolRegistry, ToolDefinition } from '../tools/index';
 
 // 导入拆分后的模块
@@ -13,6 +13,7 @@ import { ToolExecutionHandler } from './engine/ToolExecutionHandler';
 import { LoopDetector } from './engine/LoopDetector';
 import { ContextManager } from './engine/ContextManager';
 import { SpecialistExecutor } from './specialistExecutor';
+import { SpecialistOutput } from '../types';
 
 /**
  * 🚀 SRS Agent Engine v3.0 - 观察者模式重构版
@@ -149,9 +150,16 @@ export class SRSAgentEngine implements ISessionObserver {
     this.logger.info(`🔍 [DEBUG] executeTask set this.state.currentTask to: "${this.state.currentTask}"`);
     this.logger.info(`🔍 [DEBUG] executeTask state after setting: stage=${this.state.stage}, iterationCount=${this.state.iterationCount}`);
     
+    // 🔍 [DEBUG-CONTEXT] === NEW TASK STARTING ===
+    this.logger.info(`🔍 [DEBUG-CONTEXT] executeTask called with: "${userInput}"`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] Current executionHistory.length BEFORE separator: ${this.state.executionHistory.length}`);
+    
     // 🚀 关键修改：保留执行历史，添加任务分隔符
     if (this.state.executionHistory.length > 0) {
       await this.recordExecution('result', `--- 新任务开始: ${userInput} ---`, true);
+      this.logger.info(`🔍 [DEBUG-CONTEXT] Task separator added. New executionHistory.length: ${this.state.executionHistory.length}`);
+    } else {
+      this.logger.warn(`🔍 [DEBUG-CONTEXT] ⚠️ No previous execution history found. Starting fresh.`);
     }
     
     // 限制历史记录大小，避免内存无限增长
@@ -211,6 +219,10 @@ export class SRSAgentEngine implements ISessionObserver {
     // 记录用户交互
     await this.recordExecution('user_interaction', `用户回复: ${response}`, true);
     
+    // 🚀 修复：用户回复后，无条件清除当前的pendingInteraction
+    // specialist如果需要新的交互，会通过askQuestion工具重新设置
+    this.state.pendingInteraction = undefined;
+    
     // 🚀 关键修复：检查是否需要恢复specialist执行
     if (this.state.resumeContext) {
       this.logger.info(`🔄 Resuming specialist execution with user response: ${response}`);
@@ -220,7 +232,17 @@ export class SRSAgentEngine implements ISessionObserver {
         if (this.state.resumeContext.planExecutorState) {
           this.stream.markdown(`🔄 **正在恢复PlanExecutor执行状态...**\n\n`);
           
-          await this.resumePlanExecutorWithUserResponse(response);
+          const resumeSuccess = await this.resumePlanExecutorWithUserResponse(response);
+          
+          // 🚀 修复：specialist恢复后不再手动清除pendingInteraction
+          // 如果specialist需要新的用户交互，会通过askQuestion工具重新设置pendingInteraction
+          if (resumeSuccess) {
+            this.logger.info(`✅ Specialist恢复成功，直接结束处理`);
+            return; // 🚀 直接返回，specialist已经在正确的执行路径上
+          }
+          
+          // 🚀 如果specialist恢复失败，继续到下面的重新规划逻辑
+          this.logger.warn(`⚠️ Specialist恢复失败，将重新规划任务`);
           
         } else {
           // 🚀 兼容性：处理旧格式的resumeContext
@@ -237,7 +259,6 @@ export class SRSAgentEngine implements ISessionObserver {
         
         // 清除状态
         this.state.resumeContext = undefined;
-        this.state.pendingInteraction = undefined;
         this.state.stage = 'completed';
         
         await this.recordExecution('result', `恢复执行失败: ${(error as Error).message}`, false);
@@ -252,15 +273,17 @@ export class SRSAgentEngine implements ISessionObserver {
       await this.handleStandardUserInteraction(response, interaction);
     }
     
+    // 🚀 关键修复：只有在orchestrator交互场景或specialist恢复失败时才执行重新规划
+    this.logger.info(`💬 执行orchestrator交互场景或specialist恢复失败场景的重新规划逻辑`);
+    
     // 清除交互状态
-    this.state.pendingInteraction = undefined;
     this.state.resumeContext = undefined; // 🚀 确保清除resumeContext
     this.state.stage = 'executing';
     
     // 继续执行
-    this.stream.markdown(`🔄 **继续执行任务...**\n\n`);
+    this.stream.markdown(`🔄 **重新规划并继续执行任务...**\n\n`);
 
-    // 🚀 核心修复：重新启动执行循环
+    // 🚀 重新启动执行循环（orchestrator场景）
     await this._runExecutionLoop();
 
     // 🚀 重要补充：当循环结束后，显示总结
@@ -301,12 +324,74 @@ export class SRSAgentEngine implements ISessionObserver {
       this.logger.info(`🚀 [DEBUG] 检测到PLAN_EXECUTION模式，移交给orchestrator.planAndExecute处理`);
       
       try {
+        // 🚀 新增：创建specialist进度回调 - 简化显示模式
+        let executionSummary: Array<{iteration: number, tools: string[], duration: number, success: boolean}> = [];
+        
+        const progressCallback: SpecialistProgressCallback = {
+          onSpecialistStart: (specialistId) => {
+            this.stream.markdown(`🧠 **需求文档专家正在工作**: ${specialistId}\n\n`);
+            executionSummary = []; // 重置执行摘要
+          },
+          onIterationStart: (current, max) => {
+            // 只显示进度，不显示详细步骤
+            this.stream.progress(`第 ${current}/${max} 轮迭代...`);
+          },
+          onToolsStart: (toolCalls) => {
+            // 静默执行，不显示工具启动信息
+          },
+          onToolsComplete: (toolCalls, results, duration) => {
+            const success = results.every(r => r.success);
+            const toolNames = toolCalls.map(t => t.name);
+            
+            // 记录到执行摘要中
+            const iterationNum = executionSummary.length + 1;
+            executionSummary.push({
+              iteration: iterationNum,
+              tools: toolNames,
+              duration,
+              success
+            });
+            
+            // 只显示关键工具的执行结果
+            if (toolNames.includes('executeMarkdownEdits') || toolNames.includes('taskComplete')) {
+              const status = success ? '✅' : '❌';
+              const displayText = this.formatToolsDisplay(toolCalls);
+              const smartSummary = this.generateToolsSummary(results);
+              
+              if (success) {
+                this.stream.markdown(`${status} **${displayText}** 完成${smartSummary ? ` - ${smartSummary}` : ''} (${duration}ms)\n\n`);
+              } else {
+                const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
+                this.stream.markdown(`${status} **${displayText}** 失败 - ${errors} (${duration}ms)\n\n`);
+              }
+            }
+          },
+          onTaskComplete: (summary) => {
+            // 显示执行摘要
+            if (executionSummary.length > 1) {
+              this.stream.markdown(`\n---\n### 📊 执行摘要\n\n`);
+              this.stream.markdown(`总共完成 **${executionSummary.length}** 轮迭代：\n\n`);
+              
+              executionSummary.forEach(item => {
+                const statusIcon = item.success ? '✅' : '❌';
+                const toolList = item.tools.join(', ');
+                this.stream.markdown(`- ${statusIcon} 第${item.iteration}轮: ${toolList} (${item.duration}ms)\n`);
+              });
+              
+              this.stream.markdown(`\n---\n\n`);
+            }
+            
+            this.stream.markdown(`📝 **任务完成** - ${summary}\n\n`);
+          }
+        };
+        
         // 🚀 修复递归调用：传递已有的计划，避免重复调用generateUnifiedPlan
         const executionResult = await this.orchestrator.planAndExecute(
           this.state.currentTask,
           await this.getCurrentSessionContext(),
           this.selectedModel,
-          plan  // 🚀 关键：传递已生成的plan，避免重复LLM调用
+          plan,  // 🚀 关键：传递已生成的plan，避免重复LLM调用
+          progressCallback  // 🚀 新增：传递进度回调
         );
         
         this.logger.info(`🔍 [DEBUG] planAndExecute result: intent=${executionResult.intent}`);
@@ -314,13 +399,50 @@ export class SRSAgentEngine implements ISessionObserver {
         // 根据执行结果更新引擎状态
         if (executionResult.intent === 'plan_completed') {
           this.stream.markdown(`✅ **计划执行完成**: ${executionResult.result?.summary}\n\n`);
-          await this.recordExecution('result', `计划执行完成: ${executionResult.result?.summary}`, true);
+          this.logger.info(`🔍 [DEBUG-CONTEXT] === PLAN EXECUTION COMPLETED ===`);
+        this.logger.info(`🔍 [DEBUG-CONTEXT] About to record execution: "计划执行完成: ${executionResult.result?.summary}"`);
+        await this.recordExecution('result', `计划执行完成: ${executionResult.result?.summary}`, true, 'planExecutor', executionResult.result?.planExecutionContext);
+                  this.logger.info(`🔍 [DEBUG-CONTEXT] Plan execution recorded. New executionHistory.length: ${this.state.executionHistory.length}`);
+          
+          // 🔍 [DEBUG-SESSION-SYNC] 检查计划完成后的session状态
+          this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === TASK COMPLETION IN SRSAgentEngine ===`);
+          const currentSessionAfterPlan = await this.getCurrentSessionContext();
+          if (currentSessionAfterPlan) {
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Session after plan completion:`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - sessionId: ${currentSessionAfterPlan.sessionContextId}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - lastModified: ${currentSessionAfterPlan.metadata.lastModified}`);
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] - projectName: ${currentSessionAfterPlan.projectName}`);
+          } else {
+            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] ⚠️ NO SESSION found after plan completion!`);
+          }
+          
           this.state.stage = 'completed';
+          this.logger.info(`🔍 [DEBUG-CONTEXT] Task completed. Final executionHistory.length: ${this.state.executionHistory.length}`);
           return;
         } else if (executionResult.intent === 'plan_failed') {
           this.stream.markdown(`❌ **计划执行失败**: ${executionResult.result?.error}\n\n`);
-          await this.recordExecution('result', `计划执行失败: ${executionResult.result?.error}`, false);
+          this.logger.info(`🔍 [DEBUG-CONTEXT] === PLAN EXECUTION FAILED ===`);
+        this.logger.info(`🔍 [DEBUG-CONTEXT] About to record execution: "计划执行失败: ${executionResult.result?.error}"`);
+        await this.recordExecution('result', `计划执行失败: ${executionResult.result?.error}`, false, 'planExecutor', executionResult.result?.planExecutionContext);
+        this.logger.info(`🔍 [DEBUG-CONTEXT] Plan execution failure recorded. New executionHistory.length: ${this.state.executionHistory.length}`);
+          
+          // 🚨 新增：Engine状态变为error的详细追踪
+          const errorStack = new Error().stack;
+          const timestamp = new Date().toISOString();
+          this.logger.warn(`🚨 [ENGINE ERROR] Engine state changing to ERROR at ${timestamp}`);
+          this.logger.warn(`🚨 [ENGINE ERROR] Failure reason: ${executionResult.result?.error}`);
+          this.logger.warn(`🚨 [ENGINE ERROR] Failed step: ${executionResult.result?.failedStep || 'unknown'}`);
+          this.logger.warn(`🚨 [ENGINE ERROR] Specialist: ${executionResult.result?.failedSpecialist || 'unknown'}`);
+          this.logger.warn(`🚨 [ENGINE ERROR] Call stack:`);
+          this.logger.warn(errorStack || 'No stack trace available');
+          
           this.state.stage = 'error';
+          this.logger.info(`🔍 [DEBUG-CONTEXT] Task failed. Final executionHistory.length: ${this.state.executionHistory.length}`);
+          
+          // 🚨 新增：Engine进入error状态后的状态检查
+          this.logger.warn(`🚨 [ENGINE ERROR] Engine now in ERROR state - stage: ${this.state.stage}`);
+          this.logger.warn(`🚨 [ENGINE ERROR] This Engine may become orphaned if not properly handled`);
+          
           return;
         } else if (executionResult.intent === 'user_interaction_required') {
           // 需要用户交互
@@ -340,12 +462,15 @@ export class SRSAgentEngine implements ISessionObserver {
           // 其他情况，记录并继续
           this.logger.info(`🔍 [DEBUG] 未知的planAndExecute结果: ${executionResult.intent}`);
           this.stream.markdown(`ℹ️ **计划执行状态**: ${executionResult.intent}\n\n`);
+          // 🚀 新增：plan_execution模式下设置完成状态，避免显示执行总结
+          this.state.stage = 'completed';
+          return;
         }
         
       } catch (error) {
         this.logger.error(`❌ [DEBUG] planAndExecute执行失败`, error as Error);
         this.stream.markdown(`❌ **计划执行出错**: ${(error as Error).message}\n\n`);
-        await this.recordExecution('result', `计划执行出错: ${(error as Error).message}`, false);
+        await this.recordExecution('result', `计划执行出错: ${(error as Error).message}`, false, 'planExecutor', null);
         this.state.stage = 'error';
         return;
       }
@@ -446,7 +571,7 @@ export class SRSAgentEngine implements ISessionObserver {
       
       // 🚀 Code Review修复：关键逻辑 - 如果所有工具都被跳过
       if (!hasNewToolCalls) {
-        this.stream.markdown(`🔄 **所有工具都已执行过，启动智能总结**\n\n`);
+        this.stream.markdown(`�� **所有工具都已执行过，启动智能总结**\n\n`);
         await this.loopDetector.forceDirectResponse(
           this.state,
           this.stream,
@@ -493,6 +618,19 @@ export class SRSAgentEngine implements ISessionObserver {
     this.logger.info(`🔍 [DEBUG] generatePlan state context: stage=${this.state.stage}, iterationCount=${this.state.iterationCount}, executionHistory.length=${this.state.executionHistory.length}`);
     
     try {
+      // 🔍 [DEBUG] 详细分析executionHistory内容
+      this.logger.info(`🔍 [DEBUG-CONTEXT] === EXECUTION HISTORY ANALYSIS ===`);
+      this.logger.info(`🔍 [DEBUG-CONTEXT] executionHistory.length: ${this.state.executionHistory.length}`);
+      
+      if (this.state.executionHistory.length === 0) {
+        this.logger.warn(`🔍 [DEBUG-CONTEXT] ⚠️ executionHistory is EMPTY! This will cause "No actions have been taken yet"`);
+      } else {
+        this.logger.info(`🔍 [DEBUG-CONTEXT] executionHistory contents:`);
+        this.state.executionHistory.forEach((step, index) => {
+          this.logger.info(`🔍 [DEBUG-CONTEXT] [${index}] ${step.type}: "${step.content}" (success: ${step.success}, toolName: ${step.toolName})`);
+        });
+      }
+      
       // 🚀 Code Review修复：构建分离的上下文
       const { historyContext, toolResultsContext } = this.contextManager.buildContextForPrompt(this.state.executionHistory);
       
@@ -500,6 +638,14 @@ export class SRSAgentEngine implements ISessionObserver {
       this.logger.info(`🔍 [DEBUG] - historyContext length: ${historyContext.length}`);
       this.logger.info(`🔍 [DEBUG] - toolResultsContext length: ${toolResultsContext.length}`);
       this.logger.info(`🔍 [DEBUG] - sessionContext available: ${!!(await this.getCurrentSessionContext())}`);
+      
+      // 🔍 [DEBUG] 输出完整的context内容
+      const sessionContext = await this.getCurrentSessionContext();
+      this.logger.info(`🔍 [DEBUG] === FULL CONTEXT CONTENT ===`);
+      this.logger.info(`🔍 [DEBUG] historyContext:\n${historyContext}`);
+      this.logger.info(`🔍 [DEBUG] toolResultsContext:\n${toolResultsContext}`);
+      this.logger.info(`🔍 [DEBUG] sessionContext:\n${JSON.stringify(sessionContext, null, 2)}`);
+      this.logger.info(`🔍 [DEBUG] === END CONTEXT CONTENT ===`);
       
       // 调用Orchestrator的规划方法
       this.logger.info(`🔍 [DEBUG] Calling orchestrator.generateUnifiedPlan...`);
@@ -588,6 +734,81 @@ export class SRSAgentEngine implements ISessionObserver {
    */
   private displayExecutionSummary(): void {
     this.contextManager.displayExecutionSummary(this.state, this.stream);
+  }
+
+  // ============================================================================
+  // 🚀 Specialist进度显示辅助方法
+  // ============================================================================
+
+  /**
+   * 格式化工具显示文本 - 实现用户建议的显示策略
+   * @param toolCalls 工具调用数组
+   * @returns 格式化的显示文本
+   */
+  private formatToolsDisplay(toolCalls: Array<{ name: string; args: any }>): string {
+    if (toolCalls.length === 1) {
+      return toolCalls[0].name;
+    } else {
+      return `${toolCalls[0].name} 和其它共${toolCalls.length}个工具`;
+    }
+  }
+
+  /**
+   * 生成工具执行结果的智能摘要
+   * @param results 工具执行结果数组
+   * @returns 智能摘要文本或undefined
+   */
+  private generateToolsSummary(results: Array<{
+    toolName: string;
+    success: boolean;
+    result?: any;
+    error?: string;
+  }>): string | undefined {
+    const successResults = results.filter(r => r.success);
+    if (successResults.length === 0) return undefined;
+
+    // 使用第一个成功结果生成摘要
+    const firstResult = successResults[0];
+    return this.generateSmartSummary(firstResult.toolName, firstResult.result);
+  }
+
+  /**
+   * 为不同工具生成智能摘要
+   * @param toolName 工具名称
+   * @param result 工具结果
+   * @returns 智能摘要
+   */
+  private generateSmartSummary(toolName: string, result: any): string {
+    if (!result) return '';
+
+    switch (toolName) {
+      case 'executeSemanticEdits':
+      case 'executeMarkdownEdits':
+        return `应用${result.appliedCount || result.appliedIntents?.length || 0}个编辑`;
+      
+      case 'readFileWithStructure':
+      case 'readMarkdownFile':
+        const sizeKB = Math.round((result.metadata?.documentLength || result.content?.length || 0) / 1024);
+        return `读取文件 (${sizeKB}KB)`;
+      
+      case 'taskComplete':
+        return result.summary || '任务完成';
+      
+      case 'askQuestion':
+        return `等待用户输入：${result.question || result.chatQuestion || ''}`;
+
+      case 'listAllFiles':
+        return `发现${result.structure?.totalCount || 0}个文件`;
+
+      case 'createDirectory':
+        return '创建目录';
+
+      case 'writeFile':
+        return '写入文件';
+      
+      default:
+        return '';
+    }
   }
 
   /**
@@ -869,77 +1090,155 @@ export class SRSAgentEngine implements ISessionObserver {
   }
 
   /**
-   * 🚀 新增：使用用户回复恢复PlanExecutor执行状态
+   * 🚀 新增：提取原始specialist上下文
    */
-  private async resumePlanExecutorWithUserResponse(userResponse: string): Promise<void> {
+  private extractOriginalSpecialistContext(resumeContext: any): any {
+    this.logger.info(`🔍 提取原始specialist上下文`);
+    
+    // 从复杂的resumeContext中提取原始的specialist状态
+    if (resumeContext.askQuestionContext?.originalResult?.resumeContext) {
+      this.logger.info(`🔍 从askQuestionContext.originalResult.resumeContext提取`);
+      return resumeContext.askQuestionContext.originalResult.resumeContext;
+    }
+    
+    // 检查是否是直接的specialist resumeContext
+    if (resumeContext.specialist && resumeContext.iteration !== undefined) {
+      this.logger.info(`🔍 直接使用specialist resumeContext`);
+      return resumeContext;
+    }
+    
+    // 兼容性处理 - 从旧格式中提取
+    this.logger.warn(`⚠️ 使用兼容性处理提取specialist上下文`);
+    return {
+      specialist: resumeContext.ruleId || 'unknown',
+      iteration: resumeContext.currentIteration || 0,
+      internalHistory: resumeContext.conversationHistory || [],
+      contextForThisStep: resumeContext.context || {},
+      toolResults: [],
+      currentPlan: resumeContext.pendingPlan || {},
+      startTime: Date.now()
+    };
+  }
+
+  /**
+   * 🚀 新增：使用用户回复恢复PlanExecutor执行状态
+   * @returns {boolean} 是否成功恢复执行（true=specialist继续执行，false=需要重新规划）
+   */
+  private async resumePlanExecutorWithUserResponse(userResponse: string): Promise<boolean> {
     const resumeContext = this.state.resumeContext!;
     const planExecutorState = resumeContext.planExecutorState;
     
     this.logger.info(`🔄 恢复PlanExecutor状态: specialist=${planExecutorState.specialistLoopState.specialistId}, iteration=${planExecutorState.specialistLoopState.currentIteration}`);
     
-    // 1. 创建PlanExecutor实例
+    // 🚀 关键修复：从原始的SpecialistInteractionResult恢复specialist状态
+    const originalSpecialistResumeContext = this.extractOriginalSpecialistContext(resumeContext);
+    
+    // 1. 创建SpecialistExecutor实例
+    const { SpecialistExecutor } = await import('./specialistExecutor');
+    const specialistExecutor = new SpecialistExecutor();
+    
+    // 2. 恢复SessionContext
+    const sessionContext = await this.restoreSessionContext(planExecutorState.sessionContext);
+    
+    // 3. 恢复specialist执行
+    this.stream.markdown(`🔄 **恢复specialist执行**: ${planExecutorState.specialistLoopState.specialistId} (第${originalSpecialistResumeContext.iteration}轮)\n\n`);
+    
+    try {
+      // 🚀 关键修复：使用新的resumeState参数正确恢复specialist执行
+      const continuedResult = await specialistExecutor.execute(
+        planExecutorState.specialistLoopState.specialistId,
+        originalSpecialistResumeContext.contextForThisStep,
+        this.selectedModel,
+        {
+          iteration: originalSpecialistResumeContext.iteration,
+          internalHistory: originalSpecialistResumeContext.internalHistory,
+          currentPlan: originalSpecialistResumeContext.currentPlan,
+          toolResults: originalSpecialistResumeContext.toolResults,
+          userResponse: userResponse,  // 🚀 关键：传递用户回复
+          contextForThisStep: originalSpecialistResumeContext.contextForThisStep
+        }
+      );
+      
+      // 🚀 如果specialist成功继续，需要更新PlanExecutor的循环状态
+      if (continuedResult.success) {
+        this.stream.markdown(`✅ **Specialist执行成功**\n\n`);
+        
+        if (continuedResult.structuredData?.nextStepType === 'TASK_FINISHED') {
+          this.state.stage = 'completed';
+          this.stream.markdown(`🎉 **任务完成**: ${continuedResult.structuredData.summary}\n\n`);
+          return true; // ✅ 任务完成，specialist恢复成功
+        } else {
+          // 🚀 关键修复：恢复PlanExecutor循环，而不是重新开始
+          await this.resumePlanExecutorLoop(planExecutorState, continuedResult, userResponse);
+          return true; // ✅ PlanExecutor继续执行，specialist恢复成功
+        }
+        
+      } else if ('needsChatInteraction' in continuedResult && continuedResult.needsChatInteraction) {
+        // 🚀 处理specialist需要进一步用户交互的情况
+        this.logger.info(`💬 Specialist恢复后仍需要用户交互: "${continuedResult.question}"`);
+        
+        // 重新设置等待用户输入状态
+        this.state.stage = 'awaiting_user';
+        this.state.pendingInteraction = {
+          type: 'input',
+          message: continuedResult.question || '需要您的确认',
+          options: []
+        };
+        this.state.resumeContext = continuedResult.resumeContext;
+        
+        this.stream.markdown(`💬 **${continuedResult.question}**\n\n`);
+        return true; // ✅ 等待进一步用户输入，specialist恢复成功
+        
+      } else {
+        const errorMsg = ('error' in continuedResult) ? continuedResult.error : '执行失败';
+        this.stream.markdown(`❌ **Specialist执行失败**: ${errorMsg}\n\n`);
+        await this.recordExecution('result', `Specialist恢复执行失败: ${errorMsg}`, false);
+        return false; // ❌ Specialist执行失败，需要重新规划
+      }
+      
+    } catch (error) {
+      this.logger.error(`❌ Specialist恢复执行异常: ${(error as Error).message}`);
+      this.stream.markdown(`❌ **恢复执行异常**: ${(error as Error).message}\n\n`);
+      return false; // ❌ 恢复执行异常，需要重新规划
+    }
+  }
+
+  /**
+   * 🚀 新增：恢复PlanExecutor循环
+   */
+  private async resumePlanExecutorLoop(
+    planExecutorState: any, 
+    specialistResult: SpecialistOutput, 
+    userResponse: string
+  ): Promise<void> {
+    this.logger.info(`🔄 恢复PlanExecutor循环执行`);
+    
+    // 重新创建PlanExecutor，但恢复其循环状态
     const { PlanExecutor } = await import('./orchestrator/PlanExecutor');
     const { SpecialistExecutor } = await import('./specialistExecutor');
     
     const specialistExecutor = new SpecialistExecutor();
     const planExecutor = new PlanExecutor(specialistExecutor);
     
-    // 2. 恢复SessionContext
-    const sessionContext = await this.restoreSessionContext(planExecutorState.sessionContext);
-    
-    // 3. 构建带有用户回复的增强上下文
-    const enhancedContext = this.buildResumeContextWithUserResponse(
-      planExecutorState,
-      userResponse,
-      resumeContext
+    // 🚀 关键：恢复循环状态到PlanExecutor
+    planExecutor.restoreLoopState(
+      planExecutorState.specialistLoopState.specialistId,
+      planExecutorState.specialistLoopState
     );
     
-    // 4. 恢复specialist的执行
-    this.stream.markdown(`🔄 **恢复specialist执行**: ${planExecutorState.specialistLoopState.specialistId} (第${planExecutorState.specialistLoopState.currentIteration}轮)\n\n`);
+    // 🚀 继续执行计划的剩余部分
+    const sessionContext = await this.restoreSessionContext(planExecutorState.sessionContext);
+    const finalResult = await planExecutor.continueExecution(
+      planExecutorState.plan,
+      planExecutorState.currentStep,
+      planExecutorState.stepResults,
+      sessionContext,
+      this.selectedModel,
+      planExecutorState.userInput,
+      specialistResult  // 传入specialist的最新结果
+    );
     
-    try {
-      // 🚀 关键：调用specialist继续执行，传入用户回复
-      const continuedResult = await specialistExecutor.execute(
-        planExecutorState.specialistLoopState.specialistId,
-        enhancedContext,
-        this.selectedModel
-      );
-      
-      // 处理specialist的继续执行结果
-      if (continuedResult.success) {
-        this.stream.markdown(`✅ **Specialist执行成功**\n\n`);
-        
-        // 如果specialist完成了任务，更新状态
-        if (continuedResult.structuredData?.nextStepType === 'TASK_FINISHED') {
-          this.state.stage = 'completed';
-          this.stream.markdown(`🎉 **任务完成**: ${continuedResult.structuredData.summary}\n\n`);
-        } else {
-          // 如果specialist需要继续或转交，重新启动计划执行
-          this.stream.markdown(`🔄 **继续执行计划**...\n\n`);
-          
-          // 重新构建计划并继续执行
-          const remainingPlan = this.reconstructRemainingPlan(planExecutorState, continuedResult);
-          
-          const finalResult = await planExecutor.execute(
-            remainingPlan,
-            sessionContext,
-            this.selectedModel,
-            planExecutorState.userInput
-          );
-          
-          await this.handlePlanExecutionResult(finalResult);
-        }
-        
-      } else {
-        const errorMsg = ('error' in continuedResult) ? continuedResult.error : '执行失败';
-        this.stream.markdown(`❌ **Specialist执行失败**: ${errorMsg}\n\n`);
-        await this.recordExecution('result', `Specialist恢复执行失败: ${errorMsg}`, false);
-      }
-      
-    } catch (error) {
-      this.logger.error(`❌ Specialist恢复执行异常: ${(error as Error).message}`);
-      throw error;
-    }
+    await this.handlePlanExecutionResult(finalResult);
   }
 
   /**
@@ -1135,8 +1434,20 @@ export class SRSAgentEngine implements ISessionObserver {
    * 🚀 v3.0新增：清理引擎资源，取消观察者订阅
    */
   public dispose(): void {
+    // 🚨 新增：Engine销毁追踪
+    const timestamp = new Date().toISOString();
+    const disposeStack = new Error().stack;
+    
+    this.logger.warn(`🚨 [ENGINE DISPOSE] Engine being disposed at ${timestamp}`);
+    this.logger.warn(`🚨 [ENGINE DISPOSE] Engine state: stage=${this.state.stage}, task="${this.state.currentTask}"`);
+    this.logger.warn(`🚨 [ENGINE DISPOSE] Execution history length: ${this.state.executionHistory.length}`);
+    this.logger.warn(`🚨 [ENGINE DISPOSE] Call stack:`);
+    this.logger.warn(disposeStack || 'No stack trace available');
+    
     this.logger.info('🧹 Disposing SRSAgentEngine and unsubscribing from session changes');
     this.sessionManager.unsubscribe(this);
+    
+    this.logger.warn(`🚨 [ENGINE DISPOSE] Engine disposed successfully`);
   }
 
   /**

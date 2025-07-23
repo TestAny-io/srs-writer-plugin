@@ -40,7 +40,6 @@ describe('taskComplete Tool', () => {
         nextStepType: NextStepType.HANDOFF_TO_SPECIALIST,
         summary: 'SRS completed, need next step',
         contextForNext: {
-          structuredData: { srsCompleted: true },
           deliverables: ['SRS document']
         }
       };
@@ -48,7 +47,6 @@ describe('taskComplete Tool', () => {
       const result = await taskComplete(params);
 
       expect(result.nextStepType).toBe(NextStepType.HANDOFF_TO_SPECIALIST);
-      expect(result.contextForNext?.structuredData).toEqual({ srsCompleted: true });
       expect(result.contextForNext?.deliverables).toEqual(['SRS document']);
     });
 
@@ -66,14 +64,14 @@ describe('taskComplete Tool', () => {
         nextStepType: NextStepType.CONTINUE_SAME_SPECIALIST,
         summary: 'Partial work completed, continuing',
         contextForNext: {
-          structuredData: { currentPhase: 'requirements_analysis' }
+          deliverables: ['Phase analysis completed']
         }
       };
 
       const result = await taskComplete(params);
 
       expect(result.nextStepType).toBe(NextStepType.CONTINUE_SAME_SPECIALIST);
-      expect(result.contextForNext?.structuredData).toEqual({ currentPhase: 'requirements_analysis' });
+      expect(result.contextForNext?.deliverables).toEqual(['Phase analysis completed']);
     });
   });
 }); 

@@ -81,10 +81,8 @@ export const writeFileToolDefinition = {
     interactionType: 'confirmation',
     riskLevel: 'medium',
     requiresConfirmation: true,
-    // 🚀 访问控制：写文件是危险操作，只有明确的执行任务可以进行
+    // 🚀 访问控制：写文件是危险操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的文件操作任务
-        // ❌ KNOWLEDGE_QA 模式通常不应该写文件（除非特殊需求）
         CallerType.SPECIALIST,                    // 专家可以创建文档
         CallerType.DOCUMENT                       // 文档层的核心功能
     ]
@@ -140,9 +138,8 @@ export const appendTextToFileToolDefinition = {
     interactionType: 'confirmation',
     riskLevel: 'medium',
     requiresConfirmation: true,
-    // 🚀 访问控制：追加文件是写操作，不暴露给specialist
+    // 🚀 访问控制：追加文件是写操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的文件操作任务
         CallerType.DOCUMENT                       // 文档层的核心功能
         // 注意：移除了CallerType.SPECIALIST，specialist应使用高层文档工具
     ]
@@ -220,9 +217,8 @@ export const createDirectoryToolDefinition = {
     interactionType: 'confirmation',
     riskLevel: 'medium',
     requiresConfirmation: true,
-    // 🚀 访问控制：创建目录是重要操作，特别是可能注册新项目
+    // 🚀 访问控制：创建目录是重要操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的目录创建任务
         CallerType.SPECIALIST,                    // 专家需要创建项目结构
         CallerType.INTERNAL                       // 内部工具（如createNewProjectFolder）
     ]
@@ -428,6 +424,14 @@ export async function listAllFiles(args: {
             logger.error(`🔍 [listAllFiles DEBUG] 错误: 没有工作区文件夹打开`);
             return { success: false, error: 'No workspace folder is open' };
         }
+        
+        // 🚀 新增：显示搜索关键词信息
+        if (args.searchKeywords && args.searchKeywords.length > 0) {
+            logger.info(`🔍 [listAllFiles DEBUG] 🔎 搜索关键词: [${args.searchKeywords.join(', ')}]`);
+            logger.info(`🔍 [listAllFiles DEBUG] 🔎 关键词匹配模式: 精确匹配 + 包含匹配 + 文件名基础匹配`);
+        } else {
+            logger.info(`🔍 [listAllFiles DEBUG] 🔎 无关键词限制，返回所有文件`);
+        }
 
         const {
             maxDepth = 10,
@@ -463,8 +467,25 @@ export async function listAllFiles(args: {
             const targetName = name.toLowerCase(); // Case insensitive search
             const searchTerms = keywords.map(k => k.toLowerCase());
             
-            // Contains matching mode
-            return searchTerms.some(keyword => targetName.includes(keyword));
+            // 🚀 改进匹配逻辑：支持精确匹配和包含匹配
+            return searchTerms.some(keyword => {
+                // 精确匹配（完整文件名）
+                if (targetName === keyword) {
+                    return true;
+                }
+                // 包含匹配（关键词在文件名中）
+                if (targetName.includes(keyword)) {
+                    return true;
+                }
+                // 如果关键词包含扩展名，尝试匹配文件名部分
+                if (keyword.includes('.')) {
+                    const keywordBase = keyword.split('.')[0];
+                    if (targetName.includes(keywordBase)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
         }
 
         // Recursively traverse directory
@@ -503,14 +524,10 @@ export async function listAllFiles(args: {
                         continue;
                     }
 
-                    // Skip items that don't match search keywords
+                    // 🚀 修复关键词匹配逻辑：区分文件和目录的处理
                     const matchesKeywords = matchesSearchKeywords(name, searchKeywords);
                     logger.info(`🔍 [listAllFiles DEBUG]     🔎 关键词匹配: ${name} -> ${matchesKeywords}`);
-                    if (!matchesKeywords) {
-                        logger.info(`🔍 [listAllFiles DEBUG]     ⏭️ 不匹配关键词: ${name}`);
-                        continue;
-                    }
-
+                    
                     if (totalCount >= maxItems) {
                         logger.info(`🔍 [listAllFiles DEBUG]     ⏹️ 达到最大项目数限制: ${maxItems}`);
                         break;
@@ -518,17 +535,30 @@ export async function listAllFiles(args: {
 
                     const fullPath = relativePath === '.' ? name : `${relativePath}/${name}`;
 
-                    // Add to results based on dirsOnly parameter
-                    if (!dirsOnly || isDirectory) {
-                        results.push(fullPath);
-                        totalCount++;
-                        logger.info(`🔍 [listAllFiles DEBUG]     ✅ 添加到结果: "${fullPath}" (总计: ${totalCount})`);
-                    }
-
-                    // Recursively process subdirectories
+                    // 🚀 修复：对文件和目录采用不同的关键词匹配策略
                     if (isDirectory) {
-                        logger.info(`🔍 [listAllFiles DEBUG]     📁 递归进入子目录: ${fullPath}`);
+                        // 目录：总是递归进入，不管目录名是否匹配关键词
+                        logger.info(`🔍 [listAllFiles DEBUG]     📁 目录始终递归搜索: ${fullPath}`);
+                        
+                        // 如果目录名匹配关键词且允许目录，则添加到结果
+                        if (matchesKeywords && dirsOnly) {
+                            results.push(fullPath);
+                            totalCount++;
+                            logger.info(`🔍 [listAllFiles DEBUG]     ✅ 添加匹配目录到结果: "${fullPath}" (总计: ${totalCount})`);
+                        }
+                        
+                        // 递归进入子目录搜索文件
                         await traverseDirectory(fullPath, currentDepth + 1);
+                        
+                    } else {
+                        // 文件：只有匹配关键词才添加到结果
+                        if (matchesKeywords) {
+                            results.push(fullPath);
+                            totalCount++;
+                            logger.info(`🔍 [listAllFiles DEBUG]     ✅ 添加匹配文件到结果: "${fullPath}" (总计: ${totalCount})`);
+                        } else {
+                            logger.info(`🔍 [listAllFiles DEBUG]     ⏭️ 文件不匹配关键词，跳过: ${name}`);
+                        }
                     }
                 }
             } catch (error) {
@@ -597,9 +627,8 @@ export const deleteFileToolDefinition = {
     interactionType: 'confirmation',
     riskLevel: 'high',
     requiresConfirmation: true,
-    // 🚀 访问控制：删除操作是高风险操作，严格限制权限
+    // 🚀 访问控制：删除操作是高风险操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 仅明确的删除任务
         CallerType.INTERNAL                       // 内部工具（如清理操作）
         // 注意：故意不包含SPECIALIST和KNOWLEDGE_QA，删除操作风险太高
     ]
@@ -648,9 +677,8 @@ export const renameFileToolDefinition = {
     interactionType: 'confirmation',
     riskLevel: 'medium',
     requiresConfirmation: true,
-    // 🚀 访问控制：重命名/移动是有风险的操作，需要明确权限
+    // 🚀 访问控制：重命名/移动是有风险的操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 明确的重命名/移动任务
         CallerType.SPECIALIST,                    // 专家可能需要重构文件结构
         CallerType.INTERNAL                       // 内部工具（如项目重构）
     ]

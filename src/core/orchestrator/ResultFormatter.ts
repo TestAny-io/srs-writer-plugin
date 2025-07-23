@@ -356,7 +356,7 @@ export class ResultFormatter {
    */
   public formatToolResult(toolName: string, result: any): string {
     // 检测结果类型并使用对应的格式化器
-    if (toolName === 'executeSemanticEdits' || (result.appliedIntents !== undefined)) {
+    if (toolName === 'executeMarkdownEdits' || (result.appliedIntents !== undefined)) {
       return this.formatSemanticEditResult(result);
     }
     

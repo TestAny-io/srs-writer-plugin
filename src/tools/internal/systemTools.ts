@@ -78,7 +78,8 @@ Usage: Call this when you have successfully completed the user's request, whethe
         },
         // 🚀 访问控制：只有orchestrator可以标记最终完成
         accessibleBy: [
-            CallerType.ORCHESTRATOR_TOOL_EXECUTION   // 只有orchestrator可以调用finalAnswer
+            CallerType.ORCHESTRATOR_TOOL_EXECUTION,   // 只有orchestrator可以调用finalAnswer
+            CallerType.ORCHESTRATOR_KNOWLEDGE_QA      // 添加知识问答模式支持
             // 注意：移除了CallerType.SPECIALIST，specialist现在使用taskComplete
         ]
     },

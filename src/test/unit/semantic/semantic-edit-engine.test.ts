@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { executeSemanticEdits, SemanticEditIntent } from '../../../tools/document/semantic-edit-engine';
+import { executeSemanticEdits, validateSemanticIntents, SemanticEditIntent } from '../../../tools/document/semantic-edit-engine';
 
 // Mock vscode
 jest.mock('vscode', () => ({
@@ -26,91 +26,41 @@ describe('SemanticEditEngine - Error Handling', () => {
 
     describe('incorrect tool usage validation', () => {
         test('should reject replace_lines_in_section with only startFromAnchor', async () => {
-            const mockDocument = `
-# Test Document
+            const intent: SemanticEditIntent = {
+                type: 'replace_lines_in_section',
+                target: {
+                    path: ['功能需求']
+                    // 缺少 targetContent - 这应该导致验证失败
+                },
+                content: '替换的内容',
+                reason: '测试缺少targetContent的情况',
+                priority: 1
+            };
 
-## Functional Requirements
+            const validationResult = await validateSemanticIntents([intent]);
 
-<!-- req-id: FR-001, priority: should-have -->
-Some requirement content here.
-
-<!-- req-id: FR-002, priority: must-have -->
-Another requirement here.
-`;
-
-            // Mock vscode.workspace.openTextDocument
-            const mockTextDocument = {
-                getText: jest.fn().mockReturnValue(mockDocument)
-            } as any;
-            
-            (vscode.workspace.openTextDocument as jest.Mock).mockResolvedValue(mockTextDocument);
-
-            const testUri = vscode.Uri.file('/test/file.md');
-            const intents: SemanticEditIntent[] = [
-                {
-                    type: 'replace_lines_in_section',
-                    target: {
-                        sectionName: 'Functional Requirements',
-                        startFromAnchor: 'req-id: FR-001'
-                        // Missing targetContent - this should cause an error
-                    },
-                    content: '<!-- req-id: FR-001, priority: must-have -->',
-                    reason: 'Test incorrect usage - missing targetContent',
-                    priority: 1
-                }
-            ];
-
-            const result = await executeSemanticEdits(intents, testUri);
-
-            expect(result.success).toBe(false);
-            expect(result.failedIntents).toHaveLength(1);
-            expect(result.appliedIntents).toHaveLength(0);
-            expect(result.semanticErrors).toContain(
-                'Failed to apply intent: replace_lines_in_section -> Functional Requirements'
+            expect(validationResult.valid).toBe(false);
+            expect(validationResult.errors).toContain(
+                expect.stringContaining('targetContent is required for replace_lines_in_section')
             );
         });
 
         test('should successfully handle replace_lines_in_section with both startFromAnchor and targetContent', async () => {
-            const mockDocument = `
-# Test Document
+            const intent: SemanticEditIntent = {
+                type: 'replace_lines_in_section',
+                target: {
+                    path: ['功能需求'],
+                    targetContent: '用户注册'
+                },
+                content: '增强的用户注册功能',
+                reason: '更新用户注册功能描述',
+                priority: 1
+            };
 
-## Functional Requirements
+            const validationResult = await validateSemanticIntents([intent]);
 
-<!-- req-id: FR-001, priority: should-have -->
-Some requirement content here.
-
-<!-- req-id: FR-002, priority: must-have -->
-Another requirement here.
-`;
-
-            // Mock vscode.workspace.openTextDocument
-            const mockTextDocument = {
-                getText: jest.fn().mockReturnValue(mockDocument)
-            } as any;
-            
-            (vscode.workspace.openTextDocument as jest.Mock).mockResolvedValue(mockTextDocument);
-            (vscode.workspace.applyEdit as jest.Mock).mockResolvedValue(true);
-
-            const testUri = vscode.Uri.file('/test/file.md');
-            const intents: SemanticEditIntent[] = [
-                {
-                    type: 'replace_lines_in_section',
-                    target: {
-                        sectionName: 'Functional Requirements',
-                        startFromAnchor: 'req-id: FR-001',
-                        targetContent: '<!-- req-id: FR-001, priority: should-have -->'
-                    },
-                    content: '<!-- req-id: FR-001, priority: must-have -->',
-                    reason: 'Test correct usage with targetContent',
-                    priority: 1
-                }
-            ];
-
-            const result = await executeSemanticEdits(intents, testUri);
-
-            expect(result.success).toBe(true);
-            expect(result.failedIntents).toHaveLength(0);
-            expect(result.appliedIntents).toHaveLength(1);
+            expect(validationResult.valid).toBe(true);
+            expect(validationResult.errors).toHaveLength(0);
         });
     });
 }); 

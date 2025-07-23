@@ -27,7 +27,7 @@ assembly_config:
 ## 📋 核心职责
 
 1. **项目目录创建**: 使用createNewProjectFolder工具创建项目并切换上下文
-2. **基础文件生成**: 根据执行计划里的language参数与output_chapter_title参数，遵循“重要约束”中的语言一致性要求，创建SRS.md、requirements.yaml等标准文件
+2. **基础文件生成**: 根据执行计划里的language参数与output_chapter_title参数，遵循“重要约束”中的语言一致性要求，创建SRS.md、空白requirements.yaml、srs-writer-log.json等标准文件
 3. **目录结构建立**: 建立prototype等必要的子目录
 4. **任务完成确认**: 使用taskComplete工具标记初始化完成
 
@@ -37,7 +37,7 @@ assembly_config:
 
 1. 创建新项目目录并切换会话上下文
 2. 生成基础SRS文档框架
-3. 创建需求跟踪YAML文件
+3. 创建空白requirements.yaml
 4. 创建项目日志文件
 5. 建立prototype目录
 6. 标记任务完成
@@ -64,10 +64,10 @@ assembly_config:
       }
     },
     {
-      "name": "writeFile",
+      "name": "writeFile", 
       "args": {
-        "path": "项目名称/requirements.yaml", 
-        "content": "YAML配置内容"
+        "path": "项目名称/requirements.yaml",
+        "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml"
       }
     },
     {
@@ -92,15 +92,15 @@ assembly_config:
         "deliverables": [
           {
             "path": "项目名称/SRS.md",
-            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories & Use-Case View)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
+            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories and Use Cases)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
             "type": "markdown",
             "description": "SRS.md初始内容"
           },
           {
             "path": "项目名称/requirements.yaml",
-            "content": "# {{PROJECT_NAME}} 需求跟踪文件\n# 自动生成于: {{DATE}}\n\nproject:\n  name: \"{{PROJECT_NAME}}\"\n  version: \"1.0\"\n  created_date: \"{{DATE}}\"\n  status: \"初始化完成\"\n\nfunctional_requirements: []\n  # 功能需求将由 fr_writer specialist 自动填充\n\nnon_functional_requirements: []\n  # 非功能需求将由 nfr_writer specialist 自动填充\n\nuser_stories: []\n  # 用户故事将由 user_journey_writer specialist 自动填充\n\nnotes:\n  - \"项目已成功初始化\"\n  - \"等待需求内容填充\"",
+            "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml",
             "type": "yaml",
-            "description": "requirements.yaml初始内容"
+            "description": "requirements.yaml初始模板内容"
           },
           {
             "path": "项目名称/srs-writer-log.json",
@@ -113,6 +113,7 @@ assembly_config:
             "content": "prototype/初始内容",
             "type": "directory",
             "description": "prototype/初始内容"
+          }
         ]
       }
     }
@@ -167,47 +168,75 @@ SRS.md初始内容生成规则：
 - 执行计划中指定的语言为章节标题的主语言，英语为章节标题中的辅助语言，以括号的形式出现
 - 如果执行计划中指定的语言为英语，则无需输出括号及括号中的辅助语言
 - 示例：
-  - 如果执行计划中指定的语言为中文，则第一章的标题必须为：## 1. 执行摘要 (Executive Summary)
-  - 如果执行计划中指定的语言为英文，则第一章的标题必须为：## 1. Executive Summary
-  - 如果执行计划中指定的语言为中文，则第二章的标题必须为：## 2. 总体描述 (Overall Description)
-  - 如果执行计划中指定的语言为英文，则第二章的标题必须为：## 2. Overall Description
-  - 如果执行计划中指定的语言为中文，则第三章的标题必须为：## 3. 用户旅程 (User Journeys)
-  - 如果执行计划中指定的语言为英文，则第三章的标题必须为：## 3. User Journeys
-  - 如果执行计划中指定的语言为中文，则第四章的标题必须为：## 4. 用户故事和用例视图 (User Stories & Use-Case View)
-  - 如果执行计划中指定的语言为英文，则第四章的标题必须为：## 4. User Stories & Use-Case View
-  - 如果执行计划中指定的语言为中文，则第五章的标题必须为：## 5. 功能需求 (Functional Requirements)
-  - 如果执行计划中指定的语言为英文，则第五章的标题必须为：## 5. Functional Requirements
-  - 如果执行计划中指定的语言为中文，则第六章的标题必须为：## 6. 非功能需求 (Non-Functional Requirements)
-  - 如果执行计划中指定的语言为英文，则第六章的标题必须为：## 6. Non-Functional Requirements
-  - 如果执行计划中指定的语言为中文，则第七章的标题必须为：## 7. 接口需求 (Interface Requirements)
-  - 如果执行计划中指定的语言为英文，则第七章的标题必须为：## 7. Interface Requirements
-  - 如果执行计划中指定的语言为中文，则第八章的标题必须为：## 8. 数据需求 (Data Requirements)
-  - 如果执行计划中指定的语言为英文，则第八章的标题必须为：## 8. Data Requirements
+    - 如果执行计划中指定的语言为中文，则第一章的标题必须为：## 1. 执行摘要 (Executive Summary)
+    - 如果执行计划中指定的语言为英文，则第一章的标题必须为：## 1. Executive Summary
+    - 如果执行计划中指定的语言为中文，则第二章的标题必须为：## 2. 总体描述 (Overall Description)
+    - 如果执行计划中指定的语言为英文，则第二章的标题必须为：## 2. Overall Description
+    - 如果执行计划中指定的语言为中文，则第三章的标题必须为：## 3. 用户旅程 (User Journeys)
+    - 如果执行计划中指定的语言为英文，则第三章的标题必须为：## 3. User Journeys
+    - 如果执行计划中指定的语言为中文，则第四章的标题必须为：## 4. 用户故事和用例视图 (User Stories & Use-Case View)
+    - 如果执行计划中指定的语言为英文，则第四章的标题必须为：## 4. User Stories & Use-Case View
+    - 如果执行计划中指定的语言为中文，则第五章的标题必须为：## 5. 功能需求 (Functional Requirements)
+    - 如果执行计划中指定的语言为英文，则第五章的标题必须为：## 5. Functional Requirements
+    - 如果执行计划中指定的语言为中文，则第六章的标题必须为：## 6. 非功能需求 (Non-Functional Requirements)
+    - 如果执行计划中指定的语言为英文，则第六章的标题必须为：## 6. Non-Functional Requirements
+    - 如果执行计划中指定的语言为中文，则第七章的标题必须为：## 7. 接口需求 (Interface Requirements)
+    - 如果执行计划中指定的语言为英文，则第七章的标题必须为：## 7. Interface Requirements
+    - 如果执行计划中指定的语言为中文，则第八章的标题必须为：## 8. 数据需求 (Data Requirements)
+    - 如果执行计划中指定的语言为英文，则第八章的标题必须为：## 8. Data Requirements
+    - 如果执行计划中指定的语言为中文，则第九章的标题必须为：## 9. 假设、依赖和约束 (Assumptions, Dependencies and Constraints)
+    - 如果执行计划中指定的语言为英文，则第九章的标题必须为：## 9. Assumptions, Dependencies and Constraints
+    - 如果执行计划中指定的语言为中文，则第十章的标题必须为：## 10. 附录 (Appendix)
+    - 如果执行计划中指定的语言为英文，则第十章的标题必须为：## 10. Appendix
 
-### requirements.yaml 配置模板
+### requirements.yaml 模板
 
 ```yaml
-# {{PROJECT_NAME}} 需求跟踪文件
-# 自动生成于: {{DATE}}
+user_stories:
 
-project:
-  name: "{{PROJECT_NAME}}"
-  version: "1.0"
-  created_date: "{{DATE}}"
-  status: "初始化完成"
+use_cases:
 
-functional_requirements: []
-  # 功能需求将由 fr_writer specialist 自动填充
+functional_requirements:
 
-non_functional_requirements: []
-  # 非功能需求将由 nfr_writer specialist 自动填充
+non_functional_requirements:
 
-user_stories: []
-  # 用户故事将由 user_journey_writer specialist 自动填充
+interface_requirements:
 
-notes:
-  - "项目已成功初始化"
-  - "等待需求内容填充"
+data_requirements:
+
+assumptions:
+
+dependencies:
+
+constraints:
+
+_metadata:
+  generated_at: "2025-07-20T03:46:22.129Z"
+  generator_version: 1.0.0
+  schema_version: "1.0"
+  total_ids:
+  id_breakdown:
+    ADC-ASSU:
+    ADC-CONST:
+    ADC-DEPEN:
+    DAR:
+    FR:
+    IFR:
+    NFR:
+    UC:
+    US:
+  generation_mode:
+  entity_order:
+    - user_stories
+    - use_cases
+    - functional_requirements
+    - non_functional_requirements
+    - interface_requirements
+    - data_requirements
+    - assumptions
+    - dependencies
+    - constraints
+  output_filename: requirements.yaml
 ```
 
 ### srs-writer-log.json 日志模板
@@ -228,7 +257,6 @@ notes:
   "generation_history": [],
   "file_manifest": [
     "SRS.md",
-    "requirements.yaml", 
     "srs-writer-log.json",
     "prototype/"
   ]
@@ -260,7 +288,7 @@ notes:
 
 - [x] createNewProjectFolder 成功执行，会话已切换到新项目
 - [x] SRS.md 基础框架已创建
-- [x] requirements.yaml 配置文件已创建  
+- [x] requirements.yaml 空白文件已创建
 - [x] srs-writer-log.json 日志文件已创建
 - [x] prototype/ 目录已创建
 - [x] taskComplete 工具被调用，标记任务完成
@@ -308,14 +336,14 @@ notes:
       "name": "writeFile", 
       "args": {
         "path": "JiraMacClient/SRS.md",
-        "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories & Use-Case View)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*"
+        "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories and Use Cases)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*"
       }
     },
     {
-      "name": "writeFile",
+      "name": "writeFile", 
       "args": {
-        "path": "JiraMacClient/requirements.yaml", 
-        "content": "# JiraMacClient 需求跟踪文件\n# 自动生成于: 2025-01-02\n\nproject:\n  name: \"JiraMacClient\"\n  version: \"1.0\"\n  created_date: \"2025-01-02\"\n  status: \"初始化完成\"\n\nfunctional_requirements: []\n  # 功能需求将由 fr_writer specialist 自动填充\n\nnon_functional_requirements: []\n  # 非功能需求将由 nfr_writer specialist 自动填充\n\nuser_stories: []\n  # 用户故事将由 user_journey_writer specialist 自动填充\n\nnotes:\n  - \"项目已成功初始化\"\n  - \"等待需求内容填充\""
+        "path": "JiraMacClient/requirements.yaml",
+        "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml"
       }
     },
     {
@@ -340,15 +368,15 @@ notes:
         "deliverables": [
           {
             "path": "JiraMacClient/SRS.md",
-            "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories & Use-Case View)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
+            "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories & Uses Cases)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
             "type": "markdown",
             "description": "SRS.md初始内容"
           },
           {
             "path": "JiraMacClient/requirements.yaml",
-            "content": "# JiraMacClient 需求跟踪文件\n# 自动生成于: 2025-01-02\n\nproject:\n  name: \"JiraMacClient\"\n  version: \"1.0\"\n  created_date: \"2025-01-02\"\n  status: \"初始化完成\"\n\nfunctional_requirements: []\n  # 功能需求将由 fr_writer specialist 自动填充\n\nnon_functional_requirements: []\n  # 非功能需求将由 nfr_writer specialist 自动填充\n\nuser_stories: []\n  # 用户故事将由 user_journey_writer specialist 自动填充\n\nnotes:\n  - \"项目已成功初始化\"\n  - \"等待需求内容填充\"",
+            "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml",
             "type": "yaml",
-            "description": "requirements.yaml初始内容"
+            "description": "requirements.yaml初始模板内容"
           },
           {
             "path": "JiraMacClient/srs-writer-log.json",

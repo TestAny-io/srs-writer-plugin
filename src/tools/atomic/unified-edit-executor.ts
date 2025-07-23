@@ -185,14 +185,16 @@ function isSemanticEditInstruction(instruction: any): boolean {
     
     const semanticTypes = [
         'replace_entire_section',
-        'replace_lines_in_section'
+        'replace_lines_in_section',
+        'insert_entire_section',
+        'insert_lines_in_section'
     ];
     
     // 基本字段验证
     const hasValidType = semanticTypes.includes(instruction.type);
     const hasValidTarget = instruction.target && 
-                          typeof instruction.target.sectionName === 'string' &&
-                          typeof instruction.target.startFromAnchor === 'string';
+                          Array.isArray(instruction.target.path) &&
+                          instruction.target.path.length > 0;
     const hasValidContent = typeof instruction.content === 'string';
     
     // 条件验证：replace_lines_in_section 需要 targetContent

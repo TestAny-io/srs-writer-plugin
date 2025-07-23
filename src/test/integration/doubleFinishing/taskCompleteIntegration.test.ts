@@ -127,7 +127,7 @@ describe('TaskComplete Integration Tests', () => {
           nextStepType: NextStepType.HANDOFF_TO_SPECIALIST,
           summary: 'SRS completed, need prototype',
           contextForNext: {
-            structuredData: { srsCompleted: true }
+            deliverables: ['SRS document', 'Requirements analysis']
           }
         }
       });

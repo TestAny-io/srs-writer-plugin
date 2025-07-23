@@ -50,7 +50,12 @@ export const readLocalKnowledgeToolDefinition = {
     },
     interactionType: 'autonomous',
     riskLevel: 'low',
-    requiresConfirmation: false
+    requiresConfirmation: false,
+    // 🚀 访问控制：本地知识查询，允许两种模式使用
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 知识问答模式
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION   // 工具执行模式（当任务需要查阅本地知识时）
+    ]
 };
 
 export async function readLocalKnowledge(args: {
@@ -174,10 +179,10 @@ export const internetSearchToolDefinition = {
     interactionType: 'autonomous',
     riskLevel: 'low',
     requiresConfirmation: false,
-    // 🚀 访问控制：互联网搜索主要用于聊天和执行任务
+    // 🚀 访问控制：互联网搜索允许两种模式使用
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 需要最新信息的任务
-        CallerType.ORCHESTRATOR_KNOWLEDGE_QA     // "最新的软件工程趋势是什么？"现在归入知识问答模式
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // "什么是最新的软件工程趋势？" - 知识问答模式
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION   // "搜索最新的TypeScript版本信息" - 工具执行模式
     ]
 };
 
@@ -188,6 +193,12 @@ export async function internetSearch(args: {
     toolInvocationToken?: vscode.ChatRequestTurn;
 }): Promise<{
     success: boolean;
+    searchData?: string;
+    searchQuery?: string;
+    searchType?: string;
+    timestamp?: string;
+    source?: string;
+    dataLength?: number;
     results?: Array<{
         title: string;
         url: string;
@@ -197,83 +208,176 @@ export async function internetSearch(args: {
     error?: string;
 }> {
     try {
+        logger.info(`🚀 InternetSearch 开始执行，参数: query="${args.query}", maxResults=${args.maxResults || 5}, searchType=${args.searchType || 'general'}, hasToken=${!!args.toolInvocationToken}`);
+        
         const maxResults = args.maxResults || 5;
 
         // 1. 优先尝试 VS Code Web Search 工具
+        logger.info(`🔍 检查 VS Code Language Model API 可用性: lm=${!!vscode.lm}, invokeTool=${!!(vscode.lm && typeof vscode.lm.invokeTool === 'function')}`);
+        
         if (vscode.lm && typeof vscode.lm.invokeTool === 'function') {
             try {
-                logger.info(`🔍 Calling VS Code websearch tool for: "${args.query}"`);
+                logger.info(`🔍 开始尝试调用 VS Code websearch 工具，查询: "${args.query}"`);
                 
-                // 直接尝试调用 websearch 工具  
-                const searchResult = await vscode.lm.invokeTool(
-                    'websearch',
-                    { 
-                        input: { query: args.query },
-                        toolInvocationToken: undefined
-                    }
-                );
+                // 检查可用工具列表
+                const availableTools = vscode.lm.tools || [];
+                logger.info(`📋 当前可用工具列表 (${availableTools.length}个): ${availableTools.map(t => t.name).join(', ')}`);
                 
-                // 处理搜索结果 - LanguageModelToolResult包含文本部分数组
-                let searchText = '';
-                if (searchResult && searchResult.content) {
-                    for (const part of searchResult.content) {
-                        if ((part as any).value) {
-                            searchText += (part as any).value;
-                        }
-                    }
-                }
-                
-                // 解析搜索结果为结构化数据
-                const results = parseWebSearchResults(searchText, maxResults);
-                
-                if (results.length > 0) {
-                    logger.info(`✅ VS Code websearch returned ${results.length} results`);
-                    return { success: true, results };
-                } else {
-                    logger.warn('VS Code websearch returned empty results');
+                // 正确方式：先查找 vscode-websearchforcopilot_webSearch 工具
+                const websearchTool = vscode.lm.tools.find(tool => tool.name === 'vscode-websearchforcopilot_webSearch');
+                if (!websearchTool) {
+                    logger.warn('❌ vscode-websearchforcopilot_webSearch 工具未找到！可用工具: ' + availableTools.map(t => `"${t.name}"`).join(', '));
                     // 继续尝试降级方案
+                } else {
+                    logger.info(`✅ 找到 websearch 工具: name="${websearchTool.name}", description="${websearchTool.description}"`);
+                    
+                    // 调用 websearch 工具，传递正确的参数结构
+                    logger.info(`📤 调用 vscode-websearchforcopilot_webSearch 工具，参数: { input: { query: "${args.query}" } }`);
+                    const searchResult = await vscode.lm.invokeTool(
+                        'vscode-websearchforcopilot_webSearch',
+                        { 
+                            input: { query: args.query },
+                            toolInvocationToken: undefined as any
+                        }
+                    );
+                    
+                    logger.info(`📥 Websearch 工具调用完成，结果类型: ${typeof searchResult}, hasContent: ${!!(searchResult && searchResult.content)}`);
+                    
+                    // 处理搜索结果 - LanguageModelToolResult包含内容部分数组
+                    let searchText = '';
+                    if (searchResult && searchResult.content) {
+                        logger.info(`📄 搜索结果包含 ${searchResult.content.length} 个内容部分`);
+                        
+                        for (let i = 0; i < searchResult.content.length; i++) {
+                            const part = searchResult.content[i];
+                            logger.info(`📝 内容部分 ${i}: type=${typeof part}, hasValue=${(part as any).value !== undefined}, hasText=${(part as any).text !== undefined}`);
+                            
+                            // 检查不同类型的内容部分
+                            if ((part as any).value !== undefined) {
+                                const value = (part as any).value;
+                                // 🔧 修复：安全处理不同类型的 value
+                                const valueStr = typeof value === 'string' ? value : JSON.stringify(value);
+                                searchText += valueStr;
+                                logger.info(`➕ 添加 value 内容 (${valueStr.length} 字符): ${valueStr.substring(0, 100)}...`);
+                            } else if ((part as any).text !== undefined) {
+                                const text = (part as any).text;
+                                // 🔧 修复：安全处理不同类型的 text
+                                const textStr = typeof text === 'string' ? text : JSON.stringify(text);
+                                searchText += textStr;
+                                logger.info(`➕ 添加 text 内容 (${textStr.length} 字符): ${textStr.substring(0, 100)}...`);
+                            }
+                        }
+                    } else {
+                        logger.warn(`⚠️ 搜索结果为空或缺少内容: searchResult=${!!searchResult}, content=${!!(searchResult && searchResult.content)}`);
+                    }
+                    
+                    logger.info(`📝 提取的完整搜索文本长度: ${searchText.length} 字符`);
+                    if (searchText.length > 0) {
+                        logger.info(`📝 搜索文本预览: ${searchText.substring(0, 200)}...`);
+                        
+                        // 🚀 新设计：直接返回完整的搜索数据，让AI处理
+                        logger.info(`✅ VS Code websearch 成功获取数据，将完整结果交给AI处理`);
+                        return { 
+                            success: true, 
+                            searchData: searchText,
+                            searchQuery: args.query,
+                            searchType: args.searchType || 'general',
+                            timestamp: new Date().toISOString(),
+                            source: 'vscode-websearchforcopilot',
+                            dataLength: searchText.length
+                        };
+                    } else {
+                        logger.warn('⚠️ VS Code websearch 返回空数据，开始尝试降级方案');
+                        // 继续尝试降级方案
+                    }
                 }
                 
             } catch (toolError) {
-                logger.warn(`VS Code websearch failed: ${(toolError as Error).message}`);
+                logger.error(`❌ VS Code websearch 调用失败: ${(toolError as Error).message}`);
+                logger.error(`❌ 错误堆栈: ${(toolError as Error).stack}`);
                 // 继续尝试降级方案
             }
         }
         
         // 2. 检查Web Search扩展是否已安装
+        logger.info(`🔍 检查 Web Search for Copilot 扩展安装状态...`);
         const webSearchExtension = vscode.extensions.getExtension('ms-vscode.vscode-websearchforcopilot');
+        
         if (!webSearchExtension) {
-            logger.warn('Web Search for Copilot extension not installed');
-            return {
+            logger.warn('⚠️ Web Search for Copilot 扩展未安装，返回安装指导');
+            const installationGuide = `安装指导：Web Search for Copilot 扩展未安装
+
+查询："${args.query}"
+
+无法获取实时信息。请安装 "Web Search for Copilot" 扩展以启用网络搜索功能。
+
+安装步骤：
+1. 访问扩展商店：https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-websearchforcopilot
+2. 安装 "Web Search for Copilot" 扩展
+3. 配置 Tavily 或 Bing API 密钥
+4. 重新尝试搜索`;
+
+            const fallbackResult = {
                 success: true,
-                results: [{
-                    title: "安装搜索扩展获取实时信息",
-                    url: "https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-websearchforcopilot",
-                    snippet: `抱歉，无法获取"${args.query}"的实时信息。请安装 "Web Search for Copilot" 扩展以启用网络搜索功能。\n\n安装步骤：\n1. 点击上方链接访问扩展商店\n2. 安装 "Web Search for Copilot" 扩展\n3. 配置 Tavily 或 Bing API 密钥\n4. 重新尝试搜索`,
-                    source: "installation_guide"
-                }]
+                searchData: installationGuide,
+                searchQuery: args.query,
+                searchType: args.searchType || 'general',
+                timestamp: new Date().toISOString(),
+                source: 'installation_guide',
+                dataLength: installationGuide.length
             };
+            logger.info(`📤 返回安装指导信息: ${installationGuide.length} 字符`);
+            return fallbackResult;
         }
         
         // 3. 扩展已安装但工具可能未配置
+        logger.info(`✅ Web Search for Copilot 扩展已安装，检查配置...`);
         const config = vscode.workspace.getConfiguration('websearch');
         const preferredEngine = config.get<string>('preferredEngine', 'tavily');
         
-        logger.info(`Web Search extension installed, preferred engine: ${preferredEngine}`);
-        return {
+        logger.info(`⚙️ Web Search 扩展配置: preferredEngine="${preferredEngine}"`);
+        
+        const configurationGuide = `配置指导：Web Search for Copilot 扩展已安装
+
+查询："${args.query}"
+
+扩展已安装，但可能需要配置API密钥：
+
+当前配置：
+- 搜索引擎设置：${preferredEngine}
+
+建议操作：
+1. 请确保已配置 ${preferredEngine === 'tavily' ? 'Tavily' : 'Bing'} API 密钥
+2. 检查扩展设置中的API密钥配置
+3. 或者在浏览器中搜索：https://www.google.com/search?q=${encodeURIComponent(args.query)}
+
+如果配置正确但仍有问题，请检查网络连接和API密钥的有效性。`;
+
+        const configResult = {
             success: true,
-            results: [{
-                title: "配置Web Search扩展",
-                url: `https://www.google.com/search?q=${encodeURIComponent(args.query)}`,
-                snippet: `Web Search for Copilot 扩展已安装，但可能需要配置API密钥：\n1. 当前搜索引擎设置：${preferredEngine}\n2. 请确保已配置 ${preferredEngine === 'tavily' ? 'Tavily' : 'Bing'} API 密钥\n3. 或点击此链接在浏览器中搜索：${args.query}`,
-                source: "configuration_guide"
-            }]
+            searchData: configurationGuide,
+            searchQuery: args.query,
+            searchType: args.searchType || 'general',
+            timestamp: new Date().toISOString(),
+            source: 'configuration_guide',
+            dataLength: configurationGuide.length
         };
+        logger.info(`📤 返回配置指导信息: ${configurationGuide.length} 字符`);
+        return configResult;
         
     } catch (error) {
         const errorMsg = `Failed to perform internet search: ${(error as Error).message}`;
-        logger.error(errorMsg);
-        return { success: false, error: errorMsg };
+        logger.error(`❌ InternetSearch 执行过程中发生未捕获错误: ${errorMsg}`);
+        logger.error(`❌ 错误堆栈: ${(error as Error).stack}`);
+        
+        const errorResult = { 
+            success: false, 
+            error: errorMsg,
+            searchQuery: args.query,
+            timestamp: new Date().toISOString()
+        };
+        logger.info(`📤 返回错误结果: ${errorMsg}`);
+        return errorResult;
     }
 }
 
@@ -307,7 +411,12 @@ export const enterpriseRAGCallToolDefinition = {
     },
     interactionType: 'autonomous',
     riskLevel: 'low',
-    requiresConfirmation: false
+    requiresConfirmation: false,
+    // 🚀 访问控制：企业RAG查询，允许两种模式使用
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 知识问答模式
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION   // 工具执行模式（当任务需要企业知识时）
+    ]
 };
 
 export async function enterpriseRAGCall(args: {
@@ -316,12 +425,12 @@ export async function enterpriseRAGCall(args: {
     maxResults?: number;
 }): Promise<{
     success: boolean;
-    results?: Array<{
-        content: string;
-        source: string;
-        confidence: number;
-        metadata?: any;
-    }>;
+    ragData?: any;
+    query?: string;
+    domain?: string;
+    timestamp?: string;
+    source?: string;
+    resultCount?: number;
     error?: string;
 }> {
     try {
@@ -369,17 +478,17 @@ export async function enterpriseRAGCall(args: {
 
         const data = await response.json() as any;
         
-        // 标准化响应格式
-        const results = Array.isArray(data?.results) ? data.results : [];
-        const formattedResults = results.map((item: any) => ({
-            content: item.content || item.text || '',
-            source: item.source || 'enterprise_rag',
-            confidence: item.confidence || item.score || 0.5,
-            metadata: item.metadata || {}
-        }));
-
-        logger.info(`✅ Enterprise RAG returned ${formattedResults.length} results`);
-        return { success: true, results: formattedResults };
+        // 🚀 新设计：返回完整的原始数据，让AI处理
+        logger.info(`✅ Enterprise RAG 成功获取数据，将完整结果交给AI处理`);
+        return { 
+            success: true, 
+            ragData: data,
+            query: args.query,
+            domain: args.domain,
+            timestamp: new Date().toISOString(),
+            source: 'enterprise_rag',
+            resultCount: Array.isArray(data?.results) ? data.results.length : 0
+        };
 
     } catch (error) {
         const errorMsg = `Failed to call enterprise RAG system: ${(error as Error).message}`;
@@ -416,12 +525,9 @@ export const customRAGRetrievalToolDefinition = {
     interactionType: 'autonomous',
     riskLevel: 'low',
     requiresConfirmation: false,
-    // 🚀 访问控制：知识检索是安全操作，支持所有知识相关模式
+    // 🚀 访问控制：移除orchestrator权限
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // 执行模式中的知识增强
-        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 知识问答的核心工具（现在包含通用对话）
-        // CallerType.SPECIALIST,                    // 专家内容生成支持
-        // CallerType.DOCUMENT                       // 文档层可能需要知识支持
+        // 移除所有orchestrator权限
     ]
 };
 
@@ -450,7 +556,7 @@ export async function customRAGRetrieval(args: {
         });
         
         if (result.success) {
-            logger.info(`✅ Custom RAG found ${result.results?.length || 0} results`);
+            logger.info(`✅ Custom RAG found ${result.resultCount || 0} results`);
         } else {
             logger.warn(`⚠️ Custom RAG retrieval failed: ${result.error}`);
         }
@@ -476,11 +582,85 @@ function parseWebSearchResults(searchText: string, maxResults: number): Array<{
     snippet: string;
     source: string;
 }> {
+    logger.info(`🔍 开始解析搜索结果文本，长度: ${searchText.length}, maxResults: ${maxResults}`);
     const results: Array<{title: string; url: string; snippet: string; source: string}> = [];
     
     try {
+        // 🔧 新增：尝试解析 vscode-websearchforcopilot 的特殊格式
+        if (searchText.includes('Here is some relevent context from webpages across the internet:')) {
+            logger.info(`📋 检测到 vscode-websearchforcopilot 格式，尝试解析...`);
+            
+            // 尝试提取 JSON 数据部分
+            const jsonMatch = searchText.match(/\[{.*}\]/s);
+            if (jsonMatch) {
+                try {
+                    const searchData = JSON.parse(jsonMatch[0]);
+                    logger.info(`📊 成功解析 JSON 数据，包含 ${searchData.length} 个结果`);
+                    
+                    // 🔍 调试：显示数据结构样本
+                    if (searchData.length > 0) {
+                        const firstItem = searchData[0];
+                        logger.info(`📋 数据结构样本: ${JSON.stringify(firstItem).substring(0, 200)}...`);
+                        logger.info(`📋 是否包含 file 对象: ${!!firstItem.file}`);
+                    }
+                    
+                    // 转换为标准格式 - 处理 vscode-websearchforcopilot 的特殊 file 结构
+                    for (let i = 0; i < Math.min(searchData.length, maxResults); i++) {
+                        const item = searchData[i];
+                        
+                        // 🔧 处理 file 对象结构
+                        if (item.file) {
+                            const file = item.file;
+                            const url = `${file.scheme}://${file.authority}${file.path || ''}`;
+                            const title = file.authority || `搜索结果 ${i + 1}`;
+                            let snippet = file.fragment || file.description || '网页内容';
+                            
+                            // 🔧 清理和解码 fragment 内容
+                            if (snippet && snippet.includes(':~:text=')) {
+                                snippet = snippet.replace(':~:text=', '').replace(/,/g, ' ');
+                                try {
+                                    snippet = decodeURIComponent(snippet);
+                                } catch (e) {
+                                    // 如果解码失败，保持原始内容
+                                    logger.warn(`⚠️ 解码fragment失败: ${e}`);
+                                }
+                            }
+                            
+                            results.push({
+                                title: title,
+                                url: url,
+                                snippet: snippet,
+                                source: 'vscode-websearchforcopilot'
+                            });
+                            
+                            logger.info(`🔗 解析结果 ${i + 1}: "${title}" -> ${url}`);
+                        } else {
+                            // 🔧 降级处理：标准格式
+                            results.push({
+                                title: item.title || `搜索结果 ${i + 1}`,
+                                url: item.url || item.link || `#result-${i + 1}`,
+                                snippet: item.snippet || item.content || item.description || '搜索结果内容',
+                                source: 'vscode-websearchforcopilot'
+                            });
+                            
+                            logger.info(`🔗 解析结果 ${i + 1} (标准格式): "${item.title || `搜索结果 ${i + 1}`}" -> ${item.url || item.link}`);
+                        }
+                    }
+                    
+                    if (results.length > 0) {
+                        logger.info(`✅ 成功解析 vscode-websearchforcopilot 格式，得到 ${results.length} 个结果`);
+                        return results.slice(0, maxResults);
+                    }
+                } catch (parseError) {
+                    logger.warn(`⚠️ JSON 解析失败: ${(parseError as Error).message}`);
+                }
+            }
+        }
         // 方案1: 尝试解析 markdown 链接格式
+        logger.info(`📋 方案1: 尝试解析 markdown 链接格式...`);
         const linkMatches = searchText.match(/\[([^\]]+)\]\(([^)]+)\)/g);
+        logger.info(`🔗 找到 ${linkMatches ? linkMatches.length : 0} 个 markdown 链接`);
+        
         if (linkMatches) {
             linkMatches.slice(0, maxResults).forEach((match, index) => {
                 const linkMatch = match.match(/\[([^\]]+)\]\(([^)]+)\)/);
@@ -505,9 +685,12 @@ function parseWebSearchResults(searchText: string, maxResults: number): Array<{
         }
         
         // 方案2: 如果没有找到链接，尝试将整个文本作为一个结果
+        logger.info(`📋 方案2: 检查是否需要使用原始文本作为结果，当前结果数: ${results.length}`);
         if (results.length === 0 && searchText.trim()) {
+            logger.info(`📝 使用原始文本创建结果...`);
             const urlMatch = searchText.match(/(https?:\/\/[^\s\)]+)/);
             const url = urlMatch ? urlMatch[1] : `https://www.google.com/search?q=${encodeURIComponent(searchText.substring(0, 50))}`;
+            logger.info(`🔗 提取的URL: ${url}`);
             
             results.push({
                 title: "搜索结果",
@@ -515,12 +698,14 @@ function parseWebSearchResults(searchText: string, maxResults: number): Array<{
                 snippet: searchText.substring(0, 300) + (searchText.length > 300 ? '...' : ''),
                 source: 'websearch'
             });
+            logger.info(`✅ 创建了1个原始文本结果`);
         }
         
     } catch (parseError) {
-        logger.warn(`Failed to parse search results: ${(parseError as Error).message}`);
+        logger.error(`❌ 解析搜索结果时发生错误: ${(parseError as Error).message}`);
         
         // 降级：将原始文本作为搜索结果返回
+        logger.info(`🔄 使用降级方案创建结果...`);
         if (searchText.trim()) {
             results.push({
                 title: "搜索结果",
@@ -528,10 +713,17 @@ function parseWebSearchResults(searchText: string, maxResults: number): Array<{
                 snippet: searchText.substring(0, 300) + (searchText.length > 300 ? '...' : ''),
                 source: 'websearch_raw'
             });
+            logger.info(`✅ 创建了1个降级结果`);
         }
     }
     
-    return results.slice(0, maxResults);
+    const finalResults = results.slice(0, maxResults);
+    logger.info(`📤 解析完成，返回 ${finalResults.length} 个结果 (限制: ${maxResults})`);
+    finalResults.forEach((result, index) => {
+        logger.info(`📋 最终结果 ${index + 1}: "${result.title}" -> ${result.url} [${result.source}]`);
+    });
+    
+    return finalResults;
 }
 
 /**

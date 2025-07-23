@@ -3,7 +3,7 @@ import { Logger } from '../../utils/logger';
 import { marked } from 'marked';
 import { CallerType } from '../../types';
 import { writeFile, deleteFile } from '../atomic';
-import { readFile } from './enhanced-readfile-tools';
+import { readMarkdownFile } from './enhanced-readfile-tools';
 
 /**
  * 需求管理文档工具模块
@@ -46,7 +46,7 @@ async function _createRequirementId(existingRequirements: any[]): Promise<string
  */
 async function _getExistingRequirements(projectPath: string): Promise<{ success: boolean; requirements: any[]; content?: string }> {
     const frYamlPath = `${projectPath}/fr.yaml`;
-    const frResult = await readFile({ path: frYamlPath });
+    const frResult = await readMarkdownFile({ path: frYamlPath });
     
     if (!frResult.success) {
         return { success: true, requirements: [] }; // 新项目，没有现有需求
@@ -112,7 +112,7 @@ function _generateRequirementsMarkdownTable(requirements: any[]): string {
  */
 async function _updateRequirementsInSRS(projectPath: string, requirements: any[]): Promise<void> {
     const srsPath = `${projectPath}/SRS.md`;
-    const srsResult = await readFile({ path: srsPath });
+    const srsResult = await readMarkdownFile({ path: srsPath });
     
     if (!srsResult.success) {
         throw new Error(`无法读取SRS.md文件: ${srsPath}`);
@@ -228,14 +228,14 @@ async function _createBackupFiles(projectPath: string): Promise<{ frBackup?: str
     const backups: { frBackup?: string; srsBackup?: string } = {};
     
     // 备份fr.yaml（如果存在）
-    const frResult = await readFile({ path: `${projectPath}/fr.yaml` });
+            const frResult = await readMarkdownFile({ path: `${projectPath}/fr.yaml` });
     if (frResult.success) {
         backups.frBackup = `${projectPath}/fr.yaml.backup.${timestamp}`;
         await writeFile({ path: backups.frBackup, content: frResult.content! });
     }
     
     // 备份SRS.md
-    const srsResult = await readFile({ path: `${projectPath}/SRS.md` });
+            const srsResult = await readMarkdownFile({ path: `${projectPath}/SRS.md` });
     if (srsResult.success) {
         backups.srsBackup = `${projectPath}/SRS.md.backup.${timestamp}`;
         await writeFile({ path: backups.srsBackup, content: srsResult.content! });
@@ -250,7 +250,7 @@ async function _createBackupFiles(projectPath: string): Promise<{ frBackup?: str
 async function _rollbackFromBackups(projectPath: string, backups: { frBackup?: string; srsBackup?: string }): Promise<void> {
     try {
         if (backups.frBackup) {
-            const backupResult = await readFile({ path: backups.frBackup });
+            const backupResult = await readMarkdownFile({ path: backups.frBackup });
             if (backupResult.success) {
                 await writeFile({ path: `${projectPath}/fr.yaml`, content: backupResult.content! });
                 await deleteFile({ path: backups.frBackup });
@@ -259,7 +259,7 @@ async function _rollbackFromBackups(projectPath: string, backups: { frBackup?: s
         }
         
         if (backups.srsBackup) {
-            const backupResult = await readFile({ path: backups.srsBackup });
+            const backupResult = await readMarkdownFile({ path: backups.srsBackup });
             if (backupResult.success) {
                 await writeFile({ path: `${projectPath}/SRS.md`, content: backupResult.content! });
                 await deleteFile({ path: backups.srsBackup });

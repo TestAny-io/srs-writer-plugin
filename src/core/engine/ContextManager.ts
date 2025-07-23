@@ -17,10 +17,15 @@ export class ContextManager {
    * 配合新的提示词架构优化AI理解
    */
   public buildContextForPrompt(executionHistory: ExecutionStep[]): { historyContext: string, toolResultsContext: string } {
+    this.logger.info(`🔍 [DEBUG-CONTEXT] === ContextManager.buildContextForPrompt START ===`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] Input: received ${executionHistory.length} execution steps`);
+    
     const historyItems: string[] = [];
     const toolResultItems: string[] = [];
 
-    executionHistory.forEach(step => {
+    executionHistory.forEach((step, index) => {
+      this.logger.info(`🔍 [DEBUG-CONTEXT] Processing step[${index}]: type=${step.type}, content="${step.content?.substring(0, 50)}..."`);
+      
       if (step.type === 'thought') {
         // 截断过长的思考过程
         const truncatedThought = step.content.length > 200 
@@ -52,14 +57,35 @@ export class ContextManager {
       } else if (step.type === 'result' && step.content) {
         // Include content from 'result' steps, which includes new task markers
         // and other general results recorded by the system.
-        historyItems.push(`- System Note: ${step.content}`);
+        // 🚀 新增：检测并特殊处理PLAN_EXECUTION结果
+        if (this.isPlanExecutionResult(step)) {
+          historyItems.push(this.formatPlanExecutionContext(step));
+        } else {
+          historyItems.push(`- System Note: ${step.content}`);
+        }
       }
     });
 
-    return {
+    const result = {
       historyContext: historyItems.join('\n'),
       toolResultsContext: toolResultItems.join('\n\n')
     };
+    
+    this.logger.info(`🔍 [DEBUG-CONTEXT] === ContextManager.buildContextForPrompt RESULT ===`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] historyItems.length: ${historyItems.length}`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] toolResultItems.length: ${toolResultItems.length}`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] historyContext.length: ${result.historyContext.length}`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] toolResultsContext.length: ${result.toolResultsContext.length}`);
+    
+    if (result.historyContext.length === 0) {
+      this.logger.warn(`🔍 [DEBUG-CONTEXT] ⚠️ historyContext is EMPTY! Will trigger "No actions have been taken yet"`);
+    }
+    if (result.toolResultsContext.length === 0) {
+      this.logger.warn(`🔍 [DEBUG-CONTEXT] ⚠️ toolResultsContext is EMPTY! Will trigger "No tool results available"`);
+    }
+    
+    this.logger.info(`🔍 [DEBUG-CONTEXT] === ContextManager.buildContextForPrompt END ===`);
+    return result;
   }
 
   /**
@@ -187,7 +213,7 @@ export class ContextManager {
    */
   private formatToolResultForContext(toolName: string, result: any): string {
     // 语义编辑结果的特殊处理
-    if (toolName === 'executeSemanticEdits') {
+    if (toolName === 'executeMarkdownEdits' || toolName === 'executeYAMLEdits') {
       return this.formatSemanticEditResultForContext(result);
     }
     
@@ -277,5 +303,41 @@ export class ContextManager {
     }
 
     return summary;
+  }
+
+  /**
+   * 🚀 新增：检测是否为计划执行相关的结果
+   */
+  private isPlanExecutionResult(step: ExecutionStep): boolean {
+    return step.toolName === 'planExecutor' && 
+           step.result && 
+           typeof step.result === 'object' &&
+           'originalExecutionPlan' in step.result;
+  }
+
+  /**
+   * 🚀 新增：格式化计划执行上下文信息
+   */
+  private formatPlanExecutionContext(step: ExecutionStep): string {
+    const ctx = step.result;
+    if (!ctx || !ctx.originalExecutionPlan) {
+      return `- System Note: ${step.content}`;
+    }
+    
+    const status = step.success ? 'Completed' : 'Failed';
+    const progress = `${ctx.completedSteps}/${ctx.totalSteps}`;
+    const planDesc = ctx.originalExecutionPlan.description || 'Unknown Plan';
+    
+    if (step.success) {
+      // 成功完成的计划
+      return `- Plan Execution: "${planDesc}" | Status: ${status} | Progress: ${progress} steps completed`;
+    } else {
+      // 失败的计划
+      const failedStepInfo = ctx.failedStep ? 
+        ` at step ${ctx.failedStep} (${ctx.failedSpecialist || 'unknown'})` : '';
+      const errorInfo = ctx.error ? ` | Error: ${ctx.error}` : '';
+      
+      return `- Plan Execution: "${planDesc}" | Status: ${status}${failedStepInfo} | Progress: ${progress} steps${errorInfo}`;
+    }
   }
 } 

@@ -6,8 +6,9 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { Logger } from '../../utils/logger';
-import { SemanticLocator, SemanticTarget } from '../atomic/semantic-locator';
+import { SemanticLocator, SemanticTarget, InsertionPosition } from '../atomic/semantic-locator';
 import { CallerType } from '../../types/index';
 
 const logger = Logger.getInstance();
@@ -16,7 +17,7 @@ const logger = Logger.getInstance();
  * 语义编辑意图接口
  */
 export interface SemanticEditIntent {
-    type: 'replace_entire_section' | 'replace_lines_in_section';
+    type: 'replace_entire_section' | 'replace_lines_in_section' | 'insert_entire_section' | 'insert_lines_in_section';
     target: SemanticTarget;
     content: string;
     reason: string;
@@ -83,7 +84,24 @@ export async function executeSemanticEdits(
         // 处理每个编辑意图
         for (const intent of sortedIntents) {
             try {
-                logger.info(`🎯 Processing intent: ${intent.type} -> ${intent.target.sectionName}`);
+                logger.info(`🎯 Processing intent: ${intent.type} -> ${intent.target.path.join(' > ')}`);
+                
+                // 构建语义定位目标
+                const semanticTarget: SemanticTarget = {
+                    path: intent.target.path,
+                    targetContent: intent.target.targetContent,
+                    insertionPosition: intent.target.insertionPosition as InsertionPosition
+                };
+                
+                // 根据操作类型执行定位
+                const locationResult = locator.findTarget(semanticTarget, intent.type);
+                
+                if (!locationResult.found) {
+                    logger.warn(`❌ Target not found: ${intent.target.path.join(' > ')}`);
+                    failedIntents.push(intent);
+                    semanticErrors.push(locationResult.error || 'Target location not found');
+                    continue;
+                }
                 
                 const applied = await applySemanticIntent(workspaceEdit, targetFileUri, intent, locator);
                 
@@ -92,8 +110,8 @@ export async function executeSemanticEdits(
                     logger.info(`✅ Intent applied successfully: ${intent.type}`);
                 } else {
                     failedIntents.push(intent);
-                    semanticErrors.push(`Failed to apply intent: ${intent.type} -> ${intent.target.sectionName}`);
-                    logger.warn(`❌ Intent failed: ${intent.type} -> ${intent.target.sectionName}`);
+                    semanticErrors.push(`Failed to apply intent: ${intent.type} -> ${intent.target.path.join(' > ')}`);
+                    logger.warn(`❌ Intent failed: ${intent.type} -> ${intent.target.path.join(' > ')}`);
                 }
                 
             } catch (error) {
@@ -173,7 +191,7 @@ export async function executeSemanticEdits(
                 let errorMessage: string | undefined = undefined;
                 if (totalFailed > 0) {
                     const failureReasons = semanticErrors.length > 0 ? semanticErrors : 
-                        failedIntents.map(intent => `${intent.type} -> ${intent.target.sectionName}`);
+                        failedIntents.map(intent => `${intent.type} -> ${intent.target.path.join(' > ')}`);
                     errorMessage = `语义编辑失败: ${failureReasons.join('; ')}`;
                 }
                 
@@ -204,7 +222,7 @@ export async function executeSemanticEdits(
         let errorMessage: string | undefined = undefined;
         if (totalFailed > 0) {
             const failureReasons = semanticErrors.length > 0 ? semanticErrors : 
-                failedIntents.map(intent => `${intent.type} -> ${intent.target.sectionName}`);
+                failedIntents.map(intent => `${intent.type} -> ${intent.target.path.join(' > ')}`);
             errorMessage = `语义编辑失败: ${failureReasons.join('; ')}`;
         }
         
@@ -252,32 +270,37 @@ async function applySemanticIntent(
     locator: SemanticLocator
 ): Promise<boolean> {
     try {
-        // 使用语义定位器找到目标位置
-        const location = locator.findTarget(intent.target);
+        // 使用语义定位器找到目标位置，传递操作类型
+        const location = locator.findTarget(intent.target, intent.type);
         
         if (!location.found) {
-            logger.warn(`⚠️ Target not found for intent: ${intent.target.sectionName}`);
+            logger.warn(`⚠️ Target not found for intent: ${intent.target.path.join(' > ')}`);
+            if (location.error) {
+                logger.warn(`⚠️ Error details: ${location.error}`);
+            }
             return false;
         }
         
         // 根据意图类型执行不同的编辑操作
         switch (intent.type) {
             case 'replace_entire_section':
-                if (!location.range) {
-                    logger.error(`Replace entire section operation requires range, but none found`);
-                    return false;
-                }
-                workspaceEdit.replace(targetFileUri, location.range, intent.content);
-                logger.info(`📝 Replacing entire section with new content`);
-                break;
-                
             case 'replace_lines_in_section':
                 if (!location.range) {
-                    logger.error(`Replace lines in section operation requires range, but none found`);
+                    logger.error(`Replace operation requires range, but none found`);
                     return false;
                 }
                 workspaceEdit.replace(targetFileUri, location.range, intent.content);
-                logger.info(`📝 Replacing specific lines in section with new content`);
+                logger.info(`📝 Replacing ${intent.type === 'replace_entire_section' ? 'entire section' : 'lines in section'}`);
+                break;
+                
+            case 'insert_entire_section':
+            case 'insert_lines_in_section':
+                if (!location.insertionPoint) {
+                    logger.error(`Insert operation requires insertion point, but none found`);
+                    return false;
+                }
+                workspaceEdit.insert(targetFileUri, location.insertionPoint, intent.content);
+                logger.info(`📝 Inserting ${intent.type === 'insert_entire_section' ? 'entire section' : 'lines in section'}`);
                 break;
                 
             default:
@@ -305,12 +328,12 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
             errors.push('Intent missing type field');
         }
         
-        if (!intent.target || !intent.target.sectionName) {
-            errors.push('Intent missing target.sectionName field');
+        if (!intent.target || !intent.target.path || intent.target.path.length === 0) {
+            errors.push('Intent missing target.path field (required)');
         }
         
-        if (!intent.target || !intent.target.startFromAnchor) {
-            errors.push('Intent missing target.startFromAnchor field (required)');
+        if (!intent.target || !intent.target.insertionPosition) {
+            errors.push('Intent missing target.insertionPosition field (required)');
         }
         
         if (typeof intent.content !== 'string') {
@@ -322,7 +345,7 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
         }
         
         // 验证intent类型
-        const validTypes = ['replace_entire_section', 'replace_lines_in_section'];
+        const validTypes = ['replace_entire_section', 'replace_lines_in_section', 'insert_entire_section', 'insert_lines_in_section'];
         if (intent.type && !validTypes.includes(intent.type)) {
             errors.push(`Invalid intent type: ${intent.type}. Valid types are: ${validTypes.join(', ')}`);
         }
@@ -331,6 +354,24 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
         if (intent.type === 'replace_lines_in_section') {
             if (!intent.target || !intent.target.targetContent) {
                 errors.push('replace_lines_in_section operation requires target.targetContent field');
+            }
+        }
+        
+        // 条件验证：插入操作必须有 insertionPosition
+        if (intent.type?.startsWith('insert_')) {
+            if (!intent.target || !intent.target.insertionPosition) {
+                errors.push(`${intent.type} operation requires target.insertionPosition field`);
+            }
+            
+            const validPositions = ['before', 'after', 'inside'];
+            if (intent.target?.insertionPosition && !validPositions.includes(intent.target.insertionPosition)) {
+                errors.push(`Invalid insertion position: ${intent.target.insertionPosition}. Valid positions: ${validPositions.join(', ')}`);
+            }
+            
+            // insert_lines_in_section with 'inside' 的基本验证
+            if (intent.type === 'insert_lines_in_section' && 
+                intent.target?.insertionPosition === 'inside') {
+                // 路径验证在上面已经完成，这里不需要额外验证
             }
         }
         
@@ -351,14 +392,18 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
 // ============================================================================
 
 /**
- * 语义编辑工具定义
+ * Markdown语义编辑工具定义
  */
-export const executeSemanticEditsToolDefinition = {
-    name: "executeSemanticEdits",
-    description: "Execute semantic editing operations on markdown documents.",
+export const executeMarkdownEditsToolDefinition = {
+    name: "executeMarkdownEdits",
+    description: "Execute semantic editing operations specifically on Markdown documents. Uses path-based targeting and AST analysis for precise section identification.",
     parameters: {
         type: "object",
         properties: {
+            description: {
+                type: "string",
+                description: "Brief description of what this editing operation will accomplish (e.g., 'Add security requirements section to SRS document', 'Fix formatting in user stories'). Used for history tracking."
+            },
             intents: {
                 type: "array",
                 description: "Array of semantic edit intents to execute",
@@ -369,27 +414,33 @@ export const executeSemanticEditsToolDefinition = {
                             type: "string",
                             enum: [
                                 "replace_entire_section",
-                                "replace_lines_in_section"
+                                "replace_lines_in_section",
+                                "insert_entire_section",
+                                "insert_lines_in_section"
                             ],
-                            description: "Type of semantic edit operation. 'replace_entire_section': replaces entire section content. 'replace_lines_in_section': replaces specific targetContent within section, requires both targetContent and startFromAnchor."
+                            description: "Type of semantic edit operation:\n- 'replace_entire_section': replaces entire section content\n- 'replace_lines_in_section': replaces specific targetContent within section\n- 'insert_entire_section': inserts new section relative to reference section\n- 'insert_lines_in_section': inserts content within or around reference section"
                         },
                         target: {
                             type: "object",
                             properties: {
-                                sectionName: {
-                                    type: "string",
-                                    description: "Name of the target section (required)"
+                                path: {
+                                    type: "array",
+                                    description: "Array of section names to navigate to the target section. Each element represents a level in the document hierarchy (e.g., ['4. User Stories', 'User Story Details', 'US-AUTH-001']). REQUIRED for all operations. Provides precise targeting without ambiguity. ⚠️ CRITICAL: MUST include ALL hierarchical levels in order - NO LEVEL SKIPPING allowed. If document has structure 'Level2 > Level3 > Level4', you CANNOT use path ['Level2', 'Level4'] - you MUST use complete path ['Level2', 'Level3', 'Level4']. Incomplete paths will fail matching.",
+                                    items: {
+                                        type: "string"
+                                    }
                                 },
                                 targetContent: {
                                     type: "string",
-                                    description: "Exact content to replace within the section. REQUIRED for 'replace_lines_in_section' operation. Must be precise match including whitespace."
+                                    description: "Exact content to replace within section. REQUIRED for 'replace_lines_in_section' operation. Must be precise match including whitespace."
                                 },
-                                startFromAnchor: {
+                                insertionPosition: {
                                     type: "string",
-                                    description: "Anchor text to start searching from. REQUIRED. System finds this anchor first, then searches for targetContent within next 5 lines. Must appear before targetContent in the section."
+                                    enum: ["before", "after", "inside"],
+                                    description: "Position relative to reference section. REQUIRED for insert operations. 'before': insert before section, 'after': insert after section, 'inside': insert within section content."
                                 }
                             },
-                            required: ["sectionName", "startFromAnchor"]
+                            required: ["path"]
                         },
                         content: {
                             type: "string",
@@ -401,26 +452,25 @@ export const executeSemanticEditsToolDefinition = {
                         },
                         priority: {
                             type: "number",
-                            description: "Priority of this edit (higher numbers = higher priority)",
+                            description: "Priority level for operation execution (higher numbers execute first)",
                             default: 0
                         }
                     },
                     required: ["type", "target", "content", "reason"]
                 }
             },
-            targetFileUri: {
+            targetFile: {
                 type: "string",
-                description: "VSCode URI of the target file"
+                description: "Path to the target Markdown file. If relative path, will be resolved relative to current project's {baseDir} (from SessionContext) or workspace root as fallback. Absolute paths are used directly."
             }
         },
-        required: ["intents", "targetFileUri"]
+        required: ["description", "intents", "targetFile"]
     },
     // 访问控制
-    accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.SPECIALIST,
-        CallerType.DOCUMENT
-    ],
+            accessibleBy: [
+            CallerType.SPECIALIST,
+            CallerType.DOCUMENT
+        ],
     // 智能分类属性
     interactionType: 'confirmation',
     riskLevel: 'medium',
@@ -428,11 +478,63 @@ export const executeSemanticEditsToolDefinition = {
 };
 
 /**
+ * 🚀 智能路径解析：支持相对路径和绝对路径
+ * 优先使用SessionContext的baseDir，回退到VSCode工作区
+ */
+async function resolveWorkspacePath(relativePath: string): Promise<string> {
+    // 如果已经是绝对路径，直接返回
+    if (path.isAbsolute(relativePath)) {
+        logger.info(`🔗 路径解析（绝对路径）: ${relativePath}`);
+        return relativePath;
+    }
+
+    try {
+        // 🚀 优先获取SessionContext的baseDir
+        const { SessionManager } = await import('../../core/session-manager');
+        const sessionManager = SessionManager.getInstance();
+        const currentSession = await sessionManager.getCurrentSession();
+        
+        if (currentSession?.baseDir) {
+            const absolutePath = path.resolve(currentSession.baseDir, relativePath);
+            logger.info(`🔗 路径解析（使用项目baseDir）: ${relativePath} -> ${absolutePath}`);
+            logger.info(`📂 项目baseDir: ${currentSession.baseDir}`);
+            return absolutePath;
+        } else {
+            logger.warn(`⚠️ SessionContext中没有baseDir，回退到工作区根目录`);
+        }
+    } catch (error) {
+        logger.warn(`⚠️ 获取SessionContext失败，回退到工作区根目录: ${(error as Error).message}`);
+    }
+
+    // 🚀 回退策略：使用VSCode工作区根目录
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        throw new Error('未找到VSCode工作区，无法解析文件路径');
+    }
+
+    // 使用第一个工作区文件夹作为根目录
+    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+    const absolutePath = path.resolve(workspaceRoot, relativePath);
+
+    logger.info(`🔗 路径解析（回退到工作区根目录）: ${relativePath} -> ${absolutePath}`);
+    return absolutePath;
+}
+
+/**
  * 工具实现映射
  */
 export const semanticEditEngineToolImplementations = {
-    executeSemanticEdits: async (args: { intents: SemanticEditIntent[], targetFileUri: string }) => {
-        const uri = vscode.Uri.parse(args.targetFileUri);
+    executeMarkdownEdits: async (args: { 
+        description: string;
+        intents: SemanticEditIntent[]; 
+        targetFile: string;
+    }) => {
+        // 🚀 记录操作意图（用于调试和追踪）
+        logger.info(`🎯 Markdown编辑意图: ${args.description}`);
+        
+        // 🚀 智能路径解析：支持相对路径和绝对路径
+        const resolvedPath = await resolveWorkspacePath(args.targetFile);
+        const uri = vscode.Uri.file(resolvedPath);
         return await executeSemanticEdits(args.intents, uri);
     }
 };
@@ -441,15 +543,15 @@ export const semanticEditEngineToolImplementations = {
  * 工具定义数组
  */
 export const semanticEditEngineToolDefinitions = [
-    executeSemanticEditsToolDefinition
+    executeMarkdownEditsToolDefinition
 ];
 
 /**
- * Semantic Edit Engine 工具分类信息
+ * Markdown Semantic Edit Engine 工具分类信息
  */
 export const semanticEditEngineToolsCategory = {
-    name: 'Semantic Edit Engine',
-    description: 'Advanced semantic editing tools using VSCode native WorkspaceEdit API',
+    name: 'Markdown Semantic Edit Engine',
+    description: 'Advanced semantic editing tools for Markdown documents using VSCode native WorkspaceEdit API',
     tools: semanticEditEngineToolDefinitions.map(tool => tool.name),
     layer: 'document'
 }; 
