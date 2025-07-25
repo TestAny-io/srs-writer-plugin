@@ -224,7 +224,9 @@
               "所需资源",
               "人力资源",
               "SME-001"
-            ]
+            ],
+            "targetContent": "1位Python开发工程师",
+            "insertionPosition": "inside"
           },
           "content": "1位Java开发工程师",
           "reason": "更新所需资源",
@@ -247,7 +249,56 @@
 }
 ```
 
-### 示例6：记录思考过程（适用于规划阶段）
+### 示例6：使用简化路径进行编辑（单根标题文档中的便捷操作）
+
+```json
+{
+  "tool_calls": [{
+    "name": "executeMarkdownEdits",
+    "args": {
+      "description": "使用简化路径快速编辑用例和功能需求",
+      "intents": [
+        {
+          "type": "insert_lines_in_section",
+          "target": {
+            "path": [
+              "4. 用户故事和用例视图 (User Stories & Use-Case View)",
+              "UC-ALERT-001"
+            ],
+            "insertionPosition": "inside"
+          },
+          "content": "- **扩展流**: E2: 微信API变更导致拦截失败时的处理流程",
+          "reason": "使用简化路径快速添加扩展流",
+          "priority": 1
+        },
+        {
+          "type": "replace_lines_in_section",
+          "target": {
+            "path": [
+              "5. 功能需求 (Functional Requirements)", 
+              "FR-ALERT-001"
+            ],
+            "targetContent": "优先级: 关键"
+          },
+          "content": "优先级: 极高",
+          "reason": "使用简化路径快速更新优先级",
+          "priority": 2
+        }
+      ],
+      "targetFile": "SRS.md"
+    }
+  }]
+}
+```
+
+**简化路径说明：**
+
+- 💡 **便捷操作**：在单根标题文档中，可以使用 `[顶层章节, 目标元素]` 的简化格式
+- 🎯 **自动匹配**：系统会自动匹配第一个顶层章节下的任意嵌套目标元素
+- ⚠️ **多重匹配保护**：如果简化路径匹配到多个位置，系统会报错并提供所有完整路径供选择
+- 🔄 **向后兼容**：完整路径依然有效，简化路径仅作为便捷选项
+
+### 示例7：记录思考过程（适用于规划阶段）
 
 ```json
 {
@@ -274,7 +325,7 @@
 }
 ```
 
-### 示例7: 任务已完成，转交给其它专家
+### 示例8: 任务已完成，转交给其它专家
 
 ```json
 {

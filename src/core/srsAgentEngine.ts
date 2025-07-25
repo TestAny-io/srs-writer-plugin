@@ -356,13 +356,24 @@ export class SRSAgentEngine implements ISessionObserver {
             if (toolNames.includes('executeMarkdownEdits') || toolNames.includes('taskComplete')) {
               const status = success ? '✅' : '❌';
               const displayText = this.formatToolsDisplay(toolCalls);
-              const smartSummary = this.generateToolsSummary(results);
               
-              if (success) {
-                this.stream.markdown(`${status} **${displayText}** 完成${smartSummary ? ` - ${smartSummary}` : ''} (${duration}ms)\n\n`);
+              if (toolNames.includes('taskComplete')) {
+                // taskComplete 只显示简单的状态信息，避免与最终任务完成信息重复
+                if (success) {
+                  this.stream.markdown(`${status} **${displayText}** 完成 (${duration}ms)\n\n`);
+                } else {
+                  const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
+                  this.stream.markdown(`${status} **${displayText}** 失败 - ${errors} (${duration}ms)\n\n`);
+                }
               } else {
-                const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
-                this.stream.markdown(`${status} **${displayText}** 失败 - ${errors} (${duration}ms)\n\n`);
+                // executeMarkdownEdits 等其他工具显示详细摘要
+                const smartSummary = this.generateToolsSummary(results);
+                if (success) {
+                  this.stream.markdown(`${status} **${displayText}** 完成${smartSummary ? ` - ${smartSummary}` : ''} (${duration}ms)\n\n`);
+                } else {
+                  const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
+                  this.stream.markdown(`${status} **${displayText}** 失败 - ${errors} (${duration}ms)\n\n`);
+                }
               }
             }
           },

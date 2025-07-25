@@ -594,7 +594,7 @@ export class SemanticLocator {
     }
     
     /**
-     * 通过路径查找元素（支持路径标准化、自动跳过单根标题、包含式匹配）
+     * 通过路径查找元素（支持路径标准化、自动跳过单根标题、包含式匹配、简化路径匹配）
      */
     findSectionByPath(path: string[]): StructuralElement | undefined {
         logger.info(`🔍 [DEBUG] Searching for element by path: "${path.join(' > ')}"`);
@@ -604,12 +604,13 @@ export class SemanticLocator {
         if (singleRoot) {
             logger.info(`🔍 [DEBUG] Document has single root heading, enabling smart path matching`);
         }
-        
-        const matchingElement = this.sections.find(section => {
+
+        // 🚀 第一步：尝试完整路径匹配（现有逻辑）
+        const exactMatches = this.sections.filter(section => {
             let sectionPath = section.path;
             let searchPath = path;
             
-            // 🚀 新功能1：如果只有一个根标题且搜索路径更短，尝试跳过根标题匹配
+            // 如果只有一个根标题且搜索路径更短，尝试跳过根标题匹配
             if (singleRoot && searchPath.length === sectionPath.length - 1) {
                 sectionPath = sectionPath.slice(1); // 跳过第一级（根标题）
                 logger.info(`🔍 [DEBUG] Skipping root heading for comparison: "${section.path[0]}"`);
@@ -620,26 +621,102 @@ export class SemanticLocator {
                 return false;
             }
             
-            // 🚀 新功能2：使用包含式匹配而非精确匹配
+            // 使用包含式匹配而非精确匹配
             return sectionPath.every((pathPart, index) => 
                 this.pathComponentMatches(pathPart, searchPath[index])
             );
         });
         
-        if (matchingElement) {
-            logger.info(`🔍 [DEBUG] Found matching element: "${matchingElement.name}" (type=${matchingElement.type}, level=${matchingElement.level}, lines=${matchingElement.startLine}-${matchingElement.endLine})`);
+        // 如果找到唯一的完整匹配，直接返回
+        if (exactMatches.length === 1) {
+            const matchingElement = exactMatches[0];
+            logger.info(`🔍 [DEBUG] Found exact matching element: "${matchingElement.name}" (type=${matchingElement.type}, level=${matchingElement.level}, lines=${matchingElement.startLine}-${matchingElement.endLine})`);
             return matchingElement;
-        } else {
-            logger.warn(`🔍 [DEBUG] No matching element found for path: "${path.join(' > ')}"`);
-            logger.info(`🔍 [DEBUG] Available paths (${singleRoot ? 'with single root detection' : 'standard mode'}):`);
-            this.sections.forEach((section, index) => {
-                const displayPath = singleRoot && section.path.length > 1 ? 
-                    `[ROOT SKIPPABLE] ${section.path.slice(1).join(' > ')}` : 
-                    section.path.join(' > ');
-                logger.info(`🔍 [DEBUG] ${index}: "${displayPath}" (${section.type})`);
-            });
-            return undefined;
         }
+        
+        // 🚀 第二步：如果完整匹配失败且满足条件，尝试简化路径匹配
+        if (singleRoot && path.length >= 2 && exactMatches.length === 0) {
+            logger.info(`🔍 [SIMPLIFIED] Attempting simplified path matching for: "${path.join(' > ')}"`);
+            
+            const simplifiedMatches = this.sections.filter(section => {
+                const sectionPath = section.path;
+                
+                // 简化匹配条件：
+                // 1. 实际路径长度 > 搜索路径长度（至少多出根标题）
+                // 2. 第一层匹配（跳过根标题后的第一层，即heading 2）
+                // 3. 最后一层匹配（目标元素）
+                if (sectionPath.length <= path.length) {
+                    return false;
+                }
+                
+                const adjustedSectionPath = sectionPath.slice(1); // 跳过根标题
+                
+                // 检查是否至少有 heading 2 层级
+                if (adjustedSectionPath.length === 0) {
+                    return false;
+                }
+                
+                // 第一层匹配：heading 2
+                const firstMatches = this.pathComponentMatches(
+                    adjustedSectionPath[0], 
+                    path[0]
+                );
+                
+                // 最后一层匹配：目标元素
+                const lastMatches = this.pathComponentMatches(
+                    adjustedSectionPath[adjustedSectionPath.length - 1],
+                    path[path.length - 1]
+                );
+                
+                const isMatch = firstMatches && lastMatches;
+                
+                if (isMatch) {
+                    logger.info(`🔍 [SIMPLIFIED] Potential match found: "${sectionPath.join(' > ')}" 
+                        -> first: "${adjustedSectionPath[0]}" matches "${path[0]}" (${firstMatches})
+                        -> last: "${adjustedSectionPath[adjustedSectionPath.length - 1]}" matches "${path[path.length - 1]}" (${lastMatches})`);
+                }
+                
+                return isMatch;
+            });
+            
+            // 处理简化匹配结果
+            if (simplifiedMatches.length === 1) {
+                const matchingElement = simplifiedMatches[0];
+                logger.info(`✅ [SIMPLIFIED] Found unique match via simplified path: "${matchingElement.path.join(' > ')}"`);
+                return matchingElement;
+            } else if (simplifiedMatches.length > 1) {
+                // 🚨 多重匹配错误
+                const matchedPaths = simplifiedMatches.map(s => s.path.join(' > '));
+                logger.error(`❌ [SIMPLIFIED] Multiple matches found for simplified path "${path.join(' > ')}"`);
+                logger.error(`❌ [SIMPLIFIED] Matched paths: ${matchedPaths.join(', ')}`);
+                
+                throw new Error(`Simplified path "${path.join(' > ')}" matches multiple locations:
+
+${matchedPaths.map(p => `  - "${p}"`).join('\n')}
+
+Please provide the complete path to disambiguate. Choose one of the above complete paths.`);
+            } else {
+                logger.info(`🔍 [SIMPLIFIED] No matches found via simplified path matching`);
+            }
+        }
+
+        // 🚀 第三步：如果所有匹配都失败，提供调试信息
+        logger.warn(`🔍 [DEBUG] No matching element found for path: "${path.join(' > ')}"`);
+        logger.info(`🔍 [DEBUG] Available paths (${singleRoot ? 'with single root detection' : 'standard mode'}):`);
+        this.sections.forEach((section, index) => {
+            const displayPath = singleRoot && section.path.length > 1 ? 
+                `[ROOT SKIPPABLE] ${section.path.slice(1).join(' > ')}` : 
+                section.path.join(' > ');
+            logger.info(`🔍 [DEBUG] ${index}: "${displayPath}" (${section.type})`);
+        });
+        
+        // 🚀 增强：如果是单根状态，提供简化路径建议
+        if (singleRoot && path.length >= 2) {
+            logger.info(`💡 [SUGGESTION] You can try simplified paths in single-root documents. Format: [heading2, target]`);
+            logger.info(`💡 [SUGGESTION] For example, instead of the full path, try: ["Section Name", "Target Element"]`);
+        }
+        
+        return undefined;
     }
     
     /**
