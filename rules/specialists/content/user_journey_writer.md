@@ -107,7 +107,7 @@ assembly_config:
 
 - **完整的编辑指令和JSON格式规范请参考 `output-format-schema.md`**
 - **你生成的所有Markdown内容都必须严格遵守语法规范。特别是，任何代码块（以 ```或 ~~~ 开始）都必须有对应的结束标记（```或 ~~~）来闭合。**
-- **你生成的所有yaml内容都必须严格遵守给定的yaml schema。**
+- **你生成的所有yaml内容都必须严格遵守给定的yaml schema，必须以YAML列表（序列）的形式组织，禁止使用YAML字典（映射）的形式组织。**
 
 ### **必须遵守**输出requirements.yaml文件的内容时的yaml schema
 
@@ -124,7 +124,6 @@ assembly_config:
       i_want_to: []
       so_that: []
       acceptance_criteria: []
-      derived_fr: []
       metadata: *metadata
       # 为保证与SRS.md中的用户故事内容完全一致而需要的其它字段，请参考SRS.md中的用户故事内容
 
@@ -141,7 +140,6 @@ assembly_config:
       postconditions: []
       main_success_scenario: []
       extensions: []
-      derived_fr: []
       metadata: *metadata
       # 为保证与SRS.md中的用例内容完全一致而需要的其它字段，请参考SRS.md中的用例内容
 

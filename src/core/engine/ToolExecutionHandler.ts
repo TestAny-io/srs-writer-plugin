@@ -50,7 +50,7 @@ export class ToolExecutionHandler {
     
     // 🚀 Code Review新增：记录开始时间
     const startTime = Date.now();
-    recordExecution('tool_call', `开始执行工具: ${toolCall.name}`, undefined, toolCall.name, undefined, toolCall.args);
+    // 🚀 修复：移除重复记录，只保留最终结果记录
     
     try {
       const result = await this.executeTool(toolCall, toolExecutor, selectedModel);  // 🚀 修复：传递 selectedModel
@@ -88,7 +88,26 @@ export class ToolExecutionHandler {
         return; // 暂停执行，等待用户回复
       }
       
-      // 流式显示执行结果
+      // 🚀 修复：正确检查工具执行结果状态
+      if (!result.success) {
+        // 工具执行失败的处理
+        const errorMsg = result.error || '未知错误';
+        stream.markdown(`❌ **${toolCall.name}** 执行失败 (${duration}ms): ${errorMsg}\n\n`);
+        
+        recordExecution(
+          'tool_call', 
+          `${toolCall.name} 执行失败: ${errorMsg}`, 
+          false, 
+          toolCall.name, 
+          result, 
+          toolCall.args,
+          duration
+        );
+        
+        return;
+      }
+      
+      // 工具执行成功的处理
       stream.markdown(`✅ **${toolCall.name}** 执行成功 (${duration}ms)\n`);
       if (result.output) {
         // 🚀 修复：正确处理对象输出，避免 [object Object] 问题

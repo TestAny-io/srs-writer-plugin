@@ -84,8 +84,8 @@ export const executeYAMLEditsToolDefinition = {
                     properties: {
                         type: {
                             type: "string",
-                            enum: ["set", "delete"],
-                            description: "Operation type: 'set' (create or modify key-value), 'delete' (remove key)"
+                            enum: ["set", "delete", "append"],
+                            description: "Operation type: 'set' (create/modify key-value), 'delete' (remove key), 'append' (add element to array)"
                         },
                         keyPath: {
                             type: "string",

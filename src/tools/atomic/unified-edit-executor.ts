@@ -184,7 +184,7 @@ function isSemanticEditInstruction(instruction: any): boolean {
     }
     
     const semanticTypes = [
-        'replace_entire_section',
+        'replace_entire_section_with_title',
         'replace_lines_in_section',
         'insert_entire_section',
         'insert_lines_in_section'

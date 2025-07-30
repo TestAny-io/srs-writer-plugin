@@ -5,7 +5,7 @@
  * 支持基于VSCode原生API的精确文档编辑
  * 
  * 重构后的架构：
- * - 4种操作类型：replace_entire_section, replace_lines_in_section, insert_entire_section, insert_lines_in_section
+ * - 4种操作类型：replace_entire_section_with_title, replace_lines_in_section, insert_entire_section, insert_lines_in_section
  * - 核心字段：sectionName, startFromAnchor, targetContent, insertionPosition
  * - startFromAnchor为必需字段，提供精确定位
  * - 搜索范围：前向5行，提高定位精度
@@ -21,7 +21,7 @@ import * as vscode from 'vscode';
  * 语义编辑意图类型枚举
  */
 export type SemanticEditType = 
-    | 'replace_entire_section'     // 替换整个章节
+    | 'replace_entire_section_with_title'     // 替换整个章节(包括标题)
     | 'replace_lines_in_section'   // 替换章节内特定内容
     | 'insert_entire_section'      // 插入整个章节
     | 'insert_lines_in_section';   // 插入内容到章节内
@@ -252,7 +252,7 @@ export interface DocumentAnalysisOptions {
  * 支持四种核心操作类型
  */
 export type SemanticEditOperation = 
-    | { type: 'replace_entire_section'; target: SemanticTarget; content: string; }
+    | { type: 'replace_entire_section_with_title'; target: SemanticTarget; content: string; }
     | { type: 'replace_lines_in_section'; target: SemanticTarget; content: string; }
     | { type: 'insert_entire_section'; target: SemanticTarget; content: string; }
     | { type: 'insert_lines_in_section'; target: SemanticTarget; content: string; };

@@ -72,7 +72,7 @@
 - **每次编辑前必须先阅读`CURRENT SRS DOCUMENT`或`CURRENT REQUIREMENTS DATA`** - 确保你了解当前的文档结构和内容，避免编辑指令错误。
 - **必须提供完整的层级路径** - path数组必须包含从根章节到目标章节的所有中间层级，不得跳过任何层级
 - **必须使用精确的章节名称** - path中的每个元素必须与文档中的章节标题完全一致，包括标点符号、空格和格式
-- **必须使用正确的操作类型** - 根据编辑需求选择合适的type：replace_entire_section、replace_lines_in_section、insert_entire_section、insert_lines_in_section
+- **必须使用正确的操作类型** - 根据编辑需求选择合适的type：replace_entire_section_with_title、replace_lines_in_section、insert_entire_section、insert_lines_in_section
 
 #### **禁止的行为**
 
@@ -198,56 +198,61 @@
 
 ```json
 {
-  "tool_calls": [{
-    "name": "executeMarkdownEdits",
-    "args": {
-      "description": "This is a description of the edits to be made.",
-      "intents": [
-        {
-          "type": "replace_entire_section",
-          "target": {
-            "path": [
-              "4. 项目概述",
-              "成功指标",
-              "营利性指标",
-              "metric-1"
-            ]
-          "content": "## 项目概述\n\n本项目旨在开发一个现代化的企业管理系统，支持多租户架构，提供完整的业务流程管理功能。系统采用微服务架构，确保高可用性和可扩展性。",
-          "reason": "更新项目概述以反映最新的架构设计",
-          "priority": 3
-        },
-        {
-          "type": "replace_lines_in_section",
-          "target": {
-            "path": [
-              "4. 项目概述",
-              "所需资源",
-              "人力资源",
-              "SME-001"
-            ],
-            "targetContent": "1位Python开发工程师",
-            "insertionPosition": "inside"
+  "tool_calls": [
+    {
+      "name": "executeMarkdownEdits",
+      "args": {
+        "description": "This is a description of the edits to be made.",
+        "intents": [
+          {
+            "type": "replace_entire_section_with_title",
+            "target": {
+              "path": [
+                "4. 项目概述",
+                "成功指标",
+                "营利性指标",
+                "metric-1"
+              ]
+            },
+            "content": "在12个月内，项目将实现以下营利性指标：\n- 月均活跃用户数：10000\n- 月均活跃商户数：1000\n- 月均交易量：1000000\n- 月均交易额：100000000",
+            "reason": "更新项目概述以反映最新的营利性指标",
+            "priority": 3
           },
-          "content": "1位Java开发工程师",
-          "reason": "更新所需资源",
-          "priority": 2
-        },
-        {
-          "type": "insert_lines_in_section", 
-          "target": {
-            "path": ["4. 用户故事", "用例规格说明", "UC-ALERT-001"],
-            "insertionPosition": "inside"
+          {
+            "type": "replace_lines_in_section",
+            "target": {
+              "path": [
+                "4. 项目概述",
+                "所需资源",
+                "人力资源",
+                "SME-001"
+              ],
+              "targetContent": "1位Python开发工程师",
+              "insertionPosition": "inside"
+            },
+            "content": "1位Java开发工程师",
+            "reason": "更新所需资源",
+            "priority": 2
           },
-          "content": "- **前置条件**: 用户已登录系统",
-          "reason": "添加前置条件说明"
-          "priority": 1
-        }
-      ],
-      "targetFile": "SRS.md"
+          {
+            "type": "insert_lines_in_section", 
+            "target": {
+              "path": ["4. 用户故事", "用例规格说明", "UC-ALERT-001"],
+              "insertionPosition": "inside"
+            },
+            "content": "- **前置条件**: 用户已登录系统",
+            "reason": "添加前置条件说明"
+            "priority": 1
+          }
+        ],
+        "targetFile": "SRS.md"
+      }
     }
-  }]
+  ]
 }
 ```
+
+**注意**: 在指定`path`时，尽量指定到最低的层级，使编辑操作尽量缩小范围，避免影响其它章节，并且更精确。
 
 ### 示例6：使用简化路径进行编辑（单根标题文档中的便捷操作）
 

@@ -181,11 +181,11 @@ export class SpecialistExecutor {
                 const hasJsonFormat = prompt.includes('json') || prompt.includes('JSON');
                 const hasWorkflowSteps = prompt.includes('createNewProjectFolder') || prompt.includes('writeFile');
                 
-                this.logger.info(`🔍 [PROMPT_DEBUG] 关键词检查:`);
-                this.logger.info(`🔍 [PROMPT_DEBUG] - 包含 'tool_calls': ${hasToolCallsInstruction}`);
-                this.logger.info(`🔍 [PROMPT_DEBUG] - 包含 JSON 格式: ${hasJsonFormat}`);
-                this.logger.info(`🔍 [PROMPT_DEBUG] - 包含工作流程步骤: ${hasWorkflowSteps}`);
-                this.logger.info(`🔍 [PROMPT_DEBUG] ==========================================`);
+                // this.logger.info(`🔍 [PROMPT_DEBUG] 关键词检查:`);
+                // this.logger.info(`🔍 [PROMPT_DEBUG] - 包含 'tool_calls': ${hasToolCallsInstruction}`);
+                // this.logger.info(`🔍 [PROMPT_DEBUG] - 包含 JSON 格式: ${hasJsonFormat}`);
+                // this.logger.info(`🔍 [PROMPT_DEBUG] - 包含工作流程步骤: ${hasWorkflowSteps}`);
+                // this.logger.info(`🔍 [PROMPT_DEBUG] ==========================================`);
                 
                 // 2. 获取可用工具
                 const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
@@ -204,12 +204,12 @@ export class SpecialistExecutor {
                 const hasCreateDirectory = toolNames.includes('createDirectory');
                 const hasTaskComplete = toolNames.includes('taskComplete');
                 
-                this.logger.info(`🔍 [TOOLS_DEBUG] 关键工具检查:`);
-                this.logger.info(`🔍 [TOOLS_DEBUG] - createNewProjectFolder: ${hasCreateNewProject}`);
-                this.logger.info(`🔍 [TOOLS_DEBUG] - writeFile: ${hasWriteFile}`);
-                this.logger.info(`🔍 [TOOLS_DEBUG] - createDirectory: ${hasCreateDirectory}`);
-                this.logger.info(`🔍 [TOOLS_DEBUG] - taskComplete: ${hasTaskComplete}`);
-                this.logger.info(`🔍 [TOOLS_DEBUG] ==========================================`);
+                // this.logger.info(`🔍 [TOOLS_DEBUG] 关键工具检查:`);
+                // this.logger.info(`🔍 [TOOLS_DEBUG] - createNewProjectFolder: ${hasCreateNewProject}`);
+                // this.logger.info(`🔍 [TOOLS_DEBUG] - writeFile: ${hasWriteFile}`);
+                // this.logger.info(`🔍 [TOOLS_DEBUG] - createDirectory: ${hasCreateDirectory}`);
+                // this.logger.info(`🔍 [TOOLS_DEBUG] - taskComplete: ${hasTaskComplete}`);
+                // this.logger.info(`🔍 [TOOLS_DEBUG] ==========================================`);
                 
                 // 3. 调用AI
                 const messages = [vscode.LanguageModelChatMessage.User(prompt)];
@@ -1154,7 +1154,7 @@ SUGGESTED ACTIONS:
 
         // 必须有type字段且值在支持的语义编辑类型中
         const semanticTypes = [
-            'replace_entire_section',
+            'replace_entire_section_with_title',
             'replace_lines_in_section',
             'insert_entire_section',
             'insert_lines_in_section'
@@ -1213,7 +1213,7 @@ SUGGESTED ACTIONS:
         }
 
         // 验证type值
-        const validTypes = ['replace_entire_section', 'replace_lines_in_section', 'insert_entire_section', 'insert_lines_in_section'];
+        const validTypes = ['replace_entire_section_with_title', 'replace_lines_in_section', 'insert_entire_section', 'insert_lines_in_section'];
         if (instruction.type && !validTypes.includes(instruction.type)) {
             errors.push(`Invalid type: ${instruction.type}. Valid types are: ${validTypes.join(', ')}`);
         }

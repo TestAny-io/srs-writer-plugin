@@ -91,6 +91,12 @@ import {
     yamlEditorToolsCategory
 } from './document/yamlEditorTools';
 
+import {
+    traceabilityCompletionToolDefinitions,
+    traceabilityCompletionToolImplementations,
+    traceabilityCompletionToolsCategory
+} from './document/traceabilityCompletionTools';
+
 // 导入访问控制类型
 import { CallerType } from '../types/index';
 
@@ -281,6 +287,14 @@ class ToolRegistry {
             yamlEditorToolDefinitions,
             yamlEditorToolImplementations,
             yamlEditorToolsCategory,
+            'document'
+        );
+
+        // 🚀 新增：注册追溯性同步工具
+        this.registerToolsFromCategory(
+            traceabilityCompletionToolDefinitions,
+            traceabilityCompletionToolImplementations,
+            traceabilityCompletionToolsCategory,
             'document'
         );
 

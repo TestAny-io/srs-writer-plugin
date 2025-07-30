@@ -322,7 +322,8 @@ export class PlanExecutor {
                 specialist: step.specialist,
                 expectedOutput: step.expectedOutput,
                 output_chapter_titles: step.output_chapter_titles,  // 🚀 新增：当前步骤的章节标题
-                language: step.language  // 🚀 新增：language参数传递
+                language: step.language,  // 🚀 新增：language参数传递
+                relevant_context: step.relevant_context  // 🚀 新增：步骤相关上下文传递
             },
             
             // 依赖的上一步或多步的结果

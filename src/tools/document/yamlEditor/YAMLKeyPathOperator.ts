@@ -72,6 +72,62 @@ export class YAMLKeyPathOperator {
     }
 
     /**
+     * 向数组追加元素
+     * @param data YAML数据对象
+     * @param keyPath 目标数组的键路径
+     * @param value 要追加的值
+     */
+    public static append(data: any, keyPath: string, value: any): void {
+        const pathArray = this.parsePath(keyPath);
+        
+        if (pathArray.length === 0) {
+            throw new ScaffoldError(
+                ScaffoldErrorType.INVALID_SRS_FORMAT,
+                '无效的键路径'
+            );
+        }
+
+        let current = data;
+        
+        // 遍历路径，自动创建中间对象
+        for (let i = 0; i < pathArray.length - 1; i++) {
+            const key = pathArray[i];
+            
+            if (!(key in current) || current[key] === null || current[key] === undefined) {
+                current[key] = {};
+            } else if (typeof current[key] !== 'object') {
+                throw new ScaffoldError(
+                    ScaffoldErrorType.INVALID_SRS_FORMAT,
+                    `路径 "${pathArray.slice(0, i + 1).join('.')}" 已存在非对象值，无法继续创建路径`
+                );
+            }
+            
+            current = current[key];
+        }
+        
+        // 处理目标数组
+        const finalKey = pathArray[pathArray.length - 1];
+        
+        // 如果目标键不存在，创建新数组
+        if (!(finalKey in current) || current[finalKey] === null || current[finalKey] === undefined) {
+            current[finalKey] = [];
+        }
+        
+        // 检查目标是否为数组
+        if (!Array.isArray(current[finalKey])) {
+            throw new ScaffoldError(
+                ScaffoldErrorType.INVALID_SRS_FORMAT,
+                `键路径 "${keyPath}" 对应的值不是数组，无法执行append操作`
+            );
+        }
+        
+        // 追加元素到数组
+        current[finalKey].push(value);
+        
+        logger.info(`✅ 向数组追加元素: ${keyPath} += ${JSON.stringify(value)}`);
+    }
+
+    /**
      * 删除指定键路径
      * @param data YAML数据对象
      * @param keyPath 键路径
@@ -99,11 +155,19 @@ export class YAMLKeyPathOperator {
             current = current[key];
         }
         
-        // 删除最终键
+        // 删除最终键 - 按数组元素删除处理
         const finalKey = pathArray[pathArray.length - 1];
         if (finalKey in current) {
-            delete current[finalKey];
-            logger.info(`✅ 删除键: ${keyPath}`);
+            // 🆕 统一按数组索引删除处理
+            const index = parseInt(finalKey, 10);
+            if (!isNaN(index) && Array.isArray(current) && index >= 0 && index < current.length) {
+                // 数组元素删除：使用splice真正删除
+                const deletedElement = current.splice(index, 1)[0];
+                logger.info(`✅ 删除数组元素: ${keyPath} (索引${index}) - ${JSON.stringify(deletedElement)}`);
+            } else {
+                logger.warn(`⚠️ 删除操作失败: ${keyPath} 不是有效的数组索引或超出范围`);
+                return false;
+            }
             return true;
         } else {
             logger.info(`ℹ️  键不存在，删除操作幂等成功: ${keyPath}`);

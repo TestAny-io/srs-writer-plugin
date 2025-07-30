@@ -111,12 +111,12 @@ export class SemanticLocator {
             // 提取章节信息
             this.sections = this.extractStructuralElements();
             
-            logger.info(`🎯 SemanticLocator initialized with AST: ${this.sections.length} sections found`);
+            // logger.info(`🎯 SemanticLocator initialized with AST: ${this.sections.length} sections found`);
             
             // 🔍 DEBUG: 详细输出所有解析的章节信息
-            logger.info(`🔍 [DEBUG] All parsed sections:`);
+            // logger.info(`🔍 [DEBUG] All parsed sections:`);
             this.sections.forEach((section, index) => {
-                logger.info(`🔍 [DEBUG] Section ${index}: "${section.name}" (level=${section.level}, lines=${section.startLine}-${section.endLine})`);
+                // logger.info(`🔍 [DEBUG] Section ${index}: "${section.name}" (level=${section.level}, lines=${section.startLine}-${section.endLine})`);
             });
         } catch (error) {
             logger.error(`Failed to parse markdown: ${(error as Error).message}`);
@@ -133,7 +133,7 @@ export class SemanticLocator {
      */
     findTarget(target: SemanticTarget, operationType?: string): LocationResult {
         try {
-            logger.info(`🔍 Locating target: ${target.path.join(' > ')} (operation: ${operationType})`);
+            // logger.info(`🔍 Locating target: ${target.path.join(' > ')} (operation: ${operationType})`);
             
             // 查找参照section
             const section = this.findSectionByPath(target.path);
@@ -613,7 +613,7 @@ export class SemanticLocator {
             // 如果只有一个根标题且搜索路径更短，尝试跳过根标题匹配
             if (singleRoot && searchPath.length === sectionPath.length - 1) {
                 sectionPath = sectionPath.slice(1); // 跳过第一级（根标题）
-                logger.info(`🔍 [DEBUG] Skipping root heading for comparison: "${section.path[0]}"`);
+                // logger.info(`🔍 [DEBUG] Skipping root heading for comparison: "${section.path[0]}"`);
             }
             
             // 检查路径长度是否匹配

@@ -82,7 +82,7 @@ describe('Path-Based Semantic Editing Tests', () => {
     describe('新的路径数组schema测试', () => {
         test('应该支持替换整个section使用路径数组', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_entire_section',
+                type: 'replace_entire_section_with_title',
                 target: {
                     path: ['**US-INFO-001**']
                 },
@@ -185,7 +185,7 @@ describe('Path-Based Semantic Editing Tests', () => {
     describe('路径验证和错误处理', () => {
         test('应该拒绝空路径数组', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_entire_section',
+                type: 'replace_entire_section_with_title',
                 target: {
                     path: [] // 空路径数组
                 },
@@ -203,7 +203,7 @@ describe('Path-Based Semantic Editing Tests', () => {
 
         test('应该处理不存在的路径', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_entire_section',
+                type: 'replace_entire_section_with_title',
                 target: {
                     path: ['不存在的章节', '子章节']
                 },
@@ -322,7 +322,7 @@ describe('Path-Based Semantic Editing Tests', () => {
     describe('向后兼容性测试', () => {
         test('应该拒绝旧的sectionName格式', async () => {
             const badIntent = {
-                type: 'replace_entire_section',
+                type: 'replace_entire_section_with_title',
                 target: {
                     sectionName: '**US-INFO-001**', // 旧格式
                     startFromAnchor: '**US-INFO-001**' // 旧格式

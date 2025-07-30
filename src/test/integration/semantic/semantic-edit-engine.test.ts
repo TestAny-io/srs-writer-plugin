@@ -48,7 +48,7 @@ describe('Semantic Edit Engine Integration', () => {
             // Step 2: Create semantic edit intents based on structure analysis
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: {
                         path: ['功能需求']
                     },
@@ -57,7 +57,7 @@ describe('Semantic Edit Engine Integration', () => {
                     priority: 1
                 },
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: {
                         path: ['用户管理']
                     },
@@ -84,7 +84,7 @@ describe('Semantic Edit Engine Integration', () => {
         it('should handle partial editing failures gracefully', async () => {
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: {
                         path: ['功能需求']
                     },
@@ -93,7 +93,7 @@ describe('Semantic Edit Engine Integration', () => {
                     priority: 1
                 },
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: {
                         path: ['不存在的章节']
                     },
@@ -114,7 +114,7 @@ describe('Semantic Edit Engine Integration', () => {
         it('should provide detailed metadata and execution information', async () => {
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: {
                         path: ['用户管理']
                     },
@@ -138,7 +138,7 @@ describe('Semantic Edit Engine Integration', () => {
         it('should execute edits in priority order', async () => {
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: { 
                         path: ['功能需求']
                     },
@@ -147,7 +147,7 @@ describe('Semantic Edit Engine Integration', () => {
                     priority: 1
                 },
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: { 
                         path: ['用户管理']
                     },
@@ -156,7 +156,7 @@ describe('Semantic Edit Engine Integration', () => {
                     priority: 5
                 },
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: { 
                         path: ['数据管理']
                     },
@@ -209,7 +209,7 @@ describe('Semantic Edit Engine Integration', () => {
 
             const editIntents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_entire_section',
+                    type: 'replace_entire_section_with_title',
                     target: { 
                         path: ['功能需求']
                     },
@@ -265,10 +265,10 @@ describe('Semantic Edit Engine Integration', () => {
         });
     });
 
-    describe('replace_entire_section', () => {
+    describe('replace_entire_section_with_title', () => {
         it('应该成功替换整个章节', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_entire_section',
+                type: 'replace_entire_section_with_title',
                 target: {
                     path: ['功能需求']
                 },
@@ -284,7 +284,7 @@ describe('Semantic Edit Engine Integration', () => {
 
         it('当目标章节不存在时应该返回失败', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_entire_section',
+                type: 'replace_entire_section_with_title',
                 target: {
                     path: ['不存在的章节']
                 },

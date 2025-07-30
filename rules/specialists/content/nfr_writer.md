@@ -115,7 +115,7 @@ assembly_config:
 - **所有需求必须有唯一的ID**，并遵循类别前缀 (NFR-/IFR-/DAR-)
 - **所有需求必须包含量化指标或清晰的验收标准**
 - **NFR、IFR和DAR需求必须包含 `source_requirements` 字段**，链接到来源ID（可能是功能需求、用例、用户故事等）
-- **你生成的所有yaml内容都必须严格遵守给定的yaml schema。**
+- **你生成的所有yaml内容都必须严格遵守给定的yaml schema，必须以YAML列表（序列）的形式组织，禁止使用YAML字典（映射）的形式组织。**
 
 ### **必须遵守**输出requirements.yaml文件的内容时的yaml schema
 

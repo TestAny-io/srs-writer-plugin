@@ -188,7 +188,7 @@ describe('Semantic Hierarchy Fix Tests', () => {
                 path: ["4. 用户故事和用例视图 (User Stories & Use-Case View)", "用例视图", "用例规格说明", "UC-ALERT-001"]
             };
             
-            const result = locator.findTarget(target, 'replace_entire_section');
+            const result = locator.findTarget(target, 'replace_entire_section_with_title');
             
             // 应该找到目标
             expect(result.found).toBe(true);
@@ -211,7 +211,7 @@ describe('Semantic Hierarchy Fix Tests', () => {
                 path: ["用例规格说明", "UC-ALERT-001"]
             };
             
-            const result = locator.findTarget(target, 'replace_entire_section');
+            const result = locator.findTarget(target, 'replace_entire_section_with_title');
             
             // 由于我们实现的是精确路径匹配，这应该失败
             // 这是正确的行为，避免歧义

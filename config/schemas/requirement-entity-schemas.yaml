@@ -147,6 +147,7 @@ adc_mappings:
       summary: ''
       constraints: []
       justification: []
+      impacted_requirements: []
       mitigation_strategy: []
       owner: ''
       metadata: *metadata

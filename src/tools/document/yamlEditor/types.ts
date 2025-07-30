@@ -40,7 +40,7 @@ export interface ReadYAMLResult {
  * YAML编辑操作
  */
 export interface YAMLEditOperation {
-    type: 'set' | 'delete';                // 操作类型：设置值或删除键
+    type: 'set' | 'delete' | 'append';     // 操作类型：设置值、删除键或向数组追加元素
     keyPath: string;                       // 点分隔的键路径
     value?: any;                           // 新值（delete操作不需要）
     valueType?: 'string' | 'number' | 'boolean' | 'array' | 'object'; // 值类型提示

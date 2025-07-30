@@ -6,6 +6,8 @@
  */
 
 import * as vscode from 'vscode';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import { Logger } from '../../utils/logger';
 import { SemanticLocator } from '../atomic/semantic-locator';
 // 导入内部读取函数
@@ -81,18 +83,34 @@ export async function readMarkdownFile(args: {
     try {
         logger.info(`📖 Reading file with optional structure analysis: ${args.path}`);
         
-        // 调用内部基础读取函数
-        const basicReadResult = await _internalReadFile({ path: args.path });
-        
-        if (!basicReadResult.success) {
+        // 🚀 新增：使用baseDir路径解析
+        const resolvedPath = await resolveWorkspacePath(args.path);
+        logger.info(`🔗 解析后的路径: ${resolvedPath}`);
+
+        // 直接读取文件内容，不再使用_internalReadFile
+        let content: string;
+        try {
+            content = await fs.readFile(resolvedPath, 'utf-8');
+            logger.info(`📄 文件读取成功，大小: ${Buffer.byteLength(content, 'utf-8')} bytes`);
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            let errorMsg: string;
+            
+            if (nodeError.code === 'ENOENT') {
+                errorMsg = `Markdown文件不存在: ${resolvedPath}`;
+            } else if (nodeError.code === 'EACCES') {
+                errorMsg = `没有权限读取Markdown文件: ${resolvedPath}`;
+            } else {
+                errorMsg = `读取Markdown文件失败: ${(error as Error).message}`;
+            }
+            
+            logger.error(errorMsg);
             return {
                 success: false,
                 content: '',
-                error: basicReadResult.error
+                error: errorMsg
             };
         }
-        
-        const content = basicReadResult.content!;
         
         // 如果不需要结构分析，直接返回基础结果
         if (!args.includeStructure) {
@@ -137,6 +155,50 @@ export async function readMarkdownFile(args: {
             error: errorMsg
         };
     }
+}
+
+/**
+ * 🚀 新增：解析相对于项目根目录的绝对路径
+ * 优先使用SessionContext的baseDir，回退到VSCode工作区
+ * 参考YAMLReader的实现
+ */
+async function resolveWorkspacePath(relativePath: string): Promise<string> {
+    // 如果已经是绝对路径，直接返回
+    if (path.isAbsolute(relativePath)) {
+        logger.info(`🔗 路径解析（绝对路径）: ${relativePath}`);
+        return relativePath;
+    }
+
+    try {
+        // 🚀 优先获取SessionContext的baseDir
+        const { SessionManager } = await import('../../core/session-manager');
+        const sessionManager = SessionManager.getInstance();
+        const currentSession = await sessionManager.getCurrentSession();
+        
+        if (currentSession?.baseDir) {
+            const absolutePath = path.resolve(currentSession.baseDir, relativePath);
+            logger.info(`🔗 readMarkdownFile路径解析（使用项目baseDir）: ${relativePath} -> ${absolutePath}`);
+            logger.info(`📂 项目baseDir: ${currentSession.baseDir}`);
+            return absolutePath;
+        } else {
+            logger.warn(`⚠️ readMarkdownFile: SessionContext中没有baseDir，回退到工作区根目录`);
+        }
+    } catch (error) {
+        logger.warn(`⚠️ readMarkdownFile: 获取SessionContext失败，回退到工作区根目录: ${(error as Error).message}`);
+    }
+
+    // 🚀 回退策略：使用VSCode工作区根目录
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        throw new Error('未找到VSCode工作区，无法解析Markdown文件路径');
+    }
+
+    // 使用第一个工作区文件夹作为根目录
+    const workspaceRoot = workspaceFolders[0].uri.fsPath;
+    const absolutePath = path.resolve(workspaceRoot, relativePath);
+
+    logger.info(`🔗 readMarkdownFile路径解析（回退到工作区根目录）: ${relativePath} -> ${absolutePath}`);
+    return absolutePath;
 }
 
 /**

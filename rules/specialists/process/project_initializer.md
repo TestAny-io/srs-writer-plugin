@@ -92,7 +92,7 @@ assembly_config:
         "deliverables": [
           {
             "path": "项目名称/SRS.md",
-            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories and Use Cases)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
+            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n\n## 3. 用户旅程 (User Journeys)\n\n## 4. 用户故事和用例视图 (User Stories and Use Cases)\n\n## 5. 功能需求 (Functional Requirements)\n\n## 6. 非功能需求 (Non-Functional Requirements)\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n\n## 8. 数据需求 (Data Requirements)\n\n---\n\n## 9. 附录 (Appendix)\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
             "type": "markdown",
             "description": "SRS.md初始内容"
           },
@@ -336,7 +336,7 @@ _metadata:
       "name": "writeFile", 
       "args": {
         "path": "JiraMacClient/SRS.md",
-        "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories and Use Cases)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*"
+        "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n\n## 3. 用户旅程 (User Journeys)\n\n## 4. 用户故事和用例视图 (User Stories and Use Cases)\n\n## 5. 功能需求 (Functional Requirements)\n\n## 6. 非功能需求 (Non-Functional Requirements)\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n\n## 8. 数据需求 (Data Requirements)\n\n---\n\n## 9. 附录 (Appendix)\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*"
       }
     },
     {
@@ -368,7 +368,7 @@ _metadata:
         "deliverables": [
           {
             "path": "JiraMacClient/SRS.md",
-            "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n待补充...\n\n## 3. 用户旅程 (User Journeys)\n待补充...\n\n## 3. 用户故事和用例视图 (User Stories & Uses Cases)\n待补充...\n\n## 5. 功能需求 (Functional Requirements)\n待补充...\n\n## 6. 非功能需求 (Non-Functional Requirements)\n待补充...\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n待补充...\n\n## 8. 数据需求 (Data Requirements)\n待补充...\n\n---\n\n## 9. 附录 (Appendix)\n待补充...\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
+            "content": "# JiraMacClient - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: 2025-01-02  \n> 最后更新: 2025-01-02  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n\n## 3. 用户旅程 (User Journeys)\n\n## 4. 用户故事和用例视图 (User Stories & Uses Cases)\n\n## 5. 功能需求 (Functional Requirements)\n\n## 6. 非功能需求 (Non-Functional Requirements)\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n\n## 8. 数据需求 (Data Requirements)\n\n---\n\n## 9. 附录 (Appendix)\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
             "type": "markdown",
             "description": "SRS.md初始内容"
           },

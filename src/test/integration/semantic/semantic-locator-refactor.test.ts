@@ -216,7 +216,7 @@ describe('SemanticLocator Refactor Tests', () => {
                 path: ['**UC-INFO-001**']
             };
             
-            const result = locator.findTarget(target, 'replace_entire_section');
+            const result = locator.findTarget(target, 'replace_entire_section_with_title');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('replace');
@@ -262,7 +262,7 @@ describe('SemanticLocator Refactor Tests', () => {
             
             const result = locator.findTarget({
                 path: ['任何章节']
-            }, 'replace_entire_section');
+            }, 'replace_entire_section_with_title');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('not found');

@@ -642,21 +642,21 @@ export class SRSAgentEngine implements ISessionObserver {
         });
       }
       
-      // 🚀 Code Review修复：构建分离的上下文
-      const { historyContext, toolResultsContext } = this.contextManager.buildContextForPrompt(this.state.executionHistory);
+      // 🚀 Code Review修复：构建分离的上下文，传入currentTask来处理第一轮用户输入
+      const { historyContext, toolResultsContext } = this.contextManager.buildContextForPrompt(this.state.executionHistory, this.state.currentTask);
       
-      this.logger.info(`🔍 [DEBUG] Context prepared for orchestrator:`);
-      this.logger.info(`🔍 [DEBUG] - historyContext length: ${historyContext.length}`);
-      this.logger.info(`🔍 [DEBUG] - toolResultsContext length: ${toolResultsContext.length}`);
-      this.logger.info(`🔍 [DEBUG] - sessionContext available: ${!!(await this.getCurrentSessionContext())}`);
+      // this.logger.info(`🔍 [DEBUG] Context prepared for orchestrator:`);
+      // this.logger.info(`🔍 [DEBUG] - historyContext length: ${historyContext.length}`);
+      // this.logger.info(`🔍 [DEBUG] - toolResultsContext length: ${toolResultsContext.length}`);
+      // this.logger.info(`🔍 [DEBUG] - sessionContext available: ${!!(await this.getCurrentSessionContext())}`);
       
       // 🔍 [DEBUG] 输出完整的context内容
       const sessionContext = await this.getCurrentSessionContext();
-      this.logger.info(`🔍 [DEBUG] === FULL CONTEXT CONTENT ===`);
-      this.logger.info(`🔍 [DEBUG] historyContext:\n${historyContext}`);
-      this.logger.info(`🔍 [DEBUG] toolResultsContext:\n${toolResultsContext}`);
-      this.logger.info(`🔍 [DEBUG] sessionContext:\n${JSON.stringify(sessionContext, null, 2)}`);
-      this.logger.info(`🔍 [DEBUG] === END CONTEXT CONTENT ===`);
+      // this.logger.info(`🔍 [DEBUG] === FULL CONTEXT CONTENT ===`);
+      // this.logger.info(`🔍 [DEBUG] historyContext:\n${historyContext}`);
+      // this.logger.info(`🔍 [DEBUG] toolResultsContext:\n${toolResultsContext}`);
+      // this.logger.info(`🔍 [DEBUG] sessionContext:\n${JSON.stringify(sessionContext, null, 2)}`);
+      // this.logger.info(`🔍 [DEBUG] === END CONTEXT CONTENT ===`);
       
       // 调用Orchestrator的规划方法
       this.logger.info(`🔍 [DEBUG] Calling orchestrator.generateUnifiedPlan...`);
@@ -669,10 +669,10 @@ export class SRSAgentEngine implements ISessionObserver {
         toolResultsContext // 🚀 工具结果上下文
       );
       
-      this.logger.info(`🔍 [DEBUG] orchestrator.generateUnifiedPlan returned successfully`);
-      this.logger.info(`🔍 [DEBUG] Plan response_mode: ${plan.response_mode}`);
-      this.logger.info(`🔍 [DEBUG] Plan has execution_plan: ${!!(plan as any).execution_plan}`);
-      this.logger.info(`🔍 [DEBUG] Plan has tool_calls: ${!!plan.tool_calls && plan.tool_calls.length > 0}`);
+      // this.logger.info(`🔍 [DEBUG] orchestrator.generateUnifiedPlan returned successfully`);
+      // this.logger.info(`🔍 [DEBUG] Plan response_mode: ${plan.response_mode}`);
+      // this.logger.info(`🔍 [DEBUG] Plan has execution_plan: ${!!(plan as any).execution_plan}`);
+      // this.logger.info(`🔍 [DEBUG] Plan has tool_calls: ${!!plan.tool_calls && plan.tool_calls.length > 0}`);
       
       return plan;
     } catch (error) {
@@ -957,7 +957,7 @@ export class SRSAgentEngine implements ISessionObserver {
     this.stream.markdown(`🧠 **需求文档专家正在工作**: ${toolCall.name}\n`);
     
     const startTime = Date.now();
-    await this.recordExecution('tool_call', `需求文档专家正在使用工具: ${toolCall.name}`, undefined, toolCall.name, undefined, toolCall.args);
+    // 🚀 修复：移除重复记录，只保留最终结果记录
     
     try {
       const result = await this.toolExecutor.executeTool(
@@ -1051,7 +1051,26 @@ export class SRSAgentEngine implements ISessionObserver {
         }
       }
       
-      // 正常处理（无用户交互需求）
+      // 🚀 修复：正确检查工具执行结果状态
+      if (!result.success) {
+        // 工具执行失败的处理
+        const errorMsg = result.error || '未知错误';
+        this.stream.markdown(`❌ **${toolCall.name}** 执行失败 (${duration}ms): ${errorMsg}\n\n`);
+        
+        await this.recordExecution(
+          'tool_call', 
+          `${toolCall.name} 执行失败: ${errorMsg}`, 
+          false, 
+          toolCall.name, 
+          result, 
+          toolCall.args,
+          duration
+        );
+        
+        return { needsUserInteraction: false };
+      }
+      
+      // 正常处理（工具执行成功且无用户交互需求）
       this.stream.markdown(`✅ **${toolCall.name}** 执行成功 (${duration}ms)\n`);
       if (result.result) {
         let outputText: string;

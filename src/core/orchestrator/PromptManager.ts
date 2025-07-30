@@ -58,7 +58,8 @@ export class PromptManager {
       userInput,
       finalHistoryContext,
       finalToolResultsContext,
-      toolsJsonSchema
+      toolsJsonSchema,
+      sessionContext
     );
 
     // 🐛 DEBUG: 记录结构化提示词的构建过程
@@ -90,7 +91,8 @@ export class PromptManager {
     userInput: string,
     historyContext: string,
     toolResultsContext: string,
-    toolsJsonSchema: string
+    toolsJsonSchema: string,
+    sessionContext: SessionContext
   ): string {
     // 替换系统指令中的占位符
     let processedSystemInstructions = systemInstructions;
@@ -101,10 +103,17 @@ export class PromptManager {
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{CONVERSATION_HISTORY\}\}/g, '[CONVERSATION_HISTORY_PLACEHOLDER]');
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{TOOL_RESULTS_CONTEXT\}\}/g, '[TOOL_RESULTS_CONTEXT_PLACEHOLDER]');
 
+    // 构建项目上下文部分
+    const projectContextSection = `
+- Project Name: ${sessionContext.projectName || 'Unknown'}
+- Base Directory: ${sessionContext.baseDir || 'Not set'}
+- Active Files: ${sessionContext.activeFiles?.length > 0 ? sessionContext.activeFiles.join(', ') : 'None'}
+- Session ID: ${sessionContext.sessionContextId}
+- SRS Version: ${sessionContext.metadata?.srsVersion || 'Unknown'}
+- Last Modified: ${sessionContext.metadata?.lastModified || 'Unknown'}`;
+
     // 构建结构化提示词
     const structuredPrompt = `# SYSTEM INSTRUCTIONS
-
-You are an SRS-Writer Chief AI Architect. Follow these instructions carefully:
 
 ${processedSystemInstructions}
 
@@ -116,11 +125,17 @@ ${userInput}
 
 # CONTEXT INFORMATION
 
+## Current Project Context
+${projectContextSection}
+
 ## Conversation History
 ${historyContext}
 
 ## Tool Results Context
 ${toolResultsContext}
+
+# Your available tools (in KNOWLEDGE_QA mode)
+${toolsJsonSchema}
 
 # FINAL INSTRUCTION
 
@@ -130,6 +145,11 @@ Based on the SYSTEM INSTRUCTIONS above, analyze the USER REQUEST and generate a 
 3. Generate well-structured JSON output
 
 Your response must be valid JSON starting with '{' and ending with '}'.`;
+
+    // 🔍 [DEBUG] buildStructuredPrompt 生成的最终提示词
+    this.logger.info(`🔍 [DEBUG] === buildStructuredPrompt GENERATED FINAL PROMPT ===`);
+    this.logger.info(`🔍 [DEBUG] buildStructuredPrompt final result (length: ${structuredPrompt.length}):\n${structuredPrompt}`);
+    this.logger.info(`🔍 [DEBUG] === END buildStructuredPrompt FINAL PROMPT ===`);
 
     return structuredPrompt;
   }

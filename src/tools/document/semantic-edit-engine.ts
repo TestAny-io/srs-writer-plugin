@@ -17,7 +17,7 @@ const logger = Logger.getInstance();
  * 语义编辑意图接口
  */
 export interface SemanticEditIntent {
-    type: 'replace_entire_section' | 'replace_lines_in_section' | 'insert_entire_section' | 'insert_lines_in_section';
+    type: 'replace_entire_section_with_title' | 'replace_lines_in_section' | 'insert_entire_section' | 'insert_lines_in_section';
     target: SemanticTarget;
     content: string;
     reason: string;
@@ -283,14 +283,14 @@ async function applySemanticIntent(
         
         // 根据意图类型执行不同的编辑操作
         switch (intent.type) {
-            case 'replace_entire_section':
+            case 'replace_entire_section_with_title':
             case 'replace_lines_in_section':
                 if (!location.range) {
                     logger.error(`Replace operation requires range, but none found`);
                     return false;
                 }
                 workspaceEdit.replace(targetFileUri, location.range, intent.content);
-                logger.info(`📝 Replacing ${intent.type === 'replace_entire_section' ? 'entire section' : 'lines in section'}`);
+                logger.info(`📝 Replacing ${intent.type === 'replace_entire_section_with_title' ? 'entire section' : 'lines in section'}`);
                 break;
                 
             case 'insert_entire_section':
@@ -345,7 +345,7 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
         }
         
         // 验证intent类型
-        const validTypes = ['replace_entire_section', 'replace_lines_in_section', 'insert_entire_section', 'insert_lines_in_section'];
+        const validTypes = ['replace_entire_section_with_title', 'replace_lines_in_section', 'insert_entire_section', 'insert_lines_in_section'];
         if (intent.type && !validTypes.includes(intent.type)) {
             errors.push(`Invalid intent type: ${intent.type}. Valid types are: ${validTypes.join(', ')}`);
         }
@@ -413,12 +413,12 @@ export const executeMarkdownEditsToolDefinition = {
                         type: {
                             type: "string",
                             enum: [
-                                "replace_entire_section",
+                                "replace_entire_section_with_title",
                                 "replace_lines_in_section",
                                 "insert_entire_section",
                                 "insert_lines_in_section"
                             ],
-                            description: "Type of semantic edit operation:\n- 'replace_entire_section': replaces entire section content\n- 'replace_lines_in_section': replaces specific targetContent within section\n- 'insert_entire_section': inserts new section relative to reference section\n- 'insert_lines_in_section': inserts content within or around reference section"
+                            description: "Type of semantic edit operation:\n- 'replace_entire_section_with_title': replaces entire section INCLUDING the section heading/title. The target section (from heading line to section end) will be completely replaced with new content.\n- 'replace_lines_in_section': replaces specific targetContent within section content (requires 'targetContent' field). Only the matching text is replaced, section heading is preserved.\n- 'insert_entire_section': inserts new complete section at specified position relative to reference section (requires 'insertionPosition': before/after/inside).\n- 'insert_lines_in_section': inserts content lines at specified position relative to reference section (requires 'insertionPosition': before/after/inside)."
                         },
                         target: {
                             type: "object",
@@ -437,10 +437,14 @@ export const executeMarkdownEditsToolDefinition = {
                                 insertionPosition: {
                                     type: "string",
                                     enum: ["before", "after", "inside"],
-                                    description: "Position relative to reference section. REQUIRED for insert operations. 'before': insert before section, 'after': insert after section, 'inside': insert within section content."
+                                    description: "⚠️ MANDATORY for insert_entire_section and insert_lines_in_section operations. Position relative to reference section: 'before'=insert before section start, 'after'=insert after section end, 'inside'=insert within section content. IGNORED for replace operations."
                                 }
                             },
                             required: ["path"]
+                            // Note: insertionPosition is conditionally required based on operation type:
+                            // - REQUIRED for: insert_entire_section, insert_lines_in_section  
+                            // - NOT USED for: replace_entire_section_with_title, replace_lines_in_section
+                            // Validation enforced at runtime in handleInsertionOperation()
                         },
                         content: {
                             type: "string",

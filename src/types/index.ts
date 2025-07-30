@@ -35,6 +35,7 @@ export interface AIPlan {
             context_dependencies: number[];       // 依赖的上一步步骤编号
             expectedOutput?: string;               // 可选：期望的输出类型
             output_chapter_titles?: string[];      // 可选：输出章节标题
+            relevant_context?: string;             // 可选：与该步骤强相关的上下文片段
         }>;
     } | null;
 }
