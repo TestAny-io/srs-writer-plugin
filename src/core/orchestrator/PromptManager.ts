@@ -199,7 +199,7 @@ Your response must be valid JSON starting with '{' and ending with '}'.`;
     ];
 
     // 尝试获取扩展路径作为备选
-    const extensionId = 'testany-co.srs-writer-plugin';
+    const extensionId = 'Testany.srs-writer-plugin';
     const extension = vscode.extensions.getExtension(extensionId);
     if (extension?.extensionPath) {
       possiblePaths.push(path.join(extension.extensionPath, 'rules', templateFileName));

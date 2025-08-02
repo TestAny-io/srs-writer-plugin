@@ -15,6 +15,314 @@ import { CallerType } from '../../types/index';
 const logger = Logger.getInstance();
 
 // ============================================================================
+// 企业RAG客户端实现
+// ============================================================================
+
+/**
+ * 企业RAG客户端 - 支持token管理和API调用
+ */
+class EnterpriseRAGClient {
+    private baseUrl: string;
+    private appKey: string;
+    private appSecret: string;
+    private accessToken: string | null = null;
+    private tokenExpiry: number = 0;
+    private logger = Logger.getInstance();
+
+    constructor(baseUrl: string, appKey: string, appSecret: string) {
+        this.baseUrl = baseUrl.replace(/\/$/, ''); // 移除尾部斜杠
+        this.appKey = appKey;
+        this.appSecret = appSecret;
+    }
+
+    /**
+     * 获取访问令牌
+     */
+    private async getAccessToken(): Promise<string> {
+        const now = Date.now();
+        
+        // 如果token还没过期，直接返回
+        if (this.accessToken && now < this.tokenExpiry) {
+            return this.accessToken;
+        }
+
+        this.logger.info('🔑 获取企业RAG访问令牌...');
+
+        try {
+            const response = await fetch(`${this.baseUrl}/openapi/access_token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    app_key: this.appKey,
+                    app_secret: this.appSecret
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json() as any;
+            
+            if (data.code !== 0) {
+                throw new Error(`认证失败: ${data.message || '未知错误'}`);
+            }
+
+            if (!data.payload?.access_token) {
+                throw new Error('服务器返回的token格式不正确');
+            }
+
+            this.accessToken = data.payload.access_token;
+            // 设置token过期时间（假设1小时有效期，提前5分钟刷新）
+            this.tokenExpiry = now + (55 * 60 * 1000);
+            
+            this.logger.info('✅ 企业RAG访问令牌获取成功');
+            return this.accessToken!; // 使用非空断言，因为上面已经验证过
+
+        } catch (error) {
+            this.logger.error(`❌ 获取企业RAG访问令牌失败: ${(error as Error).message}`);
+            throw new Error(`Token获取失败: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 执行RAG检索
+     */
+    async search(params: {
+        query: string;
+        dataset_id: string;
+        search_method?: 'semantic_search' | 'full_text_search' | 'hybrid_search';
+        top_k?: number;
+        domain?: string;
+        reranking_enable?: boolean;
+        score_threshold?: number;
+        score_threshold_enabled?: boolean;
+    }): Promise<{
+        success: boolean;
+        results?: Array<{
+            content: string;
+            source: string;
+            confidence: number;
+            metadata?: any;
+        }>;
+        raw_response?: any;
+        error?: string;
+        error_type?: 'config' | 'auth' | 'network' | 'api' | 'parse';
+    }> {
+        try {
+            const token = await this.getAccessToken();
+            
+            this.logger.info(`🔍 执行企业RAG检索: "${params.query}" (dataset: ${params.dataset_id})`);
+
+            const requestBody = {
+                query: params.query,
+                search_method: params.search_method || 'semantic_search',
+                reranking_enable: params.reranking_enable ?? true,
+                reranking_mode: 'reranking_model',
+                reranking_model: {
+                    reranking_provider_name: 'xinference',
+                    reranking_model_name: 'bge-reranker-large'
+                },
+                weights: {
+                    keyword_setting: {
+                        keyword_weight: 0.8
+                    },
+                    vector_setting: {
+                        vector_weight: 0.2,
+                        embedding_model_name: '',
+                        embedding_provider_name: ''
+                    }
+                },
+                top_k: params.top_k || 4,
+                score_threshold_enabled: params.score_threshold_enabled ?? false,
+                score_threshold: params.score_threshold || 0.1
+            };
+
+            const response = await fetch(
+                `${this.baseUrl}/openapi/knowledge/datasets/${params.dataset_id}/hit-testing`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(requestBody)
+                }
+            );
+
+            if (!response.ok) {
+                let errorType: 'auth' | 'api' | 'network' = 'network';
+                if (response.status === 401 || response.status === 403) {
+                    errorType = 'auth';
+                } else if (response.status >= 400 && response.status < 500) {
+                    errorType = 'api';
+                }
+                throw new Error(`HTTP ${response.status}: ${response.statusText}|${errorType}`);
+            }
+
+            const data = await response.json();
+            
+            // 解析和标准化响应数据
+            const results = this.parseRAGResponse(data);
+            
+            this.logger.info(`✅ 企业RAG检索成功，返回 ${results.length} 个结果`);
+            
+            return {
+                success: true,
+                results,
+                raw_response: data
+            };
+
+        } catch (error) {
+            const errorMsg = (error as Error).message;
+            const parts = errorMsg.split('|');
+            const actualMsg = parts[0];
+            const errorType = parts[1] as 'config' | 'auth' | 'network' | 'api' | 'parse' || 'network';
+            
+            this.logger.error(`❌ 企业RAG检索失败: ${actualMsg}`);
+            return {
+                success: false,
+                error: actualMsg,
+                error_type: errorType
+            };
+        }
+    }
+
+    /**
+     * 解析RAG响应数据，转换为标准格式
+     * 根据真实的RAG API响应格式：
+     * {
+     *   "code": 0,
+     *   "payload": {
+     *     "records": [
+     *       {
+     *         "segment": {
+     *           "content": "实际内容",
+     *           "document": {
+     *             "original_document_name": "文档名"
+     *           }
+     *         },
+     *         "score": 0.384
+     *       }
+     *     ]
+     *   }
+     * }
+     */
+    private parseRAGResponse(data: any): Array<{
+        content: string;
+        source: string;
+        confidence: number;
+        metadata?: any;
+    }> {
+        try {
+            if (!data) {
+                this.logger.warn('⚠️ RAG响应数据为空');
+                return [];
+            }
+
+            // 检查响应状态
+            if (data.code !== 0) {
+                this.logger.warn(`⚠️ RAG响应错误: ${data.message || '未知错误'}`);
+                return [];
+            }
+
+            // 获取records数组
+            const records = data.payload?.records;
+            if (!Array.isArray(records)) {
+                this.logger.warn('⚠️ RAG响应中没有找到records数组');
+                return [];
+            }
+
+            this.logger.info(`📋 解析RAG响应: 找到 ${records.length} 个记录`);
+
+            return records.map((record: any, index: number) => {
+                const segment = record.segment || {};
+                const document = segment.document || {};
+                
+                // 提取内容
+                const content = segment.content || '无内容';
+                
+                // 提取来源信息
+                const originalDocName = document.original_document_name || '';
+                const docName = document.name || '';
+                const source = originalDocName || docName || `结果 ${index + 1}`;
+                
+                // 提取得分
+                const confidence = record.score || 0;
+                
+                // 构建元数据
+                const metadata = {
+                    segment_id: segment.id,
+                    document_id: segment.document_id,
+                    position: segment.position,
+                    word_count: segment.word_count,
+                    tokens: segment.tokens,
+                    keywords: segment.keywords || [],
+                    document: {
+                        id: document.id,
+                        data_source_type: document.data_source_type,
+                        original_document_id: document.original_document_id,
+                        original_document_name: document.original_document_name,
+                        original_document_oss_object_name: document.original_document_oss_object_name,
+                        original_document_summary: document.original_document_summary
+                    },
+                    tsne_position: record.tsne_position
+                };
+
+                this.logger.debug(`📄 解析记录 ${index + 1}: ${content.substring(0, 50)}... (得分: ${confidence})`);
+
+                return {
+                    content,
+                    source,
+                    confidence,
+                    metadata
+                };
+            });
+
+        } catch (error) {
+            this.logger.error(`❌ 解析RAG响应失败: ${(error as Error).message}`);
+            this.logger.error(`❌ 响应数据结构: ${JSON.stringify(data, null, 2).substring(0, 500)}...`);
+            return [];
+        }
+    }
+}
+
+/**
+ * 单例模式的RAG客户端管理器
+ */
+class RAGClientManager {
+    private static instance: RAGClientManager;
+    private clients: Map<string, EnterpriseRAGClient> = new Map();
+
+    static getInstance(): RAGClientManager {
+        if (!RAGClientManager.instance) {
+            RAGClientManager.instance = new RAGClientManager();
+        }
+        return RAGClientManager.instance;
+    }
+
+    getClient(config: {
+        baseUrl: string;
+        appKey: string;
+        appSecret: string;
+    }): EnterpriseRAGClient {
+        const key = `${config.baseUrl}_${config.appKey}`;
+        
+        if (!this.clients.has(key)) {
+            this.clients.set(key, new EnterpriseRAGClient(
+                config.baseUrl,
+                config.appKey,
+                config.appSecret
+            ));
+        }
+        
+        return this.clients.get(key)!;
+    }
+}
+
+// ============================================================================
 // 本地知识检索工具
 // ============================================================================
 
@@ -421,10 +729,20 @@ export const enterpriseRAGCallToolDefinition = {
 
 export async function enterpriseRAGCall(args: {
     query: string;
+    dataset_id?: string;
+    search_method?: 'semantic_search' | 'full_text_search' | 'hybrid_search';
     domain?: string;
     maxResults?: number;
+    score_threshold?: number;
+    score_threshold_enabled?: boolean;
 }): Promise<{
     success: boolean;
+    results?: Array<{
+        content: string;
+        source: string;
+        confidence: number;
+        metadata?: any;
+    }>;
     ragData?: any;
     query?: string;
     domain?: string;
@@ -432,68 +750,96 @@ export async function enterpriseRAGCall(args: {
     source?: string;
     resultCount?: number;
     error?: string;
+    error_type?: 'config' | 'auth' | 'network' | 'api' | 'parse';
 }> {
     try {
-        // 检查企业RAG配置
-        const config = vscode.workspace.getConfiguration('srsWriter.rag.enterprise');
-        const endpoint = config.get<string>('endpoint');
-        const apiKey = config.get<string>('apiKey');
+        // 获取企业RAG配置
+        const config = vscode.workspace.getConfiguration('srs-writer.rag.enterprise');
+        const baseUrl = config.get<string>('baseUrl');
+        const appKey = config.get<string>('appKey');
+        const appSecret = config.get<string>('appSecret');
+        const defaultDatasetId = config.get<string>('defaultDatasetId');
         const enabled = config.get<boolean>('enabled', false);
 
-        if (!enabled || !endpoint) {
+        // 配置验证 - 提供详细的错误信息
+        if (!enabled) {
             return {
                 success: false,
-                error: 'Enterprise RAG system is not configured or enabled'
+                error: '企业RAG功能未启用。请在设置中启用 srs-writer.rag.enterprise.enabled',
+                error_type: 'config'
             };
         }
 
-        logger.info(`🏢 Calling enterprise RAG system for: "${args.query}"`);
-
-        // 构造请求
-        const requestBody = {
-            query: args.query,
-            domain: args.domain,
-            max_results: args.maxResults || 5,
-            include_metadata: true
-        };
-
-        // 构造请求头
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json'
-        };
-        if (apiKey) {
-            headers['Authorization'] = `Bearer ${apiKey}`;
+        if (!baseUrl) {
+            return {
+                success: false,
+                error: '企业RAG服务器地址未配置。请设置 srs-writer.rag.enterprise.baseUrl（例如：http://192.168.1.100:8080）',
+                error_type: 'config'
+            };
         }
 
-        // 发送HTTP请求到企业RAG系统
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(requestBody)
+        if (!appKey || !appSecret) {
+            return {
+                success: false,
+                error: '企业RAG认证信息未配置。请设置 srs-writer.rag.enterprise.appKey 和 srs-writer.rag.enterprise.appSecret',
+                error_type: 'config'
+            };
+        }
+
+        const dataset_id = args.dataset_id || defaultDatasetId;
+        if (!dataset_id) {
+            return {
+                success: false,
+                error: '数据集ID未指定。请在调用参数中提供dataset_id或在设置中配置 srs-writer.rag.enterprise.defaultDatasetId',
+                error_type: 'config'
+            };
+        }
+
+        logger.info(`🏢 调用企业RAG系统: "${args.query}" (数据集: ${dataset_id}, 方法: ${args.search_method || 'semantic_search'})`);
+
+        // 获取RAG客户端并执行检索
+        const ragManager = RAGClientManager.getInstance();
+        const client = ragManager.getClient({ baseUrl, appKey, appSecret });
+        
+        const result = await client.search({
+            query: args.query,
+            dataset_id,
+            search_method: args.search_method || 'semantic_search',
+            top_k: args.maxResults || 4,
+            domain: args.domain,
+            score_threshold: args.score_threshold,
+            score_threshold_enabled: args.score_threshold_enabled
         });
 
-        if (!response.ok) {
-            throw new Error(`Enterprise RAG API returned ${response.status}: ${response.statusText}`);
+        if (result.success && result.results) {
+            logger.info(`✅ 企业RAG检索成功，返回 ${result.results.length} 个结果`);
+            return {
+                success: true,
+                results: result.results,
+                ragData: result.raw_response,
+                query: args.query,
+                domain: args.domain,
+                timestamp: new Date().toISOString(),
+                source: 'enterprise_rag',
+                resultCount: result.results.length
+            };
+        } else {
+            logger.warn(`⚠️ 企业RAG检索失败: ${result.error}`);
+            return {
+                success: false,
+                error: result.error || '企业RAG检索失败',
+                error_type: result.error_type || 'api'
+            };
         }
 
-        const data = await response.json() as any;
-        
-        // 🚀 新设计：返回完整的原始数据，让AI处理
-        logger.info(`✅ Enterprise RAG 成功获取数据，将完整结果交给AI处理`);
-        return { 
-            success: true, 
-            ragData: data,
-            query: args.query,
-            domain: args.domain,
-            timestamp: new Date().toISOString(),
-            source: 'enterprise_rag',
-            resultCount: Array.isArray(data?.results) ? data.results.length : 0
-        };
-
     } catch (error) {
-        const errorMsg = `Failed to call enterprise RAG system: ${(error as Error).message}`;
+        const errorMsg = `企业RAG系统调用异常: ${(error as Error).message}`;
         logger.error(errorMsg);
-        return { success: false, error: errorMsg };
+        return { 
+            success: false, 
+            error: errorMsg,
+            error_type: 'network'
+        };
     }
 }
 
@@ -502,39 +848,66 @@ export async function enterpriseRAGCall(args: {
  */
 export const customRAGRetrievalToolDefinition = {
     name: "customRAGRetrieval",
-    description: "Retrieve information from enterprise/custom RAG knowledge base system",
+    description: "检索企业/自定义RAG知识库信息。支持语义检索、全文检索和混合检索模式。注意：此工具需要用户预先配置企业RAG系统连接信息，如果用户未配置或配置错误，工具将报告失败并提供具体的配置指导。",
     parameters: {
         type: "object",
         properties: {
             query: {
                 type: "string",
-                description: "Search query for knowledge retrieval"
+                description: "搜索查询内容，用于在企业知识库中检索相关信息"
+            },
+            dataset_id: {
+                type: "string", 
+                description: "数据集ID，用于指定要搜索的知识库数据集。如果未提供，将使用用户配置的默认数据集ID。如果用户未配置默认数据集，则必须提供此参数"
+            },
+            search_method: {
+                type: "string",
+                enum: ["semantic_search", "full_text_search", "hybrid_search"],
+                description: "搜索方法：semantic_search(语义检索，基于语义相似度)、full_text_search(全文检索，基于关键词匹配)、hybrid_search(混合检索，结合语义和关键词)",
+                default: "semantic_search"
             },
             domain: {
                 type: "string",
-                description: "Business domain context (e.g., 'financial_services', 'healthcare', 'e-commerce')"
+                description: "业务领域上下文，可选参数，有助于提高检索的准确性（例如：'financial_services', 'healthcare', 'e-commerce', 'technology'）"
             },
             maxResults: {
+                type: "integer",
+                description: "返回结果的最大数量，默认为4，取值范围1-20",
+                default: 4,
+                minimum: 1,
+                maximum: 20
+            },
+            score_threshold: {
                 type: "number",
-                description: "Maximum number of results to return (default: 5)"
+                description: "得分阈值，只返回得分高于此值的结果，取值范围0.0-1.0",
+                minimum: 0.0,
+                maximum: 1.0
+            },
+            score_threshold_enabled: {
+                type: "boolean",
+                description: "是否启用得分阈值过滤",
+                default: false
             }
         },
         required: ["query"]
     },
-    // 🚀 智能分类属性
     interactionType: 'autonomous',
     riskLevel: 'low',
     requiresConfirmation: false,
-    // 🚀 访问控制：移除orchestrator权限
     accessibleBy: [
-        // 移除所有orchestrator权限
+        CallerType.SPECIALIST,           // 专家模式可以调用
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION  // 编排器工具执行模式
     ]
 };
 
 export async function customRAGRetrieval(args: {
     query: string;
+    dataset_id?: string;
+    search_method?: 'semantic_search' | 'full_text_search' | 'hybrid_search';
     domain?: string;
     maxResults?: number;
+    score_threshold?: number;
+    score_threshold_enabled?: boolean;
 }): Promise<{
     success: boolean;
     results?: Array<{
@@ -544,28 +917,74 @@ export async function customRAGRetrieval(args: {
         metadata?: any;
     }>;
     error?: string;
+    errorType?: 'config' | 'auth' | 'network' | 'api' | 'parse';
+    aiInstructions?: string;
 }> {
     try {
-        logger.info(`🔍 Custom RAG retrieval for: "${args.query}"`);
+        logger.info(`🔍 Custom RAG retrieval: "${args.query}" (${args.search_method || 'semantic_search'})`);
         
-        // 直接委托给 enterpriseRAGCall，保持原子层的简单性
+        // 调用底层企业RAG函数
         const result = await enterpriseRAGCall({
             query: args.query,
+            dataset_id: args.dataset_id,
+            search_method: args.search_method,
             domain: args.domain,
-            maxResults: args.maxResults || 5
+            maxResults: args.maxResults || 4,
+            score_threshold: args.score_threshold,
+            score_threshold_enabled: args.score_threshold_enabled
         });
         
-        if (result.success) {
-            logger.info(`✅ Custom RAG found ${result.resultCount || 0} results`);
+        if (result.success && result.results) {
+            logger.info(`✅ Custom RAG 检索成功，找到 ${result.results.length} 个结果`);
+            return {
+                success: true,
+                results: result.results
+            };
         } else {
-            logger.warn(`⚠️ Custom RAG retrieval failed: ${result.error}`);
+            // 🚀 AI友好的错误处理 - 根据错误类型提供不同的指导
+            logger.warn(`⚠️ Custom RAG 检索失败: ${result.error}`);
+            
+            let aiInstructions = '';
+            
+            switch (result.error_type) {
+                case 'config':
+                    aiInstructions = `企业RAG工具不可用：${result.error}。请不要再尝试调用此工具，改用其他方式获取信息，如VS Code内置的搜索功能或告知用户需要配置企业RAG系统。`;
+                    break;
+                
+                case 'auth':
+                    aiInstructions = `企业RAG认证失败：${result.error}。此工具在当前会话中不可用，请不要再次调用。建议告知用户检查认证配置或使用其他信息获取方式。`;
+                    break;
+                
+                case 'network':
+                    aiInstructions = `企业RAG网络连接失败：${result.error}。可能是临时网络问题，可以尝试一次重试，但如果仍然失败，请改用其他方式。`;
+                    break;
+                
+                case 'api':
+                    aiInstructions = `企业RAG API调用失败：${result.error}。可能是参数错误或服务端问题，请检查参数后可尝试一次重试。`;
+                    break;
+                
+                default:
+                    aiInstructions = `企业RAG检索失败：${result.error}。请尝试其他方式获取所需信息。`;
+            }
+            
+            return {
+                success: false,
+                error: result.error || '企业RAG检索失败',
+                errorType: result.error_type,
+                aiInstructions
+            };
         }
         
-        return result;
     } catch (error) {
-        const errorMsg = `Custom RAG retrieval failed: ${(error as Error).message}`;
+        const errorMsg = `Custom RAG 检索异常: ${(error as Error).message}`;
         logger.error(errorMsg);
-        return { success: false, error: errorMsg };
+        
+        return { 
+            success: false, 
+            error: errorMsg,
+            errorType: 'network',
+            aiInstructions: `企业RAG工具发生异常：${errorMsg}。此工具在当前会话中可能不稳定，建议使用其他方式获取信息。`
+        };
     }
 }
 
@@ -819,12 +1238,7 @@ interface CustomRAGInput {
     maxResults?: number;
 }
 
-interface LocalKnowledgeInput {
-    query: string;
-    searchPaths?: string[];
-    fileExtensions?: string[];
-    maxResults?: number;
-}
+// LocalKnowledgeInput接口已移除 - readLocalKnowledge工具不再需要Language Model Tool包装类
 
 /**
  * Internet Search Tool Implementation
@@ -926,69 +1340,8 @@ export class CustomRAGRetrievalTool implements vscode.LanguageModelTool<CustomRA
     }
 }
 
-/**
- * Local Knowledge Search Tool Implementation
- * 包装 readLocalKnowledge 函数为 VSCode LanguageModelTool
- */
-export class ReadLocalKnowledgeTool implements vscode.LanguageModelTool<LocalKnowledgeInput> {
-    async invoke(
-        options: vscode.LanguageModelToolInvocationOptions<LocalKnowledgeInput>,
-        token: vscode.CancellationToken
-    ): Promise<vscode.LanguageModelToolResult> {
-        try {
-            logger.info(`🔧 ReadLocalKnowledgeTool.invoke called with query: "${options.input.query}"`);
-            
-            const result = await readLocalKnowledge({
-                query: options.input.query,
-                searchPaths: options.input.searchPaths || ['templates/', 'knowledge/'],
-                fileExtensions: options.input.fileExtensions || ['.md', '.yml', '.yaml', '.json'],
-                maxResults: options.input.maxResults || 10
-            });
-
-            if (result.success && result.results) {
-                let content = `## 本地知识文件检索结果：${options.input.query}\n\n`;
-                
-                result.results.forEach((item, index) => {
-                    content += `### ${index + 1}. ${item.filePath}\n`;
-                    content += `*相关性: ${item.relevanceScore.toFixed(1)}*\n\n`;
-                    
-                    // 显示相关片段
-                    if (item.excerpts && item.excerpts.length > 0) {
-                        content += `**相关内容片段:**\n`;
-                        item.excerpts.forEach(excerpt => {
-                            content += `> ${excerpt}\n`;
-                        });
-                        content += '\n';
-                    }
-                    
-                    // 显示完整内容（截断处理）
-                    const truncatedContent = item.content.length > 500 
-                        ? item.content.substring(0, 500) + '...'
-                        : item.content;
-                    content += `**文件内容:**\n\`\`\`\n${truncatedContent}\n\`\`\`\n\n`;
-                });
-
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart(content)
-                ]);
-            } else {
-                const errorMsg = result.error || '本地知识文件检索未返回结果';
-                logger.warn(`ReadLocalKnowledgeTool: ${errorMsg}`);
-                
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart(`ℹ️ 本地知识检索: ${errorMsg}`)
-                ]);
-            }
-        } catch (error) {
-            const errorMsg = `ReadLocalKnowledgeTool error: ${(error as Error).message}`;
-            logger.error(errorMsg);
-            
-            return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart(`❌ 工具执行错误: ${errorMsg}`)
-            ]);
-        }
-    }
-}
+// ReadLocalKnowledgeTool类已移除 - readLocalKnowledge工具现在直接通过内部工具调用系统使用
+// 核心的readLocalKnowledge函数保持不变，提供完整的本地知识文件搜索功能
 
 // ============================================================================
 // 导出定义和实现
@@ -996,14 +1349,14 @@ export class ReadLocalKnowledgeTool implements vscode.LanguageModelTool<LocalKno
 
 export const knowledgeToolDefinitions = [
     readLocalKnowledgeToolDefinition,
-    internetSearchToolDefinition,
+    // internetSearchToolDefinition,  // 暂时禁用 - 保留代码但不注册，避免Language Model Tools API依赖
     enterpriseRAGCallToolDefinition,
     customRAGRetrievalToolDefinition
 ];
 
 export const knowledgeToolImplementations = {
     readLocalKnowledge,
-    internetSearch,
+    // internetSearch,  // 暂时禁用 - 保留代码但不注册，避免Language Model Tools API依赖
     enterpriseRAGCall,
     customRAGRetrieval
 }; 

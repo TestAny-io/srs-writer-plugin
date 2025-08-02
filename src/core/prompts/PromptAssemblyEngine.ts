@@ -21,6 +21,7 @@ export interface SpecialistType {
 export interface SpecialistContext {
   userRequirements?: string;
   language?: string;  // 🚀 新增：明确定义language字段，用于指定specialist输出的语言
+  workflow_mode?: "greenfield" | "brownfield";  // 🚀 新增：工作流模式，用于区分新建项目或修改现有项目
   structuredContext?: any;
   projectMetadata?: any;
   // 🚀 新增：迭代状态信息，用于让AI了解资源约束

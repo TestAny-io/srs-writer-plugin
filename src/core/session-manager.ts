@@ -104,9 +104,9 @@ export class SessionManager implements ISessionManager {
         // this.logger.debug('🔍 [GET SESSION] getCurrentSession() called');
         
         if (this.currentSession === null) {
-            this.logger.warn('🚨 [GET SESSION] Returning NULL! Call stack:');
-            this.logger.warn(stack || 'No stack trace available');
-            this.logger.warn('🚨 [GET SESSION] currentSession is null - this may cause context loss!');
+            // this.logger.warn('🚨 [GET SESSION] Returning NULL! Call stack:');
+            // this.logger.warn(stack || 'No stack trace available');
+            // this.logger.warn('🚨 [GET SESSION] currentSession is null - this may cause context loss!');
             return null;
         }
         
@@ -119,9 +119,9 @@ export class SessionManager implements ISessionManager {
         // 🚀 修复：在实际使用时检查过期，而不是在autoInitialize时
         const isExpired = await this.isSessionExpired();
         if (isExpired) {
-            this.logger.warn('🚨 [GET SESSION] Current session is expired, clearing it now');
-            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] *** CLEARING EXPIRED SESSION ***`);
-            this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] This will cause NEW session creation on next request!`);
+            // this.logger.warn('🚨 [GET SESSION] Current session is expired, clearing it now');
+            // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] *** CLEARING EXPIRED SESSION ***`);
+            // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] This will cause NEW session creation on next request!`);
             await this.clearSession();
             return null;
         }

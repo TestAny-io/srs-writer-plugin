@@ -323,6 +323,7 @@ export class PlanExecutor {
                 expectedOutput: step.expectedOutput,
                 output_chapter_titles: step.output_chapter_titles,  // 🚀 新增：当前步骤的章节标题
                 language: step.language,  // 🚀 新增：language参数传递
+                workflow_mode: step.workflow_mode,  // 🚀 新增：workflow_mode参数传递
                 relevant_context: step.relevant_context  // 🚀 新增：步骤相关上下文传递
             },
             
@@ -345,6 +346,7 @@ export class PlanExecutor {
                     context_dependencies: planStep.context_dependencies || [],
                     output_chapter_titles: planStep.output_chapter_titles || [],
                     language: planStep.language,  // 🚀 新增：language参数传递
+                    workflow_mode: planStep.workflow_mode,  // 🚀 新增：workflow_mode参数传递
                     isCurrentStep: planStep.step === step.step,
                     isCompleted: !!allPreviousResults[planStep.step],
                     isPending: planStep.step > step.step

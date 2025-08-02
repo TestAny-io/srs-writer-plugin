@@ -4,11 +4,13 @@ import { SessionManager } from './core/session-manager';
 import { Orchestrator } from './core/orchestrator';
 import { Logger } from './utils/logger';
 import { ErrorHandler } from './utils/error-handler';
-import { 
-    InternetSearchTool, 
-    CustomRAGRetrievalTool, 
-    ReadLocalKnowledgeTool 
-} from './tools/atomic/knowledge-tools-backup';
+// Language Model Tools已禁用 - 暂时移除工具类导入
+// import { 
+//     InternetSearchTool, 
+//     CustomRAGRetrievalTool, 
+//     ReadLocalKnowledgeTool 
+// } from './tools/atomic/knowledge-tools-backup';
+import { VSCodeCommandHandler } from './tools/document/markitdownConverter/VSCodeCommandHandler';
 
 let chatParticipant: SRSChatParticipant;
 let sessionManager: SessionManager;
@@ -52,10 +54,10 @@ export function activate(context: vscode.ExtensionContext) {
         registerCoreCommands(context);
         logger.info('✅ Commands registered successfully');
         
-        // 🔧 Step 5: 注册Language Model Tools
-        logger.info('Step 5: Registering Language Model Tools...');
-        registerLanguageModelTools(context);
-        logger.info('✅ Language Model Tools registered successfully');
+        // 🔧 Step 5: Language Model Tools已禁用 - 为了发布到Marketplace
+        // logger.info('Step 5: Registering Language Model Tools...');
+        // registerLanguageModelTools(context);
+        // logger.info('✅ Language Model Tools registered successfully');
         
         // 🔧 修复：help命令注册ID匹配package.json声明
         const helpCommand = vscode.commands.registerCommand('srs-writer.help', () => {
@@ -151,8 +153,10 @@ function registerCoreCommands(context: vscode.ExtensionContext): void {
 }
 
 /**
- * 🔧 注册Language Model Tools - 新增工具注册功能
+ * 🔧 注册Language Model Tools - 已禁用以支持Marketplace发布
+ * TODO: 当VS Code Language Model Tools API稳定化后重新启用
  */
+/*
 function registerLanguageModelTools(context: vscode.ExtensionContext): void {
     try {
         // 检查是否支持语言模型工具API
@@ -184,6 +188,7 @@ function registerLanguageModelTools(context: vscode.ExtensionContext): void {
         vscode.window.showWarningMessage('部分工具注册失败，但扩展可以继续使用');
     }
 }
+*/
 
 /**
  * 创建增强版状态栏
@@ -250,6 +255,11 @@ async function showEnhancedStatus(): Promise<void> {
                 label: '$(output) 导出状态报告',
                 description: '保存状态到文件',
                 detail: '生成可分享的状态报告'
+            },
+            {
+                label: '$(file-text) 文档格式转换',
+                description: '转换Word文档为Markdown',
+                detail: '扫描workspace中的.docx文件并转换为.md格式'
             }
         ], {
             placeHolder: '选择状态查看方式',
@@ -270,6 +280,9 @@ async function showEnhancedStatus(): Promise<void> {
                 break;
             case '$(output) 导出状态报告':
                 await exportStatusReport();
+                break;
+            case '$(file-text) 文档格式转换':
+                await handleDocumentConversion();
                 break;
         }
     } catch (error) {
@@ -379,6 +392,27 @@ async function exportStatusReport(): Promise<void> {
     } catch (error) {
         logger.error('Failed to export status report', error as Error);
         vscode.window.showErrorMessage(`导出失败: ${(error as Error).message}`);
+    }
+}
+
+/**
+ * 🚀 v3.0新增：文档格式转换处理函数
+ */
+async function handleDocumentConversion(): Promise<void> {
+    try {
+        logger.info('🔄 Starting document conversion command from status bar');
+        
+        // 创建VS Code命令处理器实例
+        const commandHandler = new VSCodeCommandHandler();
+        
+        // 执行文档转换命令
+        await commandHandler.handleConvertDocumentCommand();
+        
+    } catch (error) {
+        logger.error('Failed to handle document conversion', error as Error);
+        vscode.window.showErrorMessage(
+            `❌ **文档转换失败**\n\n错误详情: ${(error as Error).message}\n\n💡 请检查是否安装了markitdown-ts依赖，或查看输出面板了解详细信息。`
+        );
     }
 }
 

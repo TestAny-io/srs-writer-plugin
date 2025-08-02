@@ -120,7 +120,7 @@ export class SchemaLoader {
     private static resolvePluginSchemaPath(): string {
         try {
             // 尝试获取插件扩展路径
-            const extension = vscode.extensions.getExtension('testany-co.srs-writer-plugin');
+            const extension = vscode.extensions.getExtension('Testany.srs-writer-plugin');
             if (extension) {
                 const pluginSchemaPath = path.join(extension.extensionPath, this.DEFAULT_SCHEMA_PATH);
                 this.logger.info(`✅ 使用插件扩展路径: ${pluginSchemaPath}`);

@@ -55,7 +55,7 @@ export class SpecialistExecutor {
     private getPluginRulesPath(): string {
         try {
             // 尝试获取插件扩展路径
-            const extension = vscode.extensions.getExtension('testany-co.srs-writer-plugin');
+            const extension = vscode.extensions.getExtension('Testany.srs-writer-plugin');
             if (extension) {
                 const rulesPath = path.join(extension.extensionPath, 'rules');
                 this.logger.info(`✅ 使用插件扩展路径: ${rulesPath}`);
@@ -477,6 +477,7 @@ export class SpecialistExecutor {
             const specialistContext: SpecialistContext = {
                 userRequirements: context.userInput || context.currentStep?.description || '',
                 language: context.currentStep?.language || 'en-US',  // 🚀 新增：language参数传递，默认为en-US
+                workflow_mode: context.currentStep?.workflow_mode,  // 🚀 新增：workflow_mode参数传递
                 structuredContext: {
                     currentStep: context.currentStep,
                     dependentResults: context.dependentResults || [],
@@ -552,7 +553,7 @@ export class SpecialistExecutor {
         let possiblePaths: string[] = [];
         
         try {
-            const extension = vscode.extensions.getExtension('testany-co.srs-writer-plugin');
+            const extension = vscode.extensions.getExtension('Testany.srs-writer-plugin');
             if (extension) {
                 // 优先使用扩展路径
                 possiblePaths.push(path.join(extension.extensionPath, `rules/specialists/${fileName}`));

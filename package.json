@@ -1,12 +1,9 @@
 {
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
-  "description": "AI-powered Software Requirements Specification writer for VSCode with Hybrid Intelligence Architecture",
-  "version": "1.6.6",
-  "publisher": "testany-co",
-  "enabledApiProposals": [
-    "languageModelTools"
-  ],
+  "description": "AI-powered Software Requirements Specification writer for VSCode.",
+  "version": "0.0.1",
+  "publisher": "Testany",
   "repository": {
     "type": "git",
     "url": "https://github.com/srs-writer-team/srs-writer-plugin.git"
@@ -19,15 +16,17 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "AI", "Chat"
   ],
   "activationEvents": [
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
+  "icon": "media/logo.png",
   "files": [
     "dist",
     "rules",
+    "media",
     "LICENSE",
     "README.md"
   ],
@@ -315,6 +314,32 @@
           ],
           "description": "切换项目时要排除的目录列表",
           "markdownDescription": "在切换项目功能中要排除的目录名称列表。这些目录不会出现在项目选择列表中。\n\n**默认排除**：\n- `templates` - 用户模板目录\n- `knowledge` - 知识库目录\n- `node_modules` - Node.js依赖\n- `.git` - Git仓库\n- `.vscode` - VSCode配置\n- `coverage` - 测试覆盖率报告\n- `dist` - 构建产物\n- `build` - 构建产物"
+        },
+        "srs-writer.rag.enterprise.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "启用企业RAG知识库检索功能",
+          "markdownDescription": "启用企业RAG知识库检索功能。\n\n启用后，AI可以通过 `customRAGRetrieval` 工具访问您的企业知识库。\n\n**注意**：需要同时配置服务器地址和认证信息。"
+        },
+        "srs-writer.rag.enterprise.baseUrl": {
+          "type": "string",
+          "description": "企业RAG服务器基础URL",
+          "markdownDescription": "企业RAG服务器的基础URL地址。\n\n**示例**：\n- `http://192.168.1.100:8080`\n- `https://rag.company.com`\n\n**注意**：请确保URL可以从VS Code所在网络环境访问。"
+        },
+        "srs-writer.rag.enterprise.appKey": {
+          "type": "string",
+          "description": "企业RAG应用密钥（App Key）",
+          "markdownDescription": "企业RAG系统的应用密钥。\n\n**安全提示**：\n- 请确保密钥的安全性\n- 不要在公开场所分享此密钥\n- 建议定期更换密钥"
+        },
+        "srs-writer.rag.enterprise.appSecret": {
+          "type": "string",
+          "description": "企业RAG应用秘钥（App Secret）",
+          "markdownDescription": "企业RAG系统的应用秘钥。\n\n**安全提示**：\n- 此为敏感信息，请妥善保管\n- 不要在版本控制中提交此配置\n- 建议定期更换秘钥"
+        },
+        "srs-writer.rag.enterprise.defaultDatasetId": {
+          "type": "string",
+          "description": "默认数据集ID",
+          "markdownDescription": "企业RAG系统的默认数据集ID。\n\n**说明**：\n- 当AI调用RAG检索时，如果未指定数据集ID，将使用此默认值\n- 可以在具体调用时通过参数覆盖此设置\n- 请确保此数据集ID在您的RAG系统中存在"
         }
       }
     }
@@ -364,7 +389,9 @@
     "js-yaml": "^4.1.0",
     "jsonrepair": "^3.12.0",
     "marked": "^9.x",
+    "markitdown-ts": "^0.0.4",
     "remark-parse": "^11.0.0",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "zod": "^3.25.76"
   }
 }

@@ -46,6 +46,10 @@ module.exports = {
         {
           from: 'rules',
           to: 'rules'
+        },
+        {
+          from: 'media',
+          to: 'media'
         }
       ]
     })

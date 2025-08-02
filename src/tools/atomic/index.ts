@@ -271,13 +271,14 @@ export {
     finalAnswerToolDefinition
 } from './output-tools';
 
-export {
-    // 互联网内容检索
-    internetSearch,
-    
-    // 知识工具定义
-    internetSearchToolDefinition, 
-} from './knowledge-tools-backup';
+// Internet Search 相关导出已暂时禁用 - 保留代码但不注册，避免Language Model Tools API依赖
+// export {
+//     // 互联网内容检索
+//     internetSearch,
+//     
+//     // 知识工具定义
+//     internetSearchToolDefinition, 
+// } from './knowledge-tools-backup';
 
 export {
     // 知识检索
