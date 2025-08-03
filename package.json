@@ -280,7 +280,7 @@
         "srs-writer.templates.adcWriter": {
           "type": "object",
           "default": {
-            "ADC_WRITER_TEMPLATE": ".templates/adc_writer/adc_writer-template.md"
+            "ADC_WRITER_TEMPLATE": ".templates/ADC/ADC_template.md"
           },
           "description": "Assumptions, Dependencies and Constraints Writer的模板文件路径配置",
           "properties": {
@@ -293,7 +293,7 @@
         "srs-writer.templates.frWriter": {
           "type": "object",
           "default": {
-            "FR_WRITER_TEMPLATE": ".templates/fr_writer/fr_writer-template.md"
+            "FR_WRITER_TEMPLATE": ".templates/functional_requirements/functional_requirement_template.md"
           },
           "description": "Functional Requirements Writer的模板文件路径配置",
           "properties": {
@@ -306,7 +306,7 @@
         "srs-writer.templates.ifrAndDarWriter": {
           "type": "object",
           "default": {
-            "IFR_AND_DAR_WRITER_TEMPLATE": ".templates/ifr_and_dar_writer/ifr_and_dar_writer-template.md"
+            "IFR_AND_DAR_WRITER_TEMPLATE": ".templates/IFR_and_DAR/ifr_and_dar_template.md"
           },
           "description": "Interface and Data Requirement Writer的模板文件路径配置",
           "properties": {
@@ -319,7 +319,7 @@
         "srs-writer.templates.nfrWriter": {
           "type": "object",
           "default": {
-            "NFR_WRITER_TEMPLATE": ".templates/nfr_writer/nfr_writer-template.md"
+            "NFR_WRITER_TEMPLATE": ".templates/NFR/nfr_template.md"
           },
           "description": "Non-Functional Requirement Writer的模板文件路径配置",
           "properties": {
@@ -332,7 +332,7 @@
         "srs-writer.templates.overallDescriptionWriter": {
           "type": "object",
           "default": {
-            "OVERALL_DESCRIPTION_WRITER_TEMPLATE": ".templates/overall_description_writer/overall_description_writer-template.md"
+            "OVERALL_DESCRIPTION_WRITER_TEMPLATE": ".templates/overall_description/overall_description_template.md"
           },
           "description": "Overall Description Writer的模板文件路径配置",
           "properties": {
@@ -345,7 +345,7 @@
         "srs-writer.templates.prototypeDesigner": {
           "type": "object",
           "default": {
-            "PROTOTYPE_DESIGNER_TEMPLATE": ".templates/prototype_designer/prototype_designer-template.md"
+            "PROTOTYPE_DESIGNER_TEMPLATE": ".templates/prototype_designer/prototype_designer_template.md"
           },
           "description": "Prototype Designer的模板文件路径配置",
           "properties": {
@@ -358,7 +358,7 @@
         "srs-writer.templates.storyAndCaseWriter": {
           "type": "object",
           "default": {
-            "STORY_AND_CASE_WRITER_TEMPLATE": ".templates/story_and_case_writer/story_and_case_writer-template.md"
+            "STORY_AND_CASE_WRITER_TEMPLATE": ".templates/user_story_and_cae/story_and_case_template.md"
           },
           "description": "Story and Case Writer的模板文件路径配置",
           "properties": {
@@ -371,7 +371,7 @@
         "srs-writer.templates.summaryWriter": {
           "type": "object",
           "default": {
-            "SUMMARY_WRITER_TEMPLATE": ".templates/summary_writer/summary_writer-template.md"
+            "SUMMARY_WRITER_TEMPLATE": ".templates/summary/summary_template.md"
           },
           "description": "Summary Writer的模板文件路径配置",
           "properties": {
@@ -384,7 +384,7 @@
         "srs-writer.templates.userJourneyWriter": {
           "type": "object",
           "default": {
-            "USER_JOURNEY_WRITER_TEMPLATE": ".templates/user_journey_writer/user_journey_writer-template.md"
+            "USER_JOURNEY_WRITER_TEMPLATE": ".templates/user_journey/user_journey_template.md"
           },
           "description": "User Journey Writer的模板文件路径配置",
           "properties": {

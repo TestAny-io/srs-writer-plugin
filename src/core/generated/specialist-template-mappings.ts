@@ -3,7 +3,7 @@
  * 
  * ⚠️ 警告: 此文件由构建脚本自动生成，请勿手动编辑！
  * 
- * 生成时间: 2025-08-03T09:51:15.948Z
+ * 生成时间: 2025-08-03T10:42:32.344Z
  * 生成脚本: scripts/build-specialist-configs.ts
  * 
  * 用途: 为enabled的content specialist提供VSCode配置键名映射
