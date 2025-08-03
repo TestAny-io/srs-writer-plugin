@@ -3,15 +3,15 @@
 <div align="center">
 
 ![SRS Writer Logo](https://img.shields.io/badge/SRS-Writer-blue?style=for-the-badge&logo=visual-studio-code)
-[![Version](https://img.shields.io/github/package-json/v/srs-writer-team/srs-writer-plugin?style=for-the-badge&label=Version)](https://github.com/srs-writer-team/srs-writer-plugin)
+[![Version](https://img.shields.io/github/package-json/v/Testany-io/srs-writer-plugin?style=for-the-badge&label=Version)](https://github.com/Testany-io/srs-writer-plugin)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![VSCode](https://img.shields.io/badge/VSCode-1.85+-blue?style=for-the-badge&logo=visual-studio-code)](https://code.visualstudio.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![DeepWiki](https://img.shields.io/badge/DeepWiki-TestAny--io%2Fsrs--writer--plugin-blue.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==)](https://deepwiki.com/TestAny-io/srs-writer-plugin)
 
-**Advanced Multi-Agent AI System for Professional Requirements Engineering**
+**AI-Powered Requirements Engineering for VSCode**
 
-[Quick Start](#-quick-start) • [Features](#-features) • [Architecture](#-architecture) • [Multi-Agent System](#-multi-agent-system) • [Documentation](#-documentation)
+[Quick Start](#-quick-start) • [Features](#-features) • [Architecture](#-architecture) • [Installation](#-installation) • [Documentation](#-documentation)
 
 </div>
 
@@ -19,135 +19,140 @@
 
 ## 🎯 Overview
 
-SRS Writer is a production-ready VSCode extension that leverages advanced multi-agent AI architecture to transform natural language conversations into comprehensive, professional-grade Software Requirements Specification (SRS) documents. Built with sophisticated agent orchestration and intelligent specialist coordination, it represents a breakthrough in automated requirements engineering.
+SRS Writer is an intelligent VSCode extension that transforms natural language conversations into professional Software Requirements Specification (SRS) documents. Using a sophisticated multi-specialist system, it automatically generates structured, standardized requirement documents from user descriptions.
 
-**Revolutionary Multi-Agent Architecture:**
+**Core Capabilities:**
 
-- **Intelligent Orchestrator** - Master coordinator with 400+ decision rules
-- **Specialist Agent System** - 9 specialized content and process experts
-- **Plan Execution Engine** - Complex multi-step task coordination
-- **Context-Aware Coordination** - Seamless agent-to-agent communication
-- **Iterative Refinement** - Self-improving agent loops with quality validation
+- **Conversational Interface** - Create requirements through natural VSCode Chat interactions with @srs-writer
+- **Specialist System** - 13 specialized content and process agents for different document sections
+- **Project Management** - Workspace isolation with multi-project support and template system
+- **Intelligent Editing** - Semantic content editing with real-time synchronization
+- **Session Persistence** - Maintains project context and state across conversations
 
-**Enterprise-Grade Capabilities:**
+**Key Features:**
 
-- **Complete SRS Generation** - IEEE-standard compliant documentation
-- **Multi-Project Management** - Isolated agent contexts per project
-- **Professional Tool Ecosystem** - 33+ specialized tools across 4 layers
-- **Persistent Session Management** - Stateful multi-agent coordination
+- **Complete SRS Generation** - Functional requirements, non-functional requirements, user journeys, and more
+- **Workspace Management** - Automatic project structure creation with professional templates
+- **Multi-Format Support** - Markdown documents with synchronized YAML data structures
+- **Template System** - Built-in professional templates ensuring document standardization
 
 ## ✨ Key Features
 
-### 🤖 Advanced Multi-Agent Orchestration
+### 🤖 Intelligent Specialist System
 
-**Intelligent Agent Coordination**: Master orchestrator automatically analyzes user intent and creates detailed execution plans, coordinating multiple specialist agents in complex workflows. Each agent maintains full context awareness and can iteratively refine their work.
+**Conversational Requirements Engineering**: Simply chat with @srs-writer in VSCode to describe your project, and watch as specialized agents automatically generate comprehensive SRS documents.
 
-**Specialist Agent System**:
+**Content Specialists**:
 
-- **Content Specialists**: `project_initializer`, `overall_description_writer`, `fr_writer`, `nfr_writer`, `user_journey_writer`, `summary_writer`, `prototype_designer`
-- **Process Specialists**: `requirement_syncer`, `document_formatter`, `git_operator`
+- **ADC Writer** - Architecture Decision Capture
+- **FR Writer** - Functional Requirements
+- **NFR Writer** - Non-Functional Requirements
+- **Overall Description Writer** - System Overview and Context
+- **User Journey Writer** - User Experience Mapping
+- **Summary Writer** - Executive Summaries
+- **Story & Case Writer** - User Stories and Use Cases
+- **IFR & DAR Writer** - Interface Requirements and Design Analysis
+- **Prototype Designer** - System Design and Prototyping
 
-**Plan Execution Engine**: Sophisticated multi-step task coordination with dependency management, allowing agents to work in sequence while maintaining complete context sharing and state consistency.
+**Process Specialists**:
 
-**Context-Aware Processing**: Each agent receives complete project context, execution history, and inter-agent communication logs, enabling intelligent decision-making and consistent output across the entire workflow.
+- **Project Initializer** - Workspace and Project Setup
+- **Document Formatter** - Professional Document Formatting
+- **Requirement Syncer** - Data Synchronization
+- **Git Operator** - Version Control Integration
 
 ### 📋 Professional Document Generation
 
-**IEEE-Compliant SRS Documents**: Multi-agent collaboration produces comprehensive requirements specifications with structured sections including:
+**Comprehensive SRS Documents**: Generate structured requirements specifications with:
 
-- Executive summaries and project overviews (Summary Writer Agent)
-- System context and use-case modeling (Overall Description Writer Agent)
-- Detailed functional requirements with traceability (FR Writer Agent)
-- Non-functional requirements with measurable criteria (NFR Writer Agent)
-- User journeys and acceptance criteria (User Journey Writer Agent)
-- Professional formatting and consistency (Document Formatter Agent)
+- **Executive Summary** - Project overviews and key insights
+- **System Context** - Overall system description and environment  
+- **Functional Requirements** - Detailed feature specifications with traceability
+- **Non-Functional Requirements** - Performance, security, and quality criteria
+- **User Journeys** - User experience flows and interaction scenarios
+- **Use Cases & User Stories** - Structured requirement scenarios
+- **Architecture Decisions** - Design rationale and technical choices
 
-**Multi-Format Support**:
+**Multi-Format Output**:
 
-- **Markdown SRS**: Human-readable, version-control friendly
-- **YAML Requirements**: Machine-readable, structured data with auto-synchronization
-- **Tabular Requirements**: Organized functional and non-functional requirements
-- **Professional Templates**: Industry-standard formats with customizable sections
+- **Markdown Documents** - Human-readable, version-control friendly
+- **YAML Data** - Machine-readable, structured requirement data
+- **Professional Templates** - Industry-standard formatting
 
-### 🏗️ Robust Multi-Agent Project Management
+### 🏗️ Project Management Features
 
-**Automatic Project Initialization**: Project Initializer Agent creates comprehensive project structures with proper file organization, session context establishment, and workspace isolation.
+**Workspace Setup**: Automatic project structure creation with professional templates and organized file layouts.
 
-**Agent State Persistence**: Multi-agent system maintains coordinated state across VSCode sessions with automatic restoration of agent contexts, execution history, and inter-agent communication logs.
+**Session Persistence**: Maintains project context and conversation history across VSCode sessions.
 
-**Multi-Project Coordination**: Handle multiple projects simultaneously with isolated agent contexts, preventing cross-project contamination and maintaining clean separation of concerns.
+**Multi-Project Support**: Handle multiple projects with isolated contexts and clean separation.
 
-**Agent Loop Management**: Sophisticated iteration control allowing agents to refine their work through multiple cycles while preventing infinite loops and ensuring convergence.
+### 🛠️ Tool Architecture
 
-### 🛠️ Four-Layer Multi-Agent Tool Architecture
-
-**Production-grade tool ecosystem designed for agent coordination:**
+**Professional tool ecosystem for intelligent document generation:**
 
 ```text
-📊 Total: 33 Specialized Tools for Agent Coordination
+📊 Tool Categories Overview
 
-🟡 Atomic Layer (19 tools) - 57.6%
-├── File Operations: readFile, writeFile, appendTextToFile, createDirectory
-├── Editor Integration: openAndShowFile, semantic editing tools
-├── User Interaction: askQuestion, suggestNextAction, confirmAction
-├── Knowledge Access: readLocalKnowledge, internetSearch, customRAGRetrieval
-└── Smart Editing: unified edit execution, semantic locators
+🟡 Atomic Layer - Core Operations
+├── File Operations: readFile, writeFile, createFile, appendTextToFile
+├── Directory Management: createDirectory, listAllFiles
+├── Editor Integration: openAndShowFile, executeMarkdownEdits, executeYAMLEdits
+├── User Interaction: askQuestion, confirmAction, suggestNextAction
+└── Smart Editing: semantic locators, unified edit execution
 
-🔴 Document Layer (6 tools) - 18.2%
-├── Import/Export: importFromMarkdown, parseMarkdownTable
-├── Document Processing: enhanced file reading, requirement management
-├── Content Generation: structured document creation
-└── Semantic Editing: intelligent content modification
+🔴 Document Layer - Document Processing  
+├── Requirements: requirement scaffolding, YAML synchronization
+├── Document Generation: structured content creation
+├── Markdown Conversion: markitdown integration for file imports
+├── Template System: professional SRS templates
+└── Traceability: requirement completion and linking
 
-🟣 Internal Layer (4 tools) - 12.1%
-├── Agent Control: taskComplete, finalAnswer, reportProgress
-├── Project Management: createNewProjectFolder, session management
-├── Knowledge Retrieval: customRAGRetrieval, context management
-└── System Coordination: agent handoff, state synchronization
-
-🟠 Specialist Layer (4 tools) - 12.1%
-├── Agent Coordination: specialist handoff protocols
-├── Context Management: inter-agent communication
-├── Quality Assurance: agent output validation
-└── Workflow Control: execution plan management
+🟣 Internal Layer - System Control
+├── Session Management: project state, context persistence  
+├── Project Setup: createNewProjectFolder, workspace initialization
+├── Task Completion: finalAnswer, taskComplete
+└── System Tools: recordThought, status reporting
 ```
 
-### Advanced Multi-Agent Features
+### ⚡ Additional Features
 
-**Intelligent Agent Handoff**: Seamless transfer of control between specialist agents with complete context preservation and state synchronization.
+**Smart Context Management**: Maintains project state and specialist context across conversation sessions.
 
-**Agent Loop Support**: Sophisticated iteration management allowing agents to refine their work through multiple cycles with automatic convergence detection.
+**Quality Assurance**: Built-in validation and consistency checks for generated content.
 
-**Context Sharing**: Advanced context management ensuring all agents have access to relevant project state, execution history, and inter-agent communications.
+**Template Integration**: Professional SRS templates with customizable sections and formatting.
 
-**Quality Validation**: Built-in quality assurance with agent-specific validation rules and automatic refinement loops.
+**VSCode Integration**: Seamless integration with VSCode's chat interface and file management.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - **VSCode 1.85.0+** with chat feature enabled
-- **Node.js 18+** for development
 - **AI Provider**: GitHub Copilot, Claude, or compatible language model
 
-### Installation & Setup
+### Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/srs-writer-team/srs-writer-plugin.git
-cd srs-writer-plugin
+1. **From VSCode Marketplace** (Recommended):
+   - Open VSCode Extensions panel (`Ctrl+Shift+X`)
+   - Search for "SRS Writer"
+   - Click Install
 
-# Install dependencies
-npm install
+2. **Manual Installation**:
+   - Download the latest `.vsix` file from [Releases](https://github.com/Testany-io/srs-writer-plugin/releases)
+   - Run `code --install-extension srs-writer-plugin-x.x.x.vsix`
 
-# Build the extension
-npm run compile
+### First-Time Setup
 
-# Package the extension (optional)
-npm run package
-```
+After installation, set up your workspace:
+1. Open Command Palette (`Ctrl+Shift+P`)
+2. Run "SRS Writer: Show Status"
+3. Select "Create Workspace and Initialize" 
+4. Choose a parent directory and workspace name
+5. SRS Writer will create the workspace with templates
 
-### Creating Your First Multi-Agent SRS Document
+### Creating Your First SRS Document
 
 1. **Open VSCode Chat Panel** (`Ctrl+Shift+I` or `Cmd+Shift+I`)
 2. **Start a conversation with @srs-writer**:
@@ -156,39 +161,45 @@ npm run package
    @srs-writer I want to create requirements for a task management webapp that helps development teams track sprints and assignments
    ```
 
-3. **Watch the Multi-Agent Orchestration**:
-   - Orchestrator analyzes intent and creates execution plan
-   - Project Initializer Agent creates project structure
-   - Overall Description Writer Agent creates system context
-   - FR Writer Agent generates functional requirements
-   - NFR Writer Agent adds non-functional requirements
-   - Document Formatter Agent ensures professional presentation
+3. **Available Chat Commands**:
 
-### Advanced Multi-Agent Workflows
+   - `@srs-writer create` - Create a new SRS document
+   - `@srs-writer edit` - Edit existing SRS document  
+   - `@srs-writer lint` - Check document quality
+   - `@srs-writer help` - Show help information
+   - `@srs-writer new` - Start a fresh conversation session
 
-**Complex Project Creation with Agent Coordination**:
+### Usage Examples
 
-```text
-@srs-writer Create a comprehensive healthcare management system with patient records, appointment scheduling, billing integration, and mobile app support
-```
-
-**Iterative Requirement Enhancement**:
+**Create a New Project**:
 
 ```text
-@srs-writer Add real-time collaboration features and audit trail capabilities to my existing project
+@srs-writer create a mobile e-commerce app with user authentication, product catalog, shopping cart, and payment processing
 ```
 
-**Multi-Agent Quality Assurance**:
+**Edit Existing Requirements**:
 
 ```text
-@srs-writer Review my requirements document for completeness and compliance, then suggest improvements
+@srs-writer edit the user authentication section to add two-factor authentication and social login options
 ```
 
-## 🏗️ Multi-Agent System Architecture
+**Quality Check**:
 
-### System Overview
+```text
+@srs-writer lint my current requirements document and suggest improvements
+```
 
-SRS Writer employs a sophisticated multi-agent architecture with intelligent orchestration and specialist coordination:
+**Add New Features**:
+
+```text
+@srs-writer I need to add real-time notifications and offline mode capabilities to my existing project
+```
+
+## 🏗️ System Architecture
+
+### Overview
+
+SRS Writer uses a specialist-based architecture where different agents handle specific aspects of SRS document generation:
 
 ```mermaid
 flowchart TB
@@ -262,15 +273,15 @@ flowchart TB
     style SESSION fill:#92400e,stroke:#d97706,stroke-width:2px,color:#ffffff
 ```
 
-### Core Multi-Agent Components
+### Core Components
 
-| Component | Purpose | Agent Coordination Capabilities |
-|-----------|---------|--------------------------------|
-| **Master Orchestrator** | Central AI coordinator and decision engine | Intent analysis, agent selection, execution planning |
-| **Plan Executor** | Multi-agent workflow coordination | Sequential agent execution, dependency management, state synchronization |
-| **Specialist Agents** | Domain-specific expert systems | Content generation, process automation, quality validation |
-| **Context Manager** | Inter-agent communication | State sharing, history tracking, context propagation |
-| **Loop Detector** | Agent iteration control | Convergence detection, infinite loop prevention, quality assurance |
+| Component | Purpose | Capabilities |
+|-----------|---------|--------------|
+| **Chat Participant** | VSCode chat integration | Natural language processing, command handling |
+| **Orchestrator** | Task coordination | Intent analysis, specialist selection, workflow management |
+| **Specialists** | Content generation | Domain-specific document creation (FR, NFR, etc.) |
+| **Session Manager** | State management | Project context, session persistence |
+| **Tool Executor** | Action execution | File operations, editing, validation |
 
 ### Agent Execution Flow
 
@@ -307,262 +318,155 @@ sequenceDiagram
     PlanExecutor->>User: Complete SRS delivered
 ```
 
-## 📊 Technical Specifications
+## 📊 Technical Information
 
-### Multi-Agent Performance Characteristics
+### System Requirements
 
-- **Agent Coordination Overhead**: <500ms per agent handoff
-- **Plan Execution Time**: 2-5 minutes for comprehensive SRS
-- **Agent Memory Footprint**: <50MB per active agent
-- **Context Sharing Latency**: <100ms between agents
-- **Quality Validation Time**: <30 seconds per agent output
+- **VSCode**: Version 1.85.0 or higher
+- **AI Provider**: GitHub Copilot, Claude, or compatible language model
+- **Platform**: Cross-platform (Windows, macOS, Linux)
 
-### Agent Reliability Features
+### Performance
 
-- **Automatic Agent Recovery**: Intelligent rollback and retry for failed agents
-- **State Synchronization**: Distributed state management across agent network
-- **Context Validation**: Automatic detection and correction of agent inconsistencies
-- **Graceful Agent Degradation**: Fallback modes for individual agent failures
+- **Document Generation**: Typically 10-15 minutes for a comprehensive SRS
+- **Session Persistence**: Project state maintained across VSCode restarts
+- **Template System**: Pre-built templates for consistent formatting
 
-### Agent Compatibility
+### Compatibility
 
-- **VSCode Integration**: Full chat participant protocol support
-- **AI Model Support**: Compatible with all major language models
-- **Concurrent Agents**: Up to 10 agents per workflow
-- **Agent Persistence**: Stateful agent coordination across sessions
+- **VSCode Chat**: Full integration with VSCode's native chat interface
+- **File Formats**: Markdown (.md) and YAML (.yml) output
+- **Multi-Project**: Support for multiple concurrent projects
 
 ## 📁 Project Structure
 
 ```text
 srs-writer-plugin/
-├── 📦 src/                          # Multi-Agent TypeScript Implementation
-│   ├── 🧠 core/                     # Agent Orchestration & Coordination
-│   │   ├── orchestrator.ts          # Master Orchestrator (400+ rules)
-│   │   ├── specialistExecutor.ts    # Specialist Agent Coordinator
-│   │   ├── srsAgentEngine.ts        # Agent Execution Engine
-│   │   ├── session-manager.ts       # Multi-Agent State Management
-│   │   ├── engine/                  # Agent Engine Components (7 modules)
-│   │   │   ├── AgentState.ts        # Agent state management
-│   │   │   ├── ContextManager.ts    # Inter-agent context sharing
-│   │   │   ├── LoopDetector.ts      # Agent iteration control
-│   │   │   └── UserInteractionHandler.ts # Agent-user communication
-│   │   ├── orchestrator/            # Orchestration Sub-Systems (8 modules)
-│   │   │   ├── PlanExecutor.ts      # Multi-agent plan coordination
-│   │   │   ├── PlanGenerator.ts     # Agent workflow planning
-│   │   │   ├── ConversationalExecutor.ts # Conversational agent management
-│   │   │   └── PromptManager.ts     # Agent prompt orchestration
-│   │   ├── prompts/                 # Agent Communication Protocols
-│   │   │   └── PromptAssemblyEngine.ts # Agent prompt coordination
-│   │   └── quality/                 # Agent Quality Assurance
-│   │       └── SpecialistQualityMonitor.ts # Agent output validation
-│   ├── 🛠️ tools/                    # Multi-Agent Tool Ecosystem
-│   │   ├── atomic/                  # Basic agent operations (19 tools)
-│   │   ├── document/                # Document processing agents (6 tools)
-│   │   ├── internal/                # Agent control systems (4 tools)
-│   │   └── specialist/              # Agent coordination tools (4 tools)
-│   ├── 💬 chat/                     # VSCode Chat Agent Integration
-│   │   └── srs-chat-participant.ts # Chat protocol implementation
-│   ├── 🎨 types/                    # Multi-Agent Type Definitions
-│   │   ├── index.ts                 # Core agent interfaces
-│   │   ├── semanticEditing.ts       # Agent editing protocols
-│   │   └── taskCompletion.ts        # Agent task completion
-│   └── 🔧 utils/                    # Agent Utilities
-│       ├── logger.ts                # Agent execution logging
-│       └── error-handler.ts         # Agent error management
-├── 📋 rules/                        # Agent Behavior Rules & Protocols
-│   ├── orchestrator.md              # Master orchestration logic (400+ lines)
-│   ├── base/                        # Common agent behaviors
-│   │   ├── content-specialist-workflow.md # Content agent protocols
-│   │   ├── common-role-definition.md # Agent role definitions
-│   │   └── output-format-schema.md  # Agent output standards
-│   └── specialists/                 # Agent-Specific Rules (9 specialist types)
-│       ├── content/                 # Content generation agents
-│       │   ├── fr_writer.md         # Functional requirements specialist
-│       │   ├── nfr_writer.md        # Non-functional requirements specialist
-│       │   ├── overall_description_writer.md # System overview specialist
-│       │   ├── user_journey_writer.md # User experience specialist
-│       │   └── summary_writer.md    # Executive summary specialist
-│       └── process/                 # Process automation agents
-│           ├── document_formatter.md # Document formatting specialist
-│           ├── project_initializer.md # Project setup specialist
-│           └── requirement_syncer.md # Requirement synchronization specialist
-├── 🧪 src/test/                     # Multi-Agent Testing Framework
-│   ├── integration/                 # Agent workflow testing
-│   │   ├── specialists/             # Individual agent testing
-│   │   └── doubleFinishing/         # Agent coordination testing
-│   ├── unit/                        # Agent component testing
-│   └── fixtures/                    # Agent test scenarios
-├── ⚙️ config/                       # Agent Configuration
-├── 📚 docs/                         # Agent Documentation
-├── 📄 templates/                    # Agent Output Templates
-└── 🔧 scripts/                      # Agent Development Tools
+├── 📦 src/                          # TypeScript source code
+│   ├── 🧠 core/                     # Core system components
+│   │   ├── orchestrator.ts          # Task coordination
+│   │   ├── specialistExecutor.ts    # Specialist management
+│   │   ├── session-manager.ts       # Project state management
+│   │   └── srsAgentEngine.ts        # Execution engine
+│   ├── 🛠️ tools/                    # Tool implementations
+│   │   ├── atomic/                  # Basic operations (file I/O, editing)
+│   │   ├── document/                # Document processing tools
+│   │   └── internal/                # System control tools
+│   ├── 💬 chat/                     # VSCode chat integration
+│   │   └── srs-chat-participant.ts # Chat participant implementation
+│   ├── 🎨 types/                    # TypeScript type definitions
+│   └── 🔧 utils/                    # Utility functions
+├── 📋 rules/                        # Specialist behavior rules
+│   ├── orchestrator.md              # Orchestrator behavior
+│   ├── base/                        # Common specialist behaviors
+│   └── specialists/                 # Specialist-specific rules
+│       ├── content/                 # Content generation specialists
+│       └── process/                 # Process automation specialists
+├── 📄 .templates/                   # Professional SRS templates
+│   ├── ADC/                         # Architecture Decision Capture
+│   ├── functional_requirements/     # FR templates
+│   ├── NFR/                         # Non-functional requirements
+│   └── ...                          # Other specialist templates
+├── 🧪 src/test/                     # Test suite
+├── ⚙️ config/                       # Configuration files
+└── 📚 docs/                         # Documentation
 ```
 
-## 💡 Multi-Agent Usage Examples
+## 💡 Usage Examples
 
-### Complex Multi-Agent SRS Creation
+### Complex SRS Creation
 
 **Input**:
-
 ```text
 @srs-writer Create a comprehensive requirements document for a university course management system with student enrollment, grade tracking, course scheduling, instructor management, and mobile app integration.
 ```
 
-**Multi-Agent Execution Flow**:
+**What happens**:
+1. **Project Setup**: Creates workspace structure and initializes templates
+2. **Content Generation**: Multiple specialists generate different document sections
+3. **Quality Assurance**: Reviews and validates generated content
+4. **Final Output**: Professional SRS document with structured requirements
 
-1. **Master Orchestrator**: Analyzes intent, creates 8-step execution plan
-2. **Project Initializer Agent**: Creates project structure and base files
-3. **Overall Description Writer Agent**: Generates system context and use cases
-4. **User Journey Writer Agent**: Creates student and instructor user journeys
-5. **FR Writer Agent**: Develops detailed functional requirements
-6. **NFR Writer Agent**: Adds performance, security, and scalability requirements
-7. **Requirement Syncer Agent**: Synchronizes requirements to YAML format
-8. **Document Formatter Agent**: Produces professional final document
+### Enhancing Existing Projects
 
-### Multi-Agent Project Enhancement
-
-**Scenario**: Adding features to existing project with agent coordination
-
+**Adding new features**:
 ```text
 @srs-writer Add real-time chat, video conferencing, and mobile notifications to my existing e-learning platform project
 ```
 
-**Agent Coordination**:
-
-- **Context Manager**: Loads existing project state and requirements
-- **FR Writer Agent**: Analyzes existing requirements and adds new features
-- **NFR Writer Agent**: Updates performance and integration requirements
-- **Requirement Syncer Agent**: Maintains requirement traceability
-- **Document Formatter Agent**: Updates document with new sections
-
-### Multi-Agent Quality Assurance
-
+**Document review**:
 ```text
 @srs-writer Review my requirements document for completeness, consistency, and industry best practices
 ```
 
-**Quality Assurance Agents**:
+## 🧪 Testing & Quality
 
-- **Specialist Quality Monitor**: Validates agent output quality
-- **Loop Detector**: Ensures agent convergence and prevents infinite loops
-- **Context Manager**: Validates inter-agent communication consistency
-- **Document Formatter**: Ensures professional presentation standards
+- **Unit Tests**: Individual component functionality
+- **Integration Tests**: End-to-end workflow testing  
+- **Template Validation**: Ensures template integrity
+- **Content Quality**: Validates generated document structure
+- **Error Handling**: Graceful error recovery and user feedback
 
-## 🧪 Quality Assurance
+## 🚀 Development
 
-### Multi-Agent Testing Strategy
-
-- **Agent Unit Tests**: Individual agent functionality and decision logic
-- **Agent Integration Tests**: Inter-agent communication and coordination
-- **Agent Workflow Tests**: End-to-end multi-agent execution scenarios
-- **Agent Performance Tests**: Response time, memory usage, and scalability
-- **Agent Reliability Tests**: Failure recovery and state synchronization
-
-### Agent Quality Standards
-
-- **Agent Output Validation**: Automatic quality checks for each agent
-- **Inter-Agent Consistency**: Validation of shared context and state
-- **Agent Loop Prevention**: Detection and prevention of infinite agent loops
-- **Agent Error Recovery**: Graceful handling of individual agent failures
-- **Agent State Persistence**: Reliable state management across sessions
-
-## 🚀 Development & Contributing
-
-### Multi-Agent Development Environment
+### Development Environment
 
 ```bash
-# Setup multi-agent development environment
-git clone https://github.com/srs-writer-team/srs-writer-plugin.git
+# Setup development environment
+git clone https://github.com/Testany-io/srs-writer-plugin.git
 cd srs-writer-plugin
 npm install
 
-# Multi-agent development workflow
-npm run compile          # TypeScript compilation
-npm run watch           # Development with agent hot-reload
-npm run test            # Run all agent test suites
-npm run test:agents     # Specific agent functionality tests
-npm run package         # Create distributable VSIX
+# Development workflow
+npm run build           # Build the extension
+npm run watch          # Development with hot-reload
+npm run test           # Run test suite
+npm run package        # Create VSIX package
 
-# Multi-agent quality assurance
-npm run lint            # Agent code validation
-npm run test:coverage   # Agent test coverage analysis
-npm run test:integration # Agent workflow testing
+# Quality assurance
+npm run lint           # Code validation
+npm run test:coverage  # Test coverage analysis
+npm run test:integration # Integration testing
 ```
 
-### Multi-Agent Architecture Guidelines
+### Contributing Guidelines
 
-1. **Agent Separation of Concerns**: Each agent has a single, well-defined responsibility
-2. **Context Sharing Protocol**: Standardized inter-agent communication patterns
-3. **Agent State Management**: Proper state isolation and synchronization
-4. **Quality Validation**: Built-in validation for agent outputs
-5. **Error Recovery**: Graceful handling of agent failures and retries
+1. **Code Quality**: Follow TypeScript best practices and linting rules
+2. **Testing**: Include tests for new features and bug fixes
+3. **Documentation**: Update documentation for new functionality
+4. **Template Updates**: Ensure template changes maintain compatibility
 
-### Agent Development Best Practices
+## 📚 Documentation
 
-- **Agent Interface Design**: Clear input/output specifications for each agent
-- **Context Propagation**: Proper handling of shared state and execution history
-- **Agent Testing**: Comprehensive test coverage for agent decision logic
-- **Performance Optimization**: Efficient agent coordination and resource usage
-- **Documentation**: Clear documentation of agent capabilities and limitations
+### Getting Help
 
-## 📚 Documentation & Resources
+- **Chat Commands**: Use `@srs-writer help` in VSCode Chat for assistance
+- **Status Check**: Run "SRS Writer: Show Status" from Command Palette
+- **Templates**: Explore `.templates/` folder for available document templates
 
-### Multi-Agent System Guides
+### Resources
 
-- **[Multi-Agent Quick Start](docs/multi-agent-quick-start.md)** - Agent system overview
-- **[Agent Orchestration Guide](docs/agent-orchestration.md)** - Master orchestrator usage
-- **[Specialist Agent Reference](docs/specialist-agents.md)** - Individual agent documentation
-- **[Agent Coordination Patterns](docs/agent-coordination.md)** - Best practices for agent workflows
+- **GitHub Repository**: [Source code and issues](https://github.com/Testany-io/srs-writer-plugin)
+- **VSCode Marketplace**: [Extension page and reviews](https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin)
+- **Documentation**: See `docs/` folder for detailed guides
 
-### Technical Documentation
+## 🎯 Roadmap
 
-- **[Multi-Agent Architecture](docs/multi-agent-architecture.md)** - System design principles
-- **[Agent Development Guide](docs/agent-development.md)** - Creating custom agents
-- **[Agent Testing Framework](docs/agent-testing.md)** - Quality assurance methodology
-- **[Agent Performance Tuning](docs/agent-performance.md)** - Optimization guidelines
+### Current Features
 
-### Configuration & Setup
+- ✅ **13 Specialized Specialists**: Complete coverage of SRS document sections
+- ✅ **Template System**: Professional templates for consistent output
+- ✅ **VSCode Integration**: Native chat interface and workspace management
+- ✅ **Session Persistence**: Project state maintained across sessions
+- ✅ **Multi-Project Support**: Handle multiple projects simultaneously
 
-- **[Agent Configuration](docs/agent-configuration.md)** - Agent behavior customization
-- **[Multi-Agent Security](docs/multi-agent-security.md)** - Agent access control
-- **[Agent Monitoring](docs/agent-monitoring.md)** - Production monitoring and debugging
+### Planned Improvements
 
-## 🎯 Roadmap & Future Vision
-
-### Current Multi-Agent Capabilities
-
-- ✅ **Production Multi-Agent System**: 9 specialized agents with intelligent coordination
-- ✅ **Advanced Agent Orchestration**: Master orchestrator with 400+ decision rules
-- ✅ **Agent State Management**: Persistent, distributed state across agent network
-- ✅ **Quality Assurance Agents**: Built-in validation and refinement capabilities
-- ✅ **Agent Tool Ecosystem**: 33 specialized tools designed for agent coordination
-
-### Upcoming Multi-Agent Enhancements
-
-**Enhanced Agent Intelligence**
-
-- **Learning Agents**: Agents that improve through experience and feedback
-- **Collaborative Agents**: Real-time agent-to-agent negotiation and consensus
-- **Predictive Agents**: Anticipating user needs and proactive requirement suggestions
-
-**Advanced Agent Coordination**
-
-- **Parallel Agent Execution**: Safe concurrent agent operation with conflict resolution
-- **Agent Specialization**: Domain-specific agent variants for different industries
-- **Agent Composition**: Dynamic agent team formation based on task complexity
-
-**Enterprise Agent Features**
-
-- **Agent Governance**: Compliance and audit trail for agent decisions
-- **Agent Security**: Role-based access control and agent authentication
-- **Agent Scalability**: Distributed agent execution across multiple instances
-
-### Long-Term Multi-Agent Vision
-
-- **Autonomous Agent Teams**: Self-organizing agent groups for complex projects
-- **Cross-Organization Agents**: Agents that work across multiple companies and systems
-- **Agent Marketplace**: Community-driven agent development and sharing platform
-- **Agent Evolution**: Continuous improvement through machine learning and user feedback
+- **Enhanced Templates**: More industry-specific template options
+- **Better Integration**: Improved VSCode workspace features
+- **Quality Enhancements**: Advanced content validation and suggestions  
+- **User Experience**: Streamlined workflows and better feedback
+- **Documentation**: Expanded guides and examples
 
 ## 📄 License
 
@@ -585,6 +489,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 **Powered by Advanced Multi-Agent AI Architecture**
 
-[⭐ Star on GitHub](https://github.com/srs-writer-team/srs-writer-plugin) • [🐛 Report Bug](https://github.com/srs-writer-team/srs-writer-plugin/issues) • [💡 Request Feature](https://github.com/srs-writer-team/srs-writer-plugin/issues)
+[⭐ Star on GitHub](https://github.com/Testany-io/srs-writer-plugin) • [🐛 Report Bug](https://github.com/Testany-io/srs-writer-plugin/issues) • [💡 Request Feature](https://github.com/Testany-io/srs-writer-plugin/issues)
 
 </div>
