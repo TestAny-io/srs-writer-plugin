@@ -107,7 +107,7 @@ describe('模板配置生成测试 (方案3)', () => {
                     for (const [key, templatePath] of Object.entries(templateFiles)) {
                         const absolutePath = path.join(workspaceRoot, templatePath as string);
                         expect(fs.existsSync(absolutePath))
-                            .toBeTruthy(`模板文件不存在: ${templatePath} (for ${specialistConfig.id})`);
+                            .toBeTruthy();
                     }
                 }
             }

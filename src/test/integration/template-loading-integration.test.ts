@@ -174,7 +174,7 @@ describe('模板加载集成测试 (方案3)', () => {
         
         it('模拟验证context中的模板变量能被PromptAssemblyEngine正确使用', () => {
             // 模拟context with template variables
-            const mockContext = {
+            const mockContext: Record<string, string> = {
                 ADC_WRITER_TEMPLATE: '# ADC Template\\n\\nThis is the content.',
                 USER_JOURNEY_WRITER_TEMPLATE: '# User Journey Template\\n\\nJourney content.',
                 FR_WRITER_TEMPLATE: '# FR Template\\n\\nFunctional requirements.'
@@ -194,7 +194,7 @@ describe('模板加载集成测试 (方案3)', () => {
         });
         
         it('当模板变量为空时应该显示默认消息', () => {
-            const mockContext = {
+            const mockContext: Record<string, string> = {
                 ADC_WRITER_TEMPLATE: '',
                 USER_JOURNEY_WRITER_TEMPLATE: 'Valid content'
             };
