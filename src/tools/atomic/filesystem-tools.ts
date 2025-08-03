@@ -656,9 +656,9 @@ export async function deleteFile(args: { path: string }): Promise<{ success: boo
 /**
  * 重命名或移动文件
  */
-export const renameFileToolDefinition = {
-    name: "renameFile",
-    description: "Rename or move a file/directory",
+export const moveAndRenameFileToolDefinition = {
+    name: "moveAndRenameFile",
+    description: "Move and/or rename a file/directory to a new location",
     parameters: {
         type: "object",
         properties: {
@@ -684,7 +684,7 @@ export const renameFileToolDefinition = {
     ]
 };
 
-export async function renameFile(args: { oldPath: string; newPath: string }): Promise<{ success: boolean; error?: string }> {
+export async function moveAndRenameFile(args: { oldPath: string; newPath: string }): Promise<{ success: boolean; error?: string }> {
     try {
         const workspaceFolder = getCurrentWorkspaceFolder();
         if (!workspaceFolder) {
@@ -700,6 +700,85 @@ export async function renameFile(args: { oldPath: string; newPath: string }): Pr
         return { success: true };
     } catch (error) {
         const errorMsg = `Failed to rename ${args.oldPath} to ${args.newPath}: ${(error as Error).message}`;
+        logger.error(errorMsg);
+        return { success: false, error: errorMsg };
+    }
+}
+
+/**
+ * 复制文件并重命名到新位置
+ */
+export const copyAndRenameFileToolDefinition = {
+    name: "copyAndRenameFile",
+    description: "Copy a file/directory to a new location with optional renaming",
+    parameters: {
+        type: "object",
+        properties: {
+            sourcePath: {
+                type: "string",
+                description: "Source file path relative to workspace root"
+            },
+            targetPath: {
+                type: "string",
+                description: "Target file path relative to workspace root"
+            },
+            overwrite: {
+                type: "boolean",
+                description: "Whether to overwrite existing target file (default: false)",
+                default: false
+            }
+        },
+        required: ["sourcePath", "targetPath"]
+    },
+    // 🚀 智能分类属性 - 与moveAndRenameFile保持一致
+    interactionType: 'confirmation',
+    riskLevel: 'medium',
+    requiresConfirmation: true,
+    // 🚀 访问控制：与moveAndRenameFile保持完全一致
+    accessibleBy: [
+        CallerType.SPECIALIST,                    // 专家可能需要复制文件模板
+        CallerType.INTERNAL                       // 内部工具（如项目模板复制）
+    ]
+};
+
+export async function copyAndRenameFile(args: { 
+    sourcePath: string; 
+    targetPath: string; 
+    overwrite?: boolean 
+}): Promise<{ success: boolean; error?: string }> {
+    try {
+        const workspaceFolder = getCurrentWorkspaceFolder();
+        if (!workspaceFolder) {
+            return { success: false, error: 'No workspace folder is open' };
+        }
+
+        const sourceUri = vscode.Uri.joinPath(workspaceFolder.uri, args.sourcePath);
+        const targetUri = vscode.Uri.joinPath(workspaceFolder.uri, args.targetPath);
+        
+        // 检查源文件是否存在
+        try {
+            await vscode.workspace.fs.stat(sourceUri);
+        } catch {
+            return { success: false, error: `Source file does not exist: ${args.sourcePath}` };
+        }
+        
+        // 检查目标文件是否存在（如果不允许覆盖）
+        if (!args.overwrite) {
+            try {
+                await vscode.workspace.fs.stat(targetUri);
+                return { success: false, error: `Target file already exists: ${args.targetPath}. Use overwrite=true to replace.` };
+            } catch {
+                // 目标文件不存在，这是期待的情况
+            }
+        }
+        
+        // 执行复制
+        await vscode.workspace.fs.copy(sourceUri, targetUri, { overwrite: args.overwrite || false });
+        
+        logger.info(`✅ Copied: ${args.sourcePath} → ${args.targetPath}`);
+        return { success: true };
+    } catch (error) {
+        const errorMsg = `Failed to copy ${args.sourcePath} to ${args.targetPath}: ${(error as Error).message}`;
         logger.error(errorMsg);
         return { success: false, error: errorMsg };
     }
@@ -758,7 +837,8 @@ export const filesystemToolDefinitions = [
     listFilesToolDefinition,
     listAllFilesToolDefinition,
     deleteFileToolDefinition,
-    renameFileToolDefinition
+    moveAndRenameFileToolDefinition,
+    copyAndRenameFileToolDefinition
 ];
 
 export const filesystemToolImplementations = {
@@ -768,6 +848,7 @@ export const filesystemToolImplementations = {
     listFiles,
     listAllFiles,
     deleteFile,
-    renameFile,
+    moveAndRenameFile,
+    copyAndRenameFile,
     _internalReadFile
 }; 

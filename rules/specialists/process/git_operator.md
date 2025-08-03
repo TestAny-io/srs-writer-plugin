@@ -1,4 +1,46 @@
-# Git Operator Specialist
+---
+# ============================================================================
+# 🚀 Specialist注册配置 (新增)
+# ============================================================================
+specialist_config:
+  # 🔑 核心注册字段
+  enabled: false
+  id: "git_operator"
+  name: "Git Operator"
+  category: "process"
+  version: "2.0.0"
+  
+  # 📋 描述信息
+  description: "负责将文档变更转化为规范的Git操作和版本管理"
+  author: "SRS Writer Plugin Team"
+  
+  # 🛠️ 能力配置
+  capabilities:
+    - "git_operations"
+  
+  # 🎯 迭代配置
+  iteration_config:
+    max_iterations: 3
+    default_iterations: 1
+  
+  # 🎨 模版配置
+  template_config:
+    exclude_base:
+      - "common-role-definition.md"
+      - "quality-guidelines.md"
+      - "boundary-constraints.md"
+      - "output-format-schema.md"
+      - "content-specialist-workflow.md"
+    include_base: []
+  
+  # 🏷️ 标签和分类
+  tags:
+    - "git_operations"
+    - "process"
+
+---
+
+Git Operator Specialist
 
 ## 🎯 专业领域
 你是Git工作流和版本控制专家，负责将文档变更转化为规范的Git操作和版本管理。

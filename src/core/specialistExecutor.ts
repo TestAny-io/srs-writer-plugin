@@ -10,6 +10,9 @@ import { CallerType, SpecialistOutput, SpecialistProgressCallback } from '../typ
 import { SpecialistInteractionResult } from './engine/AgentState';
 import { PromptAssemblyEngine, SpecialistType, SpecialistContext } from './prompts/PromptAssemblyEngine';
 import { SpecialistIterationManager } from './config/SpecialistIterationManager';
+import { getSpecialistRegistry, SpecialistRegistry } from './specialistRegistry';
+import { SpecialistDefinition } from '../types/specialistRegistry';
+import { SPECIALIST_TEMPLATE_MAPPINGS, isTemplateConfigSupported, getTemplateConfigKey } from './generated/specialist-template-mappings';
 
 /**
  * 🚀 专家状态恢复接口
@@ -39,14 +42,36 @@ export class SpecialistExecutor {
     private toolCacheManager = new ToolCacheManager();
     private toolExecutor = new ToolExecutor();  // 🚀 新增：工具执行器，提供智能成功检测
     private promptAssemblyEngine: PromptAssemblyEngine;
+    private specialistRegistry: SpecialistRegistry; // 🚀 新增：动态specialist注册表
     
     constructor() {
-        this.logger.info('🚀 SpecialistExecutor v2.0 initialized - simplified single-task architecture');
+        this.logger.info('🚀 SpecialistExecutor v3.0 initialized - dynamic specialist registry architecture');
         
         // 🚀 修复：初始化PromptAssemblyEngine时使用插件安装目录的绝对路径
         const rulesPath = this.getPluginRulesPath();
         this.promptAssemblyEngine = new PromptAssemblyEngine(rulesPath);
         this.logger.info(`📁 PromptAssemblyEngine initialized with rules path: ${rulesPath}`);
+        
+        // 🚀 新增：初始化specialist注册表
+        this.specialistRegistry = getSpecialistRegistry();
+        this.logger.info('📋 SpecialistRegistry initialized');
+        
+        // 🚀 异步初始化specialist注册表（不阻塞构造函数）
+        this.initializeSpecialistRegistry();
+    }
+    
+    /**
+     * 🚀 新增：异步初始化specialist注册表
+     */
+    private async initializeSpecialistRegistry(): Promise<void> {
+        try {
+            this.logger.info('🔍 开始扫描specialist文件...');
+            const scanResult = await this.specialistRegistry.scanAndRegister();
+            this.logger.info(`✅ Specialist注册表初始化完成: 发现${scanResult.validSpecialists.length}个specialist`);
+        } catch (error) {
+            this.logger.error('❌ Specialist注册表初始化失败:', error as Error);
+            this.logger.warn('⚠️ 将回退到硬编码specialist映射');
+        }
     }
 
     /**
@@ -475,7 +500,11 @@ export class SpecialistExecutor {
 
             // 3. 构建SpecialistContext
             const specialistContext: SpecialistContext = {
-                userRequirements: context.userInput || context.currentStep?.description || '',
+                // 🚀 CRITICAL FIX: 优先使用当前步骤的具体描述，而不是用户的原始输入
+                // 这修复了specialist在多步骤计划中看到错误任务描述的critical bug
+                // 修复前: userInput优先 → 所有specialist都看到用户原始输入 ❌
+                // 修复后: currentStep.description优先 → 每个specialist看到具体分工 ✅
+                userRequirements: context.currentStep?.description || context.userInput || '',
                 language: context.currentStep?.language || 'en-US',  // 🚀 新增：language参数传递，默认为en-US
                 workflow_mode: context.currentStep?.workflow_mode,  // 🚀 新增：workflow_mode参数传递
                 structuredContext: {
@@ -1260,7 +1289,7 @@ SUGGESTED ACTIONS:
             'complexity_classification'
         ];
         
-        const fileOperationTools = ['writeFile', 'createFile', 'appendTextToFile', 'createDirectory', 'createNewProjectFolder', 'renameFile'];
+        const fileOperationTools = ['writeFile', 'createFile', 'appendTextToFile', 'createDirectory', 'createNewProjectFolder', 'moveAndRenameFile', 'copyAndRenameFile'];
         const usedFileTools = toolsUsed.some(tool => fileOperationTools.includes(tool));
         
         if (directExecutionSpecialists.includes(specialistId)) {
@@ -1283,18 +1312,46 @@ SUGGESTED ACTIONS:
     }
 
     /**
-     * 将specialistId映射为SpecialistType
+     * 🚀 重构：将specialistId映射为SpecialistType（使用动态注册表）
      */
     private mapSpecialistIdToType(specialistId: string): SpecialistType {
+        try {
+            // 🚀 优先使用动态注册表
+            const specialist = this.specialistRegistry.getSpecialist(specialistId);
+            if (specialist && specialist.config.enabled) {
+                this.logger.info(`✅ [mapSpecialistIdToType] 使用注册表映射: ${specialistId} -> ${specialist.config.category}`);
+                return {
+                    name: specialist.config.id,
+                    category: specialist.config.category
+                };
+            }
+            
+            // 🚀 如果注册表中没有找到，尝试legacy支持
+            this.logger.warn(`⚠️ [mapSpecialistIdToType] 注册表中未找到specialist: ${specialistId}，尝试硬编码映射...`);
+            
+        } catch (error) {
+            this.logger.error(`❌ [mapSpecialistIdToType] 查询注册表失败: ${(error as Error).message}`);
+        }
+        
+        // 🔄 向后兼容：硬编码映射作为fallback
+        return this.mapSpecialistIdToTypeLegacy(specialistId);
+    }
+    
+    /**
+     * 🔄 向后兼容：硬编码specialist映射（作为fallback）
+     */
+    private mapSpecialistIdToTypeLegacy(specialistId: string): SpecialistType {
+        this.logger.warn(`🔄 [mapSpecialistIdToTypeLegacy] 使用硬编码映射: ${specialistId}`);
+        
         // Content Specialists
         const contentSpecialists = [
-            'project_initializer',  // 🚀 新增
             'summary_writer', 'overall_description_writer', 'fr_writer', 
             'nfr_writer', 'user_journey_writer', 'journey_writer', 'prototype_designer'
         ];
         
         // Process Specialists  
         const processSpecialists = [
+            'project_initializer',  // 🚀 修复：移到正确的process分类
             'requirement_syncer', 'document_formatter', 'doc_formatter', 'git_operator'
         ];
         
@@ -1387,32 +1444,38 @@ SUGGESTED ACTIONS:
     }
 
     /**
-     * 🚀 获取specialist对应的模板文件映射（从VSCode配置读取）
+     * 🚀 获取specialist对应的模板文件映射（动态配置系统）
+     * 
+     * 重构说明：
+     * - 移除所有硬编码映射
+     * - 使用构建时生成的动态映射文件
+     * - 只支持enabled的content specialist
+     * - process specialist不需要模版配置
      */
     private getTemplateFileMap(specialistId: string): Record<string, string> {
         try {
-            const config = vscode.workspace.getConfiguration('srs-writer.templates');
-            
-            const configMap: Record<string, string> = {
-                'fr_writer': 'frWriter',
-                'nfr_writer': 'nfrWriter',
-                'summary_writer': 'summaryWriter',
-                'user_journey_writer': 'userJourneyWriter',
-                'overall_description_writer': 'overallDescWriter'
-            };
-            
-            const configKey = configMap[specialistId];
-            if (configKey) {
-                const templateConfig = config.get(configKey, {});
-                this.logger.info(`📋 加载${specialistId}的模板配置: ${JSON.stringify(templateConfig)}`);
-                return templateConfig as Record<string, string>;
+            // 🎯 检查specialist是否支持模版配置（只有enabled的content specialist）
+            if (!isTemplateConfigSupported(specialistId)) {
+                this.logger.info(`💡 specialist ${specialistId} 不支持模版配置（非content specialist或未启用）`);
+                return {};
             }
+
+            // 🚀 使用动态生成的配置键名
+            const configKey = getTemplateConfigKey(specialistId);
+            if (!configKey) {
+                this.logger.warn(`⚠️ 无法获取${specialistId}的配置键名`);
+                return {};
+            }
+
+            // 📋 从VSCode配置读取用户自定义的模版路径
+            const config = vscode.workspace.getConfiguration('srs-writer.templates');
+            const templateConfig = config.get(configKey, {});
             
-            this.logger.warn(`⚠️ 未找到${specialistId}的模板配置`);
-            return {};
+            this.logger.info(`📋 加载${specialistId}的模板配置 (key: ${configKey}): ${JSON.stringify(templateConfig)}`);
+            return templateConfig as Record<string, string>;
             
         } catch (error) {
-            this.logger.error('Failed to read template configuration', error as Error);
+            this.logger.error(`❌ 读取${specialistId}的模板配置失败`, error as Error);
             return {};
         }
     }

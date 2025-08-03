@@ -1,15 +1,43 @@
 ---
-# 模板组装配置
-assembly_config:
-  exclude_base:
-    - "common-role-definition.md"
-    - "quality-guidelines.md"
-    - "boundary-constraints.md"
-    - "content-specialist-workflow.md"
-  include_base:
-    - "output-format-schema.md"
-  specialist_type: "process"
-  specialist_name: "Requirement Syncer"
+# ============================================================================
+# 🚀 Specialist注册配置 (新增)
+# ============================================================================
+specialist_config:
+  # 🔑 核心注册字段
+  enabled: false
+  id: "requirement_syncer"
+  name: "Requirement Syncer"
+  category: "process"
+  version: "2.0.0"
+  
+  # 📋 描述信息
+  description: "负责将SRS.md中的应追踪项目同步到requirements.yaml的流程专家"
+  author: "SRS Writer Plugin Team"
+  
+  # 🛠️ 能力配置
+  capabilities:
+    - "requirement_syncing"
+  
+  # 🎯 迭代配置
+  iteration_config:
+    max_iterations: 3
+    default_iterations: 1
+  
+  # 🎨 模版配置
+  template_config:
+    exclude_base:
+      - "common-role-definition.md"
+      - "quality-guidelines.md"
+      - "boundary-constraints.md"
+      - "output-format-schema.md"
+      - "content-specialist-workflow.md"
+    include_base: []
+  
+  # 🏷️ 标签和分类
+  tags:
+    - "requirement_syncing"
+    - "process"
+
 ---
 
 ## 🎯 角色与职责 (Role & Responsibilities)

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { SRSChatParticipant } from './chat/srs-chat-participant';
 import { SessionManager } from './core/session-manager';
 import { Orchestrator } from './core/orchestrator';
@@ -30,6 +31,9 @@ export function activate(context: vscode.ExtensionContext) {
     logger.warn(`🚨 [EXTENSION ACTIVATE] Activation reason: ${context.extensionMode}`);
     logger.warn(`🚨 [EXTENSION ACTIVATE] Call stack:`);
     logger.warn(activateStack || 'No stack trace available');
+    
+    // 🚀 设置全局扩展上下文，供工作区初始化功能使用
+    extensionContext = context;
     
     logger.info('SRS Writer Plugin v1.3 is now activating...');
     
@@ -242,6 +246,11 @@ async function showEnhancedStatus(): Promise<void> {
                 detail: '项目信息、引擎状态、同步状态'
             },
             {
+                label: '$(folder-library) 创建工作区并初始化',
+                description: '为首次使用创建完整的工作区环境',
+                detail: '选择父目录，创建工作区，复制templates文件'
+            },
+            {
                 label: '$(arrow-swap) 切换项目',
                 description: '切换到workspace中的其他项目',
                 detail: '扫描项目列表，archive当前session，创建新session'
@@ -271,6 +280,9 @@ async function showEnhancedStatus(): Promise<void> {
         switch (options.label) {
             case '$(dashboard) 快速概览':
                 await showQuickOverview();
+                break;
+            case '$(folder-library) 创建工作区并初始化':
+                await createWorkspaceAndInitialize();
                 break;
             case '$(arrow-swap) 切换项目':
                 await switchProject();
@@ -729,6 +741,182 @@ async function switchProject(): Promise<void> {
         logger.error('Failed to switch project', error as Error);
         vscode.window.showErrorMessage(`切换项目失败: ${(error as Error).message}`);
     }
+}
+
+/**
+ * 🚀 v3.0新增：创建工作区并初始化功能
+ */
+async function createWorkspaceAndInitialize(): Promise<void> {
+    try {
+        logger.info('🚀 开始创建工作区并初始化流程...');
+
+        // Step 1: 让用户选择父目录
+        const parentDirResult = await vscode.window.showOpenDialog({
+            canSelectFiles: false,
+            canSelectFolders: true,
+            canSelectMany: false,
+            openLabel: '选择工作区父目录',
+            title: '选择创建工作区的父目录位置'
+        });
+
+        if (!parentDirResult || parentDirResult.length === 0) {
+            logger.info('用户取消了父目录选择');
+            return;
+        }
+
+        const parentDir = parentDirResult[0].fsPath;
+        logger.info(`用户选择的父目录: ${parentDir}`);
+
+        // Step 2: 让用户输入工作区文件夹名称
+        const workspaceName = await vscode.window.showInputBox({
+            prompt: '请输入工作区文件夹名称',
+            placeHolder: '例如：my-srs-workspace',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return '工作区名称不能为空';
+                }
+                if (!/^[a-zA-Z0-9_-]+$/.test(value.trim())) {
+                    return '工作区名称只能包含字母、数字、下划线和短横线';
+                }
+                return undefined;
+            }
+        });
+
+        if (!workspaceName) {
+            logger.info('用户取消了工作区名称输入');
+            return;
+        }
+
+        const trimmedWorkspaceName = workspaceName.trim();
+        logger.info(`用户输入的工作区名称: ${trimmedWorkspaceName}`);
+
+        // Step 3: 创建工作区目录
+        const workspacePath = path.join(parentDir, trimmedWorkspaceName);
+        
+        // 检查目录是否已存在
+        try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(workspacePath));
+            const overwrite = await vscode.window.showWarningMessage(
+                `目录 "${trimmedWorkspaceName}" 已存在，是否继续？`,
+                { modal: true },
+                '继续',
+                '取消'
+            );
+            
+            if (overwrite !== '继续') {
+                logger.info('用户取消了覆盖已存在的目录');
+                return;
+            }
+        } catch {
+            // 目录不存在，这是期望的情况
+        }
+
+        // 显示进度指示器
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: '正在创建工作区...',
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ increment: 0, message: '创建工作区目录...' });
+            
+            // 创建工作区目录
+            await vscode.workspace.fs.createDirectory(vscode.Uri.file(workspacePath));
+            logger.info(`✅ 工作区目录创建成功: ${workspacePath}`);
+
+            progress.report({ increment: 30, message: '复制模板文件...' });
+
+            // Step 4: 复制 .templates 目录
+            const extensionContext = getExtensionContext();
+            if (extensionContext) {
+                const templatesSourcePath = path.join(extensionContext.extensionPath, '.templates');
+                const templatesTargetPath = path.join(workspacePath, '.templates');
+                
+                await copyDirectoryRecursive(templatesSourcePath, templatesTargetPath);
+                logger.info(`✅ Templates目录复制成功: ${templatesTargetPath}`);
+            } else {
+                logger.warn('⚠️ 无法获取扩展上下文，跳过templates复制');
+            }
+
+            progress.report({ increment: 60, message: '打开新工作区...' });
+
+            // Step 5: 在VSCode中打开新的工作区
+            const workspaceUri = vscode.Uri.file(workspacePath);
+            await vscode.commands.executeCommand('vscode.openFolder', workspaceUri, false);
+            
+            progress.report({ increment: 100, message: '完成!' });
+        });
+
+        // 成功消息
+        vscode.window.showInformationMessage(
+            `🎉 工作区创建成功！\n\n` +
+            `📁 位置: ${workspacePath}\n` +
+            `📋 模板文件已复制到工作区的 .templates 目录\n` +
+            `🚀 现在可以使用 @srs-writer 开始创建文档了！`
+        );
+
+        logger.info('✅ 工作区创建并初始化完成');
+        
+    } catch (error) {
+        const errorMessage = `创建工作区失败: ${(error as Error).message}`;
+        logger.error('Failed to create workspace and initialize', error as Error);
+        vscode.window.showErrorMessage(errorMessage);
+    }
+}
+
+/**
+ * 递归复制目录及其所有内容
+ * 导出供测试使用
+ */
+export async function copyDirectoryRecursive(sourcePath: string, targetPath: string): Promise<void> {
+    const logger = Logger.getInstance();
+    
+    try {
+        // 检查源目录是否存在
+        try {
+            await vscode.workspace.fs.stat(vscode.Uri.file(sourcePath));
+        } catch {
+            logger.warn(`源目录不存在，跳过复制: ${sourcePath}`);
+            return;
+        }
+
+        // 创建目标目录
+        await vscode.workspace.fs.createDirectory(vscode.Uri.file(targetPath));
+
+        // 读取源目录内容
+        const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(sourcePath));
+
+        for (const [name, type] of entries) {
+            const sourceItemPath = path.join(sourcePath, name);
+            const targetItemPath = path.join(targetPath, name);
+
+            if (type === vscode.FileType.Directory) {
+                // 递归复制子目录
+                await copyDirectoryRecursive(sourceItemPath, targetItemPath);
+            } else if (type === vscode.FileType.File) {
+                // 复制文件
+                await vscode.workspace.fs.copy(
+                    vscode.Uri.file(sourceItemPath),
+                    vscode.Uri.file(targetItemPath),
+                    { overwrite: true }
+                );
+                logger.debug(`📄 复制文件: ${name}`);
+            }
+        }
+
+        logger.info(`📁 目录复制完成: ${sourcePath} → ${targetPath}`);
+    } catch (error) {
+        logger.error(`目录复制失败: ${sourcePath} → ${targetPath}`, error as Error);
+        throw error;
+    }
+}
+
+/**
+ * 获取扩展上下文（需要在activate函数中设置）
+ */
+let extensionContext: vscode.ExtensionContext | undefined;
+
+function getExtensionContext(): vscode.ExtensionContext | undefined {
+    return extensionContext;
 }
 
 /**

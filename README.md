@@ -3,7 +3,7 @@
 <div align="center">
 
 ![SRS Writer Logo](https://img.shields.io/badge/SRS-Writer-blue?style=for-the-badge&logo=visual-studio-code)
-[![Version](https://img.shields.io/badge/Version-0.0.X-blue.svg?style=for-the-badge)](https://github.com/srs-writer-team/srs-writer-plugin)
+[![Version](https://img.shields.io/github/package-json/v/srs-writer-team/srs-writer-plugin?style=for-the-badge&label=Version)](https://github.com/srs-writer-team/srs-writer-plugin)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=for-the-badge)](https://opensource.org/licenses/Apache-2.0)
 [![VSCode](https://img.shields.io/badge/VSCode-1.85+-blue?style=for-the-badge&logo=visual-studio-code)](https://code.visualstudio.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
@@ -529,7 +529,7 @@ npm run test:integration # Agent workflow testing
 
 ## 🎯 Roadmap & Future Vision
 
-### Current Multi-Agent Capabilities (v0.0.X)
+### Current Multi-Agent Capabilities
 
 - ✅ **Production Multi-Agent System**: 9 specialized agents with intelligent coordination
 - ✅ **Advanced Agent Orchestration**: Master orchestrator with 400+ decision rules

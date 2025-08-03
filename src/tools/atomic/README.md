@@ -57,7 +57,8 @@ src/tools/atomic/
 - `listFiles` - 列出目录内容
 - `listAllFiles` - 列出所有文件
 - `deleteFile` - 删除文件/目录
-- `renameFile` - 重命名/移动文件
+- `moveAndRenameFile` - 移动和重命名文件
+- `copyAndRenameFile` - 复制和重命名文件
 
 **特色功能：**
 

@@ -220,71 +220,6 @@
           "default": [],
           "description": "本地知识库路径列表"
         },
-        "srs-writer.templates.frWriter": {
-          "type": "object",
-          "default": {
-            "FR_TEMPLATE": "templates/functional-requirements/fr-template.md"
-          },
-          "description": "功能需求编写器的模板文件路径配置",
-          "properties": {
-            "FR_TEMPLATE": {
-              "type": "string",
-              "description": "功能需求主模板文件路径"
-            }
-          }
-        },
-        "srs-writer.templates.nfrWriter": {
-          "type": "object",
-          "default": {
-            "NFR_TEMPLATE": "templates/non-functional-requirements/nfr-template.md"
-          },
-          "description": "非功能需求编写器的模板文件路径配置",
-          "properties": {
-            "NFR_TEMPLATE": {
-              "type": "string",
-              "description": "非功能需求主模板文件路径"
-            }
-          }
-        },
-        "srs-writer.templates.summaryWriter": {
-          "type": "object",
-          "default": {
-            "SUMMARY_TEMPLATE": "templates/summary/summary-template.md"
-          },
-          "description": "摘要编写器的模板文件路径配置",
-          "properties": {
-            "SUMMARY_TEMPLATE": {
-              "type": "string",
-              "description": "摘要模板文件路径"
-            }
-          }
-        },
-        "srs-writer.templates.userJourneyWriter": {
-          "type": "object",
-          "default": {
-            "JOURNEY_TEMPLATE": "templates/user-journey/journey-template.md"
-          },
-          "description": "用户旅程编写器的模板文件路径配置",
-          "properties": {
-            "JOURNEY_TEMPLATE": {
-              "type": "string",
-              "description": "用户旅程模板文件路径"
-            }
-          }
-        },
-        "srs-writer.templates.overallDescWriter": {
-          "type": "object",
-          "default": {
-            "DESCRIPTION_TEMPLATE": "templates/overall-description/description-template.md"
-          },
-          "description": "整体描述编写器的模板文件路径配置",
-          "properties": {
-            "DESCRIPTION_TEMPLATE": {
-              "type": "string",
-              "description": "整体描述模板文件路径"
-            }
-          }
-        },
         "srs-writer.requirementScaffold.schemaPath": {
           "type": "object",
           "default": {
@@ -341,14 +276,133 @@
           "type": "string",
           "description": "默认数据集ID",
           "markdownDescription": "企业RAG系统的默认数据集ID。\n\n**说明**：\n- 当AI调用RAG检索时，如果未指定数据集ID，将使用此默认值\n- 可以在具体调用时通过参数覆盖此设置\n- 请确保此数据集ID在您的RAG系统中存在"
+        },
+        "srs-writer.templates.adcWriter": {
+          "type": "object",
+          "default": {
+            "ADC_WRITER_TEMPLATE": ".templates/adc_writer/adc_writer-template.md"
+          },
+          "description": "Assumptions, Dependencies and Constraints Writer的模板文件路径配置",
+          "properties": {
+            "ADC_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "ADC_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.frWriter": {
+          "type": "object",
+          "default": {
+            "FR_WRITER_TEMPLATE": ".templates/fr_writer/fr_writer-template.md"
+          },
+          "description": "Functional Requirements Writer的模板文件路径配置",
+          "properties": {
+            "FR_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "FR_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.ifrAndDarWriter": {
+          "type": "object",
+          "default": {
+            "IFR_AND_DAR_WRITER_TEMPLATE": ".templates/ifr_and_dar_writer/ifr_and_dar_writer-template.md"
+          },
+          "description": "Interface and Data Requirement Writer的模板文件路径配置",
+          "properties": {
+            "IFR_AND_DAR_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "IFR_AND_DAR_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.nfrWriter": {
+          "type": "object",
+          "default": {
+            "NFR_WRITER_TEMPLATE": ".templates/nfr_writer/nfr_writer-template.md"
+          },
+          "description": "Non-Functional Requirement Writer的模板文件路径配置",
+          "properties": {
+            "NFR_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "NFR_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.overallDescriptionWriter": {
+          "type": "object",
+          "default": {
+            "OVERALL_DESCRIPTION_WRITER_TEMPLATE": ".templates/overall_description_writer/overall_description_writer-template.md"
+          },
+          "description": "Overall Description Writer的模板文件路径配置",
+          "properties": {
+            "OVERALL_DESCRIPTION_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "OVERALL_DESCRIPTION_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.prototypeDesigner": {
+          "type": "object",
+          "default": {
+            "PROTOTYPE_DESIGNER_TEMPLATE": ".templates/prototype_designer/prototype_designer-template.md"
+          },
+          "description": "Prototype Designer的模板文件路径配置",
+          "properties": {
+            "PROTOTYPE_DESIGNER_TEMPLATE": {
+              "type": "string",
+              "description": "PROTOTYPE_DESIGNER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.storyAndCaseWriter": {
+          "type": "object",
+          "default": {
+            "STORY_AND_CASE_WRITER_TEMPLATE": ".templates/story_and_case_writer/story_and_case_writer-template.md"
+          },
+          "description": "Story and Case Writer的模板文件路径配置",
+          "properties": {
+            "STORY_AND_CASE_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "STORY_AND_CASE_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.summaryWriter": {
+          "type": "object",
+          "default": {
+            "SUMMARY_WRITER_TEMPLATE": ".templates/summary_writer/summary_writer-template.md"
+          },
+          "description": "Summary Writer的模板文件路径配置",
+          "properties": {
+            "SUMMARY_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "SUMMARY_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.userJourneyWriter": {
+          "type": "object",
+          "default": {
+            "USER_JOURNEY_WRITER_TEMPLATE": ".templates/user_journey_writer/user_journey_writer-template.md"
+          },
+          "description": "User Journey Writer的模板文件路径配置",
+          "properties": {
+            "USER_JOURNEY_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "USER_JOURNEY_WRITER_TEMPLATE模板文件路径"
+            }
+          }
         }
       }
     }
   },
   "scripts": {
     "vscode:prepublish": "yarn build:prod",
-    "build": "webpack --mode development",
-    "build:prod": "webpack --mode production",
+    "prebuild": "yarn generate-specialist-configs",
+    "generate-specialist-configs": "npx ts-node scripts/build-specialist-configs.ts",
+    "build": "yarn prebuild && webpack --mode development",
+    "build:prod": "yarn prebuild && webpack --mode production",
     "watch": "webpack --mode development --watch",
     "test": "jest",
     "test:spike": "jest --testPathPattern=spike",

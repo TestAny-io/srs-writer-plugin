@@ -1193,15 +1193,11 @@ export class SRSAgentEngine implements ISessionObserver {
       if (continuedResult.success) {
         this.stream.markdown(`✅ **Specialist执行成功**\n\n`);
         
-        if (continuedResult.structuredData?.nextStepType === 'TASK_FINISHED') {
-          this.state.stage = 'completed';
-          this.stream.markdown(`🎉 **任务完成**: ${continuedResult.structuredData.summary}\n\n`);
-          return true; // ✅ 任务完成，specialist恢复成功
-        } else {
-          // 🚀 关键修复：恢复PlanExecutor循环，而不是重新开始
-          await this.resumePlanExecutorLoop(planExecutorState, continuedResult, userResponse);
-          return true; // ✅ PlanExecutor继续执行，specialist恢复成功
-        }
+        // 🚀 CRITICAL FIX: 移除对TASK_FINISHED的错误特殊处理
+        // 无论specialist返回什么nextStepType，都让PlanExecutor来决定是否继续执行剩余步骤
+        // 这修复了specialist的TASK_FINISHED错误终止多步骤计划的critical bug
+        await this.resumePlanExecutorLoop(planExecutorState, continuedResult, userResponse);
+        return true; // ✅ PlanExecutor继续执行，specialist恢复成功
         
       } else if ('needsChatInteraction' in continuedResult && continuedResult.needsChatInteraction) {
         // 🚀 处理specialist需要进一步用户交互的情况

@@ -670,3 +670,9 @@ export interface SpecialistProgressCallback {
      */
     onTaskComplete?(summary: string, success: boolean): void;
 }
+
+// ============================================================================
+// 🚀 Specialist动态注册系统类型导出
+// ============================================================================
+
+export * from './specialistRegistry';

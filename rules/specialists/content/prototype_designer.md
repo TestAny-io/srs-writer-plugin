@@ -1,18 +1,53 @@
 ---
-# 模板组装配置
-assembly_config:
-  # 包含必要的base模板，包括统一工作流
-  include_base:
-    - "common-role-definition.md"    
-    - "output-format-schema.md"
-    - "content-specialist-workflow.md"  # 🚀 新增：统一content specialist工作流
-  # 排除过大的模板
-  exclude_base:
-    - "boundary-constraints.md"      
-    - "quality-guidelines.md"        
+# ============================================================================
+# 🚀 Specialist注册配置 (新增)
+# ============================================================================
+specialist_config:
+  # 🔑 核心注册字段
+  enabled: true
+  id: "prototype_designer"
+  name: "Prototype Designer"
+  category: "content"
+  version: "2.0.0"
   
-  specialist_type: "content"
-  specialist_name: "Prototype Designer"
+  # 📋 描述信息
+  description: "专门负责创建系统界面原型和交互设计的specialist，基于需求分析生成可视化原型"
+  author: "SRS Writer Plugin Team"
+  
+  # 🛠️ 能力配置
+  capabilities:
+    - "prototype_design"
+    - "ui_design"
+    - "interaction_design"
+    - "wireframe_creation"
+  
+  # 🎯 迭代配置
+  iteration_config:
+    max_iterations: 8
+    default_iterations: 4
+  
+  # 🎨 模版配置
+  template_config:
+    include_base:
+      - "output-format-schema.md"
+
+    exclude_base:
+      - "boundary-constraints.md"      
+      - "quality-guidelines.md"
+      - "content-specialist-workflow.md"
+      - "common-role-definition.md"
+    
+    # 🚀 方案3: 明确声明模板文件路径
+    template_files:
+      PROTOTYPE_DESIGNER_TEMPLATE: ".templates/prototype_designer/prototype_designer_template.md"
+  
+  # 🏷️ 标签和分类
+  tags:
+    - "prototype"
+    - "design"
+    - "ui_ux"
+    - "visualization"
+
 ---
 
 ## 🎯 专业领域

@@ -1,5 +1,23 @@
 import { PromptAssemblyEngine, SpecialistType, SpecialistContext } from '../../core/prompts/PromptAssemblyEngine';
+import { getSpecialistRegistry } from '../../core/specialistRegistry';
 import * as path from 'path';
+
+// Mock VSCode API
+jest.mock('vscode', () => ({
+  extensions: {
+    getExtension: jest.fn(() => ({
+      extensionPath: require('path').join(__dirname, '../../../')
+    }))
+  },
+  window: {
+    createOutputChannel: jest.fn(() => ({
+      appendLine: jest.fn(),
+      show: jest.fn(),
+      clear: jest.fn(),
+      dispose: jest.fn()
+    }))
+  }
+}));
 
 /**
  * PromptAssemblyEngine v3.0 重构测试
@@ -9,7 +27,11 @@ describe('PromptAssemblyEngine v3.0 Refactor Tests', () => {
   let promptAssemblyEngine: PromptAssemblyEngine;
   const testRulesPath = path.join(__dirname, '../../..', 'rules');
   
-  beforeEach(() => {
+  beforeEach(async () => {
+    // 初始化SpecialistRegistry
+    const registry = getSpecialistRegistry();
+    await registry.scanAndRegister();
+    
     promptAssemblyEngine = new PromptAssemblyEngine(testRulesPath);
   });
 
@@ -64,19 +86,14 @@ describe('PromptAssemblyEngine v3.0 Refactor Tests', () => {
     };
     
     const context: SpecialistContext = {
-      userRequirements: '编写功能需求',
-      specialist_type: 'functional_requirement_writer'
+      userRequirements: '编写功能需求'
     };
 
     const result = await promptAssemblyEngine.assembleSpecialistPrompt(specialistType, context);
     
-    // 验证角色定义
-    expect(result).toContain('You are a functional_requirement_writer specialist');
+    // 验证角色定义 - 现在应该使用从SpecialistRegistry获取的真实名称
+    expect(result).toContain('You are a Functional Requirements Writer specialist');
     expect(result).toContain('Follow these instructions carefully');
-    
-    // 验证专家类型信息
-    expect(result).toContain('## Specialist Type');
-    expect(result).toContain('Current specialist type: functional_requirement_writer');
     
     console.log('✅ 角色定义验证通过');
   });

@@ -59,10 +59,10 @@ export const DEFAULT_SPECIALIST_ITERATION_CONFIG: SpecialistIterationConfig = {
 };
 
 /**
- * Specialist分类映射
+ * 🔄 Legacy: Specialist分类映射（向后兼容）
  * 用于将specialist ID映射到类别
  */
-export const SPECIALIST_CATEGORY_MAPPING: { [specialistId: string]: SpecialistCategory } = {
+export const SPECIALIST_CATEGORY_MAPPING_LEGACY: { [specialistId: string]: SpecialistCategory } = {
     // 内容类specialists
     'fr_writer': 'content',
     'nfr_writer': 'content', 
@@ -78,4 +78,32 @@ export const SPECIALIST_CATEGORY_MAPPING: { [specialistId: string]: SpecialistCa
     'requirement_syncer': 'process',
     
     // 可以根据需要扩展更多specialist
-}; 
+};
+
+/**
+ * 🚀 新增：从SpecialistRegistry动态获取specialist类别
+ */
+export function getSpecialistCategory(specialistId: string): SpecialistCategory {
+    try {
+        // 动态导入避免循环依赖
+        const { getSpecialistRegistry } = require('../specialistRegistry');
+        const registry = getSpecialistRegistry();
+        
+        const specialist = registry.getSpecialist(specialistId);
+        if (specialist && specialist.config.enabled) {
+            return specialist.config.category;
+        }
+    } catch (error) {
+        // 如果动态查询失败，回退到硬编码映射
+        console.warn(`Failed to get specialist category from registry for ${specialistId}, using legacy mapping`);
+    }
+    
+    // 🔄 向后兼容：使用硬编码映射
+    return SPECIALIST_CATEGORY_MAPPING_LEGACY[specialistId] || 'content';
+}
+
+/**
+ * 🔄 向后兼容：保持原有的导出名称
+ * @deprecated 建议使用 getSpecialistCategory() 函数
+ */
+export const SPECIALIST_CATEGORY_MAPPING = SPECIALIST_CATEGORY_MAPPING_LEGACY; 

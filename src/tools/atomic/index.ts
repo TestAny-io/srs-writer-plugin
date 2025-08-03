@@ -227,12 +227,12 @@ export function getAtomicToolsStats() {
 export {
     // 文件系统操作 (注意：readFile已重构为统一工具，在document层提供)
     _internalReadFile, writeFile, appendTextToFile, createDirectory, 
-    listFiles, deleteFile, renameFile,
+    listFiles, deleteFile, moveAndRenameFile, copyAndRenameFile,
     
     // 文件系统工具定义 (注意：readFileToolDefinition已重构为统一工具)
     writeFileToolDefinition, appendTextToFileToolDefinition,
     createDirectoryToolDefinition, listFilesToolDefinition, deleteFileToolDefinition,
-    renameFileToolDefinition
+    moveAndRenameFileToolDefinition, copyAndRenameFileToolDefinition
 } from './filesystem-tools';
 
 export {

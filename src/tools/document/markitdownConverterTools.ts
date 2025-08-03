@@ -109,8 +109,8 @@ export const markitdownConverterToolDefinitions = [
             }
         },
         accessibleBy: [
-            CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-            CallerType.SPECIALIST,
+            // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+            // CallerType.SPECIALIST,
             CallerType.DOCUMENT
         ],
         interactionType: 'autonomous',
@@ -162,7 +162,7 @@ export const markitdownConverterToolDefinitions = [
             required: ["fileList"]
         },
         accessibleBy: [
-            CallerType.SPECIALIST,
+            // CallerType.SPECIALIST,
             CallerType.DOCUMENT
         ],
         interactionType: 'autonomous',
@@ -196,8 +196,8 @@ export const markitdownConverterToolDefinitions = [
             required: ["filePath"]
         },
         accessibleBy: [
-            CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-            CallerType.SPECIALIST,
+            // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+            // CallerType.SPECIALIST,
             CallerType.DOCUMENT
         ],
         interactionType: 'autonomous',

@@ -16,7 +16,7 @@
 - `readFile()` - 文件读取操作
 - `writeFile()` - 文件写入操作  
 - `createDirectory()` - 目录创建操作
-- `renameFile()` - 文件移动/重命名操作
+- `moveAndRenameFile()` - 文件移动/重命名操作
 - `listFiles()` - 目录内容列表
 - `listAllFiles()` - 所有文件列表
 

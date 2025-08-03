@@ -16,5 +16,5 @@
       "skipLibCheck": true,
       "forceConsistentCasingInFileNames": true
     },
-    "exclude": ["node_modules", "dist", "code-parking-lot"]
+    "exclude": ["node_modules", "dist", "code-parking-lot", "scripts"]
   }

@@ -215,6 +215,8 @@ export function cleanMarkdownContent(content: string): string {
     if (!content) return '';
     
     return content
+        // 删除所有img标签（包括base64图片）
+        .replace(/<img[^>]*>/gi, '')
         // 合并连续的加粗标记
         .replace(/\*\*([^*]+)\*\* \*\*([^*]+)\*\*/g, '**$1$2**')
         // 修复分离的加粗文本

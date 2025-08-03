@@ -12,6 +12,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { Logger } from '../../utils/logger';
+import { getSpecialistRegistry } from '../specialistRegistry';
 
 export interface SpecialistType {
   name: string;
@@ -44,7 +45,10 @@ export interface AssemblyConfig {
   include_base?: string[];
   exclude_base?: string[];
   domain_template?: string;
+  // ⚠️ DEPRECATED: 使用新的SpecialistRegistry系统
+  /** @deprecated 使用SpecialistRegistry中的category字段 */
   specialist_type?: string;
+  /** @deprecated 使用SpecialistRegistry中的name字段 */
   specialist_name?: string;
   // 🚀 v3.0新增：角色定义配置
   role_definition?: string;
@@ -88,21 +92,21 @@ export class PromptAssemblyEngine {
     specialistType: SpecialistType,
     context: SpecialistContext
   ): Promise<string> {
-    // this.logger.info(`🔥 [PromptAssembly] === 开始组装 ${specialistType.name} 提示词 ===`);
+    this.logger.info(`🔥 [PromptAssembly] === 开始组装 ${specialistType.name} 提示词 ===`);
     
     // 🔍 详细记录输入信息
-    //this.logger.info(`🔍 [PromptAssembly] 输入参数:`);
+    this.logger.info(`🔍 [PromptAssembly] 输入参数:`);
     //this.logger.info(`🔍 [PromptAssembly] - specialistType: ${JSON.stringify(specialistType, null, 2)}`);
     //this.logger.info(`🔍 [PromptAssembly] - context.userRequirements: ${context.userRequirements || '无'}`);
     //this.logger.info(`🔍 [PromptAssembly] - context.structuredContext存在: ${!!context.structuredContext}`);
     //this.logger.info(`🔍 [PromptAssembly] - context.projectMetadata存在: ${!!context.projectMetadata}`);
     
     if (context.structuredContext) {
-      //this.logger.info(`🔍 [PromptAssembly] - structuredContext内容: ${JSON.stringify(context.structuredContext, null, 2)}`);
+      this.logger.info(`🔍 [PromptAssembly] - structuredContext内容: ${JSON.stringify(context.structuredContext, null, 2)}`);
     }
     
     if (context.projectMetadata) {
-      //this.logger.info(`🔍 [PromptAssembly] - projectMetadata内容: ${JSON.stringify(context.projectMetadata, null, 2)}`);
+      this.logger.info(`🔍 [PromptAssembly] - projectMetadata内容: ${JSON.stringify(context.projectMetadata, null, 2)}`);
     }
 
     try {
@@ -115,14 +119,41 @@ export class PromptAssemblyEngine {
       //this.logger.info(`🔍 [PromptAssembly] - 专家模板长度: ${specificTemplate.length} 字符`);
       //this.logger.info(`🔍 [PromptAssembly] - 专家模板前200字符: ${specificTemplate.substring(0, 200)}`);
       
-      // 2. 根据配置选择性加载base模板
+      // 🚀 v4.0: 首先获取动态配置（包括template_config）
+      let dynamicSpecialistName = specialistType.name;
+      let dynamicTemplateConfig: { include_base?: string[]; exclude_base?: string[] } = {};
+      try {
+        const registry = getSpecialistRegistry();
+        const specialist = registry.getSpecialist(specialistType.name);
+        if (specialist?.config) {
+          if (specialist.config.name) {
+            dynamicSpecialistName = specialist.config.name;
+          }
+          if (specialist.config.template_config) {
+            dynamicTemplateConfig = specialist.config.template_config;
+            this.logger.info(`🎨 [PromptAssembly] 使用specialist动态模版配置: include_base=${JSON.stringify(dynamicTemplateConfig.include_base)}, exclude_base=${JSON.stringify(dynamicTemplateConfig.exclude_base)}`);
+          }
+        }
+      } catch (error) {
+        this.logger.warn(`⚠️ [PromptAssembly] 无法从registry获取specialist配置: ${(error as Error).message}`);
+      }
+      
+      const enhancedConfig = {
+        ...config,
+        specialist_name: config.specialist_name || dynamicSpecialistName,
+        // 🚀 v4.0: 动态template_config优先级高于静态config
+        include_base: dynamicTemplateConfig.include_base || config.include_base,
+        exclude_base: dynamicTemplateConfig.exclude_base || config.exclude_base
+      };
+
+      // 2. 根据配置选择性加载base模板（使用增强配置包含动态template_config）
       //this.logger.info(`📄 [PromptAssembly] 步骤2: 根据配置加载base模板`);
-      const baseTemplates = await this.loadBaseTemplatesByConfig(config);
+      const baseTemplates = await this.loadBaseTemplatesByConfig(enhancedConfig);
       
       //this.logger.info(`🔍 [PromptAssembly] base模板加载结果:`);
-      //this.logger.info(`🔍 [PromptAssembly] - 加载的模板数量: ${baseTemplates.length}`);
+      this.logger.info(`🔍 [PromptAssembly] - 加载的模板数量: ${baseTemplates.length}`);
       baseTemplates.forEach((template, index) => {
-        //this.logger.info(`🔍 [PromptAssembly] - base模板${index + 1}长度: ${template.length} 字符`);
+        this.logger.info(`🔍 [PromptAssembly] - base模板${index + 1}长度: ${template.length} 字符`);
       });
       
       // 3. 🚀 移除domain模板加载（根据用户反馈，当前不使用domain模板）
@@ -154,11 +185,7 @@ export class PromptAssemblyEngine {
       //this.logger.info(`🔍 [PromptAssembly] - 总模板数量: ${allTemplates.length}`);
       //this.logger.info(`🔍 [PromptAssembly] - 各模板长度: content=[${contentTemplates.map(t => t.length).join(', ')}], base=[${baseTemplates.map(t => t.length).join(', ')}]`);
       
-      // 🚀 v3.0: 增强配置，包含specialistName信息
-      const enhancedConfig = {
-        ...config,
-        specialist_name: config.specialist_name || specialistType.name
-      };
+      // 🚀 v3.0: 增强配置已在上面创建，这里直接使用
       
       // 🚀 使用新的模板分组方式调用mergeTemplates
       const assembledPrompt = this.mergeTemplates(allTemplates, context, enhancedConfig, baseTemplates, contentTemplates);
@@ -186,9 +213,9 @@ export class PromptAssemblyEngine {
       this.logger.info(`🎯 [PromptAssembly] - 估算token数量: ${Math.ceil(assembledPrompt.length / 4)} tokens`);
       
       // 输出完整的最终提示词（仅在debug模式下）
-      // this.logger.info(`🔥 [PromptAssembly] === 完整结构化提示词 for ${specialistType.name} ===`);
-      // this.logger.info(`🔥 [PromptAssembly] ${assembledPrompt}`);
-      // this.logger.info(`🔥 [PromptAssembly] === 提示词结束 ===`);
+      this.logger.info(`🔥 [PromptAssembly] === 完整结构化提示词 for ${specialistType.name} ===`);
+      this.logger.info(`🔥 [PromptAssembly] ${assembledPrompt}`);
+      this.logger.info(`🔥 [PromptAssembly] === 提示词结束 ===`);
       
       return assembledPrompt;
     } catch (error) {
@@ -396,12 +423,12 @@ export class PromptAssemblyEngine {
     const processedBaseTemplates = processVariables(validBaseTemplates);
     
     // 🚀 v3.0: 构建结构化User消息 - 符合VSCode最佳实践
-    // 优先从context获取specialist_type，然后从config获取specialist_name，最后使用默认值
+    // 🔄 v4.0: 优先使用已经从SpecialistRegistry获取的specialist_name（通过assembleSpecialistPrompt传入）
     const contextSpecialistType = context.specialist_type || context.structuredContext?.specialist_type;
     const configSpecialistName = config?.specialist_name;
     const fallbackSpecialistType = 'specialist'; // 默认值
     
-    const finalSpecialistType = contextSpecialistType || configSpecialistName || fallbackSpecialistType;
+    const finalSpecialistType = configSpecialistName || contextSpecialistType || fallbackSpecialistType;
     const roleDefinition = config?.role_definition || `${finalSpecialistType} specialist`;
     
     // 🚀 v4.0新结构实现：10部分提示词架构

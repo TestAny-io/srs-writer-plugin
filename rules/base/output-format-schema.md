@@ -37,7 +37,7 @@
 ```json
 {
   "tool_calls": [{
-    "name": "readFile",
+    "name": "readMarkdownFile",
     "args": { "path": "SRS.md" }
   }]
 }

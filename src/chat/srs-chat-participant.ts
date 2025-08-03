@@ -38,19 +38,10 @@ export class SRSChatParticipant implements ISessionObserver {
     // 🚀 新增：架构模式切换标志（用于渐进式迁移）
     private readonly useGlobalEngine: boolean = true; // 🎯 默认使用新架构
     
-    // 🚨 新增：添加getter/setter来追踪Registry访问
+    // 🚀 简化的 engineRegistry getter（架构一致化修复）
     private get engineRegistry(): Map<string, SRSAgentEngine> {
-        // 如果使用新架构，则注册表应该为空
         if (this.useGlobalEngine) {
-            this.logger.warn(`🚨 [LEGACY REGISTRY] Accessing legacy registry in global engine mode!`);
-        }
-        
-        // 定期检查Registry状态
-        if (this._engineRegistry.size === 0) {
-            const stack = new Error().stack;
-            this.logger.warn(`🚨 [REGISTRY ACCESS] Registry is EMPTY when accessed!`);
-            this.logger.warn(`🚨 [REGISTRY ACCESS] Access stack:`);
-            this.logger.warn(stack || 'No stack trace available');
+            this.logger.debug(`[LEGACY REGISTRY] Accessing legacy registry in global engine mode`);
         }
         return this._engineRegistry;
     }
@@ -58,13 +49,8 @@ export class SRSChatParticipant implements ISessionObserver {
     private set engineRegistry(value: Map<string, SRSAgentEngine>) {
         const oldSize = this._engineRegistry.size;
         const newSize = value.size;
-        const stack = new Error().stack;
         
-        this.logger.warn(`🚨 [REGISTRY SET] Engine Registry being REPLACED!`);
-        this.logger.warn(`🚨 [REGISTRY SET] Size change: ${oldSize} → ${newSize}`);
-        this.logger.warn(`🚨 [REGISTRY SET] Set stack:`);
-        this.logger.warn(stack || 'No stack trace available');
-        
+        this.logger.debug(`[REGISTRY SET] Engine Registry being replaced: ${oldSize} → ${newSize}`);
         this._engineRegistry = value;
     }
     
@@ -89,7 +75,7 @@ export class SRSChatParticipant implements ISessionObserver {
         this.sessionManager.subscribe(this);
         
         // 🕵️ 记录registry初始化
-        this.logger.warn(`🔍 [CONSTRUCTOR] engineRegistry initialized, size: ${this.engineRegistry.size}`);
+        this.logger.debug(`[CONSTRUCTOR] engineRegistry initialized, size: ${this._engineRegistry.size}`);
         this.logger.warn(`🚨 [CONSTRUCTOR] This is a NEW SRSChatParticipant instance (${instanceId})`);
         
         // 🕵️ 记录autoInitialize调用
@@ -114,7 +100,7 @@ export class SRSChatParticipant implements ISessionObserver {
         );
         
         // 设置参与者属性
-        disposable.iconPath = vscode.Uri.file('assets/icon.png');
+        disposable.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media/logo.png');
         disposable.followupProvider = {
             provideFollowups: participant.provideFollowups.bind(participant)
         };
@@ -314,39 +300,33 @@ export class SRSChatParticipant implements ISessionObserver {
         this.logger.warn(`📡 [LEGACY] Using legacy session-based engine architecture`);
         
         // 🕵️ 添加engine registry详细追踪
-        this.logger.warn(`🔍 [ENGINE REGISTRY] getOrCreateEngine called for sessionId: ${sessionId}`);
-        this.logger.warn(`🔍 [ENGINE REGISTRY] Current registry size: ${this.engineRegistry.size}`);
-        this.logger.warn(`🔍 [ENGINE REGISTRY] Registry keys: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+        this.logger.debug(`[ENGINE REGISTRY] getOrCreateEngine called for sessionId: ${sessionId}`);
+        this.logger.debug(`[ENGINE REGISTRY] Current registry size: ${this._engineRegistry.size}`);
+        this.logger.debug(`[ENGINE REGISTRY] Registry keys: [${Array.from(this._engineRegistry.keys()).join(', ')}]`);
         
-        // 🚨 新增：详细的Registry操作追踪
-        const stackTrace = new Error().stack;
-        this.logger.warn(`🔍 [ENGINE REGISTRY] Call stack for getOrCreateEngine:`);
-        this.logger.warn(stackTrace || 'No stack trace available');
-        
-        let engine = this.engineRegistry.get(sessionId);
-        this.logger.warn(`🔍 [ENGINE REGISTRY] Registry.get(${sessionId}) returned: ${engine ? 'ENGINE_FOUND' : 'NULL'}`);
+        let engine = this._engineRegistry.get(sessionId);
+        this.logger.debug(`[ENGINE REGISTRY] Registry.get(${sessionId}) returned: ${engine ? 'ENGINE_FOUND' : 'NULL'}`);
         
         if (!engine) {
-            this.logger.warn(`🚨 [ENGINE REGISTRY] Creating NEW engine for sessionId: ${sessionId}`);
+            this.logger.debug(`[ENGINE REGISTRY] Creating NEW engine for sessionId: ${sessionId}`);
             // 🚀 v3.0重构：创建新引擎，移除sessionContext参数
             engine = new SRSAgentEngine(stream, model);
             engine.setDependencies(this.orchestrator, toolExecutor);
             
             // 🚨 新增：Registry SET操作追踪
-            this.logger.warn(`🔍 [ENGINE REGISTRY] About to SET engine for sessionId: ${sessionId}`);
-            this.engineRegistry.set(sessionId, engine);
-            this.logger.warn(`🔍 [ENGINE REGISTRY] After SET - registry size: ${this.engineRegistry.size}`);
-            this.logger.warn(`🔍 [ENGINE REGISTRY] After SET - registry keys: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+            this.logger.debug(`[ENGINE REGISTRY] About to SET engine for sessionId: ${sessionId}`);
+            this._engineRegistry.set(sessionId, engine);
+            this.logger.debug(`[ENGINE REGISTRY] After SET - registry size: ${this._engineRegistry.size}`);
             
             this.logger.info(`🧠 Created new persistent engine for session: ${sessionId}`);
         } else {
-            this.logger.warn(`🔍 [ENGINE REGISTRY] Reusing existing engine for sessionId: ${sessionId}`);
+            this.logger.debug(`[ENGINE REGISTRY] Reusing existing engine for sessionId: ${sessionId}`);
             // 🚀 复用现有引擎，只更新当前交互的参数
             engine.updateStreamAndModel(stream, model);
             this.logger.info(`♻️  Reusing existing engine for session: ${sessionId}`);
         }
         
-        this.logger.warn(`🔍 [ENGINE REGISTRY] Final registry size: ${this.engineRegistry.size}`);
+        this.logger.debug(`[ENGINE REGISTRY] Final registry size: ${this._engineRegistry.size}`);
         return engine;
     }
     
@@ -620,28 +600,24 @@ export class SRSChatParticipant implements ISessionObserver {
             // 📡 兼容层：在旧架构下保持原有的完整清理逻辑
             this.logger.warn('📡 [LEGACY] Using legacy engine cleanup logic');
             
-            const engineCount = this.engineRegistry.size;
-            this.logger.warn(`🔍 [CLEAR ENGINES] Registry size before clear: ${engineCount}`);
-            this.logger.warn(`🔍 [CLEAR ENGINES] Registry keys before clear: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
-            
-            // 🚨 新增：记录每个Engine的状态信息
-            this.engineRegistry.forEach((engine, sessionId) => {
-                const engineState = engine.getState();
-                this.logger.warn(`🔍 [CLEAR ENGINES] Engine ${sessionId} state: stage=${engineState.stage}, task="${engineState.currentTask}", historyLength=${engineState.executionHistory.length}`);
-            });
+            const engineCount = this._engineRegistry.size;
+            this.logger.debug(`[CLEAR ENGINES] Registry size before clear: ${engineCount}`);
+            this.logger.debug(`[CLEAR ENGINES] Registry keys before clear: [${Array.from(this._engineRegistry.keys()).join(', ')}]`);
             
             // 清理所有引擎，它们会重新获取最新的SessionContext
-            this.engineRegistry.forEach((engine, sessionId) => {
-                this.logger.warn(`🔍 [CLEAR ENGINES] Disposing engine for sessionId: ${sessionId}`);
-                engine.dispose(); // 取消观察者订阅
+            this._engineRegistry.forEach((engine, sessionId) => {
+                this.logger.debug(`[CLEAR ENGINES] Disposing engine for sessionId: ${sessionId}`);
+                try {
+                    engine.dispose(); // 取消观察者订阅
+                } catch (error) {
+                    this.logger.error(`❌ [CLEAR ENGINES] Engine disposal failed for ${sessionId}: ${(error as Error).message}`, error as Error);
+                }
             });
             
-            // 🚨 新增：Registry CLEAR操作追踪
-            this.logger.warn(`🔍 [CLEAR ENGINES] About to CLEAR entire registry...`);
-            this.engineRegistry.clear();
-            this.logger.warn(`🔍 [CLEAR ENGINES] Registry CLEARED - new size: ${this.engineRegistry.size}`);
+            // 清空registry
+            this._engineRegistry.clear();
+            this.logger.debug(`[CLEAR ENGINES] Registry CLEARED - new size: ${this._engineRegistry.size}`);
             
-            this.logger.warn(`🔍 [CLEAR ENGINES] Registry size after clear: ${this.engineRegistry.size}`);
             this.logger.info(`🧹 Cleared ${engineCount} stale engines from registry`);
         }
     }
@@ -687,10 +663,10 @@ export class SRSChatParticipant implements ISessionObserver {
                 this.logger.warn(`⚠️ [GLOBAL ENGINE] No global engine exists yet`);
             }
         } else {
-            // 🔄 兼容层：在旧架构下保持原有的清理逻辑
+            // 🔄 兼容层：仅在明确使用旧架构时执行
             this.logger.warn(`📡 [LEGACY] Using legacy engine cleanup logic`);
-            this.logger.warn(`🚨 [SESSION OBSERVER] Current engine registry size: ${this.engineRegistry.size}`);
-            this.logger.warn(`🚨 [SESSION OBSERVER] Registry keys: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+            this.logger.warn(`🚨 [SESSION OBSERVER] Current engine registry size: ${this._engineRegistry.size}`);
+            this.logger.warn(`🚨 [SESSION OBSERVER] Registry keys: [${Array.from(this._engineRegistry.keys()).join(', ')}]`);
             
             // 检测到会话ID变更，需要清理旧engines
             if (oldSessionId && newSessionId && oldSessionId !== newSessionId) {
@@ -715,39 +691,22 @@ export class SRSChatParticipant implements ISessionObserver {
      * 🚀 精确清理特定会话的engine，避免误清理当前使用的engine
      */
     private async cleanupSpecificEngine(sessionId: string): Promise<void> {
-        // 🚨 新增：清理特定Engine的详细追踪
-        const cleanupTimestamp = new Date().toISOString();
-        const cleanupStack = new Error().stack;
+        this.logger.debug(`[CLEANUP] Starting cleanup for specific session: ${sessionId}`);
+        this.logger.debug(`[CLEANUP] Registry size before cleanup: ${this._engineRegistry.size}`);
         
-        this.logger.warn(`🚨 [CLEANUP] Starting cleanup for specific session at ${cleanupTimestamp}`);
-        this.logger.warn(`🚨 [CLEANUP] Target sessionId: ${sessionId}`);
-        this.logger.warn(`🚨 [CLEANUP] Registry size before cleanup: ${this.engineRegistry.size}`);
-        this.logger.warn(`🚨 [CLEANUP] Registry keys before cleanup: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
-        this.logger.warn(`🚨 [CLEANUP] Call stack:`);
-        this.logger.warn(cleanupStack || 'No stack trace available');
-        
-        this.logger.warn(`🧹 [CLEANUP] Starting cleanup for specific session: ${sessionId}`);
-        
-        const engine = this.engineRegistry.get(sessionId);
+        const engine = this._engineRegistry.get(sessionId);
         if (engine) {
-            this.logger.warn(`🧹 [CLEANUP] Found engine for session ${sessionId}, disposing...`);
-            
-            // 🚨 新增：记录被清理Engine的状态
-            const engineState = engine.getState();
-            this.logger.warn(`🚨 [CLEANUP] Engine to be cleaned: stage=${engineState.stage}, task="${engineState.currentTask}", historyLength=${engineState.executionHistory.length}`);
+            this.logger.debug(`[CLEANUP] Found engine for session ${sessionId}, disposing...`);
             
             try {
                 // 取消观察者订阅，释放资源
                 engine.dispose();
                 
                 // 从registry中移除
-                this.logger.warn(`🚨 [CLEANUP] About to DELETE engine from registry...`);
-                this.engineRegistry.delete(sessionId);
-                this.logger.warn(`🚨 [CLEANUP] Engine DELETED from registry`);
+                this._engineRegistry.delete(sessionId);
                 
                 this.logger.info(`✅ [CLEANUP] Successfully cleaned up engine for session: ${sessionId}`);
-                this.logger.warn(`🧹 [CLEANUP] Registry size after cleanup: ${this.engineRegistry.size}`);
-                this.logger.warn(`🚨 [CLEANUP] Registry keys after cleanup: [${Array.from(this.engineRegistry.keys()).join(', ')}]`);
+                this.logger.debug(`[CLEANUP] Registry size after cleanup: ${this._engineRegistry.size}`);
             } catch (error) {
                 this.logger.error(`❌ [CLEANUP] Failed to dispose engine for session ${sessionId}: ${(error as Error).message}`, error as Error);
             }
@@ -796,10 +755,10 @@ export class SRSChatParticipant implements ISessionObserver {
                 const sessionId = sessionContext.sessionContextId;
                 const legacyInfo = [
                     '--- Legacy Session-based Engine Status ---',
-                    `Session Engine: ${this.engineRegistry.has(sessionId) ? 'Active' : 'Inactive'}`,
-                    `Engine State: ${this.engineRegistry.has(sessionId) ? this.engineRegistry.get(sessionId)?.getState().stage : 'None'}`,
-                    `Awaiting User: ${this.engineRegistry.has(sessionId) ? this.engineRegistry.get(sessionId)?.isAwaitingUser() : false}`,
-                    `Active Sessions: ${this.engineRegistry.size}`
+                                    `Session Engine: ${this._engineRegistry.has(sessionId) ? 'Active' : 'Inactive'}`,
+                `Engine State: ${this._engineRegistry.has(sessionId) ? this._engineRegistry.get(sessionId)?.getState().stage : 'None'}`,
+                `Awaiting User: ${this._engineRegistry.has(sessionId) ? this._engineRegistry.get(sessionId)?.isAwaitingUser() : false}`,
+                `Active Sessions: ${this._engineRegistry.size}`
                 ];
                 
                 return [...baseInfo, ...legacyInfo].join('\n');

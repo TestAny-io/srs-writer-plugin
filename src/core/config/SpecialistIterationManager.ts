@@ -3,8 +3,11 @@ import {
     SpecialistIterationConfig, 
     SpecialistCategory,
     DEFAULT_SPECIALIST_ITERATION_CONFIG,
-    SPECIALIST_CATEGORY_MAPPING 
+    SPECIALIST_CATEGORY_MAPPING,
+    getSpecialistCategory
 } from './SpecialistIterationConfig';
+import { getSpecialistRegistry } from '../specialistRegistry';
+import type { SpecialistRegistry } from '../specialistRegistry';
 
 /**
  * Specialist迭代限制管理器 - 单例模式
@@ -18,10 +21,12 @@ export class SpecialistIterationManager {
     private static instance: SpecialistIterationManager;
     private logger = Logger.getInstance();
     private config: SpecialistIterationConfig;
+    private specialistRegistry: SpecialistRegistry;
 
     private constructor() {
         this.config = { ...DEFAULT_SPECIALIST_ITERATION_CONFIG };
-        this.logger.info('🎛️ SpecialistIterationManager initialized with default config');
+        this.specialistRegistry = getSpecialistRegistry();
+        this.logger.info('🎛️ SpecialistIterationManager initialized with default config and registry integration');
     }
 
     /**
@@ -37,16 +42,32 @@ export class SpecialistIterationManager {
     /**
      * 获取指定specialist的最大迭代次数
      * 
-     * 优先级：
-     * 1. specialistOverrides中的个性化配置
-     * 2. 根据specialist类别的默认配置
-     * 3. 全局默认值
+     * 🚀 新优先级（集成SpecialistRegistry）：
+     * 1. SpecialistRegistry中的iteration_config.max_iterations（动态配置）
+     * 2. specialistOverrides中的个性化配置（硬编码配置）
+     * 3. 根据specialist类别的默认配置
+     * 4. 全局默认值
      * 
      * @param specialistId specialist标识符
      * @returns { maxIterations: number, source: string } 最大迭代次数和配置来源
      */
     public getMaxIterations(specialistId: string): { maxIterations: number; source: string } {
-        // 1. 首先检查个性化配置
+        // 🚀 1. 优先检查SpecialistRegistry中的动态配置
+        try {
+            const specialist = this.specialistRegistry.getSpecialist(specialistId);
+            if (specialist?.config.iteration_config?.max_iterations !== undefined) {
+                const maxIterations = specialist.config.iteration_config.max_iterations;
+                this.logger.info(`🎯 [SpecialistIterationManager] Using dynamic config for ${specialistId}: ${maxIterations} iterations`);
+                return {
+                    maxIterations,
+                    source: `specialist_config.iteration_config.max_iterations[${specialistId}]`
+                };
+            }
+        } catch (error) {
+            this.logger.warn(`⚠️ [SpecialistIterationManager] Failed to read dynamic config for ${specialistId}: ${(error as Error).message}`);
+        }
+
+        // 🔄 2. 回退到硬编码的个性化配置
         if (this.config.specialistOverrides[specialistId] !== undefined) {
             const maxIterations = this.config.specialistOverrides[specialistId];
             return {
@@ -55,7 +76,7 @@ export class SpecialistIterationManager {
             };
         }
 
-        // 2. 根据类别获取默认配置
+        // 🔄 3. 根据类别获取默认配置
         const category = this.getSpecialistCategory(specialistId);
         if (category) {
             const maxIterations = this.config.categoryDefaults[category];
@@ -65,7 +86,7 @@ export class SpecialistIterationManager {
             };
         }
 
-        // 3. 使用全局默认值
+        // 🔄 4. 使用全局默认值
         return {
             maxIterations: this.config.globalDefault,
             source: 'globalDefault'

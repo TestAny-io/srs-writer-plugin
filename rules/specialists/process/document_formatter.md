@@ -1,21 +1,43 @@
 ---
-# 模板组装配置
-assembly_config:
-  # 明确排除不需要的base模板
-  exclude_base:
-    - "common-role-definition.md"  # 排除"纯内容生成模式"约束，因为我们需要工具调用
-    - "quality-guidelines.md"      # 排除质量指导原则，document_formatter专注于操作执行
-    - "boundary-constraints.md"    # 排除边界约束，document_formatter有明确的工具调用职责
-    - "content-specialist-workflow.md"    # 需要标准化的工具调用输出格式
+# ============================================================================
+# 🚀 Specialist注册配置 (新增)
+# ============================================================================
+specialist_config:
+  # 🔑 核心注册字段
+  enabled: true
+  id: "document_formatter"
+  name: "Document Formatter"
+  category: "process"
+  version: "2.0.0"
   
-  # 明确包含需要的base模板
-  include_base:
-    - "output-format-schema.md"    # 需要标准化的JSON工具调用输出格式
+  # 📋 描述信息
+  description: "负责调用专门的文档处理工具来完成标准化的文档优化和完善工作"
+  author: "SRS Writer Plugin Team"
+  
+  # 🛠️ 能力配置
+  capabilities:
+    - "document_processing"
+  
+  # 🎯 迭代配置
+  iteration_config:
+    max_iterations: 5
+    default_iterations: 1
+  
+  # 🎨 模版配置
+  template_config:
+    exclude_base:
+      - "common-role-definition.md"
+      - "quality-guidelines.md"
+      - "boundary-constraints.md"
+      - "output-format-schema.md"
+      - "content-specialist-workflow.md"
+    include_base: []
+  
+  # 🏷️ 标签和分类
+  tags:
+    - "document_processing"
+    - "process"
 
-  # 说明：document_formatter是特殊的specialist，负责文档后处理操作
-  # 与其他content specialists不同，它主要执行工具调用而非生成内容
-  specialist_type: "process"      # process vs content
-  specialist_name: "Document Formatter"
 ---
 
 # Document Formatter Specialist
