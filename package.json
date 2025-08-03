@@ -6,12 +6,12 @@
   "publisher": "Testany",
   "repository": {
     "type": "git",
-    "url": "https://github.com/srs-writer-team/srs-writer-plugin.git"
+    "url": "https://github.com/Testany-io/srs-writer-plugin.git"
   },
   "bugs": {
-    "url": "https://github.com/srs-writer-team/srs-writer-plugin/issues"
+    "url": "https://github.com/Testany-io/srs-writer-plugin/issues"
   },
-  "homepage": "https://github.com/srs-writer-team/srs-writer-plugin#readme",
+  "homepage": "https://github.com/Testany-io/srs-writer-plugin#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -28,6 +28,7 @@
     "dist",
     "rules",
     "media",
+    ".templates",
     "LICENSE",
     "README.md"
   ],
