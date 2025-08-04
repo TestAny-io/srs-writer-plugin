@@ -396,6 +396,17 @@ export class SRSAgentEngine implements ISessionObserver {
           }
         };
         
+        // 🚀 新增：记录orchestrator生成的execution_plan到执行历史
+        if (plan.response_mode === 'PLAN_EXECUTION' && plan.execution_plan) {
+          await this.recordExecution(
+            'plan_execution',
+            `Orchestrator生成执行计划: ${plan.execution_plan.planId}`,
+            true,
+            'orchestrator',
+            plan.execution_plan  // 完整的execution_plan JSON
+          );
+        }
+        
         // 🚀 修复递归调用：传递已有的计划，避免重复调用generateUnifiedPlan
         const executionResult = await this.orchestrator.planAndExecute(
           this.state.currentTask,

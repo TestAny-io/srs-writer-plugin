@@ -159,7 +159,7 @@ export interface SpecialistExecutionHistory {
  * 执行步骤接口 - 完整的执行日志 🚀 Code Review优化版本
  */
 export interface ExecutionStep {
-  type: 'thought' | 'tool_call' | 'user_interaction' | 'result' | 'tool_call_skipped' | 'forced_response' | 'system';
+  type: 'thought' | 'tool_call' | 'user_interaction' | 'result' | 'tool_call_skipped' | 'forced_response' | 'system' | 'plan_execution';
   content: string;
   timestamp: number;
   toolName?: string;

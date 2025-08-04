@@ -107,12 +107,12 @@ export class PlanExecutor {
                     progressCallback
                 );
                 } catch (error) {
-                    this.logger.error(`❌ 步骤 ${step.step} specialist循环执行异常: ${(error as Error).message}`);
+                    this.logger.error(`❌ 步骤 ${step.step} ${step.specialist}循环执行异常: ${(error as Error).message}`);
                     return {
                         intent: 'plan_failed',
                         result: {
                             summary: `计划 '${plan.description}' 在步骤 ${step.step} 执行异常`,
-                            error: `specialist循环执行异常: ${(error as Error).message}`,
+                            error: `${step.specialist}循环执行异常: ${(error as Error).message}`,
                             failedStep: step.step,
                             completedSteps: Object.keys(stepResults).length,
                             // 🚀 新增：完整的计划执行上下文
@@ -170,12 +170,12 @@ export class PlanExecutor {
                 
                 // 检查specialist是否执行成功
                 if (!specialistOutput.success) {
-                    this.logger.error(`❌ 步骤 ${step.step} specialist执行失败: ${specialistOutput.error}`);
+                    this.logger.error(`❌ 步骤 ${step.step} ${step.specialist}执行失败: ${specialistOutput.error}`);
                     return {
                         intent: 'plan_failed',
                         result: {
                             summary: `计划 '${plan.description}' 在步骤 ${step.step} 失败: ${step.description}`,
-                            error: `specialist执行失败: ${specialistOutput.error}`,
+                            error: `${step.specialist}执行失败: ${specialistOutput.error}`,
                             failedStep: step.step,
                             completedSteps: Object.keys(stepResults).length,
                             specialistDetails: {
@@ -1848,7 +1848,7 @@ export class PlanExecutor {
                     intent: 'plan_failed',
                     result: {
                         summary: `计划 '${plan.description}' 在步骤 ${step.step} 执行异常`,
-                        error: `专家执行异常: ${(error as Error).message}`,
+                        error: `${step.specialist}执行异常: ${(error as Error).message}`,
                         failedStep: step.step,
                         completedSteps: Object.keys(stepResults).length,
                         attempt: attempt,

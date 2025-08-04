@@ -14,14 +14,16 @@
  */
 export const SPECIALIST_TEMPLATE_MAPPINGS: Record<string, string> = {
   "adc_writer": "adcWriter",
+  "biz_req_and_rule_writer": "bizReqAndRuleWriter",
   "fr_writer": "frWriter",
   "ifr_and_dar_writer": "ifrAndDarWriter",
   "nfr_writer": "nfrWriter",
   "overall_description_writer": "overallDescriptionWriter",
   "prototype_designer": "prototypeDesigner",
-  "story_and_case_writer": "storyAndCaseWriter",
   "summary_writer": "summaryWriter",
-  "user_journey_writer": "userJourneyWriter"
+  "use_case_writer": "useCaseWriter",
+  "user_journey_writer": "userJourneyWriter",
+  "user_story_writer": "userStoryWriter"
 };
 
 /**

@@ -9,16 +9,21 @@
 ### Feature Positioning
 
 #### position-1
+
 对于 [目标用户群体]，他们遇到 [具体问题/需求]，我们的 [功能名称] 是一个 [功能类别]，它能够 [核心价值/解决方案]，不同于 [竞争对手/替代方案]，我们的优势在于 [独特差异化价值]。
 
 #### position-2
+
 ...
 
 ### Scope and Metrics
+
 **Scope Overview (范围概述)**: [用一两段话高度概括系统的核心功能和边界]
 
 #### System Scope and Context (系统范围与上下文)
+
 **System Context Diagram (系统上下文图)**:
+
 ```mermaid
 graph TD
     subgraph "外部用户"
@@ -63,7 +68,7 @@ graph TD
 #### Success Metrics
 
 - metric-1
-    - Name 
+    - Name
     - base value
     - target value
     - time boundry
@@ -86,4 +91,3 @@ graph TD
 - **操作系统**: [支持的操作系统]
 - **浏览器兼容性**: [支持的浏览器版本]
 - **部署平台**: [云服务商、私有化部署等]
-

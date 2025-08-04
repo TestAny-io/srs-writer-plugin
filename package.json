@@ -291,6 +291,19 @@
             }
           }
         },
+        "srs-writer.templates.bizReqAndRuleWriter": {
+          "type": "object",
+          "default": {
+            "BIZ_REQ_AND_RULE_WRITER_TEMPLATE": ".templates/biz_req_and_rule/biz_req_and_rule_template.md"
+          },
+          "description": "Business Requirement and Rule Writer的模板文件路径配置",
+          "properties": {
+            "BIZ_REQ_AND_RULE_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "BIZ_REQ_AND_RULE_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
         "srs-writer.templates.frWriter": {
           "type": "object",
           "default": {
@@ -356,19 +369,6 @@
             }
           }
         },
-        "srs-writer.templates.storyAndCaseWriter": {
-          "type": "object",
-          "default": {
-            "STORY_AND_CASE_WRITER_TEMPLATE": ".templates/user_story_and_cae/story_and_case_template.md"
-          },
-          "description": "Story and Case Writer的模板文件路径配置",
-          "properties": {
-            "STORY_AND_CASE_WRITER_TEMPLATE": {
-              "type": "string",
-              "description": "STORY_AND_CASE_WRITER_TEMPLATE模板文件路径"
-            }
-          }
-        },
         "srs-writer.templates.summaryWriter": {
           "type": "object",
           "default": {
@@ -382,6 +382,19 @@
             }
           }
         },
+        "srs-writer.templates.useCaseWriter": {
+          "type": "object",
+          "default": {
+            "USE_CASE_WRITER_TEMPLATE": ".templates/use_case_writer/use_case_template.md"
+          },
+          "description": "Use Case Writer的模板文件路径配置",
+          "properties": {
+            "USE_CASE_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "USE_CASE_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
         "srs-writer.templates.userJourneyWriter": {
           "type": "object",
           "default": {
@@ -392,6 +405,19 @@
             "USER_JOURNEY_WRITER_TEMPLATE": {
               "type": "string",
               "description": "USER_JOURNEY_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.userStoryWriter": {
+          "type": "object",
+          "default": {
+            "USER_STORY_WRITER_TEMPLATE": ".templates/user_story/user_story_template.md"
+          },
+          "description": "User Story Writer的模板文件路径配置",
+          "properties": {
+            "USER_STORY_WRITER_TEMPLATE": {
+              "type": "string",
+              "description": "USER_STORY_WRITER_TEMPLATE模板文件路径"
             }
           }
         }

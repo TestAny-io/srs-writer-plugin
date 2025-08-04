@@ -76,17 +76,13 @@ export class AICommunicator implements IAICommunicator {
         } catch (error) {
             this.logger.error('Failed to generate mother document', error as Error);
             
-            if (error instanceof Error) {
-                // 处理特定类型的错误
-                if (error.message.includes('No language models available')) {
-                    throw new Error('请先配置AI模型（如GitHub Copilot）后再使用SRS Writer插件。');
-                } else if (error.message.includes('rate limit') || error.message.includes('quota')) {
-                    throw new Error('AI服务调用频率超限，请稍后重试。');
-                } else if (error.message.includes('network') || error.message.includes('timeout')) {
-                    throw new Error('网络连接超时，请检查网络连接后重试。');
-                }
+            // 🎯 透传 VSCode LanguageModelError 的原始错误信息
+            if (error instanceof vscode.LanguageModelError) {
+                this.logger.error(`Language Model API Error - Code: ${error.code}, Message: ${error.message}`);
+                throw new Error(`AI模型服务错误 [${error.code}]: ${error.message}`);
             }
             
+            // 其他错误直接抛出，保持原始信息
             throw error;
         }
     }
@@ -216,6 +212,14 @@ export class AICommunicator implements IAICommunicator {
 
         } catch (error) {
             this.logger.error(`Failed to execute rule with model ${model?.name || 'unknown'}`, error as Error);
+            
+            // 🎯 透传 VSCode LanguageModelError 的原始错误信息
+            if (error instanceof vscode.LanguageModelError) {
+                this.logger.error(`Language Model API Error - Code: ${error.code}, Message: ${error.message}`);
+                throw new Error(`AI模型服务错误 [${error.code}]: ${error.message}`);
+            }
+            
+            // 其他错误直接抛出，保持原始信息
             throw error;
         }
     }

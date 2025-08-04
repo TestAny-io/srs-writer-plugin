@@ -190,7 +190,7 @@ specialist_config:
 
 你负责生成整个需求文档SRS.md中的**执行摘要**章节，因此你生成的章节位置必须符合以下规范：
 
-- Executive Summary章节通常插入在文档开头，或overall description章节前
+- Executive Summary章节通常插入在**文档开头**，或**overall description章节前**
 
 ### 文档编辑指令输出规范
 

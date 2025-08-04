@@ -332,6 +332,7 @@ export class ContextManager {
       thought?: string;
       response?: string;
       actions: Array<{ toolName: string; success: boolean; duration?: number }>;
+      planExecuted?: any;  // 🚀 新增：记录execution_plan
     }> = [];
 
     let currentTurn: any = null;
@@ -340,6 +341,7 @@ export class ContextManager {
     let pendingThought: string | null = null;
     let pendingResponse: string | null = null;
     let pendingActions: Array<{ toolName: string; success: boolean; duration?: number }> = [];
+    let pendingPlanExecuted: any = null;  // 🚀 新增：临时存储孤立的execution_plan
 
     // 🚀 修复：应用累积的数据到Turn
     const applyPendingDataToTurn = (turn: any) => {
@@ -354,6 +356,10 @@ export class ContextManager {
       if (pendingActions.length > 0) {
         turn.actions.push(...pendingActions);
         pendingActions = [];
+      }
+      if (pendingPlanExecuted) {
+        turn.planExecuted = pendingPlanExecuted;
+        pendingPlanExecuted = null;
       }
     };
 
@@ -452,12 +458,23 @@ export class ContextManager {
           }
           break;
 
+        case 'plan_execution':
+          // 🚀 新增：处理orchestrator生成的execution_plan
+          if (currentTurn) {
+            currentTurn.planExecuted = step.result;
+            this.logger.info(`🔍 [DEBUG-TURN] Found execution plan: "${step.result?.planId || 'unknown'}"`);
+          } else {
+            pendingPlanExecuted = step.result;
+            this.logger.info(`🔍 [DEBUG-TURN] Saved pending execution plan: "${step.result?.planId || 'unknown'}"`);
+          }
+          break;
+
         // 忽略其他类型如 'tool_call_skipped'
       }
     });
 
     // 🚀 新增：如果有孤立的数据但没有Turn，创建一个基于currentTask的Turn
-    if ((pendingThought || pendingResponse || pendingActions.length > 0) && turns.length === 0 && currentTask) {
+    if ((pendingThought || pendingResponse || pendingActions.length > 0 || pendingPlanExecuted) && turns.length === 0 && currentTask) {
       const firstTurn = {
         userInput: currentTask,
         actions: []
@@ -514,6 +531,14 @@ export class ContextManager {
         turnText += `\n- Your Action Taken: ${actionDescriptions.join(', ')}`;
       } else {
         turnText += `\n- Your Action Taken: N/A`;
+      }
+
+      // Your Plan Executed
+      if (turn.planExecuted) {
+        const planJson = JSON.stringify(turn.planExecuted, null, 2);
+        turnText += `\n- Your Plan Executed:\n\`\`\`json\n${planJson}\n\`\`\``;
+      } else {
+        turnText += `\n- Your Plan Executed: N/A`;
       }
 
       return turnText;

@@ -150,13 +150,22 @@ export class SRSChatParticipant implements ISessionObserver {
         } catch (error) {
             this.logger.error('聊天请求处理失败', error as Error);
             
-            const errorMessage = error instanceof Error ? error.message : '未知错误';
-            
-            stream.markdown(`❌ **处理请求时发生错误**\n\n`);
-            stream.markdown(`错误信息: ${errorMessage}\n\n`);
-            
-            if (errorMessage.includes('模型不可用') || errorMessage.includes('model not available')) {
-                stream.markdown(`💡 **建议**: 请检查您的 AI 模型配置，确保模型可用且有足够的配额。\n\n`);
+            // 🎯 透传 VSCode LanguageModelError 的原始错误信息
+            if (error instanceof vscode.LanguageModelError) {
+                this.logger.error(`Language Model API Error - Code: ${error.code}, Message: ${error.message}`);
+                
+                stream.markdown(`❌ **AI模型服务错误**\n\n`);
+                stream.markdown(`**错误代码**: \`${error.code || 'unknown'}\`\n\n`);
+                stream.markdown(`**错误信息**: ${error.message}\n\n`);
+                stream.markdown(`这是来自VSCode Language Model API的错误。请检查您的GitHub Copilot配置和订阅状态。\n\n`);
+                stream.markdown(`💡 **建议**: 使用错误代码 \`${error.code}\` 搜索相关解决方案。\n\n`);
+            } else {
+                // 其他错误的通用处理
+                const errorMessage = error instanceof Error ? error.message : '未知错误';
+                
+                stream.markdown(`❌ **处理请求时发生错误**\n\n`);
+                stream.markdown(`**错误信息**: ${errorMessage}\n\n`);
+                stream.markdown(`请稍后重试，或者换一种方式提问。\n\n`);
             }
         } finally {
             const duration = Date.now() - startTime;

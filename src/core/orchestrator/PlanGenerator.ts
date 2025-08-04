@@ -74,11 +74,39 @@ export class PlanGenerator {
 
     } catch (error) {
       this.logger.error('Failed to generate unified plan with structured prompt', error as Error);
-      // 在失败时，返回一个安全的、无害的默认规划
+      
+      // 🎯 透传 VSCode LanguageModelError 的原始错误信息
+      if (error instanceof vscode.LanguageModelError) {
+        this.logger.error(`Language Model API Error - Code: ${error.code}, Message: ${error.message}`);
+        
+        return {
+          thought: `Language Model API Error: ${error.code} - ${error.message}`,
+          response_mode: AIResponseMode.KNOWLEDGE_QA,
+          direct_response: `❌ **AI模型服务错误**
+
+**错误代码**: \`${error.code || 'unknown'}\`
+**错误信息**: ${error.message}
+
+这是来自VSCode Language Model API的错误。请检查：
+- 您的GitHub Copilot配置和订阅状态
+- 所选择的AI模型是否在您的订阅范围内
+- 网络连接是否正常
+
+如需帮助，请使用错误代码 \`${error.code}\` 搜索相关解决方案。`,
+          tool_calls: []
+        };
+      }
+      
+      // 其他类型错误的通用处理
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       return {
-        thought: 'Error during planning with structured prompt, defaulting to safe response.',
+        thought: `Error during planning with structured prompt: ${errorMessage}`,
         response_mode: AIResponseMode.KNOWLEDGE_QA,
-        direct_response: '抱歉，我在处理结构化提示时遇到了问题。能请您换一种方式提问吗？',
+        direct_response: `❌ **处理请求时发生错误**
+
+**错误信息**: ${errorMessage}
+
+抱歉，我在处理您的请求时遇到了问题。请稍后重试，或者换一种方式提问。`,
         tool_calls: []
       };
     }
