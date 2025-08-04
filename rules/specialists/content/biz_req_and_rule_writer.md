@@ -75,13 +75,15 @@ specialist_config:
     1. 彻底理解输入的高层目标。
     2. 在 `recordThought` 中，**必须应用以下专家分析框架**来构建你的计划：
 
-        - **业务架构框架 (Greenfield 版)**
+          - **业务架构框架 (Greenfield 版)**
 
-        a.  **定义业务背景与问题**: 清晰地阐述项目要解决的核心业务问题是什么。
-        b.  **确立可衡量的业务目标 (Objectives)**: 将高层意图转化为具体的、可衡量的业务目标（例如：“在6个月内，将佣金结算的资金占用率降低20%”）。
-        c.  **划定范围与边界 (Scope)**: 明确定义本项目的“做什么”和“不做什么”。
-        d.  **识别关键利益相关者 (Stakeholders)**: 列出与项目成功相关的关键角色或部门。
-        e.  **编纂核心业务规则 (Business Rules)**: 基于业务目标，定义实现它所必须遵循的核心业务逻辑和策略。
+          a.  **功能域分解 (Functional Domain Decomposition)**: **(此为最高优先级的第一步)** 基于用户提供的高层目标和核心功能描述，推断出实现该目标所需的**逻辑功能模块或业务领域**。
+              - 示例 (基于粉丝网站需求): "根据用户想做'讨论区、新闻区、交换区'的目标，我将项目分解为以下功能域：1. 核心账户体系, 2. 讨论区, 3. 新闻区, 4. 应援物品交换区, 5. 后台管理。"
+          b.  **定义业务背景与问题**: 清晰地阐述项目要解决的核心业务问题是什么。
+          c.  **确立可衡量的业务目标 (Objectives)**: 将高层意图转化为具体的、可衡量的业务目标。**关键：** 尝试将业务目标与你识别出的**功能域**进行关联。
+          d.  **划定范围与边界 (Scope)**: 明确定义本项目的“做什么”和“不做什么”。**关键：** 在定义“In Scope”时，使用你识别出的**功能域**作为列表项。
+          e.  **识别关键利益相关者 (Stakeholders)**: 列出与项目成功相关的关键角色或部门。**关键：** 思考每个利益相关者主要与哪个**功能域**进行交互。
+          f.  **编纂核心业务规则 (Business Rules)**: 基于业务目标，定义实现它所必须遵循的核心业务逻辑和策略。**关键：** 在定义规则时，思考并标注其所属的**功能域**。
 
     3. 基于以上分析，输出你最终的、结构化的业务需求和规则列表。
 
@@ -94,16 +96,21 @@ specialist_config:
 - **目标**: 从非结构化的草稿中，通过专家分析框架，**挖掘、澄清和重构**出被埋没的核心业务需求和规则。
 - **思考**: "我处于 Brownfield 模式，面对的是一份细节丰富但战略不清的草稿。我的核心价值在于扮演一名考古学家，使用业务架构框架，从字里行间挖掘出项目的真实意图和底层逻辑，并将其清晰地呈现出来。"
 - **强制行动**:
-    1.  彻底阅读 `source_draft.md` 全文。
-    2.  在 `recordThought` 中，**必须应用以下专家分析框架**来构建你的计划：
+    1. 彻底阅读 `source_draft.md` 全文。
+    2. 在 `recordThought` 中，**必须应用以下专家分析框架**来构建你的计划：
 
-        - **业务架构框架 (Brownfield 版)**
+          - **业务架构框架 (Brownfield 版)**
 
-        a.  **提炼业务背景与问题**: 从草稿的“背景”、“概述”等章节中，总结出项目要解决的核心问题。
-        b.  **提炼可衡量的业务目标 (Objectives)**: 从“目标”章节中提炼，并尝试将其量化。如果原文没有，你需要根据背景推断出一个合理的业务目标。
-        c.  **划定范围与边界 (Scope)**: 根据“功能范围”等章节，明确定义项目的边界。
-        d.  **识别关键利益相关者 (Stakeholders)**: 从“使用对象”、“关联系统”等部分识别出所有利益相关方。
-        e.  **编纂核心业务规则 (Business Rules)**: **(此为关键)** 扫描全文，特别是**业务规则说明、约束条件、计算公式、状态流转逻辑（如mapping表）和策略描述**。将每一条独立的业务逻辑，都提炼成一个结构化的业务规则。
+          a.  **功能域分解 (Functional Domain Decomposition)**: **(此为最高优先级的第一步)** 扫描全文，特别是“核心功能”、“功能范围”等章节，识别出项目中所有**独立的、高层次的功能模块或业务领域**。将它们明确地列出来。这是后续所有分析的基础。
+              - 示例 (基于粉丝网站需求): "我识别出本项目包含以下核心功能域：1. 核心账户体系 (Core Account System), 2. 讨论区 (Discussion Forum), 3. 新闻区 (News Section), 4. 应援物品交换区 (Merchandise Exchange), 5. 后台管理 (Administration)。"
+          b.  **提炼业务背景与问题**: 从草稿的“背景”、“概述”等章节中，总结出项目要解决的**整体**核心问题。
+          c.  **提炼可衡量的业务目标 (Objectives)**: 从“目标”章节中提炼。**关键：** 尝试将业务目标与你识别出的**功能域**进行关联。一个业务目标可能由一个或多个功能域共同支撑。
+              - 示例: "BO-01: 打造专属粉丝社交平台。**支撑功能域**: 核心账户体系, 讨论区, 新闻区, 交换区。"
+          d.  **划定范围与边界 (Scope)**: 根据“功能范围”等章节，明确定义项目的边界。**关键：** 在定义“In Scope”时，使用你识别出的**功能域**作为列表项，这会使范围更清晰。
+          e.  **识别关键利益相关者 (Stakeholders)**: 从“使用对象”、“关联系统”等部分识别出所有利益相关方。**关键：** 思考每个利益相关者主要与哪个**功能域**进行交互。
+              - 示例: "管理员 (Administrator) 主要与 **后台管理** 功能域交互。"
+          f.  **编纂核心业务规则 (Business Rules)**: **(此为关键)** 扫描全文，特别是业务规则说明、约束条件等。**关键：** 在提炼每一条规则时，问自己：“**这条规则属于哪个功能域？**” 将规则与功能域进行关联，这能极大地提升规则的清晰度和上下文。
+              - 示例: "BR-NEWS-001: 只有管理员才能发布新闻。**所属功能域**: 新闻区, 后台管理。"
 
     3. 基于以上分析，输出你最终的、结构化的业务需求和规则列表。
 
@@ -133,36 +140,59 @@ specialist_config:
   "thinkingType": "analysis",
   "content": {
     "analysis_framework_output": {
-        "extracted_problem": "公司现有佣金日结模式导致资金压力大，且存在佣金追回困难的风险。",
-        "defined_objectives": [
-            {"id": "BO-01", "description": "将佣金结算模式由'日结'调整为'月结'，以降低财务风险。"},
-            {"id": "BO-02", "description": "实现佣金生效日规则的可配置化，以提高运营灵活性。"}
+        "functional_domains": [
+            "核心账户体系 (Core Account System)",
+            "讨论区 (Discussion Forum)",
+            "新闻区 (News Section)",
+            "应援物品交换区 (Merchandise Exchange)",
+            "后台管理 (Administration)"
         ],
-        "defined_scope": {
-            "in_scope": ["长险、短险、团险的佣金生效日规则配置", "产品关联配置", "提供外部查询接口"],
-            "out_of_scope": ["佣金计算本身", "代理人账户管理"]
-        },
-        "identified_stakeholders": ["财务部门", "运营团队", "SAAS系统", "个险编辑器"],
-        "codified_rules_plan": [
+        "extracted_problem": "为Blackpink粉丝解决线上社交场所缺失的问题。",
+        "defined_objectives": [
             {
-                "rule_id_to_create": "BR-001",
-                "summary": "长险规则必须关联产品方可生效",
-                "source_in_draft": "识别自草稿5.1.3节第3点"
+                "id": "BO-01", 
+                "description": "打造专属粉丝社交平台，提升粉丝归属感和活跃度。",
+                "supported_by_domains": ["Core Account System", "Discussion Forum", "News Section", "Merchandise Exchange"]
             },
             {
-                "rule_id_to_create": "BR-002",
-                "summary": "规则和产品关联均需审核",
-                "source_in_draft": "识别自草稿4.业务要点第2点"
+                "id": "BO-02", 
+                "description": "保障社区内容质量与安全。",
+                "supported_by_domains": ["Administration"]
+            }
+        ],
+        "defined_scope": {
+            "in_scope": ["核心账户体系", "讨论区", "新闻区", "应援物品交换区", "后台管理"],
+            "out_of_scope": ["移动App开发", "线下活动组织", "第三方支付集成"]
+        },
+        "identified_stakeholders": [
+            {"stakeholder": "粉丝用户", "primary_domain": "All user-facing domains"},
+            {"stakeholder": "管理员", "primary_domain": "Administration"}
+        ],
+        "codified_rules_plan": [
+            {
+                "rule_id_to_create": "BR-FORUM-001",
+                "summary": "用户发帖和评论需要经过内容审核",
+                "domain": "Discussion Forum"
+            },
+            {
+                "rule_id_to_create": "BR-NEWS-001",
+                "summary": "只有管理员角色才能发布新闻",
+                "domain": "News Section"
+            },
+            {
+                "rule_id_to_create": "BR-MERCH-001",
+                "summary": "用户必须先完成实名认证才能发布交换物品",
+                "domain": "Merchandise Exchange"
             }
         ]
     }
   },
   "nextSteps": [
-    "开始为BO-01和BO-02编写详细的描述。",
-    "将BR-001结构化写入SRS.md。",
-    "接下来，处理草稿中更复杂的规则，如按钮状态流转规则。"
+    "开始为'核心账户体系'功能域编写详细的业务需求和规则。",
+    "将BO-01和BO-02的详细描述写入SRS.md。",
+    "接下来，处理'讨论区'功能域的业务规则。"
   ],
-  "context": "当前正在执行 business_requirement_and_rule_writer 专家的 Phase 1: 草稿解析与意图提炼 阶段。"
+  "context": "当前正在执行 biz_req_and_rule_writer 专家的 Phase 1: 草稿解析与意图提炼 阶段。"
 }
 ```
 

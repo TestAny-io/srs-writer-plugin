@@ -432,10 +432,10 @@ Context: 用户回答了“4个关键问题”，且没有指定开发方法论
       },
       {
         "step": 2,
-        "description": "Read the content of entire SRS document, and update the User Stories and Cases section to detail the leaderboard feature if necessary.",
-        "specialist": "story_and_case_writer",
+        "description": "Read the content of entire SRS document, and update the User Stories section to detail the leaderboard feature if necessary.",
+        "specialist": "user_story_writer",
         "context_dependencies": [1],
-        "output_chapter_titles": ["4. User Stories and Cases"],
+        "output_chapter_titles": ["4. User Stories"],
         "relevant_context": "The user wants to add a 'leaderboard' feature to the existing 'Lianliankan' project.",
         "language": "zh",
         "workflow_mode": "greenfield"
