@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-08-05
+
+### Fixed
+
+- Completely rollback Project Initializer Specialist rules to fix AI illusion issue
+- Fixed CHANGELOG.md not being included in published package (added to package.json files field)
+
 ## [0.2.1] - 2025-08-04
 
 ### Fixed
