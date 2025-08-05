@@ -30,7 +30,8 @@
     "media",
     ".templates",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "contributes": {
     "chatParticipants": [
