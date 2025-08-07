@@ -36,7 +36,14 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^vscode$': '<rootDir>/src/test/__mocks__/vscode.ts',
     '^unified$': '<rootDir>/src/test/__mocks__/unified.ts',
-    '^remark-parse$': '<rootDir>/src/test/__mocks__/remark-parse.ts'
+    '^remark-parse$': '<rootDir>/src/test/__mocks__/remark-parse.ts',
+    '^remark-gfm$': '<rootDir>/src/test/__mocks__/remark-gfm.ts',
+    '^remark-frontmatter$': '<rootDir>/src/test/__mocks__/remark-frontmatter.ts',
+    '^unist-util-visit$': '<rootDir>/src/test/__mocks__/unist-util-visit.ts',
+    '^unist-util-position$': '<rootDir>/src/test/__mocks__/unist-util-position.ts',
+    '^github-slugger$': '<rootDir>/src/test/__mocks__/github-slugger.ts',
+    '^minisearch$': '<rootDir>/src/test/__mocks__/minisearch.ts',
+    '^lru-cache$': '<rootDir>/src/test/__mocks__/lru-cache.ts'
   },
   
   // 代码覆盖率

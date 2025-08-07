@@ -35,13 +35,16 @@ export type InsertionPosition =
     | 'inside';   // 在参照章节内部插入
 
 /**
- * 语义目标定位接口
+ * 语义目标定位接口 - 使用路径数组精确定位
  */
 export interface SemanticTarget {
-    sectionName: string;                    // 目标/参照章节名称（required）
+    path: string[];                         // 目标路径数组（required）
     targetContent?: string;                 // 要替换的目标内容（replace_lines_in_section时required）
-    startFromAnchor: string;                // 前置锚点，从此处开始搜索targetContent（required）
     insertionPosition?: InsertionPosition;  // 插入位置（insert操作时required）
+    
+    // 🆕 Phase 2 增强：精确章节定位（当insertionPosition="inside"时使用）
+    siblingIndex?: number;                  // 兄弟节点索引 (0-based)
+    siblingOperation?: 'before' | 'after'; // 相对于指定兄弟的操作
 }
 
 /**
@@ -53,6 +56,9 @@ export interface SemanticEditIntent {
     content: string;            // 编辑内容
     reason: string;             // 编辑原因
     priority: number;           // 优先级（数字越大优先级越高）
+    
+    // 🆕 Phase 2 增强：验证模式
+    validateOnly?: boolean;     // 仅验证，不实际执行编辑
 }
 
 /**

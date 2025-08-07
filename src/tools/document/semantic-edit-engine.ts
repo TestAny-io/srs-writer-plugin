@@ -22,6 +22,9 @@ export interface SemanticEditIntent {
     content: string;
     reason: string;
     priority: number;
+    
+    // 🆕 Phase 2 增强：验证模式
+    validateOnly?: boolean;                 // 仅验证，不实际执行编辑
 }
 
 /**
@@ -78,6 +81,10 @@ export async function executeSemanticEdits(
         // 按优先级排序意图
         const sortedIntents = [...intents].sort((a, b) => (b.priority || 0) - (a.priority || 0));
         
+        // 🆕 Phase 2 增强：检查是否有验证模式的意图
+        const hasValidateOnly = sortedIntents.some(intent => intent.validateOnly);
+        const hasRealEdits = sortedIntents.some(intent => !intent.validateOnly);
+        
         // 创建WorkspaceEdit
         const workspaceEdit = new vscode.WorkspaceEdit();
         
@@ -86,11 +93,13 @@ export async function executeSemanticEdits(
             try {
                 logger.info(`🎯 Processing intent: ${intent.type} -> ${intent.target.path.join(' > ')}`);
                 
-                // 构建语义定位目标
+                // 🆕 Phase 2 增强：构建语义定位目标（包含新字段）
                 const semanticTarget: SemanticTarget = {
                     path: intent.target.path,
                     targetContent: intent.target.targetContent,
-                    insertionPosition: intent.target.insertionPosition as InsertionPosition
+                    insertionPosition: intent.target.insertionPosition as InsertionPosition,
+                    siblingIndex: intent.target.siblingIndex,
+                    siblingOperation: intent.target.siblingOperation
                 };
                 
                 // 根据操作类型执行定位
@@ -103,15 +112,21 @@ export async function executeSemanticEdits(
                     continue;
                 }
                 
-                const applied = await applySemanticIntent(workspaceEdit, targetFileUri, intent, locator);
-                
-                if (applied) {
+                // 🆕 Phase 2 增强：验证模式处理
+                if (intent.validateOnly) {
                     appliedIntents.push(intent);
-                    logger.info(`✅ Intent applied successfully: ${intent.type}`);
+                    logger.info(`✅ Intent validated successfully: ${intent.type} (validate-only mode)`);
                 } else {
-                    failedIntents.push(intent);
-                    semanticErrors.push(`Failed to apply intent: ${intent.type} -> ${intent.target.path.join(' > ')}`);
-                    logger.warn(`❌ Intent failed: ${intent.type} -> ${intent.target.path.join(' > ')}`);
+                    const applied = await applySemanticIntent(workspaceEdit, targetFileUri, intent, locator);
+                    
+                    if (applied) {
+                        appliedIntents.push(intent);
+                        logger.info(`✅ Intent applied successfully: ${intent.type}`);
+                    } else {
+                        failedIntents.push(intent);
+                        semanticErrors.push(`Failed to apply intent: ${intent.type} -> ${intent.target.path.join(' > ')}`);
+                        logger.warn(`❌ Intent failed: ${intent.type} -> ${intent.target.path.join(' > ')}`);
+                    }
                 }
                 
             } catch (error) {
@@ -123,8 +138,10 @@ export async function executeSemanticEdits(
         }
         
         // 原子性应用所有编辑
-        if (appliedIntents.length > 0) {
-            logger.info(`🚀 Applying ${appliedIntents.length} edits atomically...`);
+        // 🆕 Phase 2 增强：只应用非验证模式的编辑
+        const realEditAppliedIntents = appliedIntents.filter(intent => !intent.validateOnly);
+        if (realEditAppliedIntents.length > 0) {
+            logger.info(`🚀 Applying ${realEditAppliedIntents.length} edits atomically...`);
             const success = await vscode.workspace.applyEdit(workspaceEdit);
             
             if (!success) {
@@ -227,7 +244,7 @@ export async function executeSemanticEdits(
         }
         
         return {
-            success: totalSuccess === 0 && totalFailed === 0, // 没有编辑时也算成功
+            success: hasValidateOnly ? (totalFailed === 0) : (totalSuccess === 0 && totalFailed === 0), // 🆕 验证模式特殊处理
             appliedIntents,
             failedIntents,
             error: errorMessage,  // 🔧 修复：添加清晰的错误信息
@@ -392,11 +409,11 @@ export function validateSemanticIntents(intents: SemanticEditIntent[]): { valid:
 // ============================================================================
 
 /**
- * Markdown语义编辑工具定义
+ * Markdown语义编辑工具定义 (🆕 Phase 2 Enhanced)
  */
 export const executeMarkdownEditsToolDefinition = {
     name: "executeMarkdownEdits",
-    description: "Execute semantic editing operations specifically on Markdown documents. Uses path-based targeting and AST analysis for precise section identification.",
+    description: "🆕 Enhanced semantic editing tool for Markdown documents with precise sibling-based positioning and validation mode. Features: path-based targeting, AST analysis, siblingIndex positioning, and dry-run validation.",
     parameters: {
         type: "object",
         properties: {
@@ -438,6 +455,15 @@ export const executeMarkdownEditsToolDefinition = {
                                     type: "string",
                                     enum: ["before", "after", "inside"],
                                     description: "⚠️ MANDATORY for insert_entire_section and insert_lines_in_section operations. Position relative to reference section: 'before'=insert before section start, 'after'=insert after section end, 'inside'=insert within section content. IGNORED for replace operations."
+                                },
+                                siblingIndex: {
+                                    type: "number",
+                                    description: "🆕 Phase 2 Enhancement: Sibling node index (0-based) for precise positioning when insertionPosition='inside'. Used to specify which child section to insert before/after. Must be used together with siblingOperation."
+                                },
+                                siblingOperation: {
+                                    type: "string",
+                                    enum: ["before", "after"],
+                                    description: "🆕 Phase 2 Enhancement: Operation relative to the sibling specified by siblingIndex. 'before'=insert before the sibling, 'after'=insert after the sibling. Must be used together with siblingIndex."
                                 }
                             },
                             required: ["path"]
@@ -458,6 +484,11 @@ export const executeMarkdownEditsToolDefinition = {
                             type: "number",
                             description: "Priority level for operation execution (higher numbers execute first)",
                             default: 0
+                        },
+                        validateOnly: {
+                            type: "boolean",
+                            description: "🆕 Phase 2 Enhancement: When true, only validates the intent without actually executing the edit. Useful for dry-run validation before actual execution.",
+                            default: false
                         }
                     },
                     required: ["type", "target", "content", "reason"]
@@ -472,6 +503,8 @@ export const executeMarkdownEditsToolDefinition = {
     },
     // 访问控制
             accessibleBy: [
+            CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+            CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
             CallerType.SPECIALIST,
             CallerType.DOCUMENT
         ],

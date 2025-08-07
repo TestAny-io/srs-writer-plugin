@@ -37,7 +37,7 @@ specialist_config:
       - "common-role-definition.md"
     # 🚀 方案3: 明确声明模板文件路径
     template_files:
-      USE_CASE_WRITER_TEMPLATE: ".templates/use_case_writer/use_case_template.md"
+      USE_CASE_WRITER_TEMPLATE: ".templates/use_case/use_case_template.md"
   
   # 🏷️ 标签和分类
   tags:

@@ -60,6 +60,10 @@ export interface SemanticTarget {
     path: string[];                         // 目标路径数组（required）
     targetContent?: string;                 // 要替换的目标内容（replace_lines_in_section时required）
     insertionPosition?: InsertionPosition;  // 插入位置（insert操作时required）
+    
+    // 🆕 Phase 2 增强：精确章节定位（当insertionPosition="inside"时使用）
+    siblingIndex?: number;                  // 兄弟节点索引 (0-based)
+    siblingOperation?: 'before' | 'after'; // 相对于指定兄弟的操作
 }
 
 /**
@@ -802,9 +806,14 @@ Please provide the complete path to disambiguate. Choose one of the above comple
                 if (operationType === 'insert_lines_in_section') {
                     return this.findInsideInsertionPoint(referenceSection, target);
                 } else {
-                    // insert_entire_section with 'inside' - 在章节内容开始处插入
-                    insertionPoint = new vscode.Position(referenceSection.startLine + 1, 0);
-                    logger.info(`📍 Insert inside section: line ${referenceSection.startLine + 2}`);
+                    // 🆕 Phase 2 增强：处理 siblingIndex 定位
+                    if (target.siblingIndex !== undefined && target.siblingOperation) {
+                        return this.findSiblingInsertionPoint(referenceSection, target);
+                    } else {
+                        // insert_entire_section with 'inside' - 在章节内容开始处插入
+                        insertionPoint = new vscode.Position(referenceSection.startLine + 1, 0);
+                        logger.info(`📍 Insert inside section: line ${referenceSection.startLine + 2}`);
+                    }
                 }
                 break;
                 
@@ -969,6 +978,62 @@ Available sections: ${this.sections.map(s => `"${s.path.join(' > ')}"`).slice(0,
     private extractSectionNumber(sectionName: string): number | null {
         // 根据用户要求，不提供编号推断避免AI迷惑
         return null;
+    }
+
+    /**
+     * 🆕 Phase 2 增强：基于 siblingIndex 查找插入点
+     */
+    private findSiblingInsertionPoint(
+        parentSection: StructuralElement,
+        target: SemanticTarget
+    ): LocationResult {
+        try {
+            logger.info(`🔍 Finding sibling insertion point: siblingIndex=${target.siblingIndex}, operation=${target.siblingOperation}`);
+            
+            // 找到父章节的所有直接子章节
+            const childSections = this.sections.filter(section => 
+                section.parent?.name === parentSection.name && 
+                section.level === parentSection.level + 1
+            );
+            
+            logger.info(`📊 Found ${childSections.length} child sections under "${parentSection.name}"`);
+            
+            const siblingIndex = target.siblingIndex!;
+            const operation = target.siblingOperation!;
+            
+            // 验证索引范围
+            if (siblingIndex < 0 || siblingIndex >= childSections.length) {
+                return {
+                    found: false,
+                    error: `Sibling index ${siblingIndex} out of range (0-${childSections.length - 1})`
+                };
+            }
+            
+            const targetSibling = childSections[siblingIndex];
+            let insertionPoint: vscode.Position;
+            
+            if (operation === 'before') {
+                insertionPoint = new vscode.Position(targetSibling.startLine, 0);
+                logger.info(`📍 Insert before sibling ${siblingIndex}: line ${targetSibling.startLine + 1}`);
+            } else { // 'after'
+                insertionPoint = new vscode.Position(targetSibling.endLine + 1, 0);
+                logger.info(`📍 Insert after sibling ${siblingIndex}: line ${targetSibling.endLine + 2}`);
+            }
+            
+            return {
+                found: true,
+                operationType: 'insert',
+                insertionPoint,
+                context: this.buildContext(targetSibling)
+            };
+            
+        } catch (error) {
+            logger.error(`❌ Failed to find sibling insertion point: ${(error as Error).message}`);
+            return {
+                found: false,
+                error: `Failed to find sibling insertion point: ${(error as Error).message}`
+            };
+        }
     }
 
     /**

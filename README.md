@@ -104,7 +104,6 @@ SRS Writer is an intelligent VSCode extension that transforms natural language c
 🔴 Document Layer - Document Processing  
 ├── Requirements: requirement scaffolding, YAML synchronization
 ├── Document Generation: structured content creation
-├── Markdown Conversion: markitdown integration for file imports
 ├── Template System: professional SRS templates
 └── Traceability: requirement completion and linking
 

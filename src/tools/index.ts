@@ -97,11 +97,7 @@ import {
     traceabilityCompletionToolsCategory
 } from './document/traceabilityCompletionTools';
 
-import {
-    markitdownConverterToolDefinitions,
-    markitdownConverterToolImplementations,
-    markitdownConverterToolsCategory
-} from './document/markitdownConverterTools';
+
 
 // 导入访问控制类型
 import { CallerType } from '../types/index';
@@ -304,13 +300,7 @@ class ToolRegistry {
             'document'
         );
 
-        // 🚀 新增：注册文档格式转换工具
-        this.registerToolsFromCategory(
-            markitdownConverterToolDefinitions,
-            markitdownConverterToolImplementations,
-            markitdownConverterToolsCategory,
-            'document'
-        );
+
 
         console.log(`[ToolRegistry] Initialized with ${this.definitions.size} tools across ${this.categories.size} categories`);
     }

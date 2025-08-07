@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Document conversion functionality (markitdown integration) - moved to separate office-to-markdown plugin
+- All Word/PPT to Markdown conversion tools and components
+- Document format conversion commands from status menu
+
 ## [0.2.2] - 2025-08-05
 
 ### Fixed

@@ -31,6 +31,8 @@ coverage/
 # 临时文件
 *.tmp
 *.temp
+python-markitdown-output.md
+IMPLEMENTATION_COMPLETE.md
 
 # 环境变量
 .env

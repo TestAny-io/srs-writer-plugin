@@ -251,13 +251,13 @@ More content`;
         // 调用readMarkdownFile with structure analysis
         const result = await readMarkdownFile({
             path: 'docs/structured.md',
-            includeStructure: true
+            parseMode: 'full' // 获取内容和结构
         });
 
         // 验证结果
         expect(result.success).toBe(true);
         expect(result.content).toBe(testContent);
-        expect(result.structure).toBeDefined();
-        expect(result.structure!.sectionCount).toBeGreaterThan(0);
+        expect(result.tableOfContents).toBeDefined();
+        expect(result.tableOfContents!.length).toBeGreaterThan(0);
     });
 });

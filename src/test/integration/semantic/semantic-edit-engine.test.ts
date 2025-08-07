@@ -39,11 +39,11 @@ describe('Semantic Edit Engine Integration', () => {
             // Step 1: Read file with structure analysis
             const readResult = await readMarkdownFile({
                 path: 'test-document.md',
-                includeStructure: true
+                parseMode: 'structure' // 只获取结构信息
             });
 
             expect(readResult.success).toBe(true);
-            expect(readResult.structure).toBeDefined();
+            expect(readResult.tableOfContents).toBeDefined();
 
             // Step 2: Create semantic edit intents based on structure analysis
             const editIntents: SemanticEditIntent[] = [
