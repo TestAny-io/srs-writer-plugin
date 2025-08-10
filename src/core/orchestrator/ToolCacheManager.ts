@@ -15,19 +15,41 @@ export class ToolCacheManager {
   private toolsCache: Map<CallerType, { definitions: any[], jsonSchema: string }> = new Map();
 
   constructor() {
-    // 🔧 延迟注册工具缓存失效监听器（避免循环依赖）
-    setTimeout(() => {
+    // 🔧 立即注册工具缓存失效监听器
+    this.registerCacheInvalidationListener();
+  }
+
+  /**
+   * 注册缓存失效监听器（支持重试机制）
+   */
+  private registerCacheInvalidationListener(): void {
+    const maxRetries = 5;
+    let retryCount = 0;
+
+    const tryRegister = () => {
       try {
         if (toolRegistry && typeof toolRegistry.onCacheInvalidation === 'function') {
           toolRegistry.onCacheInvalidation(() => {
             this.invalidateToolCache();
           });
           this.logger.info('🔗 Tool cache invalidation listener registered');
+          return true;
+        } else if (retryCount < maxRetries) {
+          // 如果toolRegistry还没准备好，延迟重试
+          retryCount++;
+          setTimeout(tryRegister, 10 * retryCount); // 递增延迟
+          return false;
+        } else {
+          this.logger.warn('Failed to register cache invalidation listener: toolRegistry not available after retries');
+          return false;
         }
       } catch (error) {
         this.logger.warn(`Failed to register cache invalidation listener: ${(error as Error).message}`);
+        return false;
       }
-    }, 0);
+    };
+
+    tryRegister();
   }
 
   // 🚀 新增：跟踪已记录的缓存使用情况，避免重复日志
@@ -94,8 +116,9 @@ export class ToolCacheManager {
    * 🔧 工具缓存失效机制 - 清空所有调用者的缓存
    */
   public invalidateToolCache(): void {
+    const cacheSize = this.toolsCache.size;
     this.toolsCache.clear();
     this.loggedCacheUsage.clear(); // 🚀 清理日志记录状态
-    this.logger.info('🔄 All tool caches invalidated - tools will be reloaded on next access');
+    this.logger.info(`🔄 Tool cache invalidated (${cacheSize} entries cleared) - tools will be reloaded on next access`);
   }
 } 

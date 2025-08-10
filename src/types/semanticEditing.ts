@@ -35,14 +35,19 @@ export type InsertionPosition =
     | 'inside';   // 在参照章节内部插入
 
 /**
- * 语义目标定位接口 - 使用路径数组精确定位
+ * 语义目标定位接口 - 🆕 基于 sid 的精确定位
+ * Breaking Changes: 完全废弃 path 和 targetContent，采用 sid + lineRange
  */
 export interface SemanticTarget {
-    path: string[];                         // 目标路径数组（required）
-    targetContent?: string;                 // 要替换的目标内容（replace_lines_in_section时required）
-    insertionPosition?: InsertionPosition;  // 插入位置（insert操作时required）
+    sid: string;                            // Section ID，来自 readMarkdownFile（必需）
     
-    // 🆕 Phase 2 增强：精确章节定位（当insertionPosition="inside"时使用）
+    // 🆕 行号精确定位（替代 targetContent）
+    lineRange?: {
+        startLine: number;                  // 目标起始行号（section内相对行号，1-based）
+        endLine: number;                    // 目标结束行号（必需，避免歧义）
+    };
+    
+    insertionPosition?: InsertionPosition;  // 插入位置（insert操作时required）
     siblingIndex?: number;                  // 兄弟节点索引 (0-based)
     siblingOperation?: 'before' | 'after'; // 相对于指定兄弟的操作
 }
@@ -62,20 +67,51 @@ export interface SemanticEditIntent {
 }
 
 /**
- * 语义编辑结果接口
+ * 语义编辑结果接口 - 🆕 支持多intents智能处理
  */
 export interface SemanticEditResult {
-    success: boolean;                       // 整体是否成功
-    appliedIntents: SemanticEditIntent[];   // 成功应用的意图
-    failedIntents: SemanticEditIntent[];    // 失败的意图
-    error?: string;                         // 主要错误信息
-    semanticErrors?: string[];              // 语义特有的错误列表
+    success: boolean;                       // 是否有任何操作成功
+    totalIntents: number;                   // 总intent数
+    successfulIntents: number;              // 成功的intent数
+    appliedIntents: AppliedIntent[];        // 成功执行的操作详情
+    failedIntents: FailedIntent[];          // 失败的操作详情
+    warnings?: IntentWarning[];             // 警告信息（如自动调整）
     metadata?: {
         executionTime: number;              // 执行时间（毫秒）
         timestamp: string;                  // 时间戳
         astNodeCount?: number;              // AST节点数量
         documentLength?: number;            // 文档长度
     };
+}
+
+/**
+ * 成功应用的intent详情
+ */
+export interface AppliedIntent {
+    originalIntent: SemanticEditIntent;
+    adjustedIntent?: SemanticEditIntent;    // 如果有自动调整
+    adjustmentReason?: string;              // 调整原因
+    executionOrder: number;                 // 实际执行顺序
+}
+
+/**
+ * 失败的intent详情
+ */
+export interface FailedIntent {
+    originalIntent: SemanticEditIntent;
+    error: string;                          // 失败原因
+    suggestion?: string;                    // 修复建议
+    canRetry: boolean;                      // 是否可以重试
+}
+
+/**
+ * Intent警告信息
+ */
+export interface IntentWarning {
+    intent: SemanticEditIntent;
+    warningType: 'AUTO_ADJUSTED' | 'POTENTIAL_CONFLICT' | 'PERFORMANCE_IMPACT';
+    message: string;
+    details?: any;
 }
 
 // ============================================================================
@@ -119,16 +155,58 @@ export interface HeadingInfo {
 }
 
 /**
- * 定位结果接口
+ * 定位结果接口 - 🆕 基于sid的增强定位
  */
 export interface LocationResult {
     found: boolean;                 // 是否找到目标
     range?: vscode.Range;           // 目标范围（用于替换操作）
     insertionPoint?: vscode.Position; // 插入点（用于插入操作）
+    operationType?: 'replace' | 'insert'; // 操作类型
     context?: {
-        beforeText: string;         // 前置文本
-        afterText: string;          // 后置文本
-        parentSection?: string;     // 父章节名称
+        sectionTitle?: string;      // 章节标题
+        targetLines?: string[];     // 目标行内容
+        lineRange?: { startLine: number; endLine: number }; // 行号范围
+    };
+    error?: string;                 // 错误信息
+    suggestions?: {
+        availableSids?: string[];   // 可用的 sid 列表
+        similarSids?: string[];     // 相似的 sid
+        autoFix?: SemanticTarget;   // 自动修复建议
+        validRange?: string;        // 有效行号范围
+        nearbyLines?: LineInfo[];   // 附近行信息
+        // 🆕 Phase 2: 新增的建议字段
+        correctedSid?: string;      // 修正后的 SID
+        correctedLineRange?: { startLine: number; endLine?: number }; // 修正后的行号范围
+        hint?: string;              // 提示信息
+        sectionSummary?: {          // 章节摘要信息
+            title?: string;
+            totalLines?: number;
+            availableRange?: string;
+        };
+    };
+}
+
+/**
+ * 行信息接口
+ */
+export interface LineInfo {
+    lineNumber: number;             // 行号
+    content: string;                // 行内容
+    isTarget: boolean;              // 是否为目标行
+}
+
+/**
+ * 基于sid的编辑错误
+ */
+export interface SidBasedEditError {
+    code: 'SID_NOT_FOUND' | 'INVALID_SID_FORMAT' | 'LINE_OUT_OF_RANGE' | 'VALIDATION_FAILED' | 'INTERNAL_ERROR';
+    message: string;
+    targetSid: string;
+    targetLine?: number;            // 如果是行号相关错误
+    suggestions: {
+        availableSids: string[];
+        similarSids: string[];
+        correctionHint?: string;
     };
 }
 

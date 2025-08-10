@@ -25,9 +25,14 @@ export class ContextManager {
     // 🚀 新架构：使用Turn格式组织对话历史，传入currentTask来处理第一轮用户输入
     const turnBasedHistory = this.buildTurnBasedHistory(executionHistory, currentTask);
 
-    // 仍然需要收集工具结果用于toolResultsContext
-    executionHistory.forEach((step, index) => {
-      this.logger.info(`🔍 [DEBUG-CONTEXT] Processing step[${index}]: type=${step.type}, content="${step.content?.substring(0, 50)}..."`);
+    // 🚀 新增：智能过滤工具结果 - 基于Turn窗口和数量限制
+    const filteredToolResults = this.filterToolResultsByTurnWindow(executionHistory, 4, 10);
+    
+    this.logger.info(`🔍 [DEBUG-CONTEXT] Filtered ${executionHistory.filter(s => s.type === 'tool_call' && s.result).length} tool results to ${filteredToolResults.length}`);
+    
+    // 收集过滤后的工具结果用于toolResultsContext
+    filteredToolResults.forEach((step, index) => {
+      this.logger.info(`🔍 [DEBUG-CONTEXT] Processing filtered step[${index}]: type=${step.type}, toolName=${step.toolName}, content="${step.content?.substring(0, 50)}..."`);
       
       if (step.type === 'tool_call' && step.result) {
         try {
@@ -61,6 +66,56 @@ export class ContextManager {
     
     this.logger.info(`🔍 [DEBUG-CONTEXT] === ContextManager.buildContextForPrompt END ===`);
     return result;
+  }
+
+  /**
+   * 🚀 新增：基于Turn窗口和数量限制过滤工具结果
+   * 
+   * @param executionHistory 完整的执行历史
+   * @param maxTurns 保留最近N个Turn的工具结果
+   * @param maxResults 工具结果的绝对数量上限
+   * @returns 过滤后的工具结果步骤
+   */
+  private filterToolResultsByTurnWindow(
+    executionHistory: ExecutionStep[], 
+    maxTurns: number, 
+    maxResults: number
+  ): ExecutionStep[] {
+    this.logger.info(`🔍 [FILTER] Starting tool results filtering: maxTurns=${maxTurns}, maxResults=${maxResults}`);
+    
+    // 1. 找到所有Turn边界标记的位置
+    const turnBoundaries: number[] = [];
+    executionHistory.forEach((step, index) => {
+      if (step.type === 'result' && step.content && step.content.includes('--- 新任务开始:')) {
+        turnBoundaries.push(index);
+        this.logger.info(`🔍 [FILTER] Found turn boundary at index ${index}: "${step.content.substring(0, 50)}..."`);
+      }
+    });
+    
+    // 2. 确定要保留的Turn范围
+    const recentTurnBoundaries = turnBoundaries.slice(-maxTurns);
+    const startIndex = recentTurnBoundaries.length > 0 ? recentTurnBoundaries[0] : 0;
+    
+    this.logger.info(`🔍 [FILTER] Found ${turnBoundaries.length} total turns, keeping last ${maxTurns} turns starting from index ${startIndex}`);
+    
+    // 3. 提取指定Turn范围内的所有工具结果
+    const turnWindowToolResults = executionHistory
+      .slice(startIndex)
+      .filter(step => step.type === 'tool_call' && step.result);
+    
+    this.logger.info(`🔍 [FILTER] Found ${turnWindowToolResults.length} tool results in turn window`);
+    
+    // 4. 应用数量限制 - 保留最近的N个工具结果
+    const finalResults = turnWindowToolResults.slice(-maxResults);
+    
+    this.logger.info(`🔍 [FILTER] Final result: kept ${finalResults.length} tool results after applying count limit`);
+    
+    // 5. 调试输出：显示保留的工具结果
+    finalResults.forEach((step, index) => {
+      this.logger.info(`🔍 [FILTER] Kept result[${index}]: ${step.toolName} (${step.success ? 'success' : 'failed'})`);
+    });
+    
+    return finalResults;
   }
 
   /**

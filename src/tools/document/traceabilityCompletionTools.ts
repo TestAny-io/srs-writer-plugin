@@ -63,7 +63,11 @@ export const traceabilityCompletionToolDefinition = {
   },
   
   // 🚀 复用：访问控制 (参考yamlEditorTools)
-  accessibleBy: [CallerType.SPECIALIST],
+      accessibleBy: [
+        // CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
+        // CallerType.SPECIALIST_CONTENT, 
+        CallerType.SPECIALIST_PROCESS
+      ],
   
   // 🚀 复用：智能分类属性
   interactionType: 'autonomous',

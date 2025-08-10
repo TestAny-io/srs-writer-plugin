@@ -83,7 +83,8 @@ export const writeFileToolDefinition = {
     requiresConfirmation: true,
     // 🚀 访问控制：写文件是危险操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.SPECIALIST,                    // 专家可以创建文档
+        // CallerType.SPECIALIST_CONTENT,            // 内容专家可以创建文档
+        CallerType.SPECIALIST_PROCESS,             // 流程专家可以创建配置文件
         CallerType.DOCUMENT                       // 文档层的核心功能
     ]
 };
@@ -219,7 +220,8 @@ export const createDirectoryToolDefinition = {
     requiresConfirmation: true,
     // 🚀 访问控制：创建目录是重要操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.SPECIALIST,                    // 专家需要创建项目结构
+        // CallerType.SPECIALIST_CONTENT,            // 内容专家需要创建项目结构
+        CallerType.SPECIALIST_PROCESS,             // 流程专家需要创建项目结构
         CallerType.INTERNAL                       // 内部工具（如createNewProjectFolder）
     ]
 };
@@ -309,9 +311,10 @@ export const listFilesToolDefinition = {
     },
     // 🚀 访问控制：列出文件是安全查询操作
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // "项目里有什么文件？"现在归入知识问答模式
-        //CallerType.SPECIALIST,                    // 专家探索项目结构
+        CallerType.SPECIALIST_PROCESS,                    // 流程专家探索项目结构
+        CallerType.SPECIALIST_CONTENT,            // 内容专家需要了解文件结构
         CallerType.DOCUMENT                       // 文档层需要了解文件结构
     ]
 };
@@ -389,9 +392,10 @@ export const listAllFilesToolDefinition = {
     requiresConfirmation: false,
     // 🚀 Access control: Consistent with listFiles, safe query operation
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // Key tool for AI project structure exploration
-        CallerType.SPECIALIST,                    // Specialists exploring project structure
+        CallerType.SPECIALIST_CONTENT,            // 内容专家探索项目结构
+        CallerType.SPECIALIST_PROCESS,             // 流程专家探索项目结构
         CallerType.DOCUMENT                       // Document layer needs to understand file structure
     ]
 };
@@ -679,7 +683,9 @@ export const moveAndRenameFileToolDefinition = {
     requiresConfirmation: true,
     // 🚀 访问控制：重命名/移动是有风险的操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.SPECIALIST,                    // 专家可能需要重构文件结构
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
+        // CallerType.SPECIALIST_CONTENT,            // 内容专家可能需要重构文件结构
+        // CallerType.SPECIALIST_PROCESS,             // 流程专家可能需要重构文件结构
         CallerType.INTERNAL                       // 内部工具（如项目重构）
     ]
 };
@@ -736,7 +742,8 @@ export const copyAndRenameFileToolDefinition = {
     requiresConfirmation: true,
     // 🚀 访问控制：与moveAndRenameFile保持完全一致
     accessibleBy: [
-        CallerType.SPECIALIST,                    // 专家可能需要复制文件模板
+        // CallerType.SPECIALIST_CONTENT,            // 内容专家可能需要复制文件模板
+        CallerType.SPECIALIST_PROCESS,             // 流程专家可能需要复制文件模板
         CallerType.INTERNAL                       // 内部工具（如项目模板复制）
     ]
 };

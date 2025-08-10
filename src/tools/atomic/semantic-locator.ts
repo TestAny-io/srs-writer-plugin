@@ -54,9 +54,10 @@ export interface StructuralElement {
 }
 
 /**
- * 语义目标接口 - 使用路径数组精确定位
+ * 🚨 废弃的语义目标接口 - 使用路径数组精确定位
+ * @deprecated 请使用新的基于SID的SemanticTarget
  */
-export interface SemanticTarget {
+export interface LegacySemanticTarget {
     path: string[];                         // 目标路径数组（required）
     targetContent?: string;                 // 要替换的目标内容（replace_lines_in_section时required）
     insertionPosition?: InsertionPosition;  // 插入位置（insert操作时required）
@@ -65,6 +66,10 @@ export interface SemanticTarget {
     siblingIndex?: number;                  // 兄弟节点索引 (0-based)
     siblingOperation?: 'before' | 'after'; // 相对于指定兄弟的操作
 }
+
+// 🚨 向后兼容别名 - 将在未来版本中移除
+/** @deprecated 请使用 LegacySemanticTarget 或新的基于SID的SemanticTarget */
+export type SemanticTarget = LegacySemanticTarget;
 
 /**
  * 定位结果接口
@@ -135,7 +140,7 @@ export class SemanticLocator {
      * @param operationType 操作类型，用于指导定位逻辑
      * @returns 定位结果
      */
-    findTarget(target: SemanticTarget, operationType?: string): LocationResult {
+    findTarget(target: LegacySemanticTarget, operationType?: string): LocationResult {
         try {
             // logger.info(`🔍 Locating target: ${target.path.join(' > ')} (operation: ${operationType})`);
             

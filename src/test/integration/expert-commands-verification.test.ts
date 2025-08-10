@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import { executeSemanticEdits, SemanticEditIntent } from '../../tools/document/semantic-edit-engine';
 import { readMarkdownFile } from '../../tools/document/enhanced-readfile-tools';
+import { smartPathToSid } from '../fixtures/sid-migration-helpers';
 
 // Mock vscode module
 jest.mock('vscode', () => ({
@@ -178,7 +179,7 @@ describe('Expert Commands Verification', () => {
             const originalExpertG: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['5 相关页面及规则说明', '5.4 非长险规则配置'],
+                    sid: smartPathToSid(['5 相关页面及规则说明', '5.4 非长险规则配置']),
                     insertionPosition: 'after'
                 },
                 content: '\n## 5.5 按保司结算日规则配置\n\n### 5.5.1 页面原型\n\n当佣金生效规则选择"按保司结算日"时，系统将根据保险公司与我司的结算日期来计算佣金生效日。',
@@ -199,7 +200,7 @@ describe('Expert Commands Verification', () => {
             const originalExpertO: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['相关页面及规则说明', '非长险规则配置'],
+                    sid: smartPathToSid(['相关页面及规则说明', '非长险规则配置']),
                     insertionPosition: 'inside'
                 },
                 content: '### 5.4.3 电子保单佣金生效日规则\n\n**规则描述**\n\n1. **适用范围**：所有非长险电子保单产品。',
@@ -235,14 +236,14 @@ describe('Expert Commands Verification', () => {
             );
 
             expect(mainSection).toBeDefined();
-            expect(mainSection?.childTitles).toBeDefined();
-            expect(mainSection?.childTitles.length).toBeGreaterThan(0);
+            expect(mainSection?.children).toBeDefined();
+            expect(mainSection?.children.length).toBeGreaterThan(0);
 
             // 修复版：插入到适当位置，避免编号冲突
             const fixedExpertG: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['5 相关页面及规则说明'],
+                    sid: smartPathToSid(['5 相关页面及规则说明']),
                     insertionPosition: 'inside',
                     siblingIndex: 4, // 在最后一个子节点(5.5)之前
                     siblingOperation: 'before'
@@ -265,7 +266,7 @@ describe('Expert Commands Verification', () => {
             const fixedExpertO: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['5 相关页面及规则说明', '5.4 非长险规则配置'],
+                    sid: smartPathToSid(['5 相关页面及规则说明', '5.4 非长险规则配置']),
                     insertionPosition: 'inside',
                     siblingIndex: 1, // 在第二个子节点(5.4.2)之后
                     siblingOperation: 'after'
@@ -288,7 +289,7 @@ describe('Expert Commands Verification', () => {
                 {
                     type: 'insert_entire_section',
                     target: {
-                        path: ['5 相关页面及规则说明'],
+                        sid: smartPathToSid(['5 相关页面及规则说明']),
                         insertionPosition: 'inside',
                         siblingIndex: 4,
                         siblingOperation: 'before'
@@ -300,7 +301,7 @@ describe('Expert Commands Verification', () => {
                 {
                     type: 'insert_entire_section',
                     target: {
-                        path: ['5 相关页面及规则说明', '5.4 非长险规则配置'],
+                        sid: smartPathToSid(['5 相关页面及规则说明', '5.4 非长险规则配置']),
                         insertionPosition: 'inside',
                         siblingIndex: 1,
                         siblingOperation: 'after'
@@ -344,7 +345,7 @@ describe('Expert Commands Verification', () => {
             );
 
             expect(mainSection).toBeDefined();
-            expect(mainSection?.childTitles).toEqual([
+            expect(mainSection?.children.map(child => child.title)).toEqual([
                 '5.1 长险规则配置',
                 '5.2 非长险规则配置',
                 '5.3 其他规则',
@@ -361,7 +362,7 @@ describe('Expert Commands Verification', () => {
             
             expect(subSection?.siblingIndex).toBe(3); // 在同级中的索引
             expect(subSection?.siblingCount).toBe(5); // 同级章节总数
-            expect(subSection?.childTitles).toEqual([
+            expect(subSection?.children.map(child => child.title)).toEqual([
                 '5.4.1 页面原型',
                 '5.4.2 页面元素'
             ]);

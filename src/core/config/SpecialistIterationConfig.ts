@@ -10,6 +10,22 @@
 export type SpecialistCategory = 'content' | 'process';
 
 /**
+ * 历史管理配置接口
+ */
+export interface HistoryManagementConfig {
+    /** 启用历史压缩 */
+    compressionEnabled: boolean;
+    /** Token预算配置 */
+    tokenBudget: number;
+    /** 分层比例配置 */
+    tierRatios: {
+        immediate: number;  // 0-2轮
+        recent: number;     // 3-7轮
+        milestone: number;  // 8+轮
+    };
+}
+
+/**
  * Specialist迭代配置接口
  */
 export interface SpecialistIterationConfig {
@@ -25,6 +41,9 @@ export interface SpecialistIterationConfig {
     
     /** 全局默认值（当specialist无法分类时使用） */
     globalDefault: number;
+    
+    /** 🚀 新增：历史管理配置 */
+    historyConfig?: HistoryManagementConfig;
 }
 
 /**
@@ -55,7 +74,18 @@ export const DEFAULT_SPECIALIST_ITERATION_CONFIG: SpecialistIterationConfig = {
         'help_response': 3,        // 帮助响应简单
     },
     
-    globalDefault: 10  // 当specialist无法识别时的默认值
+    globalDefault: 10,  // 当specialist无法识别时的默认值
+    
+    // 🚀 新增：默认历史管理配置
+    historyConfig: {
+        compressionEnabled: true,
+        tokenBudget: 5000,
+        tierRatios: {
+            immediate: 0.80,  // 0-2轮: 80% (4000 tokens)
+            recent: 0.15,     // 3-7轮: 15% (750 tokens)
+            milestone: 0.05   // 8+轮: 5% (250 tokens)
+        }
+    }
 };
 
 /**

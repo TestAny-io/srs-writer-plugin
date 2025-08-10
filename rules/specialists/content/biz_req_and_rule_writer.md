@@ -124,9 +124,10 @@ specialist_config:
 - **思考**: "我的业务蓝图已经非常清晰。现在我要将这些 foundational 的需求和规则，精确地写入文档和数据文件，并确保它们逻辑自洽、无懈可击。"
 - **行动**:
     1. 每轮先 `recordThought` 更新进展，说明本轮要生成的具体BR。
-    2. 同轮调用 `executeMarkdownEdits` 完成原子写入。
-    3. 在所有内容生成完毕后，对照“质量检查清单”进行最终审查。
-    4. 确认无误后，输出 `taskComplete` 指令。
+    2. 调用工具`readMarkdownFile`读取 `SRS.md` 的相关章节，确定编辑位置。
+    3. 次轮调用 `executeMarkdownEdits` ，选择恰当的编辑位置，完成原子写入。
+    4. 在所有内容生成完毕后，对照“质量检查清单”进行最终审查。
+    5. 确认无误后，输出 `taskComplete` 指令。
 
 ## 🧠 强制行为：状态与思考记录
 

@@ -13,6 +13,7 @@ import { SpecialistIterationManager } from './config/SpecialistIterationManager'
 import { getSpecialistRegistry, SpecialistRegistry } from './specialistRegistry';
 import { SpecialistDefinition } from '../types/specialistRegistry';
 import { SPECIALIST_TEMPLATE_MAPPINGS, isTemplateConfigSupported, getTemplateConfigKey } from './generated/specialist-template-mappings';
+import { TokenAwareHistoryManager } from './history/TokenAwareHistoryManager';
 
 /**
  * 🚀 专家状态恢复接口
@@ -43,6 +44,8 @@ export class SpecialistExecutor {
     private toolExecutor = new ToolExecutor();  // 🚀 新增：工具执行器，提供智能成功检测
     private promptAssemblyEngine: PromptAssemblyEngine;
     private specialistRegistry: SpecialistRegistry; // 🚀 新增：动态specialist注册表
+    private currentSpecialistId?: string;  // 🆕 保存当前执行的specialistId
+    private historyManager = new TokenAwareHistoryManager(); // 🚀 新增：Token感知历史管理器
     
     constructor() {
         this.logger.info('🚀 SpecialistExecutor v3.0 initialized - dynamic specialist registry architecture');
@@ -131,6 +134,9 @@ export class SpecialistExecutor {
         const isResuming = !!resumeState;
         this.logger.info(`🚀 执行专家任务: ${specialistId}${isResuming ? ` (从第${resumeState.iteration}轮恢复)` : ''}`);
 
+        // 🆕 保存当前specialist ID供工具调用使用
+        this.currentSpecialistId = specialistId;
+
         // 🚀 新增：通知specialist开始工作
         progressCallback?.onSpecialistStart?.(specialistId);
 
@@ -213,7 +219,8 @@ export class SpecialistExecutor {
                 // this.logger.info(`🔍 [PROMPT_DEBUG] ==========================================`);
                 
                 // 2. 获取可用工具
-                const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
+                const callerType = this.getSpecialistCallerType(specialistId);
+                const toolsInfo = await this.toolCacheManager.getTools(callerType);
                 const toolsForVSCode = this.convertToolsToVSCodeFormat(toolsInfo.definitions);
                 
                 // 🔍 [DEBUG] 详细记录可用工具信息
@@ -447,6 +454,16 @@ export class SpecialistExecutor {
     }
 
     /**
+     * 🚀 新增：根据specialistId动态确定调用者类型
+     */
+    private getSpecialistCallerType(specialistId: string): CallerType {
+        const specialistType = this.mapSpecialistIdToType(specialistId);
+        return specialistType.category === 'content' 
+            ? CallerType.SPECIALIST_CONTENT 
+            : CallerType.SPECIALIST_PROCESS;
+    }
+
+    /**
      * 🚀 新架构：使用PromptAssemblyEngine加载专家提示词
      */
     private async loadSpecialistPrompt(
@@ -464,7 +481,8 @@ export class SpecialistExecutor {
             this.logger.info(`🔍 [DEBUG] Mapped to type: ${JSON.stringify(specialistType)}`);
             
             // 2. 获取可用工具定义 (方案一：为TOOLS_JSON_SCHEMA模板变量准备数据)
-            const toolsInfo = await this.toolCacheManager.getTools(CallerType.SPECIALIST);
+            const callerType = this.getSpecialistCallerType(specialistId);
+            const toolsInfo = await this.toolCacheManager.getTools(callerType);
             this.logger.info(`🛠️ [DEBUG] Retrieved ${toolsInfo.definitions.length} tool definitions for specialist context`);
             this.logger.info(`🔍 [DEBUG] Tools JSON schema length for specialist: ${toolsInfo.jsonSchema.length}`);
             
@@ -498,6 +516,12 @@ export class SpecialistExecutor {
                 };
             }
 
+            // 🚀 新增：应用智能历史压缩
+            const optimizedHistory = this.historyManager.compressHistory(
+                internalHistory, 
+                currentIteration || 0
+            );
+
             // 3. 构建SpecialistContext
             const specialistContext: SpecialistContext = {
                 // 🚀 CRITICAL FIX: 优先使用当前步骤的具体描述，而不是用户的原始输入
@@ -510,7 +534,7 @@ export class SpecialistExecutor {
                 structuredContext: {
                     currentStep: context.currentStep,
                     dependentResults: context.dependentResults || [],
-                    internalHistory: internalHistory
+                    internalHistory: optimizedHistory  // ← 使用压缩后的历史
                 },
                 projectMetadata: {
                     projectName: context.sessionData?.projectName || 'Unknown',
@@ -920,7 +944,12 @@ ${context.dependentResults?.length > 0
         switch (toolName) {
             case 'executeMarkdownEdits':
                 if (!success) {
-                    return `${toolName}: ❌ 失败 - ${result.result?.error || '未知错误'}`;
+                    // 🔧 智能错误信息提取：从failedIntents中获取具体错误
+                    let errorMessage = result.error || '未知错误';
+                    if (result.result?.failedIntents?.length > 0) {
+                        errorMessage = result.result.failedIntents[0].error || errorMessage;
+                    }
+                    return `${toolName}: ❌ 失败 - ${errorMessage}`;
                 }
                 const appliedCount = result.result?.appliedIntents?.length || 0;
                 const metadata = result.result?.metadata;
@@ -929,7 +958,7 @@ ${context.dependentResults?.length > 0
                 
             case 'executeYAMLEdits':
                 if (!success) {
-                    return `${toolName}: ❌ 失败 - ${result.result?.error || '未知错误'}`;
+                    return `${toolName}: ❌ 失败 - ${result.error || '未知错误'}`;
                 }
                 const yamlAppliedCount = result.result?.appliedEdits?.length || 0;
                 return `${toolName}: ✅ 成功 - 应用${yamlAppliedCount}个YAML编辑操作`;
@@ -958,10 +987,14 @@ ${context.dependentResults?.length > 0
                 
                 // 🚀 关键修复：使用 toolExecutor 而不是直接调用 toolRegistry
                 // 这样能获得正确的业务成功状态检测，与其他组件保持一致
+                // 🆕 动态确定调用者类型
+                const callerType = this.currentSpecialistId 
+                    ? this.getSpecialistCallerType(this.currentSpecialistId)
+                    : CallerType.SPECIALIST_CONTENT; // 默认为content类型
                 const executionResult = await this.toolExecutor.executeTool(
                     toolCall.name, 
                     toolCall.args,
-                    CallerType.SPECIALIST  // 保持访问控制一致性
+                    callerType  // 动态确定调用者类型
                 );
                 
                 results.push({

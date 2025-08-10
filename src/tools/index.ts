@@ -23,24 +23,10 @@ import {
 
 // Specialist tools have been removed as they are deprecated
 
-import { 
-    requirementToolDefinitions, 
-    requirementToolImplementations,
-    requirementToolsCategory 
-} from './document/requirementTools';
-
-import { 
-    documentGeneratorToolDefinitions, 
-    documentGeneratorToolImplementations,
-    documentGeneratorToolsCategory 
-} from './document/documentGeneratorTools';
-
-// 🚨 DEPRECATED: Document importer tools are deprecated and no longer used
-// import { 
-//     documentImporterToolDefinitions, 
-//     documentImporterToolImplementations,
-//     documentImporterToolsCategory 
-// } from './document/documentImporterTools';
+// 🗑️ REMOVED: Empty/deprecated document tools have been removed
+// - requirementTools.ts (empty tool definitions)
+// - documentGeneratorTools.ts (empty tool definitions)  
+// - documentImporterTools.ts (deprecated)
 
 import { 
     systemToolDefinitions, 
@@ -206,29 +192,10 @@ class ToolRegistry {
 
         // Specialist tools have been removed as they are deprecated
 
-        // 注册文档层工具 - 生成器
-        this.registerToolsFromCategory(
-            documentGeneratorToolDefinitions,
-            documentGeneratorToolImplementations,
-            documentGeneratorToolsCategory,
-            'document'
-        );
-
-        // 注册文档层工具 - 导入器
-        // this.registerToolsFromCategory(
-        //     documentImporterToolDefinitions,
-        //     documentImporterToolImplementations,
-        //     documentImporterToolsCategory,
-        //     'document'
-        // );
-
-        // 注册文档层工具 - 需求管理
-        this.registerToolsFromCategory(
-            requirementToolDefinitions,
-            requirementToolImplementations,
-            requirementToolsCategory,
-            'document'
-        );
+        // 🗑️ REMOVED: Empty/deprecated document tools registration
+        // - documentGeneratorTools (empty)
+        // - documentImporterTools (deprecated)  
+        // - requirementTools (empty)
 
         // 注册内部工具
         this.registerToolsFromCategory(
@@ -602,12 +569,13 @@ export {
     atomicToolDefinitions,
     atomicToolImplementations,
     // Specialist tools removed,
-    requirementToolDefinitions,
-    requirementToolImplementations,
-    documentGeneratorToolDefinitions,
-    documentGeneratorToolImplementations,
-    // documentImporterToolDefinitions, // DEPRECATED
-    // documentImporterToolImplementations, // DEPRECATED
+    // 🗑️ REMOVED: Empty/deprecated document tools
+    // - requirementToolDefinitions (empty)
+    // - requirementToolImplementations (empty)  
+    // - documentGeneratorToolDefinitions (empty)
+    // - documentGeneratorToolImplementations (empty)
+    // - documentImporterToolDefinitions (deprecated)
+    // - documentImporterToolImplementations (deprecated)
     systemToolDefinitions,
     systemToolImplementations,
     createNewProjectFolderToolDefinitions,

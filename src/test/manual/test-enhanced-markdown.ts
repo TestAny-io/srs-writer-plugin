@@ -55,7 +55,7 @@ async function testEnhancedMarkdownReader() {
             parseMode: 'content',
             targets: [{
                 type: 'section',
-                sectionTitle: '特性'
+                sid: '/特性-features'
             }]
         });
         

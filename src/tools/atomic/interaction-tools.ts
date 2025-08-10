@@ -36,7 +36,7 @@ export const showInformationMessageToolDefinition = {
     },
     // 🚀 访问控制：用户消息显示，不暴露给specialist
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以显示状态信息
+        // CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以显示状态信息
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 回答用户问题时可能需要显示信息
         CallerType.DOCUMENT                       // 文档层工具可能需要提示用户
         // 注意：移除了CallerType.SPECIALIST，specialist应通过taskComplete等方式传递消息
@@ -67,7 +67,7 @@ export const showWarningMessageToolDefinition = {
     },
     // 🚀 访问控制：警告消息显示，不暴露给specialist
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以显示警告
+        // CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以显示警告
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 回答用户问题时可能需要显示警告
         CallerType.DOCUMENT                       // 文档层工具可能需要警告用户
         // 注意：移除了CallerType.SPECIALIST，specialist应通过taskComplete等方式传递警告
@@ -104,6 +104,12 @@ export const askQuestionToolDefinition = {
         },
         required: ["question"]
     },
+    // 🚀 访问控制：用户交互工具，specialist需要能够询问用户
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,     // orchestrator可以代表系统询问用户
+        CallerType.SPECIALIST_CONTENT,              // 内容specialist需要询问用户具体需求
+        CallerType.SPECIALIST_PROCESS               // 流程specialist需要确认流程参数
+    ],
     // 🚀 智能分类属性
     interactionType: 'interactive',
     riskLevel: 'low',
@@ -227,7 +233,17 @@ export const suggestNextActionToolDefinition = {
             }
         },
         required: ["situation", "recommendation", "reasoning"]
-    }
+    },
+    // 🚀 访问控制：智能建议工具，specialist需要能够提供建议
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,     // orchestrator可以提供系统级建议
+        CallerType.SPECIALIST_CONTENT,              // 内容specialist需要提供内容相关建议
+        CallerType.SPECIALIST_PROCESS               // 流程specialist需要提供流程建议
+    ],
+    // 🚀 智能分类属性
+    interactionType: 'autonomous',
+    riskLevel: 'low',
+    requiresConfirmation: false
 };
 
 export async function suggestNextAction(args: { 

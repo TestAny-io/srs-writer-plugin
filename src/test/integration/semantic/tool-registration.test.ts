@@ -15,37 +15,37 @@ describe('Tool Registration Integration', () => {
         cacheManager = new ToolCacheManager();
     });
 
-    describe('Semantic Edit Tools Registration', () => {
-        it('should have readFileWithStructure tool registered', () => {
-            const hasReadFileWithStructure = toolRegistry.hasTool('readFileWithStructure');
-            expect(hasReadFileWithStructure).toBe(true);
+    describe('Document Layer Tools Registration', () => {
+        it('should have readMarkdownFile tool registered', () => {
+            const hasReadMarkdownFile = toolRegistry.hasTool('readMarkdownFile');
+            expect(hasReadMarkdownFile).toBe(true);
 
-            const implementation = getImplementation('readFileWithStructure');
+            const implementation = getImplementation('readMarkdownFile');
             expect(implementation).toBeDefined();
         });
 
-        it('should have executeSemanticEdits tool registered', () => {
-            const hasExecuteSemanticEdits = toolRegistry.hasTool('executeSemanticEdits');
-            expect(hasExecuteSemanticEdits).toBe(true);
+        it('should have executeMarkdownEdits tool registered', () => {
+            const hasExecuteMarkdownEdits = toolRegistry.hasTool('executeMarkdownEdits');
+            expect(hasExecuteMarkdownEdits).toBe(true);
 
-            const implementation = getImplementation('executeSemanticEdits');
+            const implementation = getImplementation('executeMarkdownEdits');
             expect(implementation).toBeDefined();
         });
 
-        it('should have correct access control for semantic tools', async () => {
+        it('should have correct access control for document tools', async () => {
             const documentLayerTools = await cacheManager.getTools(CallerType.DOCUMENT);
             const toolNames = documentLayerTools.definitions.map(tool => tool.name);
 
-            expect(toolNames).toContain('readFileWithStructure');
-            expect(toolNames).toContain('executeSemanticEdits');
+            expect(toolNames).toContain('readMarkdownFile');
+            expect(toolNames).toContain('executeMarkdownEdits');
         });
 
-        it('should have semantic edit tools in document layer', () => {
+        it('should have document tools in document layer', () => {
             const documentTools = toolRegistry.getToolsByLayer('document');
             const toolNames = documentTools.map(tool => tool.name);
 
-            expect(toolNames).toContain('readFileWithStructure');
-            expect(toolNames).toContain('executeSemanticEdits');
+            expect(toolNames).toContain('readMarkdownFile');
+            expect(toolNames).toContain('executeMarkdownEdits');
         });
     });
 
@@ -61,7 +61,8 @@ describe('Tool Registration Integration', () => {
                 description: 'Test tool for cache invalidation',
                 parameters: { type: 'object', properties: {} },
                 layer: 'document' as const,
-                category: 'test'
+                category: 'test',
+                accessibleBy: [CallerType.DOCUMENT]
             };
 
             const testImplementation = async () => ({ success: true });
@@ -86,7 +87,8 @@ describe('Tool Registration Integration', () => {
                 description: 'Temporary test tool',
                 parameters: { type: 'object', properties: {} },
                 layer: 'document' as const,
-                category: 'test'
+                category: 'test',
+                accessibleBy: [CallerType.DOCUMENT]
             };
 
             toolRegistry.registerTool(testToolDefinition);
@@ -109,54 +111,61 @@ describe('Tool Registration Integration', () => {
     });
 
     describe('Tool Registry Statistics', () => {
-        it('should include semantic tools in statistics', () => {
+        it('should include document tools in statistics', () => {
             const stats = toolRegistry.getStats();
 
             expect(stats.byLayer.document).toBeGreaterThan(0);
             expect(stats.totalTools).toBeGreaterThan(0);
 
-            // 验证至少包含我们新增的语义编辑工具
+            // 验证包含核心文档工具
             const documentTools = toolRegistry.getToolsByLayer('document');
-            const semanticToolsCount = documentTools.filter(tool => 
-                tool.name === 'readFileWithStructure' || 
-                tool.name === 'executeSemanticEdits'
+            const coreToolsCount = documentTools.filter(tool => 
+                tool.name === 'readMarkdownFile' || 
+                tool.name === 'executeMarkdownEdits'
             ).length;
 
-            expect(semanticToolsCount).toBe(2);
+            expect(coreToolsCount).toBe(2);
         });
 
-        it('should have correct tool categories for semantic tools', () => {
+        it('should have correct tool categories for document tools', () => {
             const categories = toolRegistry.getAllCategories();
             const categoryNames = categories.map(cat => cat.name);
 
-            expect(categoryNames).toContain('Enhanced ReadFile Tools');
-            expect(categoryNames).toContain('Semantic Edit Engine');
+            expect(categoryNames).toContain('Enhanced ReadMarkdownFile Tool');
+            expect(categoryNames).toContain('Markdown Semantic Edit Engine');
         });
     });
 
     describe('Access Control Validation', () => {
         it('should respect access control for different caller types', async () => {
-            // 验证DOCUMENT层调用者可以访问语义编辑工具
+            // 验证DOCUMENT层调用者可以访问文档工具
             const documentTools = await cacheManager.getTools(CallerType.DOCUMENT);
             const documentToolNames = documentTools.definitions.map(tool => tool.name);
 
-            expect(documentToolNames).toContain('readFileWithStructure');
-            expect(documentToolNames).toContain('executeSemanticEdits');
+            expect(documentToolNames).toContain('readMarkdownFile');
+            expect(documentToolNames).toContain('executeMarkdownEdits');
 
             // 验证SPECIALIST层调用者也可以访问这些工具
-            const specialistTools = await cacheManager.getTools(CallerType.SPECIALIST);
-            const specialistToolNames = specialistTools.definitions.map(tool => tool.name);
+            const specialistContentTools = await cacheManager.getTools(CallerType.SPECIALIST_CONTENT);
+            const specialistProcessTools = await cacheManager.getTools(CallerType.SPECIALIST_PROCESS);
+            const contentToolNames = specialistContentTools.definitions.map(tool => tool.name);
+            const processToolNames = specialistProcessTools.definitions.map(tool => tool.name);
 
-            expect(specialistToolNames).toContain('readFileWithStructure');
-            expect(specialistToolNames).toContain('executeSemanticEdits');
+            // 两种类型的specialist都应该能访问这些核心工具
+            expect(contentToolNames).toContain('readMarkdownFile');
+            expect(contentToolNames).toContain('executeMarkdownEdits');
+            expect(processToolNames).toContain('readMarkdownFile');
+            expect(processToolNames).toContain('executeMarkdownEdits');
         });
 
         it('should validate individual tool access correctly', () => {
-            const hasDocumentAccess = cacheManager.validateAccess(CallerType.DOCUMENT, 'executeSemanticEdits');
-            const hasSpecialistAccess = cacheManager.validateAccess(CallerType.SPECIALIST, 'executeSemanticEdits');
+            const hasDocumentAccess = cacheManager.validateAccess(CallerType.DOCUMENT, 'executeMarkdownEdits');
+            const hasContentSpecialistAccess = cacheManager.validateAccess(CallerType.SPECIALIST_CONTENT, 'executeMarkdownEdits');
+            const hasProcessSpecialistAccess = cacheManager.validateAccess(CallerType.SPECIALIST_PROCESS, 'executeMarkdownEdits');
 
             expect(hasDocumentAccess).toBe(true);
-            expect(hasSpecialistAccess).toBe(true);
+            expect(hasContentSpecialistAccess).toBe(true);
+            expect(hasProcessSpecialistAccess).toBe(true);
         });
     });
 }); 

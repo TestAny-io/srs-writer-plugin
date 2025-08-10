@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { executeSemanticEdits, validateSemanticIntents, SemanticEditIntent } from '../../../tools/document/semantic-edit-engine';
+import { smartPathToSid } from '../../fixtures/sid-migration-helpers';
 
 // Mock vscode
 jest.mock('vscode', () => ({
@@ -29,7 +30,7 @@ describe('SemanticEditEngine - Error Handling', () => {
             const intent: SemanticEditIntent = {
                 type: 'replace_lines_in_section',
                 target: {
-                    path: ['功能需求']
+                    sid: smartPathToSid(['功能需求'])
                     // 缺少 targetContent - 这应该导致验证失败
                 },
                 content: '替换的内容',
@@ -49,8 +50,8 @@ describe('SemanticEditEngine - Error Handling', () => {
             const intent: SemanticEditIntent = {
                 type: 'replace_lines_in_section',
                 target: {
-                    path: ['功能需求'],
-                    targetContent: '用户注册'
+                    sid: smartPathToSid(['功能需求']),
+                    lineRange: { startLine: 1, endLine: 1 }
                 },
                 content: '增强的用户注册功能',
                 reason: '更新用户注册功能描述',

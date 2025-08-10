@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { executeSemanticEdits, SemanticEditIntent } from '../../tools/document/semantic-edit-engine';
+import { smartPathToSid } from '../fixtures/sid-migration-helpers';
 
 // Mock vscode module
 jest.mock('vscode', () => ({
@@ -85,7 +86,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['功能需求'],
+                    sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'inside',
                     siblingIndex: 1, // 在第二个子节点（权限控制）之前
                     siblingOperation: 'before'
@@ -107,7 +108,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['功能需求'],
+                    sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'inside',
                     siblingIndex: 0, // 在第一个子节点（用户管理）之后
                     siblingOperation: 'after'
@@ -128,7 +129,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['功能需求'],
+                    sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'inside',
                     siblingIndex: 10, // 超出范围
                     siblingOperation: 'before'
@@ -143,7 +144,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
 
             expect(result.success).toBe(false);
             expect(result.failedIntents).toHaveLength(1);
-            expect(result.semanticErrors?.[0]).toMatch(/out of range/i);
+            expect(result.failedIntents?.[0]?.error).toMatch(/out of range/i);
         });
     });
 
@@ -152,7 +153,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['功能需求'],
+                    sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'after'
                 },
                 content: '## 4 新章节\n新章节内容',
@@ -176,7 +177,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['不存在的章节'],
+                    sid: smartPathToSid(['不存在的章节']),
                     insertionPosition: 'after'
                 },
                 content: '## 4 新章节\n新章节内容',
@@ -199,7 +200,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
                 {
                     type: 'insert_entire_section',
                     target: {
-                        path: ['概述'],
+                        sid: smartPathToSid(['概述']),
                         insertionPosition: 'after'
                     },
                     content: '## 1.5 验证章节\n验证内容',
@@ -210,7 +211,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
                 {
                     type: 'insert_entire_section',
                     target: {
-                        path: ['技术规范'],
+                        sid: smartPathToSid(['技术规范']),
                         insertionPosition: 'after'
                     },
                     content: '## 4 实际章节\n实际内容',
@@ -236,7 +237,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['功能需求'],
+                    sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'inside',
                     siblingIndex: 1,
                     siblingOperation: 'before'
@@ -261,8 +262,8 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'replace_lines_in_section',
                 target: {
-                    path: ['概述'],
-                    targetContent: '系统概述内容'
+                    sid: smartPathToSid(['概述']),
+                    lineRange: { startLine: 1, endLine: 1 }
                 },
                 content: '更新的系统概述内容',
                 reason: '更新概述',

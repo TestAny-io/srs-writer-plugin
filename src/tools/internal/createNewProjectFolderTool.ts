@@ -62,7 +62,8 @@ When to use:
     },
     // 🚀 访问控制：只有specialist可以创建新项目
     accessibleBy: [
-        CallerType.SPECIALIST                   // specialist（特别是project_initializer）可以调用
+        // CallerType.SPECIALIST_CONTENT,          // 内容specialist可以调用
+        CallerType.SPECIALIST_PROCESS            // 流程specialist（特别是project_initializer）可以调用
     ]
 };
 

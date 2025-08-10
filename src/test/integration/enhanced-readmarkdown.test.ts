@@ -7,6 +7,18 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { readMarkdownFile } from '../../tools/document/enhanced-readfile-tools';
 
+// 扁平化树状结构的通用函数
+const flattenTree = (nodes: any[]): any[] => {
+    const result: any[] = [];
+    for (const node of nodes) {
+        result.push(node);
+        if (node.children && node.children.length > 0) {
+            result.push(...flattenTree(node.children));
+        }
+    }
+    return result;
+};
+
 // Mock Logger before it's imported
 jest.mock('../../utils/logger', () => ({
     Logger: {
@@ -118,11 +130,12 @@ function hello() {
 
             expect(result.success).toBe(true);
             expect(result.content).toBeUndefined();
-            expect(result.tableOfContents).toBeDefined();
+            expect(result.tableOfContentsTree).toBeDefined();
             expect(result.contentSummary).toBeDefined();
+            expect(result.tableOfContents).toBeUndefined(); // 新版本不再输出扁平结构
             
-            // 验证TOC结构
-            const toc = result.tableOfContents!;
+            // 验证TOC树状结构 - 需要扁平化来兼容原测试逻辑
+            const toc = flattenTree(result.tableOfContentsTree!);
             expect(toc.length).toBeGreaterThan(0);
             
             // 检查第一个标题
@@ -141,7 +154,8 @@ function hello() {
 
             expect(result.success).toBe(true);
             expect(result.content).toBe(testMarkdownContent);
-            expect(result.tableOfContents).toBeDefined();
+            expect(result.tableOfContentsTree).toBeDefined();
+            expect(result.tableOfContents).toBeUndefined(); // 新版本不再输出扁平结构
             expect(result.contentSummary).toBeUndefined(); // full模式不需要summary
         });
     });
@@ -153,7 +167,8 @@ function hello() {
                 parseMode: 'structure'
             });
 
-            const toc = result.tableOfContents!;
+            // 扁平化树状结构以进行层级验证
+            const toc = flattenTree(result.tableOfContentsTree!);
             
             // 验证各级标题
             const h1Headings = toc.filter(h => h.level === 1);
@@ -171,23 +186,22 @@ function hello() {
                 parseMode: 'structure'
             });
 
-            const toc = result.tableOfContents!;
+            // 扁平化树状结构以验证AI友好字段
+            const toc = flattenTree(result.tableOfContentsTree!);
             
-            // 验证每个节点都有新字段
+            // 验证每个节点都有AI友好字段
             for (const entry of toc) {
-                expect(entry.childTitles).toBeDefined();
-                expect(Array.isArray(entry.childTitles)).toBe(true);
                 expect(typeof entry.siblingIndex).toBe('number');
                 expect(entry.siblingIndex).toBeGreaterThanOrEqual(0);
                 expect(typeof entry.siblingCount).toBe('number');
                 expect(entry.siblingCount).toBeGreaterThan(0);
             }
             
-            // 验证根节点的childTitles
-            const rootNode = toc.find(entry => !entry.parent);
-            if (rootNode && rootNode.children.length > 0) {
-                expect(rootNode.childTitles.length).toBe(rootNode.children.length);
-                expect(rootNode.childTitles[0]).toBe(rootNode.children[0].title);
+            // 验证根节点的children结构
+            const rootNodes = result.tableOfContentsTree!;
+            if (rootNodes.length > 0 && rootNodes[0].children.length > 0) {
+                expect(rootNodes[0].children.length).toBeGreaterThan(0);
+                expect(rootNodes[0].children[0].title).toBeDefined();
             }
             
             // 验证siblingIndex的正确性
@@ -204,7 +218,7 @@ function hello() {
                 parseMode: 'structure'
             });
 
-            const toc = result.tableOfContents!;
+            const toc = flattenTree(result.tableOfContentsTree!);
             
             // 查找编号标题
             const overviewHeading = toc.find(h => h.title === '1. 概述');
@@ -218,7 +232,7 @@ function hello() {
                 parseMode: 'structure'
             });
 
-            const toc = result.tableOfContents!;
+            const toc = flattenTree(result.tableOfContentsTree!);
             const techSpecHeading = toc.find(h => h.title.includes('技术规范'));
             
             if (techSpecHeading) {
@@ -253,8 +267,8 @@ function hello() {
                 parseMode: 'structure'
             });
 
-            const toc1 = result1.tableOfContents!;
-            const toc2 = result2.tableOfContents!;
+            const toc1 = flattenTree(result1.tableOfContentsTree!);
+            const toc2 = flattenTree(result2.tableOfContentsTree!);
 
             // ID应该保持一致
             expect(toc1.length).toBe(toc2.length);
@@ -272,7 +286,7 @@ function hello() {
                 parseMode: 'structure'
             });
 
-            const toc = structureResult.tableOfContents!;
+            const toc = flattenTree(structureResult.tableOfContentsTree!);
             const targetSection = toc.find(h => h.title.includes('用户管理'));
             
             if (targetSection) {
@@ -303,7 +317,7 @@ function hello() {
                 parseMode: 'content',
                 targets: [{
                     type: 'section',
-                    sectionTitle: '功能需求'
+                    sid: '/功能需求-functional-requirements'
                 }]
             });
 
@@ -366,7 +380,7 @@ function hello() {
                 targets: [
                     {
                         type: 'section',
-                        sectionTitle: '概述'
+                        sid: '/概述-overview'
                     },
                     {
                         type: 'keyword',

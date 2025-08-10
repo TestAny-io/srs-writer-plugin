@@ -213,15 +213,16 @@ export interface IAICommunicator {
 }
 
 /**
- * 🚫 DEPRECATED - ISRSParser接口已废弃
+ * 🗑️ REMOVED - ISRSParser接口已移除
  * 
- * 原因：SRSParser已被重构为分层工具架构：
- * - documentGeneratorTools: 生成完整SRS报告
- * - documentImporterTools: 从Markdown导入解析
+ * 原因：相关的document工具已被完全移除：
+ * - documentGeneratorTools: 已删除（空白文件）
+ * - documentImporterTools: 已删除（废弃工具）
+ * - requirementTools: 已删除（空白文件）
  * 
- * 新的解析功能通过工具执行器调用具体工具实现。
+ * 解析功能现在通过剩余的document层工具实现。
  */
-// export interface ISRSParser - 已废弃
+// ISRSParser接口已完全移除
 
 /**
  * 文件系统管理模块的接口
@@ -502,7 +503,7 @@ export interface ErrorDetail {
   * 1. atomicTools: { success: boolean; error?: string }
   * 2. toolExecutor: { valid: boolean; errors?: string[] } 
   * 3. markdownProcessor: { isValid: boolean; errors: string[] }
-  * 4. requirementTools: { success: boolean; message: string; requirementId?: string }
+  * 4. (removed) requirementTools: 已删除
   * 
   * 建议迁移顺序：
   * 1. 新开发的工具和函数直接使用 ToolExecutionResult
@@ -609,8 +610,9 @@ export enum CallerType {
     ORCHESTRATOR_TOOL_EXECUTION = 'orchestrator:TOOL_EXECUTION',
     ORCHESTRATOR_KNOWLEDGE_QA = 'orchestrator:KNOWLEDGE_QA', 
     
-    // Specialist AI (统一类型，未来可细分为不同专家)
-    SPECIALIST = 'specialist',
+    // Specialist AI (细分为两种类型)
+    SPECIALIST_CONTENT = 'specialist:content',
+    SPECIALIST_PROCESS = 'specialist:process',
     
     // 无AI的代码层级 (理论上不需要，但保留用于完整性)
     DOCUMENT = 'document',

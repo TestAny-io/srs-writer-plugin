@@ -19,20 +19,20 @@ export type ThinkingType = 'planning' | 'analysis' | 'synthesis' | 'reflection' 
  */
 export const recordThoughtToolDefinition = {
     name: 'recordThought',
-    description: `Expert-level structured thinking record tool - externalize and record the thinking process into the internal history
+    description: `专家级结构化思考记录工具 - 将思考过程外化并记录到内部历史中
     
-The specialist uses this tool to:
-- Record the analysis and planning process for complex tasks
-- Structure the thinking process for subsequent iterations
-- Improve the execution quality and consistency of multi-step tasks
-- Provide a clear derivation plan for complex document generation
+专家使用此工具来：
+- 记录复杂任务的分析和规划过程
+- 为后续迭代构建思考过程结构
+- 提高多步骤任务的执行质量和一致性
+- 为复杂文档生成提供清晰的推导计划
 
-Typical usage scenarios:
-- Planning before generating complex requirements documents
-- Decomposition and strategy development for multi-step tasks
-- Record the analysis process for complex problems
+典型使用场景：
+- 生成复杂需求文档前的规划
+- 多步骤任务的分解和策略制定
+- 复杂问题的分析过程记录
 
-Important: Only the specialist can call this tool, and the recorded thoughts will be visible in the next iteration`,
+重要：只有专家可以调用此工具，记录的思考将在下次迭代中可见`,
     
     parameters: {
         type: 'object',
@@ -61,7 +61,7 @@ Important: Only the specialist can call this tool, and the recorded thoughts wil
     },
     
     // 🚀 访问控制：只有specialist可以访问
-    accessibleBy: [CallerType.SPECIALIST],
+    accessibleBy: [CallerType.SPECIALIST_CONTENT, CallerType.SPECIALIST_PROCESS],
     
     // 🚀 智能分类属性
     interactionType: 'autonomous' as const,
@@ -70,7 +70,7 @@ Important: Only the specialist can call this tool, and the recorded thoughts wil
     
     // 🚀 AI指导系统
     callingGuide: {
-        whenToUse: "Record the thinking process before generating complex content, especially for tasks that require multi-step reasoning or planning",
+        whenToUse: "复杂内容前记录思考过程，特别是需要多步推理或规划的任务",
         prerequisites: "Need to have clear thinking content and type",
         inputRequirements: {
             thinkingType: "Select the type that best matches the current thinking nature",

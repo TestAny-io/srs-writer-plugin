@@ -31,7 +31,7 @@ const logger = Logger.getInstance();
 /**
  * 解析模式枚举
  */
-export type ParseMode = 'content' | 'structure' | 'full';
+export type ParseMode = 'content' | 'structure' | 'toc' | 'full';
 
 /**
  * 目标类型：章节或关键字搜索
@@ -40,8 +40,7 @@ export interface TargetRequest {
     type: 'section' | 'keyword';
     
     // Section类型参数
-    sid?: string;                        // section stable ID (当type为section时)
-    sectionTitle?: string;               // section标题 (sid优先级更高)
+    sid?: string;                        // section stable ID (当type为section时，必需)
     
     // Keyword类型参数
     query?: string[];                    // 搜索关键字数组 (AND关系，当type为keyword时)
@@ -53,32 +52,63 @@ export interface TargetRequest {
 }
 
 /**
- * 文本偏移信息 - 支持三种编码单位
+ * 文本偏移信息 - 章节范围定位
  */
 export interface TextOffset {
-    // UTF-16编码单位 (VS Code友好)
+    // UTF-16编码单位 (VS Code友好) - 提供章节的完整行范围
     utf16: {
-        start: number;
-        end: number;
-        startLine: number;
-        endLine: number;
-        startColumn: number;
-        endColumn: number;
-    };
-    // UTF-8编码单位 (I/O友好)
-    utf8: {
-        start: number;
-        end: number;
-    };
-    // Unicode码点单位 (算法友好)
-    codepoint: {
-        start: number;
-        end: number;
+        startLine: number;      // 章节开始行（标题行）
+        endLine: number;        // 章节结束行
+        startColumn: number;    // 标题开始列
+        endColumn: number;      // 标题结束列
     };
 }
 
 /**
- * 目录条目
+ * 树状目录节点 (用于structure和full模式)
+ */
+export interface TableOfContentsTreeNode {
+    sid: string;                         // 稳定ID (如: /introduction/system-overview)
+    displayId: string;                   // 显示ID (如: "1.1")
+    title: string;                       // 原始标题
+    normalizedTitle: string;             // 规范化标题 (去除编号)
+    level: number;                       // 标题级别 (1-6)
+    line: number;                        // 所在行号
+    offset: TextOffset;                  // 精确位置信息
+    
+    // 章节元数据
+    wordCount: number;                   // 字数统计
+    characterCount: number;              // 字符数统计
+    containsCode: boolean;               // 是否包含代码块
+    containsTables: boolean;             // 是否包含表格
+    containsLists: boolean;              // 是否包含列表
+    
+    // 树状结构 - 只保留children，不保留parent
+    children: TableOfContentsTreeNode[]; // 子章节数组
+    
+    // AI友好字段
+    siblingIndex: number;                // 在同级中的位置 (0-based)
+    siblingCount: number;                // 同级章节总数
+    
+    // 🆕 章节边界信息
+    endLine?: number;                    // 章节结束行号（1-based，包含该行）
+}
+
+/**
+ * ToC模式专用树状节点 (简化版)
+ */
+export interface TableOfContentsToCNode {
+    sid: string;                         // 稳定ID
+    displayId: string;                   // 显示ID
+    title: string;                       // 原始标题
+    level: number;                       // 标题级别
+    characterCount: number;              // 字符数统计
+    parent?: string;                     // 父级章节sid
+    children: TableOfContentsToCNode[];  // 子章节数组
+}
+
+/**
+ * 向后兼容的目录条目 (保持原有接口以免破坏现有代码)
  */
 export interface TableOfContents {
     sid: string;                         // 稳定ID (如: /introduction/system-overview)
@@ -92,8 +122,6 @@ export interface TableOfContents {
     // 章节元数据
     wordCount: number;                   // 字数统计
     characterCount: number;              // 字符数统计
-    estimatedReadingTime: number;        // 预估阅读时间(分钟)
-    complexity: 'low' | 'medium' | 'high'; // 复杂度评估
     containsCode: boolean;               // 是否包含代码块
     containsTables: boolean;             // 是否包含表格
     containsLists: boolean;              // 是否包含列表
@@ -102,10 +130,12 @@ export interface TableOfContents {
     parent?: string;                     // 父级章节sid
     children: TableOfContents[];         // 子章节列表
     
-    // 🆕 AI 友好字段 (Phase 1 增强)
-    childTitles: string[];               // 子章节标题列表 ["5.1 管理", "5.2 配置"]
+    // AI友好字段
     siblingIndex: number;                // 在同级中的位置 (0-based)
     siblingCount: number;                // 同级章节总数
+    
+    // 🆕 章节边界信息（为 executeMarkdownEdits 提供支持）
+    endLine?: number;                    // 章节结束行号（1-based，包含该行）
 }
 
 /**
@@ -179,8 +209,6 @@ export interface KeywordMatch {
 export interface SectionMetadata {
     wordCount: number;
     characterCount: number;
-    estimatedReadingTime: number;
-    complexity: 'low' | 'medium' | 'high';
     containsCode: boolean;
     containsTables: boolean;
     containsLists: boolean;
@@ -275,9 +303,11 @@ export interface EnhancedReadFileResult {
     size: number;                        // 文件大小(字节)
     
     // 解析结果 (基于parseMode)
-    content?: string;                    // 完整内容 (parseMode=content/full时提供)
-    tableOfContents?: TableOfContents[]; // 目录结构 (parseMode=structure/full时提供)
-    contentSummary?: ContentSummary;     // 内容摘要 (parseMode=structure时提供)
+    content?: string;                           // 完整内容 (parseMode=content/full时提供)
+    tableOfContents?: TableOfContents[];        // 内部兼容用，不在新输出中使用
+    tableOfContentsTree?: TableOfContentsTreeNode[];  // 树状目录结构 (parseMode=structure/full时提供)
+    tableOfContentsToCTree?: TableOfContentsToCNode[]; // ToC模式树状结构 (parseMode=toc时提供)
+    contentSummary?: ContentSummary;            // 内容摘要 (parseMode=structure时提供)
     
     // 多目标处理结果
     results: TargetResult[];             // 各个target的处理结果
@@ -306,8 +336,8 @@ export const readMarkdownFileToolDefinition = {
             },
             parseMode: {
                 type: "string",
-                enum: ["content", "structure", "full"],
-                description: "Parsing mode: content (content only), structure (TOC + summary only), full (content + structure)",
+                enum: ["content", "structure", "toc", "full"],
+                description: "Parsing mode: content (content only), structure (tree TOC + all metadata for each section), toc (tree TOC), full (content + structure)",
                 default: "content"
             },
             targets: {
@@ -324,11 +354,7 @@ export const readMarkdownFileToolDefinition = {
                         // Section target properties
                         sid: {
                             type: "string",
-                            description: "Section stable ID (e.g., '/introduction/system-overview'). Used when type='section'"
-                        },
-                        sectionTitle: {
-                            type: "string", 
-                            description: "Section title for fuzzy matching. sid takes precedence if both provided. Used when type='section'"
+                            description: "Section stable ID (e.g., '/introduction/system-overview'). Required when type='section'. Use readMarkdownFile with parseMode='toc' first to discover available SIDs."
                         },
                         // Keyword target properties
                         query: {
@@ -377,7 +403,8 @@ export const readMarkdownFileToolDefinition = {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
-        CallerType.SPECIALIST,
+        CallerType.SPECIALIST_CONTENT,
+        CallerType.SPECIALIST_PROCESS,
         CallerType.DOCUMENT
     ]
 };
@@ -385,16 +412,24 @@ export const readMarkdownFileToolDefinition = {
 // ========== 核心类实现 ==========
 
 /**
- * 短哈希生成器
+ * 短哈希生成器 - 支持跨会话稳定哈希
  */
 class HashGenerator {
     /**
-     * 生成6位短哈希
+     * 生成稳定的6位短哈希 (跨会话一致)
+     * 基于文档结构上下文确保相同位置的标题总是生成相同哈希
+     */
+    static generateStableHash(stableInput: string): string {
+        const hash = createHash('sha256').update(stableInput, 'utf-8').digest('hex');
+        return hash.slice(0, 6);
+    }
+    
+    /**
+     * 向后兼容的短哈希方法
+     * @deprecated 使用 generateStableHash 替代，现有代码迁移后可移除
      */
     static generateShortHash(content: string): string {
-        // 使用Node.js内置的crypto，模拟xxhash行为
-        const hash = createHash('sha256').update(content).digest('hex');
-        return hash.slice(0, 6); // 取前6位
+        return this.generateStableHash(content);
     }
 }
 
@@ -468,7 +503,7 @@ class TitleNormalizer {
 /**
  * 解析引擎 - 负责Markdown文档解析
  */
-class ParsingEngine {
+export class ParsingEngine {
     private processor = unified()
         .use(remarkParse)
         .use(remarkGfm)
@@ -489,16 +524,20 @@ class ParsingEngine {
 /**
  * 结构分析器 - 负责生成TOC和元数据
  */
-class StructureAnalyzer {
+export class StructureAnalyzer {
     private slugger = new GithubSlugger();
 
     /**
-     * 生成目录结构
+     * 生成目录结构 - 支持跨会话稳定哈希
      */
     generateTableOfContents(ast: any, content: string): TableOfContents[] {
         const toc: TableOfContents[] = [];
         const lines = content.split('\n');
-        const slugTracker = new Map<string, number>(); // 跟踪slug重复
+        
+        // 稳定哈希需要的追踪结构
+        const levelStack: Array<{level: number, slug: string}> = [];
+        const parentChildCount = new Map<string, Map<string, number>>();
+        const slugOccurrences = new Map<string, number>(); // 追踪每个slug在特定父级下的出现次数
 
         this.slugger.reset();
 
@@ -508,26 +547,44 @@ class StructureAnalyzer {
 
             const title = this.extractHeadingText(node);
             const normalizedTitle = TitleNormalizer.removeNumberPrefix(title);
+            const headingLevel = node.depth;
             
-            // 生成稳定ID
+            // 1. 计算父级路径
+            const parentPath = this.calculateParentPath(levelStack, headingLevel);
+            
+            // 2. 生成基础slug
             const baseSlug = this.slugger.slug(normalizedTitle);
-            let finalSlug = baseSlug;
             
-            // 处理重复slug
-            if (slugTracker.has(baseSlug)) {
-                const count = slugTracker.get(baseSlug)! + 1;
-                slugTracker.set(baseSlug, count);
-                const hashContent = `${baseSlug}${count}`;
-                const shortHash = HashGenerator.generateShortHash(hashContent);
+            // 3. 计算稳定位置
+            const stablePosition = this.calculateStablePosition(parentChildCount, parentPath, normalizedTitle);
+            
+            // 4. 检查是否需要短哈希去重
+            let finalSlug = baseSlug;
+            const slugKey = `${parentPath}#${baseSlug}`;
+            
+            if (slugOccurrences.has(slugKey)) {
+                // 需要短哈希去重
+                const stableHashInput = [
+                    baseSlug,
+                    parentPath,
+                    stablePosition.toString(),
+                    normalizedTitle,
+                    headingLevel.toString()
+                ].join('|');
+                
+                const shortHash = HashGenerator.generateStableHash(stableHashInput);
                 finalSlug = `${baseSlug}-${shortHash}`;
-            } else {
-                slugTracker.set(baseSlug, 1);
             }
-
+            
+            slugOccurrences.set(slugKey, (slugOccurrences.get(slugKey) || 0) + 1);
+            
+            // 5. 更新层级堆栈
+            this.updateLevelStack(levelStack, headingLevel, finalSlug);
+            
             const sid = `/${finalSlug}`;
             
-            // 计算文本偏移
-            const offset = this.calculateTextOffset(content, pos);
+            // 计算文本偏移（暂时不包含endLine，将在calculateSectionEndLines后更新）
+            const offset = this.calculateTextOffset(pos);
             
             // 分析章节内容
             const sectionContent = this.extractSectionContent(lines, pos.start.line - 1, node.depth);
@@ -545,10 +602,9 @@ class StructureAnalyzer {
                 line: pos.start.line,
                 offset,
                 ...metadata,
-                parent: undefined, // TODO: 实现父子关系
+                parent: undefined, // 将在buildHierarchy中设置
                 children: [],
-                // 🆕 AI 友好字段初始值
-                childTitles: [],
+                // AI友好字段初始值
                 siblingIndex: 0,
                 siblingCount: 0
             };
@@ -561,6 +617,9 @@ class StructureAnalyzer {
         
         // 🆕 计算AI友好字段
         this.calculateAIFriendlyFields(toc);
+
+        // 🆕 计算所有章节的 endLine（为 executeMarkdownEdits 提供支持）
+        this.calculateSectionEndLines(toc, lines.length);
 
         return toc;
     }
@@ -577,35 +636,64 @@ class StructureAnalyzer {
     }
 
     /**
-     * 计算文本偏移 (简化实现)
+     * 计算父级路径 - 用于稳定哈希
      */
-    private calculateTextOffset(content: string, pos: any): TextOffset {
-        const lines = content.split('\n');
-        let utf16Start = 0;
-        
-        // 计算到目标行的偏移
-        for (let i = 0; i < pos.start.line - 1; i++) {
-            utf16Start += lines[i].length + 1; // +1 for newline
+    private calculateParentPath(levelStack: Array<{level: number, slug: string}>, currentLevel: number): string {
+        // 清理不再是父级的节点
+        while (levelStack.length > 0 && levelStack[levelStack.length - 1].level >= currentLevel) {
+            levelStack.pop();
         }
-        utf16Start += pos.start.column - 1;
+        
+        return levelStack.map(item => item.slug).join('/');
+    }
 
-        // 简化实现，假设UTF-8和Unicode码点相同
-            return {
+    /**
+     * 计算稳定位置 - 基于父级路径和标题的出现次数
+     */
+    private calculateStablePosition(
+        parentChildCount: Map<string, Map<string, number>>, 
+        parentPath: string, 
+        normalizedTitle: string
+    ): number {
+        if (!parentChildCount.has(parentPath)) {
+            parentChildCount.set(parentPath, new Map());
+        }
+        
+        const childMap = parentChildCount.get(parentPath)!;
+        const currentCount = childMap.get(normalizedTitle) || 0;
+        const newCount = currentCount + 1;
+        childMap.set(normalizedTitle, newCount);
+        
+        return newCount;
+    }
+
+    /**
+     * 更新层级堆栈 - 维护当前文档层级结构
+     */
+    private updateLevelStack(
+        levelStack: Array<{level: number, slug: string}>, 
+        currentLevel: number, 
+        currentSlug: string
+    ): void {
+        // 清理同级和更深层级的节点
+        while (levelStack.length > 0 && levelStack[levelStack.length - 1].level >= currentLevel) {
+            levelStack.pop();
+        }
+        
+        // 添加当前节点到堆栈
+        levelStack.push({level: currentLevel, slug: currentSlug});
+    }
+
+    /**
+     * 计算文本偏移 - 章节范围定位
+     */
+    private calculateTextOffset(pos: any, sectionEndLine?: number): TextOffset {
+        return {
             utf16: {
-                start: utf16Start,
-                end: utf16Start + 100, // 简化
-                startLine: pos.start.line,
-                endLine: pos.end.line,
-                startColumn: pos.start.column,
-                endColumn: pos.end.column
-            },
-            utf8: {
-                start: utf16Start,
-                end: utf16Start + 100
-            },
-            codepoint: {
-                start: utf16Start,
-                end: utf16Start + 100
+                startLine: pos.start.line,          // 章节开始行（标题行）
+                endLine: sectionEndLine || pos.start.line,  // 章节结束行（如果已计算）
+                startColumn: pos.start.column,      // 标题开始列
+                endColumn: pos.end.column           // 标题结束列
             }
         };
     }
@@ -632,29 +720,118 @@ class StructureAnalyzer {
     }
 
     /**
-     * 分析章节内容
+     * 生成树状目录结构 (用于structure和full模式)
+     */
+    generateTableOfContentsTree(ast: any, content: string): TableOfContentsTreeNode[] {
+        const flatToc = this.generateTableOfContents(ast, content);
+        return this.convertToTreeStructure(flatToc);
+    }
+
+    /**
+     * 生成ToC模式树状结构 (简化版)
+     */
+    generateTableOfContentsToCTree(ast: any, content: string): TableOfContentsToCNode[] {
+        const flatToc = this.generateTableOfContents(ast, content);
+        return this.convertToToCTreeStructure(flatToc);
+    }
+
+    /**
+     * 将扁平的目录转换为树状结构
+     */
+    private convertToTreeStructure(flatToc: TableOfContents[]): TableOfContentsTreeNode[] {
+        const rootNodes: TableOfContentsTreeNode[] = [];
+        const nodeMap = new Map<string, TableOfContentsTreeNode>();
+
+        // 创建所有节点
+        for (const item of flatToc) {
+            const treeNode: TableOfContentsTreeNode = {
+                sid: item.sid,
+                displayId: item.displayId,
+                title: item.title,
+                normalizedTitle: item.normalizedTitle,
+                level: item.level,
+                line: item.line,
+                offset: item.offset,
+                wordCount: item.wordCount,
+                characterCount: item.characterCount,
+                containsCode: item.containsCode,
+                containsTables: item.containsTables,
+                containsLists: item.containsLists,
+                children: [],
+                siblingIndex: item.siblingIndex,
+                siblingCount: item.siblingCount,
+                endLine: item.endLine  // 🆕 复制章节结束行号
+            };
+            nodeMap.set(item.sid, treeNode);
+        }
+
+        // 建立树状关系
+        for (const item of flatToc) {
+            const node = nodeMap.get(item.sid)!;
+            if (item.parent) {
+                const parentNode = nodeMap.get(item.parent);
+                if (parentNode) {
+                    parentNode.children.push(node);
+                }
+            } else {
+                rootNodes.push(node);
+            }
+        }
+
+        return rootNodes;
+    }
+
+    /**
+     * 将扁平的目录转换为ToC树状结构
+     */
+    private convertToToCTreeStructure(flatToc: TableOfContents[]): TableOfContentsToCNode[] {
+        const rootNodes: TableOfContentsToCNode[] = [];
+        const nodeMap = new Map<string, TableOfContentsToCNode>();
+
+        // 创建所有节点
+        for (const item of flatToc) {
+            const tocNode: TableOfContentsToCNode = {
+                sid: item.sid,
+                displayId: item.displayId,
+                title: item.title,
+                level: item.level,
+                characterCount: item.characterCount,
+                parent: item.parent,
+                children: []
+            };
+            nodeMap.set(item.sid, tocNode);
+        }
+
+        // 建立树状关系
+        for (const item of flatToc) {
+            const node = nodeMap.get(item.sid)!;
+            if (item.parent) {
+                const parentNode = nodeMap.get(item.parent);
+                if (parentNode) {
+                    parentNode.children.push(node);
+                }
+            } else {
+                rootNodes.push(node);
+            }
+        }
+
+        return rootNodes;
+    }
+
+    /**
+     * 分析章节内容 (移除废弃字段)
      */
     private analyzeSectionContent(content: string): SectionMetadata {
         const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
         const characterCount = content.length;
-        const estimatedReadingTime = Math.ceil(wordCount / 200); // 假设每分钟200字
         
         const containsCode = /```/.test(content);
         const containsTables = /\|.*\|/.test(content);
         const containsLists = /^[\s]*[-*+]\s/.test(content);
-        
-        let complexity: 'low' | 'medium' | 'high' = 'low';
-        if (wordCount > 500 || containsCode || containsTables) {
-            complexity = 'high';
-        } else if (wordCount > 200 || containsLists) {
-            complexity = 'medium';
-        }
 
-            return {
+        return {
             wordCount,
             characterCount,
-            estimatedReadingTime,
-            complexity,
             containsCode,
             containsTables,
             containsLists
@@ -685,7 +862,7 @@ class StructureAnalyzer {
     }
 
     /**
-     * 计算AI友好字段 (🆕 Phase 1 增强)
+     * 计算AI友好字段 (移除childTitles字段)
      */
     private calculateAIFriendlyFields(toc: TableOfContents[]): void {
         // 递归计算每个节点的AI友好字段
@@ -693,9 +870,6 @@ class StructureAnalyzer {
             // 计算siblingIndex和siblingCount
             node.siblingIndex = siblings.indexOf(node);
             node.siblingCount = siblings.length;
-            
-            // 计算childTitles
-            node.childTitles = node.children.map(child => child.title);
             
             // 递归处理子节点
             if (node.children.length > 0) {
@@ -711,6 +885,49 @@ class StructureAnalyzer {
         // 计算根级节点
         for (const rootNode of rootNodes) {
             calculateForNode(rootNode, rootNodes);
+        }
+    }
+
+    /**
+     * 🆕 计算所有章节的结束行号
+     * 这是为 executeMarkdownEdits 提供的关键功能
+     */
+    private calculateSectionEndLines(toc: TableOfContents[], totalLines: number): void {
+        // 按行号排序，确保顺序处理
+        const sortedToc = [...toc].sort((a, b) => a.line - b.line);
+        
+        for (let i = 0; i < sortedToc.length; i++) {
+            const currentSection = sortedToc[i];
+            const nextSection = sortedToc[i + 1];
+            
+            if (nextSection) {
+                // 找到下一个同级或更高级别的标题
+                let endLine = nextSection.line - 1; // 下一个章节的前一行
+                
+                // 检查是否有更高级别的标题更早出现
+                for (let j = i + 1; j < sortedToc.length; j++) {
+                    const candidateSection = sortedToc[j];
+                    
+                    // 如果遇到同级或更高级别的标题
+                    if (candidateSection.level <= currentSection.level) {
+                        endLine = candidateSection.line - 1;
+                        break;
+                    }
+                }
+                
+                currentSection.endLine = endLine;
+            } else {
+                // 最后一个章节，结束行就是文档的最后一行
+                currentSection.endLine = totalLines;
+            }
+            
+            // 确保 endLine 不小于 startLine
+            if (currentSection.endLine < currentSection.line) {
+                currentSection.endLine = currentSection.line;
+            }
+            
+            // 🆕 更新 offset 中的 endLine
+            currentSection.offset.utf16.endLine = currentSection.endLine;
         }
     }
 }
@@ -1221,8 +1438,10 @@ class EnhancedMarkdownReader {
                 // 4. 文档解析
                 const ast = await this.parsingEngine.parseDocument(content);
                 const toc = this.structureAnalyzer.generateTableOfContents(ast, content);
+                const tocTree = this.structureAnalyzer.generateTableOfContentsTree(ast, content);
+                const tocToCTree = this.structureAnalyzer.generateTableOfContentsToCTree(ast, content);
                 
-                parsedData = { ast, toc };
+                parsedData = { ast, toc, tocTree, tocToCTree };
                 this.cacheManager.set(cacheKey, parsedData);
             }
 
@@ -1235,7 +1454,7 @@ class EnhancedMarkdownReader {
             const results = await this.processTargets(args.targets || [], parsedData.toc, content);
 
             // 7. 构建结果
-            return this.buildResult(args, resolvedPath, fileStats, content, parsedData.toc, results, cacheHit, startTime);
+            return this.buildResult(args, resolvedPath, fileStats, content, parsedData, results, cacheHit, startTime);
         
     } catch (error) {
             logger.error(`Enhanced markdown read failed: ${(error as Error).message}`);
@@ -1275,26 +1494,45 @@ class EnhancedMarkdownReader {
      * 处理章节目标
      */
     private async processSectionTarget(target: TargetRequest, toc: TableOfContents[], content: string): Promise<TargetResult> {
-        // 查找匹配的章节
-        let section: TableOfContents | undefined;
-        
-        if (target.sid) {
-            section = toc.find(s => s.sid === target.sid);
-        } else if (target.sectionTitle) {
-            section = toc.find(s => 
-                s.title.toLowerCase().includes(target.sectionTitle!.toLowerCase()) ||
-                s.normalizedTitle.toLowerCase().includes(target.sectionTitle!.toLowerCase())
-            );
-        }
-
-        if (!section) {
-        return {
+        // 验证 SID 是否提供
+        if (!target.sid) {
+            return {
                 type: 'section',
-            success: false,
+                success: false,
                 error: {
                     code: ErrorCode.SECTION_NOT_FOUND,
-                    message: `Section not found: ${target.sid || target.sectionTitle}`,
-                    suggestion: `Available sections: ${toc.map(s => s.sid).join(', ')}`
+                    message: `SID is required for section target. Use parseMode='toc' first to discover available SIDs.`,
+                    suggestion: `Available SIDs: ${toc.slice(0, 5).map(s => s.sid).join(', ')}${toc.length > 5 ? ` (showing first 5 of ${toc.length})` : ''}`
+                }
+            };
+        }
+        
+        // 查找匹配的章节
+        const section = toc.find(s => s.sid === target.sid);
+
+        if (!section) {
+            // 查找相似的SID建议
+            const similarSids = toc.filter(s => 
+                s.sid.toLowerCase().includes(target.sid!.toLowerCase()) ||
+                s.title.toLowerCase().includes(target.sid!.replace(/[-_]/g, ' ').toLowerCase())
+            ).slice(0, 3);
+            
+            let suggestions = `Available SIDs: ${toc.slice(0, 5).map(s => s.sid).join(', ')}`;
+            if (toc.length > 5) {
+                suggestions += ` (showing first 5 of ${toc.length})`;
+            }
+            
+            if (similarSids.length > 0) {
+                suggestions = `Similar SIDs found: ${similarSids.map(s => `${s.sid} ("${s.title}")`).join(', ')}. Check for typos in the SID.`;
+            }
+            
+            return {
+                type: 'section',
+                success: false,
+                error: {
+                    code: ErrorCode.SECTION_NOT_FOUND,
+                    message: `Section not found with SID: ${target.sid}`,
+                    suggestion: suggestions
                 }
             };
         }
@@ -1302,8 +1540,8 @@ class EnhancedMarkdownReader {
         // 提取章节内容
         const sectionContent = this.extractSectionContent(content, section);
 
-        return {
-            type: 'section',
+        const result: TargetResult = {
+            type: 'section' as const,
             success: true,
             sid: section.sid,
             sectionTitle: section.title,
@@ -1311,13 +1549,16 @@ class EnhancedMarkdownReader {
             metadata: {
                 wordCount: section.wordCount,
                 characterCount: section.characterCount,
-                estimatedReadingTime: section.estimatedReadingTime,
-                complexity: section.complexity,
                 containsCode: section.containsCode,
                 containsTables: section.containsTables,
                 containsLists: section.containsLists
             }
         };
+        
+        // SID 匹配成功，记录日志
+        logger.info(`✅ Section found: "${section.title}" (sid: ${section.sid})`);
+        
+        return result;
     }
 
     /**
@@ -1366,7 +1607,7 @@ class EnhancedMarkdownReader {
         resolvedPath: string,
         fileStats: any,
         content: string,
-        toc: TableOfContents[],
+        parsedData: { ast: any, toc: TableOfContents[], tocTree: TableOfContentsTreeNode[], tocToCTree: TableOfContentsToCNode[] },
         results: TargetResult[],
         cacheHit: boolean,
         startTime: number
@@ -1382,8 +1623,11 @@ class EnhancedMarkdownReader {
             // 条件返回content：只有在没有targets时才返回完整内容，避免重复和浪费
             content: (args.targets && args.targets.length > 0) ? undefined : 
                      (parseMode === 'content' || parseMode === 'full' ? content : undefined),
-            tableOfContents: parseMode === 'structure' || parseMode === 'full' ? toc : undefined,
-            contentSummary: parseMode === 'structure' ? this.generateContentSummary(content, toc) : undefined,
+            // 树状目录结构
+            tableOfContentsTree: parseMode === 'structure' || parseMode === 'full' ? parsedData.tocTree : undefined,
+            // ToC模式的简化树状结构
+            tableOfContentsToCTree: parseMode === 'toc' ? parsedData.tocToCTree : undefined,
+            contentSummary: parseMode === 'structure' ? this.generateContentSummary(content, parsedData.toc) : undefined,
             results,
             parseTime: Date.now() - startTime,
             cacheHit

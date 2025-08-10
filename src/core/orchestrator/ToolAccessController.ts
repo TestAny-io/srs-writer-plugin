@@ -64,25 +64,29 @@ export class ToolAccessController {
         // 基于层级和调用者的默认策略
         switch (tool.layer) {
             case 'specialist':
-                // 专家工具：只有 orchestrator 的 TOOL_EXECUTION 模式可以访问
-                return caller === CallerType.ORCHESTRATOR_TOOL_EXECUTION;
+                // 专家工具：只有 specialist 可以访问（支持两种类型）
+                return caller === CallerType.SPECIALIST_CONTENT || 
+                       caller === CallerType.SPECIALIST_PROCESS;
 
             case 'document':
                 // 文档工具：orchestrator TOOL_EXECUTION 和 specialist 可以访问
                 return caller === CallerType.ORCHESTRATOR_TOOL_EXECUTION || 
-                       caller === CallerType.SPECIALIST;
+                       caller === CallerType.SPECIALIST_CONTENT ||
+                       caller === CallerType.SPECIALIST_PROCESS;
 
             case 'atomic':
                 // 原子工具：orchestrator 所有模式都可以访问，specialist 通过 document 层访问
                 return caller === CallerType.ORCHESTRATOR_TOOL_EXECUTION ||
                        caller === CallerType.ORCHESTRATOR_KNOWLEDGE_QA ||
-                       caller === CallerType.SPECIALIST;
+                       caller === CallerType.SPECIALIST_CONTENT ||
+                       caller === CallerType.SPECIALIST_PROCESS;
 
             case 'internal':
                 // 内部工具：所有AI层都可以访问
                 return caller === CallerType.ORCHESTRATOR_TOOL_EXECUTION ||
                        caller === CallerType.ORCHESTRATOR_KNOWLEDGE_QA ||
-                       caller === CallerType.SPECIALIST;
+                       caller === CallerType.SPECIALIST_CONTENT ||
+                       caller === CallerType.SPECIALIST_PROCESS;
 
             default:
                 // 未分层的工具：向后兼容，TOOL_EXECUTION 可以访问

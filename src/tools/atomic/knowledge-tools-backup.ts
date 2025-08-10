@@ -362,7 +362,7 @@ export const readLocalKnowledgeToolDefinition = {
     // 🚀 访问控制：本地知识查询，允许两种模式使用
     accessibleBy: [
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 知识问答模式
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION   // 工具执行模式（当任务需要查阅本地知识时）
+        // CallerType.ORCHESTRATOR_TOOL_EXECUTION   // 工具执行模式（当任务需要查阅本地知识时）
     ]
 };
 
@@ -895,7 +895,8 @@ export const customRAGRetrievalToolDefinition = {
     riskLevel: 'low',
     requiresConfirmation: false,
     accessibleBy: [
-        CallerType.SPECIALIST,           // 专家模式可以调用
+        CallerType.SPECIALIST_CONTENT,   // 内容专家可以调用
+        CallerType.SPECIALIST_PROCESS,    // 流程专家可以调用
         CallerType.ORCHESTRATOR_TOOL_EXECUTION  // 编排器工具执行模式
     ]
 };

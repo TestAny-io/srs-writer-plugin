@@ -52,7 +52,7 @@ export const taskCompleteToolDefinition = {
     },
     
     // 🚀 访问控制：只有specialist可以访问
-    accessibleBy: [CallerType.SPECIALIST]
+    accessibleBy: [CallerType.SPECIALIST_CONTENT, CallerType.SPECIALIST_PROCESS]
 };
 
 /**

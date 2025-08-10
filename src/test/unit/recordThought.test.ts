@@ -19,7 +19,7 @@ describe('recordThought Tool', () => {
         it('should have correct basic properties', () => {
             expect(recordThoughtToolDefinition.name).toBe('recordThought');
             expect(recordThoughtToolDefinition.description).toContain('专家级结构化思考记录工具');
-            expect(recordThoughtToolDefinition.accessibleBy).toEqual([CallerType.SPECIALIST]);
+            expect(recordThoughtToolDefinition.accessibleBy).toEqual([CallerType.SPECIALIST_CONTENT, CallerType.SPECIALIST_PROCESS]);
         });
         
         it('should have correct parameters schema', () => {
@@ -44,7 +44,7 @@ describe('recordThought Tool', () => {
         });
         
         it('should have correct access control and classification', () => {
-            expect(recordThoughtToolDefinition.accessibleBy).toEqual([CallerType.SPECIALIST]);
+            expect(recordThoughtToolDefinition.accessibleBy).toEqual([CallerType.SPECIALIST_CONTENT, CallerType.SPECIALIST_PROCESS]);
             expect(recordThoughtToolDefinition.interactionType).toBe('autonomous');
             expect(recordThoughtToolDefinition.riskLevel).toBe('low');
             expect(recordThoughtToolDefinition.requiresConfirmation).toBe(false);
@@ -164,7 +164,7 @@ describe('recordThought Tool', () => {
             if (definition) {
                 expect(definition.name).toBe('recordThought');
                 expect(definition.layer).toBe('internal');
-                expect(definition.accessibleBy).toEqual([CallerType.SPECIALIST]);
+                expect(definition.accessibleBy).toEqual([CallerType.SPECIALIST_CONTENT, CallerType.SPECIALIST_PROCESS]);
             }
         });
         
@@ -174,7 +174,7 @@ describe('recordThought Tool', () => {
             expect(definition).toBeDefined();
             if (definition) {
                 // 验证工具定义中的访问控制配置
-                expect(definition.accessibleBy).toEqual([CallerType.SPECIALIST]);
+                expect(definition.accessibleBy).toEqual([CallerType.SPECIALIST_CONTENT, CallerType.SPECIALIST_PROCESS]);
                 expect(definition.interactionType).toBe('autonomous');
                 expect(definition.riskLevel).toBe('low');
                 expect(definition.requiresConfirmation).toBe(false);

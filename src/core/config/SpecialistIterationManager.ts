@@ -4,7 +4,8 @@ import {
     SpecialistCategory,
     DEFAULT_SPECIALIST_ITERATION_CONFIG,
     SPECIALIST_CATEGORY_MAPPING,
-    getSpecialistCategory
+    getSpecialistCategory,
+    HistoryManagementConfig
 } from './SpecialistIterationConfig';
 import { getSpecialistRegistry } from '../specialistRegistry';
 import type { SpecialistRegistry } from '../specialistRegistry';
@@ -157,5 +158,12 @@ export class SpecialistIterationManager {
         }
         
         return summary;
+    }
+
+    /**
+     * 🚀 新增：获取历史管理配置
+     */
+    public getHistoryConfig(): HistoryManagementConfig | null {
+        return this.config.historyConfig || null;
     }
 } 

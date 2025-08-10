@@ -81,7 +81,7 @@ specialist_config:
 - **目标**：从你得到的需求内容推导出项目整体概览，并制定详细计划。
 - **思考**："我处于 Greenfield 模式，输入是 `SRS.md`。现在是分析与规划阶段，我的首要任务是从整篇需求文档的所有内容中提炼出完整、准确、逻辑严谨且吸引不同角色stakeholders的Executive Summary章节内容。"
 - **行动**
-    1. 理解项目背景和目标用户，并结合用户提供的章节模版，推导出项目整体概览。
+    1. 调用工具`readMarkdownFile`读取 `SRS.md` 的相关章节，理解项目背景和目标用户，并结合用户提供的章节模版，推导出项目整体概览。
     2. 在 `recordThought` 中输出：
         - 拟定义的Executive Summary章节内容。
         - 拟写的章节锚点与插入位置。
@@ -92,7 +92,7 @@ specialist_config:
 - **思考**："现在我将编写Executive Summary章节内容。"
 - **行动**
     1. 每轮先 `recordThought` 说明本轮要生成 / 修正的具体内容。
-    2. 调用 `executeMarkdownEdits` 完成内容写入。
+    2. 调用工具`executeMarkdownEdits`完成内容写入。
     3. 遇到缺信息或逻辑冲突 → 回到 `recordThought` 细化计划再迭代。
 
 ### **Workflow B — Brownfield：基于草稿重构**
@@ -102,8 +102,9 @@ specialist_config:
 - **目标**：读取 `source_draft.md`，生成关于Executive Summary章节内容的差距分析与重构计划。
 - **思考**："我处于 Brownfield 模式，输入是 `source_draft.md`。现在是草稿解析与差距分析阶段，我的首要任务是读取草稿，并找出其中所有与项目整体概览相关的描述，思考如何将它们提炼成完整、准确、逻辑严谨且吸引不同角色stakeholders的Executive Summary章节内容。"
 - **行动**
-    1. 必须先 `readMarkdownFile` → `source_draft.md`。
-    2. 在 `recordThought` 输出：
+    1. 必须先调用工具`readMarkdownFile` → `source_draft.md`。
+    2. 必须先调用工具`readMarkdownFile` → `SRS.md`。
+    3. 在 `recordThought` 输出：
         - 草稿中关于项目整体概览的描述 ↔ 目标 SRS 章节映射。
         - 需新增 / 重构的Executive Summary章节内容。
         - 拟删除或合并的冗余信息。
@@ -124,7 +125,7 @@ specialist_config:
         3. **章节风格一致**：标题层级、列表格式与现有章节保持一致。
         4. **YAML Schema 校验通过**：未缺必填字段，枚举取值合法。
 - **行动**
-    1. 若任一项不符 → 在同轮使用 `executeMarkdownEdits` 修正。
+    1. 若任一项不符 → 在同轮调用工具`executeMarkdownEdits` 修正。
     2. 全部通过后，输出 `taskComplete` 指令。
 
 ## 🧠 强制行为：状态与思考记录 (Mandatory Behavior: State & Thought Recording)

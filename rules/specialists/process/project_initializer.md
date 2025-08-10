@@ -122,7 +122,7 @@ specialist_config:
         "deliverables": [
           {
             "path": "项目名称/SRS.md",
-            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n\n## 3. 用户旅程 (User Journeys)\n\n## 4. 用户故事和用例视图 (User Stories and Use Cases)\n\n## 5. 功能需求 (Functional Requirements)\n\n## 6. 非功能需求 (Non-Functional Requirements)\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n\n## 8. 数据需求 (Data Requirements)\n\n---\n\n## 9. 附录 (Appendix)\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
+            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n\n## 3. 用户旅程 (User Journeys)\n\n## 4. 用户故事 (User Story)\n\n## 5. 功能需求 (Functional Requirements)\n\n## 6. 非功能需求 (Non-Functional Requirements)\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n\n## 8. 数据需求 (Data Requirements)\n\n---\n\n## 9. 附录 (Appendix)\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
             "type": "markdown",
             "description": "SRS.md初始内容"
           },
@@ -212,7 +212,7 @@ specialist_config:
           },
           {
             "path": "项目名称/SRS.md",
-            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n\n## 3. 用户旅程 (User Journeys)\n\n## 4. 用户故事和用例视图 (User Stories and Use Cases)\n\n## 5. 功能需求 (Functional Requirements)\n\n## 6. 非功能需求 (Non-Functional Requirements)\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n\n## 8. 数据需求 (Data Requirements)\n\n---\n\n## 9. 附录 (Appendix)\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
+            "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n\n## 文档状态\n- ✅ 项目已初始化\n- ⏳ 等待内容填充\n\n## 1. 执行摘要 (Executive Summary)\n\n## 2. 总体描述 (Overall Description)\n\n## 3. 用户旅程 (User Journeys)\n\n## 4. 用户故事 (User Story)\n\n## 5. 功能需求 (Functional Requirements)\n\n## 6. 非功能需求 (Non-Functional Requirements)\n\n---\n\n## 7. 接口需求 (Interface Requirements)\n\n## 8. 数据需求 (Data Requirements)\n\n---\n\n## 9. 附录 (Appendix)\n\n---\n\n*本文档由 SRS Writer Plugin 自动生成，正在逐步完善中...*",
             "type": "markdown",
             "description": "SRS.md初始内容"
           },

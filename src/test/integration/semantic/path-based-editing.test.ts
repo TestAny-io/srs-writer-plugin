@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import { executeSemanticEdits, SemanticEditIntent } from '../../../tools/document/semantic-edit-engine';
+import { smartPathToSid } from '../../fixtures/sid-migration-helpers';
 
 describe('Path-Based Semantic Editing Tests', () => {
     
@@ -84,7 +85,7 @@ describe('Path-Based Semantic Editing Tests', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'replace_entire_section_with_title',
                 target: {
-                    path: ['**US-INFO-001**']
+                    sid: smartPathToSid(['**US-INFO-001**'])
                 },
                 content: `- **US-INFO-001**
     - **name**: 查看预警详情（增强版）
@@ -110,8 +111,8 @@ describe('Path-Based Semantic Editing Tests', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'replace_lines_in_section',
                 target: {
-                    path: ['**UC-INFO-001**'],
-                    targetContent: '城市居民'
+                    sid: smartPathToSid(['**UC-INFO-001**']),
+                    lineRange: { startLine: 1, endLine: 1 }
                 },
                 content: '企业管理者和城市居民',
                 reason: '扩展用例的参与者范围',
@@ -128,7 +129,7 @@ describe('Path-Based Semantic Editing Tests', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['用户故事'],
+                    sid: smartPathToSid(['用户故事']),
                     insertionPosition: 'after'
                 },
                 content: `
@@ -155,8 +156,8 @@ describe('Path-Based Semantic Editing Tests', () => {
                 {
                     type: 'replace_lines_in_section',
                     target: {
-                        path: ['**UC-INFO-001**'], // 第4章中的list item
-                        targetContent: '用户点击通知后进入详情页面，查看详细预警信息'
+                        sid: smartPathToSid(['**UC-INFO-001**']), // 第4章中的list item
+                        lineRange: { startLine: 1, endLine: 1 }
                     },
                     content: '用户点击通知后进入详情页面，查看详细预警信息，支持历史记录查询',
                     reason: '在第4章用例视图中增加历史记录功能',
@@ -165,8 +166,8 @@ describe('Path-Based Semantic Editing Tests', () => {
                 {
                     type: 'replace_lines_in_section',
                     target: {
-                        path: ['UC-INFO-001 查看预警详情'], // 第5章中的heading
-                        targetContent: '功能需求描述，与第4章的用例有重复内容'
+                        sid: smartPathToSid(['UC-INFO-001 查看预警详情']), // 第5章中的heading
+                        lineRange: { startLine: 1, endLine: 1 }
                     },
                     content: '功能需求描述：系统应提供预警详情查看功能，包括天气类型、影响区域、时间、官方建议等信息',
                     reason: '在第5章功能需求中完善描述',
@@ -187,7 +188,7 @@ describe('Path-Based Semantic Editing Tests', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'replace_entire_section_with_title',
                 target: {
-                    path: [] // 空路径数组
+                    sid: smartPathToSid([]) // 空路径数组
                 },
                 content: '替换内容',
                 reason: '测试空路径',
@@ -198,14 +199,14 @@ describe('Path-Based Semantic Editing Tests', () => {
 
             expect(result.success).toBe(false);
             expect(result.failedIntents.length).toBe(1);
-            expect(result.error).toContain('Empty path');
+            expect(result.failedIntents?.[0]?.error || result.warnings?.[0]?.message).toContain('Empty path');
         });
 
         test('应该处理不存在的路径', async () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'replace_entire_section_with_title',
                 target: {
-                    path: ['不存在的章节', '子章节']
+                    sid: smartPathToSid(['不存在的章节', '子章节'])
                 },
                 content: '替换内容',
                 reason: '测试不存在的路径',
@@ -216,14 +217,14 @@ describe('Path-Based Semantic Editing Tests', () => {
 
             expect(result.success).toBe(false);
             expect(result.failedIntents.length).toBe(1);
-            expect(result.error).toContain('not found');
+            expect(result.failedIntents?.[0]?.error || result.warnings?.[0]?.message).toContain('not found');
         });
 
         test('应该验证必需字段', async () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'replace_lines_in_section',
                 target: {
-                    path: ['**US-INFO-001**']
+                    sid: smartPathToSid(['**US-INFO-001**'])
                     // 缺少 targetContent 字段
                 },
                 content: '替换内容',
@@ -241,7 +242,7 @@ describe('Path-Based Semantic Editing Tests', () => {
             const intents: SemanticEditIntent[] = [{
                 type: 'insert_entire_section',
                 target: {
-                    path: ['用户故事']
+                    sid: smartPathToSid(['用户故事'])
                     // 缺少 insertionPosition 字段
                 },
                 content: '插入内容',
@@ -265,8 +266,8 @@ describe('Path-Based Semantic Editing Tests', () => {
                 intents.push({
                     type: 'replace_lines_in_section',
                     target: {
-                        path: ['**US-ALERT-001**'],
-                        targetContent: '城市居民'
+                        sid: smartPathToSid(['**US-ALERT-001**']),
+                        lineRange: { startLine: 1, endLine: 1 }
                     },
                     content: `城市居民${i}`,
                     reason: `批量测试 ${i}`,
@@ -286,21 +287,21 @@ describe('Path-Based Semantic Editing Tests', () => {
             const intents: SemanticEditIntent[] = [
                 {
                     type: 'replace_lines_in_section',
-                    target: { path: ['**US-ALERT-001**'], targetContent: '城市居民' },
+                    target: { sid: smartPathToSid(['**US-ALERT-001**']), lineRange: { startLine: 1, endLine: 1 } },
                     content: '高优先级',
                     reason: '高优先级操作',
                     priority: 10
                 },
                 {
                     type: 'replace_lines_in_section',
-                    target: { path: ['**US-INFO-001**'], targetContent: '城市居民' },
+                    target: { sid: smartPathToSid(['**US-INFO-001**']), lineRange: { startLine: 1, endLine: 1 } },
                     content: '低优先级',
                     reason: '低优先级操作',
                     priority: 1
                 },
                 {
                     type: 'replace_lines_in_section',
-                    target: { path: ['**UC-ALERT-001**'], targetContent: '城市居民' },
+                    target: { sid: smartPathToSid(['**UC-ALERT-001**']), lineRange: { startLine: 1, endLine: 1 } },
                     content: '中优先级',
                     reason: '中优先级操作',
                     priority: 5
@@ -313,9 +314,9 @@ describe('Path-Based Semantic Editing Tests', () => {
             expect(result.appliedIntents.length).toBe(3);
             
             // 验证执行顺序（高优先级先执行）
-            expect(result.appliedIntents[0].priority).toBe(10);
-            expect(result.appliedIntents[1].priority).toBe(5);
-            expect(result.appliedIntents[2].priority).toBe(1);
+            expect(result.appliedIntents[0].originalIntent.priority).toBe(10);
+            expect(result.appliedIntents[1].originalIntent.priority).toBe(5);
+            expect(result.appliedIntents[2].originalIntent.priority).toBe(1);
         });
     });
 

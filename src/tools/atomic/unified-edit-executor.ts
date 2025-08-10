@@ -223,22 +223,28 @@ function isTraditionalEditInstruction(instruction: any): boolean {
 
 /**
  * 执行纯语义编辑策略
+ * 🆕 升级为基于 executeMarkdownEdits 工具的自包含架构
  */
 async function executeSemanticEditStrategy(
     instructions: SemanticEditIntent[],
     targetFile: string
 ): Promise<{ appliedCount: number; failedCount: number; error?: string; semanticErrors?: string[] }> {
     try {
-        logger.info(`🎯 [SemanticStrategy] Executing ${instructions.length} semantic edits`);
+        logger.info(`🎯 [SemanticStrategy] Executing ${instructions.length} semantic edits using new sid-based workflow`);
         
+        // 🚀 使用新的自包含 executeMarkdownEdits 工具
+        const { executeSemanticEdits } = await import('../document/semantic-edit-engine');
         const targetUri = vscode.Uri.file(targetFile);
+        
         const result = await executeSemanticEdits(instructions, targetUri);
         
+        logger.info(`✅ [SemanticStrategy] Completed: ${result.successfulIntents}/${result.totalIntents} successful`);
+        
         return {
-            appliedCount: result.appliedIntents?.length || 0,
-            failedCount: result.failedIntents?.length || 0,
-            error: result.error,
-            semanticErrors: result.semanticErrors
+            appliedCount: result.successfulIntents,
+            failedCount: result.totalIntents - result.successfulIntents,
+            error: result.success ? undefined : `部分操作失败: ${result.failedIntents.map(f => f.error).join('; ')}`,
+            semanticErrors: result.failedIntents.length > 0 ? result.failedIntents.map(f => f.error) : undefined
         };
         
     } catch (error) {

@@ -104,7 +104,7 @@ specialist_config:
 - **目标**: 深入理解用户故事、用例、功能需求和非功能需求，设计接口需求和数据需求拆解策略。
 - **思考**: "我处于 Greenfield 模式。我的输入是 `SRS.md` 的用户故事、用例、功能需求和非功能需求章节。我需要如何将每个用例的步骤和异常流，结合相应的功能和非功能需求，转化为符合INVEST原则的、独立的接口需求和数据需求？"
 - **行动**:
-    1. 读取 `SRS.md` 和 `requirements.yaml` 的相关章节。
+    1. 调用工具`readMarkdownFile`读取 `SRS.md` 的相关章节。
     2. 在 `recordThought` 中，详细记录你的接口需求和数据需求拆解计划、ID规划和追溯关系表。
 
 #### **Phase A.2: 生成与迭代 (Generate & Iterate)**
@@ -113,7 +113,8 @@ specialist_config:
 - **思考**: "现在我将执行计划的第X步。这个IFR或DAR的描述是否清晰？验证方法是否可测试？"
 - **行动**:
     1. 更新 `recordThought`，说明本轮要生成的具体内容。
-    2. 使用 `executeMarkdownEdits` 和 `executeYAMLEdits` 工具，将符合规范的内容写入文件。确保两个文件同步更新。
+    2. 调用工具`executeMarkdownEdits`和`executeYAMLEdits`，将符合规范的内容写入文件。确保两个文件同步更新。
+    3. 遇到缺信息或逻辑冲突 → 回到 `recordThought` 细化计划再迭代。
 
 #### **Phase A.3: 终审与交付 (Finalize & Deliver)**
 
@@ -129,11 +130,12 @@ specialist_config:
 
 #### **Phase B.1: 草稿解析与差距分析 (Draft Ingestion & Gap Analysis)**
 
-- **目标**: 消化 **`source_draft.md`** 的内容，识别其与高质量SRS标准之间的差距。
+- **目标**: 读取并理解 **`source_draft.md`** 的内容，识别其与高质量SRS标准之间的差距。
 - **思考**: "我处于 Brownfield 模式。我的**唯一真理之源**是 `source_draft.md` 文件。这份标准草稿提到了哪些功能？它缺少了什么关键信息（ID, 验收标准, 优先级, 追溯关系）？"
 - **行动**:
-    1. **必须**首先使用 `readMarkdownFile` 工具读取项目根目录下的 `source_draft.md` 文件。
-    2. 在 `recordThought` 中，创建一个基于 `source_draft.md` 的**差距分析报告**，并制定详细的重构计划。
+    1. **必须**首先使用 `readMarkdownFile` 工具读取 `source_draft.md` 文件。
+    2. **必须**读取 `SRS.md`中的相关章节，确定编辑位置。
+    3. 在 `recordThought` 中，创建一个基于 `source_draft.md` 的**差距分析报告**，并制定详细的编辑计划。
 
 #### **Phase B.2: 系统化重构与增强 (Systematic Refactoring & Enhancement)**
 
@@ -141,7 +143,8 @@ specialist_config:
 - **思考**: "我的价值不是复制粘贴，而是提升质量。我要把 `source_draft.md` 中的这段模糊描述，重写成一个带有多条清晰验证方法的、符合INVEST原则的IFR或DAR。"
 - **行动**:
     1. 更新 `recordThought`，说明本轮要重构或增强的具体IFR或DAR。
-    2. 使用 `executeMarkdownEdits` 和 `executeYAMLEdits` 工具，写入**重构后**的高质量内容。
+    2. 调用工具`executeMarkdownEdits`和`executeYAMLEdits`，写入**重构后**的高质量内容。
+    3. 遇到缺信息或逻辑冲突 → 回到 `recordThought` 细化计划再迭代。
 
 #### **Phase B.3: 终审与交付 (Finalize & Deliver)**
 

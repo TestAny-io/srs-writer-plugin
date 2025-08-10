@@ -39,34 +39,19 @@ describe('Deprecated Tools Check', () => {
     expect(semanticEditTool).toBeDefined();
   });
 
-  it('should log deprecation warnings if deprecated tools are somehow called', async () => {
-    // 🚨 这个测试验证如果deprecated工具被意外调用，会记录警告
-    // 由于工具已从注册表移除，这主要是防御性测试
+  it('should verify that deprecated tools have been properly removed', () => {
+    // 🗑️ 验证废弃的工具文件已被完全移除
+    const deprecatedToolFiles = [
+      '../../tools/document/documentImporterTools',
+      '../../tools/document/documentGeneratorTools', 
+      '../../tools/document/requirementTools'
+    ];
     
-    const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
-    
-    try {
-      // 尝试导入deprecated工具（应该失败或触发警告）
-      const { documentImporterToolImplementations } = require('../../tools/document/documentImporterTools');
-      
-      if (documentImporterToolImplementations?.importFromMarkdown) {
-        // 如果工具实现仍然存在，调用它应该会触发deprecation警告
-        await documentImporterToolImplementations.importFromMarkdown({
-          markdownContent: 'test',
-          projectPath: '/tmp'
-        });
-        
-        // 验证deprecation警告被记录
-        expect(consoleSpy).toHaveBeenCalledWith(
-          expect.stringContaining('DEPRECATED: importFromMarkdown工具已废弃')
-        );
-      }
-    } catch (error) {
-      // 如果工具已被完全移除，导入失败是预期的
-      expect(error).toBeDefined();
-    } finally {
-      consoleSpy.mockRestore();
-    }
+    deprecatedToolFiles.forEach(toolPath => {
+      expect(() => {
+        require(toolPath);
+      }).toThrow(); // 应该抛出错误，因为文件不存在
+    });
   });
 
   it('should provide clear migration path for deprecated functionality', () => {

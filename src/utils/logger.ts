@@ -2,14 +2,54 @@ import * as vscode from 'vscode';
 import { LOG_LEVELS } from '../constants';
 
 /**
- * 日志管理器
+ * Mock OutputChannel for testing environment
+ */
+class MockOutputChannel {
+    appendLine(message: string): void {
+        // 在测试环境中只输出到控制台
+        console.log(`[MockOutput] ${message}`);
+    }
+
+    show(): void {
+        // Mock implementation - do nothing
+    }
+
+    hide(): void {
+        // Mock implementation - do nothing
+    }
+
+    clear(): void {
+        // Mock implementation - do nothing  
+    }
+
+    dispose(): void {
+        // Mock implementation - do nothing
+    }
+}
+
+/**
+ * 日志管理器 - 支持测试环境
  */
 export class Logger {
     private static instance: Logger;
-    private outputChannel: vscode.OutputChannel;
+    private outputChannel: vscode.OutputChannel | MockOutputChannel;
 
     private constructor() {
-        this.outputChannel = vscode.window.createOutputChannel('SRS Writer Plugin');
+        // 在测试环境中使用mock实现
+        if (this.isTestEnvironment()) {
+            this.outputChannel = new MockOutputChannel();
+        } else {
+            this.outputChannel = vscode.window.createOutputChannel('SRS Writer Plugin');
+        }
+    }
+
+    /**
+     * 检查是否在测试环境中
+     */
+    private isTestEnvironment(): boolean {
+        return process.env.NODE_ENV === 'test' || 
+               process.env.JEST_WORKER_ID !== undefined ||
+               typeof jest !== 'undefined';
     }
 
     /**
@@ -20,6 +60,13 @@ export class Logger {
             Logger.instance = new Logger();
         }
         return Logger.instance;
+    }
+
+    /**
+     * 重置实例（仅用于测试）
+     */
+    public static resetInstance(): void {
+        Logger.instance = undefined as any;
     }
 
     /**

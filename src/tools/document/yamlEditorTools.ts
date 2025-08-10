@@ -51,7 +51,8 @@ export const readYAMLFilesToolDefinition = {
     accessibleBy: [
         CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
-        CallerType.SPECIALIST,
+        CallerType.SPECIALIST_CONTENT,
+        CallerType.SPECIALIST_PROCESS,
         CallerType.DOCUMENT
     ],
     interactionType: 'autonomous',
@@ -116,7 +117,8 @@ export const executeYAMLEditsToolDefinition = {
         required: ["description", "targetFile", "edits"]
     },
             accessibleBy: [
-            CallerType.SPECIALIST,
+            CallerType.SPECIALIST_CONTENT,
+            CallerType.SPECIALIST_PROCESS,
             CallerType.DOCUMENT
         ],
     interactionType: 'autonomous',

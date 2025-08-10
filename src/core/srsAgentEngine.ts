@@ -266,28 +266,80 @@ export class SRSAgentEngine implements ISessionObserver {
       }
       
     } else {
-      // 没有resumeContext，按照原来的逻辑处理
-      this.logger.info(`💬 Processing user response without resume context`);
+      // ####################################################################
+      // ##################### 关键修复区域开始 #########################
+      // ####################################################################
       
-      // 处理普通的用户交互
-      await this.handleStandardUserInteraction(response, interaction);
+      this.logger.info(`💬 Processing standard user interaction of type: ${interaction.type}`);
+      
+      let handlerResult: { shouldReturnToWaiting: boolean };
+
+      switch (interaction.type) {
+        case 'confirmation':
+          handlerResult = await this.userInteractionHandler.handleConfirmationResponse(
+            response,
+            interaction,
+            this.stream,
+            this.recordExecution.bind(this),
+            // 关键：将 this.handleAutonomousTool 作为一个回调函数传递进去
+            this.handleAutonomousTool.bind(this) 
+          );
+          break;
+        
+        case 'choice':
+          handlerResult = await this.userInteractionHandler.handleChoiceResponse(
+            response,
+            interaction,
+            this.stream,
+            this.recordExecution.bind(this),
+            this.handleAutonomousTool.bind(this)
+          );
+          break;
+
+        case 'input':
+        default:
+          handlerResult = await this.userInteractionHandler.handleInputResponse(
+            response,
+            interaction,
+            this.stream,
+            this.recordExecution.bind(this),
+            this.handleAutonomousTool.bind(this)
+          );
+          break;
+      }
+      
+      // 根据交互处理结果决定下一步
+      if (handlerResult.shouldReturnToWaiting) {
+        // 如果用户的回复不明确（例如，既不是yes也不是no），则需要再次等待用户输入
+        this.state.stage = 'awaiting_user';
+        this.state.pendingInteraction = interaction; // 重新设置，以便再次提问
+        this.logger.info(`🔄 User response was ambiguous. Returning to 'awaiting_user' stage.`);
+        return; // 直接返回，等待下一次用户输入
+      }
+
+      // 如果交互处理完成（例如，用户确认了操作且工具已执行，或用户取消了操作）
+      // 检查工具执行是否可能改变了引擎状态
+      this.logger.info(`✅ Interaction handled successfully. Current stage: ${this.state.stage}`);
+      
+      // 工具执行后，如果状态没有被设置为终止状态，继续执行循环
+      if (this.state.stage === 'awaiting_user' || this.state.stage === 'planning') {
+        // 工具执行后，继续执行循环以进行下一步规划
+        this.logger.info(`🔄 Continuing execution loop after interaction.`);
+        this.state.stage = 'executing';
+        await this._runExecutionLoop();
+        this.displayExecutionSummary();
+      } else {
+        // 如果在交互处理中状态已经被设置为完成或错误（例如，某些工具会直接完成任务）
+        this.logger.info(`✅ Task completed or stopped during interaction handling.`);
+        this.displayExecutionSummary();
+      }
+
+      // 关键：不要再执行旧的重新规划逻辑了，因为正确的操作（执行或取消）已经完成。
+      return; 
+      // ####################################################################
+      // ##################### 修复区域结束 ###############################
+      // ####################################################################
     }
-    
-    // 🚀 关键修复：只有在orchestrator交互场景或specialist恢复失败时才执行重新规划
-    this.logger.info(`💬 执行orchestrator交互场景或specialist恢复失败场景的重新规划逻辑`);
-    
-    // 清除交互状态
-    this.state.resumeContext = undefined; // 🚀 确保清除resumeContext
-    this.state.stage = 'executing';
-    
-    // 继续执行
-    this.stream.markdown(`🔄 **重新规划并继续执行任务...**\n\n`);
-
-    // 🚀 重新启动执行循环（orchestrator场景）
-    await this._runExecutionLoop();
-
-    // 🚀 重要补充：当循环结束后，显示总结
-    this.displayExecutionSummary();
   }
 
   // ============================================================================
@@ -1451,17 +1503,7 @@ export class SRSAgentEngine implements ISessionObserver {
     await this.recordExecution('result', `旧格式resumeContext处理: ${userResponse}`, true);
   }
 
-  /**
-   * 🚀 新增：处理标准用户交互（非specialist恢复）
-   */
-  private async handleStandardUserInteraction(userResponse: string, interaction: any): Promise<void> {
-    this.stream.markdown(`💬 **处理用户交互**: ${userResponse}\n\n`);
-    
-    // 这里可以实现对非specialist恢复的用户交互处理
-    // 例如确认操作、选择选项等
-    
-    await this.recordExecution('user_interaction', `标准用户交互: ${userResponse}`, true);
-  }
+
 
   // ============================================================================
   // 🧹 资源管理

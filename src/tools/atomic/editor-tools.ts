@@ -31,7 +31,7 @@ export const getActiveDocumentContentToolDefinition = {
     },
     // 🚀 访问控制：底层编辑器操作，不暴露给specialist
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以直接使用
+        // CallerType.ORCHESTRATOR_TOOL_EXECUTION,  // orchestrator可以直接使用
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 用于代码查看分析
         CallerType.DOCUMENT                       // 文档层包装使用
         // 注意：移除了CallerType.SPECIALIST，specialist应使用高层抽象
@@ -94,7 +94,7 @@ export const openAndShowFileToolDefinition = {
     },
     // 🚀 访问控制：文件打开操作，只允许orchestrator使用
     accessibleBy: [
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
         CallerType.DOCUMENT
     ]
