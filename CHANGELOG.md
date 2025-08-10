@@ -7,11 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-08-10
+
+### Fixed
+
+- **Critical**: Fixed `executeMarkdownEdits` section heading inclusion issue - AI can now precisely control whether to edit titles or content
+- **Critical**: Fixed absolute vs relative line number mismatch - now uses absolute line numbers for intuitive "what you see is what you get" editing
+- **Breaking**: Made `endLine` parameter required for `replace_lines_in_section` operations to eliminate ambiguity
+- Enhanced error handling in `executeMarkdownEdits` - specific error messages now properly propagate to AI agents
+- Fixed `internalHistory` displaying generic "unknown error" instead of specific failure reasons
+- Resolved negative line numbers bug in SID mapping that made the tool unusable
+
+### Enhanced
+
+- **Major**: Redesigned `readMarkdownFile` output structure:
+  - Removed redundant `utf8` and `codepoint` fields from `TextOffset`
+  - Updated `offset.utf16` to provide section ranges instead of just title position
+  - Added `endLine` field to `TableOfContentsTreeNode` for better section boundary information
+- Improved `executeMarkdownEdits` tool definition with clearer absolute line number documentation
+- Enhanced validation logic to provide better error messages and section boundary hints
+- Removed deprecated `sectionTitle` fuzzy matching - now enforces strict SID-based targeting
+
+### Performance
+
+- Simplified line number calculation logic removing complex relative-to-absolute conversions
+- Enhanced caching mechanisms in semantic editing pipeline
+- Optimized AST processing for better document parsing performance
+
+### Developer Experience
+
+- Updated all tool definitions with clearer parameter descriptions
+- Enhanced debug logging for better troubleshooting
+- Improved TypeScript type safety across semantic editing interfaces
+- Added comprehensive test coverage for new line number handling
+
 ### Removed
 
 - Document conversion functionality (markitdown integration) - moved to separate office-to-markdown plugin
 - All Word/PPT to Markdown conversion tools and components
 - Document format conversion commands from status menu
+- Deprecated `sectionTitle` parameter from `readMarkdownFile` tool
 
 ## [0.2.2] - 2025-08-05
 
