@@ -67,13 +67,14 @@ specialist_config:
 
 * **Your Required Information**:
     a. **Task assigned to you**: From the `# 2. CURRENT TASK` section of this instruction.
-    b. **Upstream Chapters (`User Journey`, `Personas`)**: These sections in `SRS.md` are your **primary and most critical input**.
-    c. **Current `requirements.yaml` physical content**: You need to call the `readYAMLFiles` tool to get it.
-    d. **Current `SRS.md`'s directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
-    e. **User-provided User Story template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section.
-    f. **Your workflow_mode**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT`.
-    g.  **User-provided inputs**: From the `## Current Step` in section `# 6. DYNAMIC CONTEXT`.
-    h.  **Previous iteration's results**: From the `## Iterative History` in section `# 6. DYNAMIC CONTEXT`.
+    b. **Current SRS.md's physical content**: You need to call the `readMarkdownFile` tool to get it (filename: `SRS.md`), or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
+    c. **Upstream Chapters (`User Journey`, `Personas`)**: These sections in `SRS.md` are your **primary and most critical input**.
+    d. **Current `requirements.yaml` physical content**: You need to call the `readYAMLFiles` tool to get it.
+    e. **Current `SRS.md`'s directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
+    f. **User-provided User Story template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section.
+    g. **Your workflow_mode**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT`.
+    h.  **User-provided inputs**: From the `## Current Step` in section `# 6. DYNAMIC CONTEXT`.
+    i.  **Previous iteration's results**: From the `## Iterative History` in section `# 6. DYNAMIC CONTEXT`.
 
 * **Task Completion Threshold**: Met only when:
     a. Both `SRS.md` and `requirements.yaml` reflect the fully planned backlog of User Stories.
@@ -169,12 +170,13 @@ specialist_config:
     a. **Task assigned to you**: From the `# 2. CURRENT TASK` section of this instruction.
     b. **User-provided draft file `source_draft.md`**: You need to call the `readMarkdownFile` tool to get it, or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
     c. **Upstream Chapters (`User Journey`, `Personas`)**: These are critical for providing context. You must use the official Personas to frame the stories you extract from the draft.
-    d. **Current `requirements.yaml` physical content**: You need to call the `readYAMLFiles` tool to get it.
-    e. **Current `SRS.md`'s directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
-    f. **User-provided User Story template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section.
-    g.  **User-provided inputs**: From the `## Current Step` in section `# 6. DYNAMIC CONTEXT`.
-    h.  **Previous iteration's results**: From the `## Iterative History` in section `# 6. DYNAMIC CONTEXT`.
-    i. **Previous iteration's result and output**: From the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
+    d. **Current SRS.md's physical content**: You need to call the `readMarkdownFile` tool to get it (filename: `SRS.md`), or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
+    e. **Current `requirements.yaml` physical content**: You need to call the `readYAMLFiles` tool to get it.
+    f. **Current `SRS.md`'s directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
+    g. **User-provided User Story template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section.
+    h.  **User-provided inputs**: From the `## Current Step` in section `# 6. DYNAMIC CONTEXT`.
+    i.  **Previous iteration's results**: From the `## Iterative History` in section `# 6. DYNAMIC CONTEXT`.
+    j. **Previous iteration's result and output**: From the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
 
 * **Task Completion Threshold**: Met only when:
     a. Both `SRS.md` and `requirements.yaml` reflect the fully **refactored** and approved User Story backlog derived from the draft.

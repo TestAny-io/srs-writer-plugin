@@ -71,7 +71,7 @@ specialist_config:
 * **INFORMATION YOU NEED**:
     a.  **Task assigned to you**: From the `# 2. CURRENT TASK` section of this instruction.
     b.  **Current SRS.md's directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
-    c.  **Current SRS.md's physical content**: You need to call the `readMarkdownFile` tool to get it, or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
+    c.  **Current SRS.md's physical content**: You need to call the `readMarkdownFile` tool to get it (filename: `SRS.md`), or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
     d.  **User-provided user journey template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section of this instruction.
     e.  **Your workflow_mode**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
     f.  **User-provided idea and other requirements, information**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
@@ -167,7 +167,7 @@ specialist_config:
     a. **Task assigned to you**: From the `# 2. CURRENT TASK` section of this instruction.
     b. **Current SRS.md's directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
     c. **User-provided draft file `source_draft.md`**: You need to call the `readMarkdownFile` tool to get it, or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
-    d. **Current SRS.md's physical content**: You need to call the `readMarkdownFile` tool to get it, or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
+    d. **Current SRS.md's physical content**: You need to call the `readMarkdownFile` tool to get it (filename: `SRS.md`), or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
     e. **User-provided overall description template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section of this instruction.
     f. **Your workflow_mode**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
     g. **User-provided idea and other requirements, information**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.

@@ -66,13 +66,14 @@ specialist_config:
 
 * **Your Required Information**:
     a. **Task assigned to you**: From the `# 2. CURRENT TASK` section of this instruction.
-    b. **Upstream Chapters (`Use Cases`, `Business Requirements and Rules`)**: You must read the content of these sections in `SRS.md` as your primary input.
-    c. **Current `requirements.yaml` physical content**: You need to call the `readYAMLFiles` tool to get it.
-    d. **Current `SRS.md`'s directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
-    e. **User-provided functional requirement template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section of this instruction.
-    f. **Your workflow_mode**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT`.
-    g. **User-provided idea/requirements**: From the `## Current Step` section in `# 6. DYNAMIC CONTEXT`.
-    h. **Previous iteration's results**: From the `## Iterative History` section in `# 6. DYNAMIC CONTEXT`.
+    b. **Current SRS.md's physical content**: You need to call the `readMarkdownFile` tool to get it (filename: `SRS.md`), or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
+    c. **Upstream Chapters (`Use Cases`, `Business Requirements and Rules`)**: You must read the content of these sections in `SRS.md` as your primary input.
+    d. **Current `requirements.yaml` physical content**: You need to call the `readYAMLFiles` tool to get it.
+    e. **Current `SRS.md`'s directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
+    f. **User-provided functional requirement template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section of this instruction.
+    g. **Your workflow_mode**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT`.
+    h. **User-provided idea/requirements**: From the `## Current Step` section in `# 6. DYNAMIC CONTEXT`.
+    i. **Previous iteration's results**: From the `## Iterative History` section in `# 6. DYNAMIC CONTEXT`.
 
 * **Task Completion Threshold**: Met only when:
     1. Both `SRS.md` and `requirements.yaml` reflect the fully planned and approved functional requirement content.
@@ -165,9 +166,10 @@ specialist_config:
 * **Your Required Information**:
     a.  **Task assigned to you**: From the `# 2. CURRENT TASK` section of this instruction.
     b.  **User-provided draft file `source_draft.md`**: You need to call the `readMarkdownFile` tool to get it, or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
-    c.  **Upstream Chapters (`Use Cases`, `Business Requirements and Rules`)**: You must read the content of these sections in `SRS.md` as your primary input.
-    d.  **Current `requirements.yaml` physical content**: You need to call the `readYAMLFiles` tool to get it.
-    e.  **Current `SRS.md`'s directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
+    c.  **Current SRS.md's physical content**: You need to call the `readMarkdownFile` tool to get it (filename: `SRS.md`), or from the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
+    d.  **Upstream Chapters (`Use Cases`, `Business Requirements and Rules`)**: You must read the content of these sections in `SRS.md` as your primary input.
+    e.  **Current `requirements.yaml` physical content**: You need to call the `readYAMLFiles` tool to get it.
+    f.  **Current `SRS.md`'s directory and SID**: From the `# 4. CURRENT SRS TOC` section of this instruction.
     f.  **User-provided functional requirement template**: From the `# 4. TEMPLATE FOR YOUR CHAPTERS` section of this instruction.
     g.  **Your workflow_mode**: From the `## Current Step` section of the `# 6. DYNAMIC CONTEXT`.
     h.  **User-provided idea/requirements**: From the `## Current Step` section in `# 6. DYNAMIC CONTEXT`.
