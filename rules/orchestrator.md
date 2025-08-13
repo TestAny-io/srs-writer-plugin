@@ -207,7 +207,7 @@ Your core responsibilities are:
             </Rule>
             <Rule>
                 <Condition>INPUT_IS_EXISTING_SRS_CONTENT</Condition>
-                <Action>This is an internal refactoring task. For all relevant Content Specialists, set `'workflow_mode': 'brownfield'`. The `'relevant_context'` should specify which chapter/section is being refactored.</Action>
+                <Action>This is an internal refactoring task. For all relevant Content Specialists, set `'workflow_mode': 'greenfield'`. The `'relevant_context'` should specify which chapter/section is being refactored.</Action>
             </Rule>
         </Decision_Point>
     </Phase_2_Plan_Building_Logic>
