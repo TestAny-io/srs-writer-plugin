@@ -1624,14 +1624,67 @@ class EnhancedMarkdownReader {
             content: (args.targets && args.targets.length > 0) ? undefined : 
                      (parseMode === 'content' || parseMode === 'full' ? content : undefined),
             // 树状目录结构
-            tableOfContentsTree: parseMode === 'structure' || parseMode === 'full' ? parsedData.tocTree : undefined,
+            tableOfContentsTree: parseMode === 'structure' || parseMode === 'full' ? 
+                this.getFilteredStructure(parsedData.tocTree, args.targets) : undefined,
             // ToC模式的简化树状结构
             tableOfContentsToCTree: parseMode === 'toc' ? parsedData.tocToCTree : undefined,
             contentSummary: parseMode === 'structure' ? this.generateContentSummary(content, parsedData.toc) : undefined,
-            results,
+            results: parseMode === 'structure' ? [] : results,
             parseTime: Date.now() - startTime,
             cacheHit
         };
+    }
+
+    /**
+     * 根据 targets 过滤结构树
+     */
+    private getFilteredStructure(
+        tocTree: TableOfContentsTreeNode[], 
+        targets?: TargetRequest[]
+    ): TableOfContentsTreeNode[] {
+        // 无 targets 时返回完整结构
+        if (!targets || targets.length === 0) {
+            return tocTree;
+        }
+        
+        // 提取目标 SIDs
+        const targetSids = targets
+            .filter(t => t.type === 'section' && t.sid)
+            .map(t => t.sid!);
+        
+        if (targetSids.length === 0) {
+            return tocTree;
+        }
+        
+        return this.filterTreeByTargets(tocTree, targetSids);
+    }
+
+    /**
+     * 递归过滤树结构
+     */
+    private filterTreeByTargets(
+        nodes: TableOfContentsTreeNode[], 
+        targetSids: string[]
+    ): TableOfContentsTreeNode[] {
+        const result: TableOfContentsTreeNode[] = [];
+        
+        for (const node of nodes) {
+            // 检查当前节点是否匹配
+            const isMatch = targetSids.some(sid => node.sid === sid);
+            
+            // 递归检查子节点
+            const filteredChildren = this.filterTreeByTargets(node.children, targetSids);
+            
+            // 如果当前节点匹配或有匹配的子节点，则保留
+            if (isMatch || filteredChildren.length > 0) {
+                result.push({
+                    ...node,
+                    children: isMatch ? node.children : filteredChildren
+                });
+            }
+        }
+        
+        return result;
     }
 
     /**
