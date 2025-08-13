@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-08-15
+
+### Added
+
+- **New Feature**: Plugin Settings quick access in Control Panel
+  - Added "Plugin Settings" option to SRS Writer Control Panel
+  - One-click access to plugin configuration from status bar
+  - Direct navigation to plugin settings without manual search
+  - Supports multiple fallback mechanisms for maximum compatibility
+
+### Enhanced
+
+- **Project Switching**: Improved project switch experience with plan interruption
+  - Added intelligent plan execution detection during project switching
+  - Implemented user confirmation dialog when switching with active plans
+  - Added graceful plan cancellation at specialist loop level for immediate termination
+  - Enhanced progress bar with real-time synchronization of plan termination status
+  - Comprehensive context cleanup to prevent cross-project data contamination
+
+- **User Experience**: Streamlined interface interactions
+  - Removed redundant status bar tooltip to eliminate "flashing" popups during project switching
+  - Optimized status bar updates from polling-based to event-driven for better performance
+  - Eliminated unnecessary confirmation dialogs in settings access for smoother workflow
+  - Improved visual feedback during project switching operations
+
+### Technical Improvements
+
+- **Architecture**: Enhanced global engine framework integration
+  - Strengthened cancellation mechanism propagation through execution chain
+  - Improved specialist-level execution control with callback-based cancellation
+  - Added comprehensive project context lifecycle management
+  - Enhanced session observer pattern for real-time status updates
+
 ## [0.3.4] - 2025-08-13
 
 ### Added
