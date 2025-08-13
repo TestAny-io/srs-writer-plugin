@@ -203,24 +203,19 @@ function createEnhancedStatusBar(): vscode.StatusBarItem {
         100
     );
     
-    // 更新状态栏显示（v1.3修复版本：避免缓存过度调用）
+    // 🚀 v6.0简化版：移除tooltip功能，避免项目切换时的弹窗干扰
     const updateStatusBar = async () => {
         try {
             const session = await sessionManager?.getCurrentSession();
-            // 🚀 修复：正确使用异步调用，避免缓存过度调用
-            const orchestratorStatus = await orchestrator?.getSystemStatus();
             
             if (session?.projectName) {
                 statusBarItem.text = `$(notebook-kernel) SRS: ${session.projectName}`;
-                statusBarItem.tooltip = `SRS Writer v1.3\n项目: ${session.projectName}\n模式: ${orchestratorStatus?.mode || '未知'}\n点击查看状态`;
             } else {
                 statusBarItem.text = '$(notebook-kernel) SRS Writer';
-                statusBarItem.tooltip = 'SRS Writer v1.3 - 智能助手\n点击查看状态';
             }
         } catch (error) {
             // 静默处理错误，避免频繁的错误弹窗
             statusBarItem.text = '$(notebook-kernel) SRS Writer';
-            statusBarItem.tooltip = 'SRS Writer v1.3 - 智能助手（状态获取失败）';
         }
     };
     
@@ -228,8 +223,15 @@ function createEnhancedStatusBar(): vscode.StatusBarItem {
     updateStatusBar();
     statusBarItem.show();
     
-    // 定期更新状态栏
-    setInterval(updateStatusBar, 5000);
+    // 🚀 v6.0优化：只在项目切换时才更新，不再定时更新，减少资源消耗
+    // 监听会话变化时才更新状态栏
+    if (sessionManager) {
+        sessionManager.subscribe({
+            onSessionChanged: () => {
+                updateStatusBar();
+            }
+        });
+    }
     
     return statusBarItem;
 }
@@ -264,6 +266,11 @@ async function showEnhancedStatus(): Promise<void> {
                 label: '$(output) Export Status Report',
                 description: 'Save status to file',
                 detail: 'Generate shareable status report'
+            },
+            {
+                label: '$(gear) Plugin Settings',
+                description: 'Open SRS Writer plugin settings',
+                detail: 'Configure knowledge paths, project exclusions, and other preferences'
             }
         ], {
             placeHolder: 'Select an action from the control panel',
@@ -288,10 +295,42 @@ async function showEnhancedStatus(): Promise<void> {
             case '$(output) Export Status Report':
                 await exportStatusReport();
                 break;
+            case '$(gear) Plugin Settings':
+                await openPluginSettings();
+                break;
         }
     } catch (error) {
         logger.error('Failed to show enhanced status', error as Error);
         vscode.window.showErrorMessage(`状态查看失败: ${(error as Error).message}`);
+    }
+}
+
+/**
+ * 🚀 v6.0新增：打开插件设置页面（简化版，无冗余弹窗）
+ */
+async function openPluginSettings(): Promise<void> {
+    try {
+        // 使用VSCode标准API打开扩展设置页面
+        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:Testany.srs-writer-plugin');
+        logger.info('Plugin settings page opened successfully');
+    } catch (error) {
+        logger.error('Failed to open plugin settings', error as Error);
+        
+        // 如果特定方式失败，尝试通用设置打开方式
+        try {
+            await vscode.commands.executeCommand('workbench.action.openSettings', 'srs-writer');
+            logger.info('Plugin settings opened via search fallback');
+        } catch (fallbackError) {
+            // 只在完全失败时才显示错误，并提供手动解决方案
+            vscode.window.showErrorMessage(
+                `无法打开设置页面: ${(error as Error).message}`,
+                '手动打开设置'
+            ).then(selection => {
+                if (selection === '手动打开设置') {
+                    vscode.commands.executeCommand('workbench.action.openSettings');
+                }
+            });
+        }
     }
 }
 
@@ -414,11 +453,8 @@ async function performForcedSync(): Promise<void> {
         await sessionManager.loadSessionFromFile();
         logger.info('✅ Session reloaded from file');
         
-        // 2. 清理过期引擎 
-        if (chatParticipant) {
-            await chatParticipant.clearStaleEngines();
-            logger.info('✅ Stale engines cleared');
-        }
+        // 2. 全局引擎会自动适应新的会话上下文
+        logger.info('✅ Global engine ready for session update');
         
         // 3. 强制通知所有观察者
         sessionManager.forceNotifyObservers();
@@ -484,26 +520,149 @@ async function startNewProjectCommand(): Promise<void> {
             return;
         }
 
-        // 执行归档并开始新项目
-        const result = await sessionManager.archiveCurrentAndStartNew(newProjectName || undefined);
+        // 🚀 v6.0新增：检查是否有Plan正在执行
+        let hasPlanExecution = false;
+        let planDescription = '';
+        
+        if (chatParticipant && chatParticipant.isPlanExecuting()) {
+            hasPlanExecution = true;
+            planDescription = chatParticipant.getCurrentPlanDescription() || '当前有任务正在执行';
+            
+            const planConfirmMessage = `⚠️ 检测到正在执行的计划：\n\n${planDescription}\n\n如果现在开始新项目，当前计划将被安全中止。是否确认继续？`;
+            const planConfirmed = await vscode.window.showWarningMessage(
+                planConfirmMessage,
+                { modal: true },
+                '确认开始（中止计划）',
+                '取消'
+            );
+
+            if (planConfirmed !== '确认开始（中止计划）') {
+                vscode.window.showInformationMessage('已取消开始新项目，计划继续执行');
+                return;
+            }
+        }
+
+        // 🚀 v6.0新增：使用进度对话框执行新项目创建
+        const result = await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `正在创建新项目${newProjectName ? ` "${newProjectName}"` : ''}...`,
+            cancellable: false
+        }, async (progress, token) => {
+            try {
+                let currentProgress = 0;
+                
+                // 阶段1：中止当前计划（如果需要）
+                if (hasPlanExecution) {
+                    progress.report({ 
+                        increment: 0, 
+                        message: '🛑 正在请求计划中止...' 
+                    });
+                    
+                    progress.report({ 
+                        increment: 10, 
+                        message: '⏳ 等待specialist安全停止...' 
+                    });
+                    
+                    logger.info('🛑 User confirmed to cancel plan for new project');
+                    await chatParticipant.cancelCurrentPlan(); // 这现在会等待真正停止
+                    currentProgress = 40;
+                    
+                    progress.report({ 
+                        increment: 30, 
+                        message: '✅ 计划已完全停止' 
+                    });
+                } else {
+                    currentProgress = 40;
+                    progress.report({ 
+                        increment: 40, 
+                        message: '✅ 无需中止计划，继续创建...' 
+                    });
+                }
+
+                // 阶段2：归档当前项目并创建新项目
+                progress.report({ 
+                    increment: 0, 
+                    message: '📦 正在归档当前项目...' 
+                });
+
+                const sessionResult = await sessionManager.archiveCurrentAndStartNew(newProjectName || undefined);
+                
+                progress.report({ 
+                    increment: 35, 
+                    message: sessionResult.success ? '✅ 项目创建完成' : '❌ 项目创建失败' 
+                });
+
+                if (!sessionResult.success) {
+                    throw new Error(sessionResult.error || '新项目创建失败');
+                }
+
+                // 阶段3：清理项目上下文
+                progress.report({ 
+                    increment: 0, 
+                    message: '🧹 正在清理项目上下文...' 
+                });
+
+                if (chatParticipant) {
+                    chatParticipant.clearProjectContext();
+                }
+                
+                progress.report({ 
+                    increment: 20, 
+                    message: '✅ 上下文清理完成' 
+                });
+
+                // 阶段4：最终完成
+                progress.report({ 
+                    increment: 5, 
+                    message: '🚀 新项目创建完成！' 
+                });
+
+                return sessionResult;
+
+            } catch (error) {
+                logger.error(`❌ New project creation failed: ${(error as Error).message}`);
+                throw error;
+            }
+        });
 
         if (result.success) {
             const preservedCount = result.filesPreserved.length;
             const archiveInfo = result.archivedSession ? 
                 `\n📦 原项目已归档: ${result.archivedSession.archiveFileName}` : '';
             
-            vscode.window.showInformationMessage(
-                `✅ 新项目创建成功！${archiveInfo}\n💾 已保护 ${preservedCount} 个用户文件`
+            // 🚀 v6.0新增：最终确认对话框，给用户明确的完成反馈
+            const successMessage = `✅ 新项目创建完成！\n\n📁 当前项目: ${newProjectName || '新项目'}${archiveInfo}\n📄 保留 ${preservedCount} 个活动文件\n\n🚀 准备开始新的工作！`;
+            await vscode.window.showInformationMessage(
+                successMessage,
+                { modal: false },
+                '确认'
             );
             
-            logger.info(`New project started. Preserved ${preservedCount} files.`);
+            logger.info(`✅ New project created successfully. Preserved ${preservedCount} files.`);
         } else {
             throw new Error(result.error || '未知错误');
         }
 
     } catch (error) {
         logger.error('Failed to start new project', error as Error);
-        vscode.window.showErrorMessage(`开始新项目失败: ${(error as Error).message}`);
+        
+        // 🚀 v6.0新增：增强错误处理，提供更好的用户反馈
+        const errorMessage = `❌ 新项目创建失败\n\n错误详情: ${(error as Error).message}\n\n请检查日志获取更多信息。`;
+        const action = await vscode.window.showErrorMessage(
+            errorMessage,
+            '查看日志',
+            '重试',
+            '取消'
+        );
+        
+        if (action === '查看日志') {
+            vscode.commands.executeCommand('workbench.action.toggleDevTools');
+        } else if (action === '重试') {
+            // 重新执行开始新项目命令
+            setTimeout(() => {
+                vscode.commands.executeCommand('srs-writer.startNewProject');
+            }, 100);
+        }
     }
 }
 
@@ -713,24 +872,149 @@ async function switchProject(): Promise<void> {
             return;
         }
 
-        const result = await sessionManager.archiveCurrentAndStartNew(targetProjectName);
+        // 🚀 v6.0新增：检查是否有Plan正在执行
+        let hasPlanExecution = false;
+        let planDescription = '';
+        
+        if (chatParticipant && chatParticipant.isPlanExecuting()) {
+            hasPlanExecution = true;
+            planDescription = chatParticipant.getCurrentPlanDescription() || '当前有任务正在执行';
+            
+            const planConfirmMessage = `⚠️ 检测到正在执行的计划：\n\n${planDescription}\n\n如果现在切换项目，当前计划将被安全中止。是否确认继续切换？`;
+            const planConfirmed = await vscode.window.showWarningMessage(
+                planConfirmMessage,
+                { modal: true },
+                '确认切换（中止计划）',
+                '取消'
+            );
+
+            if (planConfirmed !== '确认切换（中止计划）') {
+                vscode.window.showInformationMessage('已取消项目切换，计划继续执行');
+                return;
+            }
+        }
+
+        // 🚀 v6.0新增：使用进度对话框执行项目切换
+        const result = await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `正在切换到项目 "${targetProjectName}"...`,
+            cancellable: false
+        }, async (progress, token) => {
+            try {
+                let currentProgress = 0;
+                
+                // 阶段1：中止当前计划（如果需要）
+                if (hasPlanExecution) {
+                    progress.report({ 
+                        increment: 0, 
+                        message: '🛑 正在请求计划中止...' 
+                    });
+                    
+                    progress.report({ 
+                        increment: 10, 
+                        message: '⏳ 等待specialist安全停止...' 
+                    });
+                    
+                    logger.info('🛑 User confirmed to cancel plan for project switch');
+                    await chatParticipant.cancelCurrentPlan(); // 这现在会等待真正停止
+                    currentProgress = 40;
+                    
+                    progress.report({ 
+                        increment: 30, 
+                        message: '✅ 计划已完全停止' 
+                    });
+                } else {
+                    currentProgress = 40;
+                    progress.report({ 
+                        increment: 40, 
+                        message: '✅ 无需中止计划，继续切换...' 
+                    });
+                }
+
+                // 阶段2：归档当前项目并启动新项目
+                progress.report({ 
+                    increment: 0, 
+                    message: '📦 正在归档当前项目...' 
+                });
+
+                const sessionResult = await sessionManager.archiveCurrentAndStartNew(targetProjectName);
+                
+                progress.report({ 
+                    increment: 35, 
+                    message: sessionResult.success ? '✅ 项目归档完成' : '❌ 项目归档失败' 
+                });
+
+                if (!sessionResult.success) {
+                    throw new Error(sessionResult.error || '项目切换失败');
+                }
+
+                // 阶段3：清理项目上下文
+                progress.report({ 
+                    increment: 0, 
+                    message: '🧹 正在清理项目上下文...' 
+                });
+
+                if (chatParticipant) {
+                    chatParticipant.clearProjectContext();
+                }
+                
+                progress.report({ 
+                    increment: 20, 
+                    message: '✅ 上下文清理完成' 
+                });
+
+                // 阶段4：最终完成
+                progress.report({ 
+                    increment: 5, 
+                    message: '🚀 项目切换完成！' 
+                });
+
+                return sessionResult;
+
+            } catch (error) {
+                logger.error(`❌ Project switch failed: ${(error as Error).message}`);
+                throw error;
+            }
+        });
 
         if (result.success) {
             const preservedCount = result.filesPreserved.length;
             const archiveInfo = result.archivedSession ? 
                 `\n📦 原项目已归档: ${result.archivedSession.archiveFileName}` : '';
             
-            vscode.window.showInformationMessage(
-                `✅ 项目已切换到 "${targetProjectName}"！${archiveInfo}\n💾 已保护 ${preservedCount} 个用户文件`
+            // 🚀 v6.0新增：最终确认对话框，给用户明确的完成反馈
+            const successMessage = `✅ 项目切换完成！\n\n📁 当前项目: ${targetProjectName}${archiveInfo}\n📄 保留 ${preservedCount} 个活动文件\n\n🚀 准备开始新的工作！`;
+            await vscode.window.showInformationMessage(
+                successMessage,
+                { modal: false },
+                '确认'
             );
-            logger.info(`Project switched to ${targetProjectName}. Preserved ${preservedCount} files.`);
+            
+            logger.info(`✅ Project switched successfully to ${targetProjectName}. Preserved ${preservedCount} files.`);
         } else {
             throw new Error(result.error || '未知错误');
         }
 
     } catch (error) {
         logger.error('Failed to switch project', error as Error);
-        vscode.window.showErrorMessage(`切换项目失败: ${(error as Error).message}`);
+        
+        // 🚀 v6.0新增：增强错误处理，提供更好的用户反馈
+        const errorMessage = `❌ 项目切换失败\n\n错误详情: ${(error as Error).message}\n\n请检查日志获取更多信息。`;
+        const action = await vscode.window.showErrorMessage(
+            errorMessage,
+            '查看日志',
+            '重试',
+            '取消'
+        );
+        
+        if (action === '查看日志') {
+            vscode.commands.executeCommand('workbench.action.toggleDevTools');
+        } else if (action === '重试') {
+            // 重新执行切换项目命令
+            setTimeout(() => {
+                vscode.commands.executeCommand('srs-writer.switchProject');
+            }, 100);
+        }
     }
 }
 
@@ -949,14 +1233,11 @@ async function restartPlugin(): Promise<void> {
                 logger.info('✅ Current project archived successfully');
             }
             
-            // 2. 清理所有缓存
+            // 2. 全局引擎会自动清理状态
             progress.report({ increment: 30, message: "清理缓存..." });
             try {
-                // 清理工具缓存
-                if (chatParticipant && typeof chatParticipant.clearStaleEngines === 'function') {
-                    await chatParticipant.clearStaleEngines();
-                }
-                logger.info('✅ Caches cleared successfully');
+                // v6.0: 全局引擎会自动适应新的会话上下文
+                logger.info('✅ Global engine will adapt to new session context');
             } catch (error) {
                 logger.warn(`Warning during cache cleanup: ${(error as Error).message}`);
             }

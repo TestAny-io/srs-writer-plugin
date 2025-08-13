@@ -121,6 +121,8 @@ export class SpecialistExecutor {
      * @param contextForThisStep 为当前步骤准备的上下文
      * @param model 用户选择的模型
      * @param resumeState 可选的恢复状态，用于从用户交互后继续执行
+     * @param progressCallback 进度回调函数
+     * @param cancelledCheckCallback 取消检查回调，返回true表示应该中止执行
      * @returns 结构化的specialist输出
      */
     public async execute(
@@ -128,7 +130,8 @@ export class SpecialistExecutor {
         contextForThisStep: any,
         model: vscode.LanguageModelChat,
         resumeState?: SpecialistResumeState,
-        progressCallback?: SpecialistProgressCallback
+        progressCallback?: SpecialistProgressCallback,
+        cancelledCheckCallback?: () => boolean
     ): Promise<SpecialistOutput | SpecialistInteractionResult> {
         const startTime = Date.now();
         const isResuming = !!resumeState;
@@ -192,6 +195,22 @@ export class SpecialistExecutor {
             }
 
             while (iteration < MAX_INTERNAL_ITERATIONS) {
+                // 🚀 v6.0：在specialist内部迭代中检查是否被取消
+                if (cancelledCheckCallback && cancelledCheckCallback()) {
+                    this.logger.info(`🛑 ${specialistId} execution cancelled during internal iteration ${iteration} - stopping specialist`);
+                    return {
+                        success: false,
+                        error: 'Specialist execution cancelled - project switch',
+                        requires_file_editing: false,
+                        metadata: {
+                            specialist: specialistId,
+                            iterations: iteration,
+                            executionTime: Date.now() - startTime,
+                            timestamp: new Date().toISOString()
+                        }
+                    };
+                }
+                
                 iteration++;
                 this.logger.info(`🔄 专家 ${specialistId} 内部迭代 ${iteration}/${MAX_INTERNAL_ITERATIONS}${isResuming ? ' (恢复模式)' : ''}`);
                 

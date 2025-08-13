@@ -9,6 +9,7 @@ export interface AgentState {
   iterationCount: number;
   maxIterations: number;
   resumeContext?: SpecialistResumeContext;
+  cancelled?: boolean; // v6.0: 用于Plan取消机制
 }
 
 /**

@@ -51,12 +51,26 @@ export class PlanExecutor {
      * Value: 该specialist的循环状态
      */
     private specialistLoopStates: Map<string, SpecialistLoopState> = new Map();
+    
+    /**
+     * 🚀 v6.0新增：取消检查回调
+     * 用于检查执行是否应该被取消（例如项目切换时）
+     */
+    private cancelledCheckCallback?: () => boolean;
 
     constructor(
         private specialistExecutor: SpecialistExecutor
     ) {
         // 初始化specialist循环状态管理器
         this.specialistLoopStates = new Map();
+    }
+    
+    /**
+     * 🚀 v6.0：设置取消检查回调
+     * @param callback 返回true表示执行应该被取消
+     */
+    public setCancelledCheckCallback(callback: () => boolean): void {
+        this.cancelledCheckCallback = callback;
     }
 
     /**
@@ -89,6 +103,19 @@ export class PlanExecutor {
 
         try {
             for (const step of plan.steps) {
+                // 🚀 v6.0：检查是否被取消
+                if (this.cancelledCheckCallback && this.cancelledCheckCallback()) {
+                    this.logger.info('🛑 Plan execution cancelled - stopping step execution');
+                    return {
+                        intent: 'plan_cancelled',
+                        result: {
+                            summary: '计划执行已取消 - 项目切换',
+                            completed_steps: Object.keys(stepResults).length,
+                            total_steps: plan.steps.length
+                        }
+                    };
+                }
+                
                 this.logger.info(`▶️ 执行步骤 ${step.step}: ${step.description}`);
                 this.logger.info(`🔍 [DEBUG] Step details:`);
                 this.logger.info(`🔍 [DEBUG] - specialist: ${step.specialist}`);
@@ -623,6 +650,20 @@ export class PlanExecutor {
         
         try {
             while (loopState.currentIteration < maxIterations) {
+                // 🚀 v6.0：在specialist循环中检查是否被取消
+                if (this.cancelledCheckCallback && this.cancelledCheckCallback()) {
+                    this.logger.info(`🛑 ${specialistId} execution cancelled during loop - stopping specialist execution`);
+                    loopState.isLooping = false;
+                    return {
+                        success: false,
+                        error: 'Specialist execution cancelled - project switch',
+                        metadata: {
+                            specialist: specialistId,
+                            iterations: loopState.currentIteration,
+                            cancelled: true
+                        }
+                    } as SpecialistOutput;
+                }
                 loopState.currentIteration++;
                 const iterationStart = Date.now();
                 
@@ -644,7 +685,8 @@ export class PlanExecutor {
                     enhancedContext,
                     selectedModel,
                     undefined, // resumeState
-                    progressCallback
+                    progressCallback,
+                    this.cancelledCheckCallback // 🚀 v6.0：传递取消检查回调
                 );
                 
                 const iterationTime = Date.now() - iterationStart;

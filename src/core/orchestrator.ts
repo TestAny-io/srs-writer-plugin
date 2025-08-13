@@ -317,6 +317,52 @@ export class Orchestrator {
   /**
    * 清理资源
    */
+  /**
+   * 🚀 v6.0：设置Plan执行取消检查回调
+   * 
+   * 用于让PlanExecutor能够检查全局引擎是否被取消
+   */
+  public setPlanCancelledCheckCallback(callback: () => boolean): void {
+    this.planExecutor.setCancelledCheckCallback(callback);
+  }
+
+  /**
+   * 🚀 v6.0：清理项目上下文
+   * 
+   * 在项目切换后清理Orchestrator的所有缓存状态，防止上下文污染
+   * 注意：必须在archive完成后调用，确保数据落盘安全
+   */
+  public clearProjectContext(): void {
+    this.logger.info('🧹 [CONTEXT CLEANUP] Starting project context cleanup...');
+    
+    try {
+      // 1. 清理工具缓存
+      this.toolCacheManager.invalidateToolCache();
+      this.logger.info('✅ [CONTEXT CLEANUP] Tool cache cleared');
+      
+      // 2. 清理上下文窗口缓存
+      // ContextWindowManager使用静态缓存，需要清理
+      const contextCacheSize = (ContextWindowManager as any).modelConfigCache?.size || 0;
+      if ((ContextWindowManager as any).modelConfigCache) {
+        (ContextWindowManager as any).modelConfigCache.clear();
+        this.logger.info(`✅ [CONTEXT CLEANUP] Context window cache cleared (${contextCacheSize} entries)`);
+      }
+      
+      // 3. 重新初始化核心组件以确保干净状态
+      this.planGenerator = new PlanGenerator();
+      this.conversationalExecutor = new ConversationalExecutor();
+      this.promptManager = new PromptManager();
+      this.resultFormatter = new ResultFormatter();
+      // toolCacheManager 和 contextWindowManager 保持实例但已清理缓存
+      
+      this.logger.info('✅ [CONTEXT CLEANUP] Project context cleanup completed successfully');
+      
+    } catch (error) {
+      this.logger.error('❌ [CONTEXT CLEANUP] Failed to clear project context:', error as Error);
+      // 即使清理失败也不应该阻止项目切换，记录错误即可
+    }
+  }
+
   public dispose(): void {
     this.logger.info('🧹 Orchestrator disposed');
   }

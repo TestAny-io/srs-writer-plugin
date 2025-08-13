@@ -16,15 +16,16 @@ import { SpecialistExecutor } from './specialistExecutor';
 import { SpecialistOutput } from '../types';
 
 /**
- * 🚀 SRS Agent Engine v3.0 - 观察者模式重构版
+ * 🚀 SRS Agent Engine v6.0 - 全局引擎架构
  * 
- * 核心改进：
- * - 👥 实现 ISessionObserver：自动接收SessionContext变更通知
- * - ⚡ 动态获取：不再持有过时的SessionContext快照
- * - 🔄 实时同步：SessionContext变更时自动更新内部状态
- * - 🏛️ 单例依赖：使用SessionManager单例获取最新数据
+ * 核心特性：
+ * - 🌐 全局单例模式：一个插件实例一个引擎
+ * - 👥 观察者模式：自动接收SessionContext变更通知
+ * - ⚡ 动态会话适配：动态获取最新SessionContext，无需绑定特定会话
+ * - 🔄 状态保持：跨会话切换保持执行状态和记忆
+ * - 🏛️ 透明代理：完全委托给智能引擎执行
  * 
- * 基于业界最佳实践的Autonomous + Transparent执行模式
+ * 基于Autonomous + Transparent执行模式
  */
 export class SRSAgentEngine implements ISessionObserver {
   private state: AgentState;
@@ -32,7 +33,7 @@ export class SRSAgentEngine implements ISessionObserver {
   private logger = Logger.getInstance();
   private selectedModel: vscode.LanguageModelChat;
   
-  // 🚀 v3.0修改：使用SessionManager单例替代快照副本
+  // 🚀 v6.0：使用SessionManager单例获取动态会话上下文
   private sessionManager: SessionManager;
   
   // 依赖注入的组件
@@ -56,7 +57,7 @@ export class SRSAgentEngine implements ISessionObserver {
     this.stream = stream;
     this.selectedModel = selectedModel;
     
-    // 🚀 v3.0重构：使用SessionManager单例并订阅变更
+    // 🚀 v6.0：使用SessionManager单例并订阅变更
     this.sessionManager = SessionManager.getInstance();
     this.sessionManager.subscribe(this);
     
@@ -65,7 +66,8 @@ export class SRSAgentEngine implements ISessionObserver {
       currentTask: '',
       executionHistory: [],
       iterationCount: 0,
-      maxIterations: 15
+      maxIterations: 15,
+      cancelled: false
     };
 
     // 初始化拆分后的模块
@@ -75,11 +77,11 @@ export class SRSAgentEngine implements ISessionObserver {
     this.loopDetector = new LoopDetector();
     this.contextManager = new ContextManager();
 
-    this.logger.info('🚀 SRSAgentEngine v3.0 initialized - Observer pattern with dynamic SessionContext');
+    this.logger.info('🚀 SRSAgentEngine v6.0 initialized - Global engine with dynamic SessionContext');
   }
 
   /**
-   * 🚀 v3.0新增：实现观察者接口，接收SessionContext变更通知
+   * 🚀 v6.0：实现观察者接口，接收SessionContext变更通知
    */
   public onSessionChanged(newContext: SessionContext | null): void {
     this.logger.info(`🔄 Engine received session context update: ${newContext?.projectName || 'null'}`);
@@ -94,7 +96,22 @@ export class SRSAgentEngine implements ISessionObserver {
   }
 
   /**
-   * 🚀 v3.0新增：动态获取最新的SessionContext
+   * 🚀 v6.0新增：全局引擎专用的会话上下文变更通知
+   */
+  public onSessionContextChanged(newContext: SessionContext | null): void {
+    this.logger.info(`🌐 Global engine adapting to new session context: ${newContext?.projectName || 'null'}`);
+    
+    // 全局引擎动态适应新的会话上下文
+    // 当项目切换时，引擎会在下次任务执行时自动获取最新的会话上下文
+    if (newContext) {
+      this.logger.info(`🌐 Global engine now ready for project: ${newContext.projectName}`);
+    } else {
+      this.logger.info(`🌐 Global engine session context cleared`);
+    }
+  }
+
+  /**
+   * 🚀 v6.0：动态获取最新的SessionContext
    */
   private async getCurrentSessionContext(): Promise<SessionContext | null> {
     return await this.sessionManager.getCurrentSession();
@@ -106,10 +123,50 @@ export class SRSAgentEngine implements ISessionObserver {
   public setDependencies(orchestrator: any, toolExecutor: any): void {
     this.orchestrator = orchestrator;
     this.toolExecutor = toolExecutor;
+    
+    // 🚀 v6.0：设置Plan取消检查回调，让PlanExecutor能够检查取消状态
+    if (orchestrator && typeof orchestrator.setPlanCancelledCheckCallback === 'function') {
+      orchestrator.setPlanCancelledCheckCallback(() => {
+        return this.state.cancelled === true;
+      });
+    }
   }
 
   /**
-   * 🚀 更新当前交互参数但保持引擎状态 - v3.0简化版
+   * 🚀 v6.0：取消当前执行的Plan
+   * 
+   * 用于项目切换时中止正在执行的计划，避免输出混乱
+   */
+  public cancelCurrentExecution(): Promise<void> {
+    return new Promise((resolve) => {
+      this.logger.info('🛑 Cancelling current plan execution for project switch');
+      
+      // 设置取消标志
+      this.state.cancelled = true;
+      
+      // 如果正在等待用户输入，也要清理这个状态
+      if (this.state.stage === 'awaiting_user') {
+        this.state.pendingInteraction = undefined;
+      }
+      
+      // 设置引擎状态为已完成
+      this.state.stage = 'completed';
+      
+      // 记录取消操作
+      this.recordExecution('result', '计划执行已取消 - 项目切换', false, 'system', null)
+        .then(() => {
+          this.logger.info('✅ Plan execution cancelled successfully');
+          resolve();
+        })
+        .catch((error) => {
+          this.logger.error(`❌ Error recording cancellation: ${(error as Error).message}`);
+          resolve(); // 即使记录失败也要继续
+        });
+    });
+  }
+
+  /**
+   * 🚀 更新当前交互参数但保持引擎状态 - v6.0全局引擎版
    * 
    * 注意：移除了sessionContext参数，因为现在动态获取
    */
@@ -145,6 +202,7 @@ export class SRSAgentEngine implements ISessionObserver {
     this.state.stage = 'planning';
     this.state.iterationCount = 0;
     this.state.pendingInteraction = undefined;
+    this.state.cancelled = false; // 重置取消状态
     
     // 🐛 DEBUG: 记录设置后的currentTask值
     this.logger.info(`🔍 [DEBUG] executeTask set this.state.currentTask to: "${this.state.currentTask}"`);
@@ -351,7 +409,8 @@ export class SRSAgentEngine implements ISessionObserver {
     return this.state.stage !== 'completed' && 
            this.state.stage !== 'error' &&
            this.state.stage !== 'awaiting_user' &&
-           this.state.iterationCount < this.state.maxIterations;
+           this.state.iterationCount < this.state.maxIterations &&
+           !this.state.cancelled;
   }
 
   private async executeIteration(): Promise<void> {
@@ -1249,7 +1308,9 @@ export class SRSAgentEngine implements ISessionObserver {
           toolResults: originalSpecialistResumeContext.toolResults,
           userResponse: userResponse,  // 🚀 关键：传递用户回复
           contextForThisStep: originalSpecialistResumeContext.contextForThisStep
-        }
+        },
+        undefined, // progressCallback 
+        () => this.state.cancelled === true // 🚀 v6.0：传递取消检查回调
       );
       
       // 🚀 如果specialist成功继续，需要更新PlanExecutor的循环状态
@@ -1510,7 +1571,7 @@ export class SRSAgentEngine implements ISessionObserver {
   // ============================================================================
 
   /**
-   * 🚀 v3.0新增：清理引擎资源，取消观察者订阅
+   * 🚀 v6.0：清理引擎资源，取消观察者订阅
    */
   public dispose(): void {
     // 🚨 新增：Engine销毁追踪
@@ -1530,7 +1591,7 @@ export class SRSAgentEngine implements ISessionObserver {
   }
 
   /**
-   * 🚀 v3.0新增：获取引擎统计信息（用于调试和监控）
+   * 🚀 v6.0：获取引擎统计信息（用于调试和监控）
    */
   public getEngineStats(): { 
     stage: string; 

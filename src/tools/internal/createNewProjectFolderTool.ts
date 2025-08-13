@@ -104,7 +104,7 @@ export async function createNewProjectFolder(args: {
             const archivedProject = result.archivedSession?.archiveFileName;
 
             // 🚀 4. 创建实际的项目目录
-            // 注意：Engine Registry的清理现在通过观察者模式自动处理
+            // 注意：全局引擎会自动适应新的会话上下文
             let directoryCreated = false;
             if (newProjectName && newProjectName !== 'unnamed') {
                 try {
