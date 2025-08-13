@@ -79,7 +79,7 @@ export const DEFAULT_SPECIALIST_ITERATION_CONFIG: SpecialistIterationConfig = {
     // 🚀 新增：默认历史管理配置
     historyConfig: {
         compressionEnabled: true,
-        tokenBudget: 10000,
+        tokenBudget: 40000,
         tierRatios: {
             immediate: 0.90,  // 最近3轮: 90% (9000 tokens)
             recent: 0.07,     // 第4-8轮: 7% (700 tokens)

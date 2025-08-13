@@ -53,7 +53,7 @@ export class TokenAwareHistoryManager {
   private iterationManager = SpecialistIterationManager.getInstance();
   
   private readonly DEFAULT_BUDGET_CONFIG: HistoryTokenBudget = {
-    totalBudget: 10000,
+    totalBudget: 40000,
     immediateRatio: 0.90,   // 9000 tokens
     recentRatio: 0.07,      // 700 tokens
     milestoneRatio: 0.03    // 300 tokens
