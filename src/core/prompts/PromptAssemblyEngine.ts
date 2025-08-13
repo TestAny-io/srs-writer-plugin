@@ -13,6 +13,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { Logger } from '../../utils/logger';
 import { getSpecialistRegistry } from '../specialistRegistry';
+import { readMarkdownFile } from '../../tools/document/enhanced-readfile-tools';
 
 export interface SpecialistType {
   name: string;
@@ -36,6 +37,9 @@ export interface SpecialistContext {
   // 🚀 新增：项目文件内容
   SRS_CONTENT?: string;
   CURRENT_SRS?: string;
+  // 🚀 新增：SRS目录结构（ToC格式）
+  SRS_TOC?: string;
+  CURRENT_SRS_TOC?: string;
   REQUIREMENTS_YAML_CONTENT?: string;
   CURRENT_REQUIREMENTS_YAML?: string;
   [key: string]: any;
@@ -52,6 +56,11 @@ export interface AssemblyConfig {
   specialist_name?: string;
   // 🚀 v3.0新增：角色定义配置
   role_definition?: string;
+  // 🚀 v5.0新增：workflow_mode配置，支持根据不同工作流模式过滤内容
+  workflow_mode_config?: {
+    greenfield?: string;   // 例如 "GREEN"
+    brownfield?: string;   // 例如 "BROWN"
+  };
 }
 
 export interface ValidationReport {
@@ -112,7 +121,11 @@ export class PromptAssemblyEngine {
     try {
       // 1. 加载专家模板并解析配置
       //this.logger.info(`📄 [PromptAssembly] 步骤1: 加载专家模板并解析配置`);
-      const { content: specificTemplate, config } = await this.loadSpecificTemplateWithConfig(specialistType.name);
+      const { content: specificTemplate, config } = await this.loadSpecificTemplateWithConfig(
+        specialistType.name,
+        specialistType,
+        context
+      );
       
       //this.logger.info(`🔍 [PromptAssembly] 专家模板配置解析结果:`);
       //this.logger.info(`🔍 [PromptAssembly] - config: ${JSON.stringify(config, null, 2)}`);
@@ -196,16 +209,18 @@ export class PromptAssemblyEngine {
       
       // 🚀 v4.0: 验证结构化格式
       this.logger.debug(`🎯 [PromptAssembly] 提示词结构验证:`);
-      this.logger.debug(`🎯 [PromptAssembly] - SPECIALIST INSTRUCTIONS: ${assembledPrompt.includes('# SPECIALIST INSTRUCTIONS') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - CURRENT TASK: ${assembledPrompt.includes('# CURRENT TASK') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - TEMPLATE FOR YOUR CHAPTERS: ${assembledPrompt.includes('# TEMPLATE FOR YOUR CHAPTERS') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - CONTEXT INFORMATION: ${assembledPrompt.includes('# CONTEXT INFORMATION') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - YOUR TOOLS LIST: ${assembledPrompt.includes('# YOUR TOOLS LIST') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - GUIDELINES AND SAMPLE OF TOOLS USING: ${assembledPrompt.includes('# GUIDELINES AND SAMPLE OF TOOLS USING') ? '✅' : '❌'}`);
-      this.logger.info(`🎯 [PromptAssembly] - FINAL INSTRUCTION: ${assembledPrompt.includes('# FINAL INSTRUCTION') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - Table of Contents: ${assembledPrompt.includes('Table of Contents:') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 1. SPECIALIST INSTRUCTIONS: ${assembledPrompt.includes('**# 1. SPECIALIST INSTRUCTIONS**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 2. CURRENT TASK: ${assembledPrompt.includes('**# 2. CURRENT TASK**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 4. TABLE OF CONTENTS OF CURRENT SRS: ${assembledPrompt.includes('**# 4. TABLE OF CONTENTS OF CURRENT SRS**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 5. TEMPLATE FOR YOUR CHAPTERS: ${assembledPrompt.includes('**# 5. TEMPLATE FOR YOUR CHAPTERS**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 6. DYNAMIC CONTEXT: ${assembledPrompt.includes('**# 6. DYNAMIC CONTEXT**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 7. GUIDELINES AND SAMPLE OF TOOLS USING: ${assembledPrompt.includes('**# 7. GUIDELINES AND SAMPLE OF TOOLS USING**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 8. YOUR TOOLS LIST: ${assembledPrompt.includes('**# 8. YOUR TOOLS LIST**') ? '✅' : '❌'}`);
+      this.logger.info(`🎯 [PromptAssembly] - 9. FINAL INSTRUCTION: ${assembledPrompt.includes('**# 9. FINAL INSTRUCTION**') ? '✅' : '❌'}`);
       
       // 🚀 v4.0: 记录重构完成
-      this.logger.info(`🎯 [PromptAssembly] === v4.0 组装完成 ${specialistType.name} (8部分结构化User消息格式) ===`);
+      this.logger.info(`🎯 [PromptAssembly] === v4.0 组装完成 ${specialistType.name} (9部分结构化User消息格式，含SRS目录) ===`);
       this.logger.info(`🎯 [PromptAssembly] 最终提示词统计:`);
       this.logger.info(`🎯 [PromptAssembly] - 总长度: ${assembledPrompt.length} 字符`);
       this.logger.info(`🎯 [PromptAssembly] - 估算token数量: ${Math.ceil(assembledPrompt.length / 4)} tokens`);
@@ -245,7 +260,11 @@ export class PromptAssemblyEngine {
   /**
    * 加载专家特化模板并解析配置
    */
-  private async loadSpecificTemplateWithConfig(specialistName: string): Promise<{
+  private async loadSpecificTemplateWithConfig(
+    specialistName: string,
+    specialistType?: SpecialistType,
+    context?: SpecialistContext
+  ): Promise<{
     content: string;
     config: AssemblyConfig;
   }> {
@@ -256,7 +275,18 @@ export class PromptAssemblyEngine {
     const config = this.parseYAMLFrontmatter(templateContent);
     
     // 移除frontmatter，返回纯内容
-    const content = this.removeFrontmatter(templateContent);
+    let content = this.removeFrontmatter(templateContent);
+    
+    // 🚀 v5.0新增：根据workflow_mode过滤content specialist的内容
+    this.logger.debug(`🔍 [PromptAssembly] 过滤检查: category=${specialistType?.category}, workflow_mode=${context?.workflow_mode}, has_config=${!!config.workflow_mode_config}`);
+    if (specialistType?.category === 'content' && context?.workflow_mode && config.workflow_mode_config) {
+      this.logger.info(`🎨 [PromptAssembly] 开始根据workflow_mode=${context.workflow_mode}过滤content specialist内容`);
+      this.logger.debug(`🎨 [PromptAssembly] 过滤配置: ${JSON.stringify(config.workflow_mode_config, null, 2)}`);
+      content = this.filterContentByWorkflowMode(content, context.workflow_mode, config);
+      this.logger.info(`🎨 [PromptAssembly] 过滤完成，内容长度: ${content.length}字符`);
+    } else {
+      this.logger.debug(`🔍 [PromptAssembly] 跳过过滤: 不满足过滤条件`);
+    }
     
     //this.logger.info(`✅ [PromptAssembly] 专家模板配置解析完成: ${specialistName}`);
     return { content, config };
@@ -377,7 +407,7 @@ export class PromptAssemblyEngine {
   }
 
   /**
-   * 🚀 v4.0: 10部分结构化模板合并 - 增强的用户体验架构
+   * 🚀 v4.0: 9部分结构化模板合并 - 增强的用户体验架构（含SRS目录）
    * 
    * 重构说明：
    * - 使用明确的角色定义和指令分离
@@ -385,7 +415,7 @@ export class PromptAssemblyEngine {
    * - 新增专门的章节模板、SRS文档和requirements.yaml部分
    * - 新增工具列表部分，提供可用工具的JSON Schema
    * - 提高specialist对当前项目状态的理解能力
-   * - 🚀 v4.0新顺序：专家指令 → 用户任务 → 章节模板 → SRS文档 → 需求数据 → 上下文 → 工具列表 → 指导原则和工具使用示例 → 最终指令
+   * - 🚀 v4.0新顺序：专家指令 → 用户任务 → 用户响应 → SRS目录 → 章节模板 → 动态上下文 → 指导原则 → 工具列表 → 最终指令
    */
   private mergeTemplates(templates: string[], context: SpecialistContext, config?: AssemblyConfig, baseTemplates: string[] = [], contentTemplates: string[] = []): string {
     this.logger.info(`🔧 [PromptAssembly] v3.0 开始结构化合并模板，总数: ${templates.length}`);
@@ -429,15 +459,16 @@ export class PromptAssemblyEngine {
     const finalSpecialistType = configSpecialistName || contextSpecialistType || fallbackSpecialistType;
     const roleDefinition = config?.role_definition || `${finalSpecialistType} specialist`;
     
-    // 🚀 v4.0新结构实现：8部分提示词架构
+    // 🚀 v4.0新结构实现：9部分提示词架构
     // 1. SPECIALIST INSTRUCTIONS (content/process模板)
     // 2. CURRENT TASK (用户输入)
     // 3. LATEST RESPONSE FROM USER (用户最新响应)
-    // 4. TEMPLATE FOR YOUR CHAPTERS (你所负责的章节模版)
-    // 5. CONTEXT INFORMATION (上下文信息)
-    // 6. YOUR TOOLS LIST (可用工具的JSON Schema)
+    // 4. TABLE OF CONTENTS OF CURRENT SRS (当前SRS文档目录结构)
+    // 5. TEMPLATE FOR YOUR CHAPTERS (你所负责的章节模版)
+    // 6. DYNAMIC CONTEXT (动态上下文信息)
     // 7. GUIDELINES AND SAMPLE OF TOOLS USING (基础指导原则和工具使用示例)
-    // 8. FINAL INSTRUCTION (最终执行指令)
+    // 8. YOUR TOOLS LIST (可用工具的JSON Schema)
+    // 9. FINAL INSTRUCTION (最终执行指令)
     
     // 🚀 新增：收集所有template变量用于TEMPLATE FOR YOUR CHAPTERS部分
     const templateVariables = Object.keys(context)
@@ -445,13 +476,25 @@ export class PromptAssemblyEngine {
       .map(key => context[key] || 'Chapter template not available')
       .join('\n\n');
     
-    const structuredPrompt = `# SPECIALIST INSTRUCTIONS
+    const structuredPrompt = `You are a ${roleDefinition}. Below is the context information and the task you need to complete. Follow these instructions carefully:
 
-You are a ${roleDefinition}. Follow these instructions carefully:
+Table of Contents:
+
+1. SPECIALIST INSTRUCTIONS
+2. CURRENT TASK
+3. LATEST RESPONSE FROM USER
+4. TABLE OF CONTENTS OF CURRENT SRS
+5. TEMPLATE FOR YOUR CHAPTERS
+6. DYNAMIC CONTEXT
+7. GUIDELINES AND SAMPLE OF TOOLS USING
+8. YOUR TOOLS LIST
+9. FINAL INSTRUCTION
+
+**# 1. SPECIALIST INSTRUCTIONS**
 
 ${processedContentTemplates.join('\n\n---\n\n')}
 
-# CURRENT TASK
+**# 2. CURRENT TASK**
 
 The specific task you need to complete:
 
@@ -459,7 +502,7 @@ The specific task you need to complete:
 ${context.userRequirements || 'No specific task provided'}
 \`\`\`
 
-# LATEST RESPONSE FROM USER
+**# 3. LATEST RESPONSE FROM USER**
 
 ${context.userResponse ? `**User's latest response**: ${context.userResponse}
 
@@ -470,13 +513,15 @@ ${context.resumeGuidance.continueInstructions?.join('\n') || 'Continue based on 
 
 **Resume Context**: You were waiting for user input and now the user has responded. Please continue your work based on their response.` : ''}` : 'No user response provided - this is the initial execution.'}
 
-# TEMPLATE FOR YOUR CHAPTERS
+**# 4. TABLE OF CONTENTS OF CURRENT SRS**
+
+${context.SRS_TOC || context.CURRENT_SRS_TOC || 'No SRS document structure available - you may be working on a new document or the SRS file could not be located.'}
+
+**# 5. TEMPLATE FOR YOUR CHAPTERS**
 
 ${templateVariables || 'No chapter templates provided for this specialist'}
 
-
-
-# CONTEXT INFORMATION
+**# 6. DYNAMIC CONTEXT**
 
 ${context.iterationInfo ? `## 🎯 Resource Budget & Strategy
 **Iteration Progress**: You are on iteration **${context.iterationInfo.currentIteration}/${context.iterationInfo.maxIterations}** (${context.iterationInfo.remainingIterations} attempts remaining)
@@ -491,22 +536,27 @@ ${context.iterationInfo ? `## 🎯 Resource Budget & Strategy
 ${context.projectMetadata ? JSON.stringify(context.projectMetadata, null, 2) : 'No project metadata available'}
 \`\`\`
 
-## Structured Context (Current Step & History)
+## Current Step
 \`\`\`json
-${context.structuredContext ? JSON.stringify(context.structuredContext, null, 2) : 'No structured context available'}
+${context.structuredContext?.currentStep ? JSON.stringify(context.structuredContext.currentStep, null, 2) : 'No current step available'}
 \`\`\`
 
-# YOUR TOOLS LIST
+## Iterative History
+\`\`\`json
+${context.structuredContext?.internalHistory ? JSON.stringify(context.structuredContext.internalHistory, null, 2) : 'No iterative history available'}
+\`\`\`
+
+**# 7. GUIDELINES AND SAMPLE OF TOOLS USING**
+
+${processedBaseTemplates.join('\n\n---\n\n')}
+
+**# 8. YOUR TOOLS LIST**
 
 \`\`\`json
 ${context.TOOLS_JSON_SCHEMA || 'No tools available'}
 \`\`\`
 
-# GUIDELINES AND SAMPLE OF TOOLS USING
-
-${processedBaseTemplates.join('\n\n---\n\n')}
-
-# FINAL INSTRUCTION
+**# 9. FINAL INSTRUCTION**
 
 Based on all the instructions and context above, generate a valid JSON object that adheres to the required schema.
 
@@ -537,8 +587,34 @@ Based on all the instructions and context above, generate a valid JSON object th
     
     try {
       const parsed = yaml.load(frontmatterMatch[1]) as any;
-      const config = parsed?.assembly_config || {};
-      //this.logger.info(`✅ [PromptAssembly] YAML frontmatter解析成功: ${JSON.stringify(config, null, 2)}`);
+      // 支持两种配置格式：assembly_config 和 specialist_config
+      let config = parsed?.assembly_config || {};
+      
+      // 如果存在specialist_config，提取其中的配置信息
+      if (parsed?.specialist_config) {
+        const specialistConfig = parsed.specialist_config;
+        
+        // 提取template_config相关配置
+        if (specialistConfig.template_config) {
+          config = {
+            ...config,
+            include_base: specialistConfig.template_config.include_base,
+            exclude_base: specialistConfig.template_config.exclude_base
+          };
+        }
+        
+        // 🚀 v5.0: 提取workflow_mode_config
+        if (specialistConfig.workflow_mode_config) {
+          config.workflow_mode_config = specialistConfig.workflow_mode_config;
+        }
+        
+        // 提取specialist_name
+        if (specialistConfig.name) {
+          config.specialist_name = specialistConfig.name;
+        }
+      }
+      
+      this.logger.debug(`✅ [PromptAssembly] YAML frontmatter解析成功: ${JSON.stringify(config, null, 2)}`);
       return config;
     } catch (error) {
       this.logger.warn(`⚠️ [PromptAssembly] YAML frontmatter解析失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -553,6 +629,161 @@ Based on all the instructions and context above, generate a valid JSON object th
     const cleaned = content.replace(/^---\n[\s\S]*?\n---\n/, '');
     //this.logger.debug(`🔧 [PromptAssembly] 移除frontmatter，内容长度: ${content.length} -> ${cleaned.length}`);
     return cleaned;
+  }
+
+  /**
+   * 🚀 v5.0新增：根据workflow_mode过滤content specialist的内容
+   * 
+   * 过滤规则：
+   * 1. 如果heading 2包含目标标志（如"GREEN"），则包含
+   * 2. 如果heading 2包含其他标志（如"BROWN"），则排除
+   * 3. 如果heading 2没有任何标志，则包含（通用内容）
+   */
+  private filterContentByWorkflowMode(
+    content: string,
+    workflowMode: "greenfield" | "brownfield",
+    config: AssemblyConfig
+  ): string {
+    const modeConfig = config.workflow_mode_config;
+    if (!modeConfig) {
+      return content;
+    }
+
+    const targetFlag = modeConfig[workflowMode];
+    const otherFlag = workflowMode === "greenfield" ? modeConfig.brownfield : modeConfig.greenfield;
+
+    if (!targetFlag) {
+      this.logger.debug(`🔍 [PromptAssembly] workflow_mode=${workflowMode}没有配置对应的标志，返回原内容`);
+      return content;
+    }
+
+    this.logger.debug(`🔍 [PromptAssembly] 过滤规则: 包含标志="${targetFlag}", 排除标志="${otherFlag || '无'}"`);
+
+    // 按heading 2分割内容
+    const sections = this.splitContentByHeading2(content);
+    
+    // 过滤sections
+    const filteredSections = sections.filter(section => {
+      const heading = this.extractHeading2(section);
+      if (!heading) {
+        // 没有heading 2的内容（如前言），保留
+        return true;
+      }
+
+      // 检查是否包含目标标志
+      if (targetFlag && heading.includes(targetFlag)) {
+        this.logger.debug(`✅ [PromptAssembly] 包含章节: ${heading} (包含标志=${targetFlag})`);
+        return true;
+      }
+
+      // 检查是否包含其他标志
+      if (otherFlag && heading.includes(otherFlag)) {
+        this.logger.debug(`❌ [PromptAssembly] 排除章节: ${heading} (包含标志=${otherFlag})`);
+        return false;
+      }
+
+      // 没有任何标志的通用内容，保留
+      this.logger.debug(`✅ [PromptAssembly] 包含章节: ${heading} (通用内容)`);
+      return true;
+    });
+
+    // 清理过滤后的内容，移除标志
+    const cleanedSections = filteredSections.map(section => {
+      return this.removeWorkflowModeFlags(section, targetFlag, otherFlag);
+    });
+
+    const filteredContent = cleanedSections.join('\n\n');
+    this.logger.info(`🎯 [PromptAssembly] workflow_mode过滤完成: ${sections.length}个章节 -> ${filteredSections.length}个章节，已清理标志`);
+    
+    return filteredContent;
+  }
+
+  /**
+   * 按heading 2分割markdown内容
+   */
+  private splitContentByHeading2(content: string): string[] {
+    // 使用正则表达式匹配heading 2 (## 开头的行)
+    const heading2Regex = /^## .+$/gm;
+    const headings = content.match(heading2Regex) || [];
+    
+    if (headings.length === 0) {
+      return [content]; // 没有heading 2，返回整个内容
+    }
+
+    const sections: string[] = [];
+    let currentIndex = 0;
+
+    for (let i = 0; i < headings.length; i++) {
+      const currentHeading = headings[i];
+      const nextHeading = headings[i + 1];
+      
+      // 找到当前heading在内容中的位置
+      const headingIndex = content.indexOf(currentHeading, currentIndex);
+      
+      if (headingIndex === -1) continue;
+
+      // 确定当前section的结束位置
+      let sectionEnd: number;
+      if (nextHeading) {
+        const nextHeadingIndex = content.indexOf(nextHeading, headingIndex + currentHeading.length);
+        sectionEnd = nextHeadingIndex;
+      } else {
+        sectionEnd = content.length;
+      }
+
+      // 提取section内容
+      const sectionContent = content.substring(headingIndex, sectionEnd).trim();
+      sections.push(sectionContent);
+      
+      currentIndex = headingIndex + currentHeading.length;
+    }
+
+    // 处理第一个heading 2之前的内容（如果有的话）
+    if (headings.length > 0 && headings[0]) {
+      const firstHeadingIndex = content.indexOf(headings[0]);
+      if (firstHeadingIndex > 0) {
+        const prefaceContent = content.substring(0, firstHeadingIndex).trim();
+        if (prefaceContent) {
+          sections.unshift(prefaceContent);
+        }
+      }
+    }
+
+    return sections;
+  }
+
+  /**
+   * 从section中提取heading 2文本
+   */
+  private extractHeading2(section: string): string | null {
+    const heading2Match = section.match(/^## (.+)$/m);
+    return heading2Match ? heading2Match[0] : null;
+  }
+
+  /**
+   * 从section内容中移除workflow_mode标志
+   */
+  private removeWorkflowModeFlags(section: string, targetFlag?: string, otherFlag?: string): string {
+    let cleanedSection = section;
+    
+    // 移除heading 2中的标志
+    if (targetFlag) {
+      // 匹配 "## GREEN 🔄 工作流程" 并移除 "GREEN "
+      cleanedSection = cleanedSection.replace(
+        new RegExp(`^## ${targetFlag}\\s+(.+)$`, 'gm'),
+        '## $1'
+      );
+    }
+    
+    if (otherFlag) {
+      // 虽然这个section不应该包含otherFlag，但为了健壮性还是处理一下
+      cleanedSection = cleanedSection.replace(
+        new RegExp(`^## ${otherFlag}\\s+(.+)$`, 'gm'),
+        '## $1'
+      );
+    }
+    
+    return cleanedSection;
   }
 
   /**
@@ -842,7 +1073,7 @@ Based on all the instructions and context above, generate a valid JSON object th
   }
 
   /**
-   * 🚀 新增：为content specialist动态加载当前项目的SRS.md内容和requirements.yaml内容
+   * 🚀 重构：为content specialist动态加载当前项目的SRS.md目录结构（ToC模式）和requirements.yaml内容
    */
   private async loadProjectSRSContent(context: SpecialistContext): Promise<void> {
     try {
@@ -852,74 +1083,141 @@ Based on all the instructions and context above, generate a valid JSON object th
         return;
       }
 
-      // 尝试多种可能的SRS文件路径
-      const possibleSRSPaths = [
-        'SRS.md',
-        'srs.md', 
-        'Software_Requirements_Specification.md',
-        'requirements.md'
-      ];
-
-      for (const srsPath of possibleSRSPaths) {
-        try {
-          const fullPath = path.join(baseDir, srsPath);
-          const content = await fs.readFile(fullPath, 'utf-8');
-          
-          // 将SRS内容添加到context中
-          context.SRS_CONTENT = content;
-          context.CURRENT_SRS = content; // 提供别名
-          
-          this.logger.info(`✅ 成功加载项目SRS内容: ${srsPath} (${content.length}字符)`);
-          break;
-          
-        } catch (error) {
-          // 继续尝试下一个路径
-          continue;
-        }
-      }
+      // 🚀 新功能：加载SRS目录结构（ToC格式）
+      await this.loadProjectSRSToC(context, baseDir);
       
-      if (!context.SRS_CONTENT) {
-        this.logger.warn('⚠️ 未找到项目SRS文件，使用空内容');
-        context.SRS_CONTENT = '';
-        context.CURRENT_SRS = '';
-      }
-
-      // 尝试多种可能的requirements.yaml文件路径
-      const possibleRequirementsYamlPaths = [
-        'requirements.yaml',
-        'requirements.yml',
-        'Requirements.yaml',
-        'Requirements.yml'
-      ];
-
-      for (const yamlPath of possibleRequirementsYamlPaths) {
-        try {
-          const fullPath = path.join(baseDir, yamlPath);
-          const content = await fs.readFile(fullPath, 'utf-8');
-          
-          // 将requirements.yaml内容添加到context中
-          context.REQUIREMENTS_YAML_CONTENT = content;
-          context.CURRENT_REQUIREMENTS_YAML = content; // 提供别名
-          
-          this.logger.info(`✅ 成功加载项目requirements.yaml内容: ${yamlPath} (${content.length}字符)`);
-          return;
-          
-        } catch (error) {
-          // 继续尝试下一个路径
-          continue;
-        }
-      }
-      
-      this.logger.warn('⚠️ 未找到项目requirements.yaml文件，使用空内容');
-      context.REQUIREMENTS_YAML_CONTENT = '';
-      context.CURRENT_REQUIREMENTS_YAML = '';
+      // 保持原有功能：加载requirements.yaml内容
+      await this.loadProjectRequirementsYaml(context, baseDir);
       
     } catch (error) {
       this.logger.error('Failed to load project SRS content', error as Error);
-      context.SRS_CONTENT = '';
-      context.CURRENT_SRS = '';
+      // 确保所有字段都有默认值
+      context.SRS_TOC = '';
+      context.CURRENT_SRS_TOC = '';
       context.REQUIREMENTS_YAML_CONTENT = '';
       context.CURRENT_REQUIREMENTS_YAML = '';
     }
+  }
+
+  /**
+   * 🚀 新增：使用readMarkdownFile工具加载SRS文档的目录结构（ToC模式）
+   */
+  private async loadProjectSRSToC(context: SpecialistContext, baseDir: string): Promise<void> {
+    const possibleSRSPaths = [
+      'SRS.md',
+      'srs.md', 
+      'Software_Requirements_Specification.md',
+      'requirements.md'
+    ];
+
+    this.logger.info('🔍 开始加载SRS文档目录结构（ToC模式）...');
+
+    for (const srsPath of possibleSRSPaths) {
+      try {
+        this.logger.debug(`🔍 尝试读取SRS文件: ${srsPath}`);
+        
+        // 使用readMarkdownFile工具的ToC模式
+        const result = await readMarkdownFile({
+          path: srsPath,
+          parseMode: 'toc'
+        });
+
+        // 检查是否有错误
+        if (result.error) {
+          this.logger.debug(`❌ 读取${srsPath}时出现错误: ${result.error.message}`);
+          continue;
+        }
+
+        // 检查是否有ToC数据
+        if (!result.tableOfContentsToCTree || result.tableOfContentsToCTree.length === 0) {
+          this.logger.debug(`⚠️ ${srsPath}没有找到目录结构，跳过`);
+          continue;
+        }
+
+        // 转换ToC树为平铺的markdown格式
+        const tocText = this.convertToCTreeToMarkdown(result.tableOfContentsToCTree);
+        
+        // 设置context变量
+        context.SRS_TOC = tocText;
+        context.CURRENT_SRS_TOC = tocText;
+        
+        this.logger.info(`✅ 成功加载项目SRS目录结构: ${srsPath}`);
+        this.logger.info(`📋 目录结构包含 ${result.tableOfContentsToCTree.length} 个顶级章节`);
+        this.logger.debug(`📄 生成的ToC格式:\n${tocText}`);
+        
+        return; // 成功加载后返回
+        
+      } catch (error) {
+        this.logger.debug(`❌ 加载${srsPath}失败: ${error instanceof Error ? error.message : String(error)}`);
+        continue; // 继续尝试下一个路径
+      }
+    }
+    
+    // 如果所有路径都失败，设置空值并记录警告
+    this.logger.warn('⚠️ 未找到可用的项目SRS文件，SRS目录结构将为空');
+    context.SRS_TOC = '';
+    context.CURRENT_SRS_TOC = '';
+  }
+
+  /**
+   * 🚀 重构：单独处理requirements.yaml文件加载
+   */
+  private async loadProjectRequirementsYaml(context: SpecialistContext, baseDir: string): Promise<void> {
+    const possibleRequirementsYamlPaths = [
+      'requirements.yaml',
+      'requirements.yml',
+      'Requirements.yaml',
+      'Requirements.yml'
+    ];
+
+    this.logger.info('🔍 开始加载requirements.yaml文件...');
+
+    for (const yamlPath of possibleRequirementsYamlPaths) {
+      try {
+        const fullPath = path.join(baseDir, yamlPath);
+        const content = await fs.readFile(fullPath, 'utf-8');
+        
+        // 将requirements.yaml内容添加到context中
+        context.REQUIREMENTS_YAML_CONTENT = content;
+        context.CURRENT_REQUIREMENTS_YAML = content; // 提供别名
+        
+        this.logger.info(`✅ 成功加载项目requirements.yaml内容: ${yamlPath} (${content.length}字符)`);
+        return;
+        
+      } catch (error) {
+        this.logger.debug(`❌ 读取${yamlPath}失败: ${error instanceof Error ? error.message : String(error)}`);
+        continue; // 继续尝试下一个路径
+      }
+    }
+    
+    this.logger.warn('⚠️ 未找到项目requirements.yaml文件，使用空内容');
+    context.REQUIREMENTS_YAML_CONTENT = '';
+    context.CURRENT_REQUIREMENTS_YAML = '';
+  }
+
+  /**
+   * 🚀 新增：将ToC树状结构转换为markdown格式的平铺文本
+   * 输出格式: # title  SID: /sid
+   */
+  private convertToCTreeToMarkdown(tocNodes: any[]): string {
+    const lines: string[] = [];
+    
+    const traverse = (nodes: any[]) => {
+      for (const node of nodes) {
+        // 生成markdown标题前缀 (# ## ### 等)
+        const prefix = '#'.repeat(node.level);
+        
+        // 生成格式: # title  SID: /sid
+        lines.push(`${prefix} ${node.title}  SID: ${node.sid}`);
+        
+        // 递归处理子节点
+        if (node.children && node.children.length > 0) {
+          traverse(node.children);
+        }
+      }
+    };
+    
+    traverse(tocNodes);
+    return lines.join('\n');
   }
 }

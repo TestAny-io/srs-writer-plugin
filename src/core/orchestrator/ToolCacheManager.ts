@@ -92,6 +92,41 @@ export class ToolCacheManager {
   }
 
   /**
+   * 🚀 新增：获取用于提示词的工具列表（过滤掉与输入schema无关的字段）
+   * 
+   * 过滤掉以下字段以减少token消耗：
+   * - interactionType, riskLevel, requiresConfirmation（用户交互相关）
+   * - accessibleBy（访问控制相关）
+   * - layer, category（分类相关）
+   */
+  public async getToolsForPrompt(caller: CallerType): Promise<{ definitions: any[], jsonSchema: string }> {
+    // 先获取完整的工具信息
+    const fullTools = await this.getTools(caller);
+    
+    // 过滤掉与输入schema无关的字段
+    const cleanDefinitions = fullTools.definitions.map(def => {
+      const { 
+        interactionType, 
+        riskLevel, 
+        requiresConfirmation, 
+        accessibleBy, 
+        layer, 
+        category, 
+        ...cleanDef 
+      } = def;
+      
+      return cleanDef;
+    });
+    
+    this.logger.debug(`🧹 Cleaned ${cleanDefinitions.length} tool definitions for prompt (removed 6 fields per tool)`);
+    
+    return {
+      definitions: cleanDefinitions,
+      jsonSchema: JSON.stringify(cleanDefinitions, null, 2)
+    };
+  }
+
+  /**
    * 验证工具访问权限
    */
   public validateAccess(caller: CallerType, toolName: string): boolean {

@@ -12,10 +12,10 @@ import type { HistoryManagementConfig } from '../config/SpecialistIterationConfi
  */
 
 interface HistoryTokenBudget {
-  totalBudget: number;      // 总token预算: 5000
-  immediateRatio: number;   // 最近3轮: 80% (4000 tokens)
-  recentRatio: number;      // 第4-8轮前: 15% (750 tokens)  
-  milestoneRatio: number;   // 第9轮及以上前: 5% (250 tokens)
+  totalBudget: number;      // 总token预算: 10000
+  immediateRatio: number;   // 最近3轮: 90% (9000 tokens)
+  recentRatio: number;      // 第4-8轮前: 7% (700 tokens)  
+  milestoneRatio: number;   // 第9轮及以上前: 3% (300 tokens)
 }
 
 interface HistoryEntry {
@@ -53,10 +53,10 @@ export class TokenAwareHistoryManager {
   private iterationManager = SpecialistIterationManager.getInstance();
   
   private readonly DEFAULT_BUDGET_CONFIG: HistoryTokenBudget = {
-    totalBudget: 5000,
-    immediateRatio: 0.80,   // 4000 tokens
-    recentRatio: 0.15,      // 750 tokens
-    milestoneRatio: 0.05    // 250 tokens
+    totalBudget: 10000,
+    immediateRatio: 0.90,   // 9000 tokens
+    recentRatio: 0.07,      // 700 tokens
+    milestoneRatio: 0.03    // 300 tokens
   };
 
   /**
@@ -180,12 +180,12 @@ export class TokenAwareHistoryManager {
 
     entries.forEach(entry => {
       // immediate层: 最近3轮 (当前轮次-2 到 当前轮次)
-      // recent层: 第4-8轮前 (当前轮次-7 到 当前轮次-3)  
+      // recent层: 第4-8轮前 (当前轮次-7 到 当前轮次-4)  
       // milestone层: 第9轮及以上前 (小于 当前轮次-7)
       
-      if (entry.iteration >= currentIteration - 2) {
-        immediate.push(entry); // 最近3轮
-      } else if (entry.iteration >= currentIteration - 7) {
+      if (entry.iteration >= currentIteration - 4) {
+        immediate.push(entry); // 最近3轮（当前 + 前2轮）
+      } else if (entry.iteration >= currentIteration - 8) {
         recent.push(entry); // 第4-8轮前
       } else {
         milestone.push(entry); // 第9轮及以上前

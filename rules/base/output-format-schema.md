@@ -10,23 +10,14 @@ Your thoughts and actions must be presented in the form of calling tools. The sy
 
 ## 🛠️ Use tools
 
-The system has prepared a complete toolset to help you complete your tasks. The tool list is in the `YOUR TOOLS LIST` section.
+The system has prepared a complete toolset to help you complete your tasks. The tool list is in the `# 8.YOUR TOOLS LIST` section.
 
 ### Important notes
 
-- The above JSON contains the names, descriptions, and parameter definitions of all your available tools
+- The below JSON contains the names, descriptions, and parameter definitions of all your available tools
 - Please carefully review the `description` and `parameters` of each tool
 - When calling a tool, the `name` field must match the definition above exactly
 - `args` parameters must conform to the `parameters.required` requirements of the corresponding tool
-
-### 🎯 How to choose tools
-
-Before starting work, you should:
-
-1. **Browse the tool list**：View all tools you can use
-2. **Understand tool functions**：Read the description of each tool
-3. **Check parameter requirements**：Confirm required parameters
-4. **Choose the right tool**：Select the most suitable tool based on the task requirements
 
 ### 📋 Quick reference for commonly used tools
 
@@ -111,102 +102,10 @@ Based on the tool definitions above, these are the most commonly used tool types
 2. **Line number out of range**: The line number specified by `lineRange` is out of the section range.
 3. **File not found**: The `targetFile` path is incorrect.
 
-## **Useful examples** (Please note that these examples are only to help you understand how to use the tools, and do not mean that you must follow these examples to complete the task. You should use the tools flexibly according to the task requirements and the characteristics of each tool.)
+## 📝 `readMarkdownFile` - Advanced semantic editing tool usage guide
 
-### Example 1: List all files and directories in the current workspace that contain "test" in their names
-
-```json
-{
-  "tool_calls": [{
-    "name": "listAllFiles",
-    "args": {
-      "searchKeywords": ["test"]
-    }
-  }]
-}
-```
-
-### Example 2: Multiple tool calls
-
-```json
-{
-  "tool_calls": [{
-    "name": "readMarkdownFile",
-    "args": {
-      "path": "SRS.md"
-    }
-  },
-  {
-    "name": "readLocalKnowledge",
-    "args": {
-      "query": "the query to find the template for overall description and use-case view",
-      "searchPaths": ["templates/", "templates/overall_description/", "templates/use_case/"],
-      "fileExtensions": ["md", "txt"]
-      "maxResults": 5
-    }
-  }
-  ]
-}
-```
-
-### Example 3: Ask the user a question
-
-```json
-{
-  "tool_calls": [{
-    "name": "askQuestion",
-    "args": {
-      "question": "您希望系统支持哪些用户角色？",
-      "placeholder": "请输入角色类型，例如：管理员、用户、游客"
-    }
-  }]
-}
-```
-
-### Example 4: Task completed, handed off to other experts
-
-```json
-{
-  "tool_calls": [{
-    "name": "taskComplete",
-    "args": {
-      "nextStepType": "HANDOFF_TO_SPECIALIST",
-      "summary": "已完成功能需求章节的编写，包含用户认证、数据管理和报表生成三大模块的详细功能描述。每个模块都明确了具体的功能点和实现要求。",
-      "contextForNext": {
-        "structuredData": {
-          "type": "FunctionalRequirements",
-          "modules": ["用户认证", "数据管理", "报表生成"],
-          "completedSections": ["功能需求"],
-          "nextRequired": ["非功能需求", "技术架构"]
-        },
-        "deliverables": [
-          "功能需求章节完整内容",
-          "用户认证模块规格说明",
-          "数据管理功能清单",
-          "报表生成需求定义"
-        ],
-        "decisions": [
-          {
-            "decision": "采用OAuth2.0标准进行第三方登录集成",
-            "reason": "提供更好的用户体验和安全性",
-            "timestamp": "2024-01-15T10:30:00Z"
-          },
-          {
-            "decision": "支持多种数据导出格式（CSV、Excel、PDF）",
-            "reason": "满足不同用户的数据处理需求",
-            "timestamp": "2024-01-15T10:35:00Z"
-          }
-        ],
-        "userPreferences": {
-          "authProvider": "支持微信、QQ登录",
-          "reportFormat": "优先支持Excel格式",
-          "dataRetention": "默认保留3年历史数据"
-        }
-      }
-    }
-  }]
-}
-```
+- **pick appropriate parseMode**: 每个mode的输出详细程度相差很大，请根据实际需要选择合适的mode。如果你只是想获取目录结构，请使用`parseMode: 'toc'`。如果你需要获取完整的物理内容，请使用`parseMode: 'content'`。
+- **pick precise SID**: 尽量只读取你关注的章节，这样你的思考和写作会更快，更准确。
 
 ## **Self-check list**
 
@@ -220,4 +119,4 @@ Before each interaction with the system, please check the following points in yo
 6. [ ] **Did I handle user interaction?** If I called `askQuestion`, did I check `userResponse` correctly in the next iteration?
 7. [ ] **Are there three consecutive failures in the iteration record with the same reason?** If there are, please think about the reason and try different methods to solve it.
 
-Your rigor is the cornerstone of project success. Now, start your outstanding work!
+---

@@ -482,8 +482,9 @@ export class SpecialistExecutor {
             
             // 2. 获取可用工具定义 (方案一：为TOOLS_JSON_SCHEMA模板变量准备数据)
             const callerType = this.getSpecialistCallerType(specialistId);
-            const toolsInfo = await this.toolCacheManager.getTools(callerType);
-            this.logger.info(`🛠️ [DEBUG] Retrieved ${toolsInfo.definitions.length} tool definitions for specialist context`);
+            // 🚀 使用清理版本的工具列表，过滤掉与输入schema无关的字段以减少token消耗
+            const toolsInfo = await this.toolCacheManager.getToolsForPrompt(callerType);
+            this.logger.info(`🛠️ [DEBUG] Retrieved ${toolsInfo.definitions.length} cleaned tool definitions for specialist context`);
             this.logger.info(`🔍 [DEBUG] Tools JSON schema length for specialist: ${toolsInfo.jsonSchema.length}`);
             
             // 🚀 2.5. 加载Template文件内容

@@ -242,7 +242,7 @@ export const executeMarkdownEditsToolDefinition = {
         },
         required: ["intents", "targetFile"]
     },
-    allowedCallers: [
+    accessibleBy: [
             CallerType.SPECIALIST_CONTENT,
             CallerType.SPECIALIST_PROCESS,
             CallerType.DOCUMENT

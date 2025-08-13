@@ -19,9 +19,9 @@ export interface HistoryManagementConfig {
     tokenBudget: number;
     /** 分层比例配置 */
     tierRatios: {
-        immediate: number;  // 0-2轮
-        recent: number;     // 3-7轮
-        milestone: number;  // 8+轮
+        immediate: number;  // 最近3轮
+        recent: number;     // 第4-8轮
+        milestone: number;  // 第9轮及以上
     };
 }
 
@@ -79,11 +79,11 @@ export const DEFAULT_SPECIALIST_ITERATION_CONFIG: SpecialistIterationConfig = {
     // 🚀 新增：默认历史管理配置
     historyConfig: {
         compressionEnabled: true,
-        tokenBudget: 5000,
+        tokenBudget: 10000,
         tierRatios: {
-            immediate: 0.80,  // 0-2轮: 80% (4000 tokens)
-            recent: 0.15,     // 3-7轮: 15% (750 tokens)
-            milestone: 0.05   // 8+轮: 5% (250 tokens)
+            immediate: 0.90,  // 最近3轮: 90% (9000 tokens)
+            recent: 0.07,     // 第4-8轮: 7% (700 tokens)
+            milestone: 0.03   // 第9轮及以上: 3% (300 tokens)
         }
     }
 };

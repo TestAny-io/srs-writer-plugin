@@ -237,7 +237,7 @@ export const suggestNextActionToolDefinition = {
     // 🚀 访问控制：智能建议工具，specialist需要能够提供建议
     accessibleBy: [
         CallerType.ORCHESTRATOR_KNOWLEDGE_QA,     // orchestrator可以提供系统级建议
-        CallerType.SPECIALIST_CONTENT,              // 内容specialist需要提供内容相关建议
+        // CallerType.SPECIALIST_CONTENT,              // 内容specialist需要提供内容相关建议
         CallerType.SPECIALIST_PROCESS               // 流程specialist需要提供流程建议
     ],
     // 🚀 智能分类属性

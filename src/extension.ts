@@ -241,51 +241,51 @@ async function showEnhancedStatus(): Promise<void> {
     try {
         const options = await vscode.window.showQuickPick([
             {
-                label: '$(dashboard) 快速概览',
-                description: '查看核心状态信息',
-                detail: '项目信息、引擎状态、同步状态'
+                label: '$(dashboard) Quick Overview',
+                description: 'View core status information',
+                detail: 'Project info, engine status, sync status'
             },
             {
-                label: '$(folder-library) 创建工作区并初始化',
-                description: '为首次使用创建完整的工作区环境',
-                detail: '选择父目录，创建工作区，复制templates文件'
+                label: '$(folder-library) Create Workspace & Initialize',
+                description: 'Create a complete workspace environment for first-time use',
+                detail: 'Select parent directory, create workspace, copy template files'
             },
             {
-                label: '$(arrow-swap) 切换项目',
-                description: '切换到workspace中的其他项目',
-                detail: '扫描项目列表，archive当前session，创建新session'
+                label: '$(arrow-swap) Switch Project',
+                description: 'Switch to another project in the workspace',
+                detail: 'Scan project list, archive current session, create new session'
             },
             {
-                label: '$(sync) 同步状态检查', 
-                description: '检查数据一致性',
-                detail: '文件vs内存同步状态'
+                label: '$(sync) Sync Status Check', 
+                description: 'Check data consistency',
+                detail: 'File vs memory sync status'
             },
             {
-                label: '$(output) 导出状态报告',
-                description: '保存状态到文件',
-                detail: '生成可分享的状态报告'
+                label: '$(output) Export Status Report',
+                description: 'Save status to file',
+                detail: 'Generate shareable status report'
             }
         ], {
-            placeHolder: '选择状态查看方式',
-            title: 'SRS Writer v3.0 状态管理'
+            placeHolder: 'Select an action from the control panel',
+            title: 'SRS Writer Control Panel'
         });
 
         if (!options) return;
 
         switch (options.label) {
-            case '$(dashboard) 快速概览':
+            case '$(dashboard) Quick Overview':
                 await showQuickOverview();
                 break;
-            case '$(folder-library) 创建工作区并初始化':
+            case '$(folder-library) Create Workspace & Initialize':
                 await createWorkspaceAndInitialize();
                 break;
-            case '$(arrow-swap) 切换项目':
+            case '$(arrow-swap) Switch Project':
                 await switchProject();
                 break;
-            case '$(sync) 同步状态检查':
+            case '$(sync) Sync Status Check':
                 await showSyncStatus();
                 break;
-            case '$(output) 导出状态报告':
+            case '$(output) Export Status Report':
                 await exportStatusReport();
                 break;
         }
@@ -306,7 +306,7 @@ async function showQuickOverview(): Promise<void> {
     
     const syncIcon = syncStatus.isConsistent ? '✅' : '⚠️';
     const statusMessage = `
-🚀 **SRS Writer v3.0 状态概览**
+🚀 **SRS Writer 状态概览**
 
 📊 **会话信息**
 • 项目: ${session?.projectName || '无'}
@@ -664,17 +664,35 @@ async function switchProject(): Promise<void> {
             project
         }));
 
-        const selectedProject = await vscode.window.showQuickPick(projectItems, {
+        // 🚀 新增：添加"退出当前项目"选项
+        const allOptions = [
+            ...projectItems,
+            {
+                label: '$(sign-out) 退出当前项目',
+                description: '离开当前项目，回到插件初始状态',
+                detail: '当前项目将被安全归档，所有状态将被清空，准备开始新的工作',
+                project: null // 特殊标记
+            }
+        ];
+
+        const selectedOption = await vscode.window.showQuickPick(allOptions, {
             placeHolder: `选择要切换到的项目 (当前: ${currentProjectName})`,
             matchOnDescription: true,
             matchOnDetail: true
         });
 
-        if (!selectedProject) {
+        if (!selectedOption) {
             return;
         }
 
-        const targetProject = selectedProject.project;
+        // 🚀 新增：处理"退出当前项目"选项
+        if (selectedOption.project === null) {
+            // 用户选择了"退出当前项目"
+            await restartPlugin();
+            return;
+        }
+
+        const targetProject = selectedOption.project;
         const targetProjectName = targetProject.name;
 
         // 如果选择的是当前项目，无需切换
@@ -890,6 +908,83 @@ let extensionContext: vscode.ExtensionContext | undefined;
 
 function getExtensionContext(): vscode.ExtensionContext | undefined {
     return extensionContext;
+}
+
+/**
+ * 🚀 新增：软重启插件功能
+ * 退出当前项目，清空所有状态，回到插件初始状态
+ */
+async function restartPlugin(): Promise<void> {
+    try {
+        const currentSession = await sessionManager.getCurrentSession();
+        const hasCurrentProject = currentSession?.projectName;
+
+        // 显示确认对话框
+        const confirmMessage = hasCurrentProject 
+            ? `🔄 退出当前项目将清空所有状态并重新开始\n\n📦 当前项目 "${currentSession.projectName}" 将被自动归档保存\n⚠️ 所有打开的文件将重新加载\n\n确定要退出当前项目吗？`
+            : `🔄 重启插件将清空所有状态并重新开始\n\n⚠️ 所有打开的文件将重新加载\n\n确定要重启插件吗？`;
+
+        const confirmed = await vscode.window.showWarningMessage(
+            confirmMessage,
+            { modal: true },
+            '退出项目',
+            '取消'
+        );
+
+        if (confirmed !== '退出项目') {
+            return;
+        }
+
+        // 使用进度提示执行重启操作
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "正在退出当前项目...",
+            cancellable: false
+        }, async (progress) => {
+            
+            // 1. 归档当前状态
+            progress.report({ increment: 30, message: "归档当前项目..." });
+            if (hasCurrentProject) {
+                await sessionManager.archiveCurrentAndStartNew();
+                logger.info('✅ Current project archived successfully');
+            }
+            
+            // 2. 清理所有缓存
+            progress.report({ increment: 30, message: "清理缓存..." });
+            try {
+                // 清理工具缓存
+                if (chatParticipant && typeof chatParticipant.clearStaleEngines === 'function') {
+                    await chatParticipant.clearStaleEngines();
+                }
+                logger.info('✅ Caches cleared successfully');
+            } catch (error) {
+                logger.warn(`Warning during cache cleanup: ${(error as Error).message}`);
+            }
+            
+            // 3. 清理会话状态
+            progress.report({ increment: 20, message: "清理会话状态..." });
+            try {
+                await sessionManager.clearSession();
+                logger.info('✅ Session cleared successfully');
+            } catch (error) {
+                logger.warn(`Warning during session cleanup: ${(error as Error).message}`);
+            }
+            
+            // 4. 重新加载窗口
+            progress.report({ increment: 20, message: "重新加载窗口..." });
+            logger.info('🔄 Initiating window reload for soft restart');
+            
+            // 短暂延迟确保日志写入
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // 执行软重启 - 重新加载整个VSCode窗口
+            await vscode.commands.executeCommand('workbench.action.reloadWindow');
+        });
+        
+    } catch (error) {
+        logger.error('Failed to restart plugin', error as Error);
+        vscode.window.showErrorMessage(`退出项目失败: ${(error as Error).message}`);
+    }
 }
 
 /**
