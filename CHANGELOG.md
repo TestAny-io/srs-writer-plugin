@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-08-13
+
+### Added
+
+- **New Feature**: "Exit Current Project" option in project switching interface
+  - Allows users to exit current project and return to clean plugin state
+  - Soft restart functionality using VSCode window reload
+  - Comprehensive project archiving before restart
+  - Progress indicators for user feedback during restart process
+
+### Enhanced
+
+- **UI/UX Improvements**: Complete English interface support
+  - Renamed "状态管理" to "Control Panel" for better functionality representation
+  - Converted all interface text to English for international users
+  - Updated quickpick placeholders and descriptions to English
+  - Improved user experience for American and international users
+
+- **Documentation Structure**: SRS Table of Contents integration in prompts
+  - Added SRS ToC (Table of Contents) loading functionality using `readMarkdownFile` tool
+  - Integrated ToC into 9-part prompt structure (previously 8-part)
+  - Enhanced `PromptAssemblyEngine` with `loadProjectSRSContent` method using ToC mode
+  - Implemented stable SID generation for consistent `executeSemanticEdits` operations
+  - Added `SRS_TOC` and `CURRENT_SRS_TOC` context variables for specialist prompts
+
+### Fixed
+
+- **Stability**: SID generation consistency verification
+  - Validated SID stability across multiple document parses
+  - Ensured consistent SID generation for duplicate titles using hash-based disambiguation
+  - Verified compatibility with `executeSemanticEdits` tool requirements
+
 ## [0.3.0] - 2025-08-10
 
 ### Fixed
