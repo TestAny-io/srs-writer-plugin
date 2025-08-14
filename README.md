@@ -1,4 +1,4 @@
-# SRS Writer - AI-Powered Requirements Engineering for VSCode
+# SRS Writer - AI-Powered Requirements Engineering
 
 <div align="center">
 

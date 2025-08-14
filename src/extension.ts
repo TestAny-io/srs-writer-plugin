@@ -336,47 +336,22 @@ async function showQuickOverview(): Promise<void> {
     const syncIcon = syncStatus.isConsistent ? '✅' : '⚠️';
     const baseDir = session?.baseDir ? require('path').basename(session.baseDir) : '无';
     
-    // 构建状态信息选项
-    const statusOptions = [
-        {
-            label: '📁 当前项目',
-            detail: session?.projectName || '无项目'
-        },
-        {
-            label: '📂 基础目录', 
-            detail: baseDir
-        },
-        {
-            label: '📄 活跃文件',
-            detail: `${session?.activeFiles.length || 0}个`
-        },
-        {
-            label: `${syncIcon} 同步状态`,
-            detail: syncStatus.isConsistent ? '正常' : '需要同步'
-        }
-    ];
+    // 构建状态信息文本
+    const statusMessage = `🚀 SRS Writer 状态概览
 
-    // 如果有同步问题，添加提示选项
-    if (!syncStatus.isConsistent) {
-        statusOptions.push({
-            label: '⚠️ 操作建议',
-            detail: '尝试 "Force Sync Context" 命令'
-        });
-    }
+📁 当前项目: ${session?.projectName || '无项目'}
+📂 基础目录: ${baseDir}
+📄 活跃文件: ${session?.activeFiles.length || 0}个
 
-    // 添加使用提示
-    statusOptions.push({
-        label: '💡 使用提示',
-        detail: '使用 @srs-writer 开始对话'
-    });
+${syncIcon} 同步状态: ${syncStatus.isConsistent ? '正常' : '需要同步'}
 
-    await vscode.window.showQuickPick(statusOptions, {
-        placeHolder: '🚀 SRS Writer 状态概览',
-        title: 'SRS Writer 状态信息',
-        canPickMany: false,
-        ignoreFocusOut: true,
-        matchOnDetail: true
-    });
+💡 使用提示: 使用 @srs-writer 开始对话${!syncStatus.isConsistent ? '\n⚠️ 操作建议: 尝试 "Force Sync Context" 命令' : ''}`;
+    
+    await vscode.window.showInformationMessage(
+        statusMessage,
+        { modal: true },
+        '确定'
+    );
 }
 
 
