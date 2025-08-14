@@ -133,7 +133,7 @@ function registerCoreCommands(context: vscode.ExtensionContext): void {
         
         // 新架构：模式通过智能分诊自动确定，无需手动切换
         vscode.window.showInformationMessage(
-            `🚀 新架构已启用智能分诊\n\n当前状态: ${currentStatus.mode}\n模式将根据用户意图自动切换：\n• 🚀 计划执行模式：复杂多步骤任务\n• 🛠️ 工具执行模式：需要操作文件的任务\n• 🧠 知识问答模式：咨询和对话`
+            `🚀 ${currentStatus.architecture} 已启用智能分诊\n\n插件版本: ${currentStatus.version}\n\n模式将根据用户意图自动切换：\n• 🚀 计划执行模式：复杂多步骤任务\n• 🛠️ 工具执行模式：需要操作文件的任务\n• 🧠 知识问答模式：咨询和对话`
         );
     });
     
@@ -245,7 +245,7 @@ async function showEnhancedStatus(): Promise<void> {
             {
                 label: '$(dashboard) Quick Overview',
                 description: 'View core status information',
-                detail: 'Project info, engine status, sync status'
+                detail: 'Project info, sync status'
             },
             {
                 label: '$(folder-library) Create Workspace & Initialize',
@@ -261,11 +261,6 @@ async function showEnhancedStatus(): Promise<void> {
                 label: '$(sync) Sync Status Check', 
                 description: 'Check data consistency',
                 detail: 'File vs memory sync status'
-            },
-            {
-                label: '$(output) Export Status Report',
-                description: 'Save status to file',
-                detail: 'Generate shareable status report'
             },
             {
                 label: '$(gear) Plugin Settings',
@@ -291,9 +286,6 @@ async function showEnhancedStatus(): Promise<void> {
                 break;
             case '$(sync) Sync Status Check':
                 await showSyncStatus();
-                break;
-            case '$(output) Export Status Report':
-                await exportStatusReport();
                 break;
             case '$(gear) Plugin Settings':
                 await openPluginSettings();
@@ -335,39 +327,56 @@ async function openPluginSettings(): Promise<void> {
 }
 
 /**
- * 显示快速概览
+ * 显示快速概览 - 简化版，只显示用户关心的基本信息
  */
 async function showQuickOverview(): Promise<void> {
     const session = await sessionManager.getCurrentSession();
-    const orchestratorStatus = await orchestrator.getSystemStatus();
     const syncStatus = await sessionManager.checkSyncStatus();
-    const observerStats = sessionManager.getObserverStats();
     
     const syncIcon = syncStatus.isConsistent ? '✅' : '⚠️';
-    const statusMessage = `
-🚀 **SRS Writer 状态概览**
-
-📊 **会话信息**
-• 项目: ${session?.projectName || '无'}
-• 基础目录: ${session?.baseDir || '无'}  
-• 活跃文件: ${session?.activeFiles.length || 0}个
-• 会话版本: ${session?.metadata.version || 'N/A'}
-
-🤖 **AI引擎状态**
-• 架构版本: ${orchestratorStatus.version}
-• 当前模式: ${orchestratorStatus.mode}
-• 观察者: ${observerStats.count}个活跃
-
-${syncIcon} **同步状态**
-• 数据一致性: ${syncStatus.isConsistent ? '正常' : '异常'}
-${syncStatus.inconsistencies.length > 0 ? `• 问题: ${syncStatus.inconsistencies.join(', ')}` : ''}
-
-💡 **操作建议**
-• 使用 @srs-writer 开始智能对话
-• 如有同步问题，可使用"Force Sync Context"命令
-    `;
+    const baseDir = session?.baseDir ? require('path').basename(session.baseDir) : '无';
     
-    vscode.window.showInformationMessage(statusMessage);
+    // 构建状态信息选项
+    const statusOptions = [
+        {
+            label: '📁 当前项目',
+            detail: session?.projectName || '无项目'
+        },
+        {
+            label: '📂 基础目录', 
+            detail: baseDir
+        },
+        {
+            label: '📄 活跃文件',
+            detail: `${session?.activeFiles.length || 0}个`
+        },
+        {
+            label: `${syncIcon} 同步状态`,
+            detail: syncStatus.isConsistent ? '正常' : '需要同步'
+        }
+    ];
+
+    // 如果有同步问题，添加提示选项
+    if (!syncStatus.isConsistent) {
+        statusOptions.push({
+            label: '⚠️ 操作建议',
+            detail: '尝试 "Force Sync Context" 命令'
+        });
+    }
+
+    // 添加使用提示
+    statusOptions.push({
+        label: '💡 使用提示',
+        detail: '使用 @srs-writer 开始对话'
+    });
+
+    await vscode.window.showQuickPick(statusOptions, {
+        placeHolder: '🚀 SRS Writer 状态概览',
+        title: 'SRS Writer 状态信息',
+        canPickMany: false,
+        ignoreFocusOut: true,
+        matchOnDetail: true
+    });
 }
 
 
@@ -397,46 +406,7 @@ async function showSyncStatus(): Promise<void> {
     }
 }
 
-/**
- * 导出状态报告
- */
-async function exportStatusReport(): Promise<void> {
-    try {
-        const session = await sessionManager.getCurrentSession();
-        const orchestratorStatus = await orchestrator.getSystemStatus();
-        const syncStatus = await sessionManager.checkSyncStatus();
-        const observerStats = sessionManager.getObserverStats();
-        
-        const report = {
-            exportTime: new Date().toISOString(),
-            version: 'v3.0',
-            session: session,
-            orchestratorStatus: orchestratorStatus,
-            syncStatus: syncStatus,
-            observerStats: observerStats,
-            workspace: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || null
-        };
-        
-        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-        const filename = `srs-writer-status-${timestamp}.json`;
-        
-        const uri = await vscode.window.showSaveDialog({
-            defaultUri: vscode.Uri.file(filename),
-            filters: {
-                'JSON Files': ['json'],
-                'All Files': ['*']
-            }
-        });
-        
-        if (uri) {
-            await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(report, null, 2)));
-            vscode.window.showInformationMessage(`✅ 状态报告已导出到: ${uri.fsPath}`);
-        }
-    } catch (error) {
-        logger.error('Failed to export status report', error as Error);
-        vscode.window.showErrorMessage(`导出失败: ${(error as Error).message}`);
-    }
-}
+
 
 
 
@@ -512,8 +482,7 @@ async function startNewProjectCommand(): Promise<void> {
         const confirmed = await vscode.window.showInformationMessage(
             confirmMessage,
             { modal: true },
-            '开始新项目',
-            '取消'
+            '开始新项目'
         );
 
         if (confirmed !== '开始新项目') {
@@ -532,8 +501,7 @@ async function startNewProjectCommand(): Promise<void> {
             const planConfirmed = await vscode.window.showWarningMessage(
                 planConfirmMessage,
                 { modal: true },
-                '确认开始（中止计划）',
-                '取消'
+                '确认开始（中止计划）'
             );
 
             if (planConfirmed !== '确认开始（中止计划）') {
@@ -864,8 +832,7 @@ async function switchProject(): Promise<void> {
         const confirmed = await vscode.window.showInformationMessage(
             confirmMessage,
             { modal: true },
-            '切换项目',
-            '取消'
+            '切换项目'
         );
 
         if (confirmed !== '切换项目') {
@@ -884,8 +851,7 @@ async function switchProject(): Promise<void> {
             const planConfirmed = await vscode.window.showWarningMessage(
                 planConfirmMessage,
                 { modal: true },
-                '确认切换（中止计划）',
-                '取消'
+                '确认切换（中止计划）'
             );
 
             if (planConfirmed !== '确认切换（中止计划）') {
@@ -1074,8 +1040,7 @@ async function createWorkspaceAndInitialize(): Promise<void> {
             const overwrite = await vscode.window.showWarningMessage(
                 `目录 "${trimmedWorkspaceName}" 已存在，是否继续？`,
                 { modal: true },
-                '继续',
-                '取消'
+                '继续'
             );
             
             if (overwrite !== '继续') {
@@ -1211,8 +1176,7 @@ async function restartPlugin(): Promise<void> {
         const confirmed = await vscode.window.showWarningMessage(
             confirmMessage,
             { modal: true },
-            '退出项目',
-            '取消'
+            '退出项目'
         );
 
         if (confirmed !== '退出项目') {

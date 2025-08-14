@@ -290,27 +290,15 @@ export class Orchestrator {
   }
 
   /**
-   * 获取系统状态
+   * 获取系统状态 - 简化版本，只返回基本信息
    */
   async getSystemStatus(): Promise<any> {
+    // 动态获取真实的插件版本
+    const packageJson = require('../../package.json');
     return {
-      mode: 'Intelligent Triage & Multi-Modal AI Agent with Plan Execution',
-      version: '4.0',
-      status: 'Active',
-      capabilities: [
-        '🧠 智能分诊 (Intelligent Triage)',
-        '🚀 计划执行 (Plan Execution)', // 新增
-        '💬 多模态响应 (Multi-Modal Response)',
-        '🔄 对话式规划循环 (Conversational Planning)',
-        '🚀 自我修正与适应 (Self-Correction)',
-        '📚 RAG知识检索增强 (RAG Enhancement)',
-        '🛠️ 智能工具协调执行 (Tool Orchestration)'
-      ],
-      responseMode: {
-        PLAN_EXECUTION: 'For complex multi-step tasks requiring specialist coordination',
-        TOOL_EXECUTION: 'For actionable tasks requiring tool execution',
-        KNOWLEDGE_QA: 'For knowledge-based questions, expert advice, and general conversation'
-      }
+      version: packageJson.version,
+      architecture: 'Global Engine v6.0',
+      status: 'Active'
     };
   }
 

@@ -776,15 +776,7 @@ export class SessionManager implements ISessionManager {
         return changedFields;
     }
 
-    /**
-     * 🚀 v3.0新增：获取观察者统计信息
-     */
-    public getObserverStats(): { count: number; types: string[] } {
-        return {
-            count: this.observers.size,
-            types: Array.from(this.observers).map(observer => observer.constructor.name)
-        };
-    }
+
 
     /**
      * 🚀 v5.0新增：统一状态+日志更新入口
