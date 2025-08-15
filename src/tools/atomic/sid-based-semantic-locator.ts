@@ -259,57 +259,108 @@ export class SidBasedSemanticLocator {
     }
 
     /**
-     * 处理插入操作
+     * 处理插入操作 - 🔄 简化：根据操作类型严格验证字段
      */
     private handleInsertionOperation(section: SectionNode, target: SemanticTarget, operationType: string): LocationResult {
-        if (!target.insertionPosition) {
-            return {
-                found: false,
-                error: "insertionPosition is required for insert operations"
-            };
-        }
-
-        let insertionPoint: vscode.Position;
-
-        switch (target.insertionPosition) {
-            case 'before':
-                insertionPoint = new vscode.Position(section.startLine, 0);
-                break;
-            case 'after':
-                insertionPoint = new vscode.Position(section.endLine + 1, 0);
-                break;
-            case 'inside':
-                if (target.lineRange) {
-                    // 在指定行插入
-                    const { startLine } = target.lineRange;
-                    if (startLine < 1 || startLine > section.totalLines + 1) {
-                        return {
-                            found: false,
-                            error: `Insert line ${startLine} out of range. Valid range: 1-${section.totalLines + 1}`
-                        };
-                    }
-                    const globalLine = section.startLine + startLine - 1;
-                    insertionPoint = new vscode.Position(globalLine, 0);
-                } else {
-                    // 默认在章节末尾插入
-                    insertionPoint = new vscode.Position(section.endLine, this.getLineLength(section.endLine));
-                }
-                break;
-            default:
+        // 🔄 根据操作类型验证必需字段
+        if (operationType === 'insert_entire_section') {
+            // insert_entire_section: 必须有 insertionPosition，忽略 lineRange
+            if (!target.insertionPosition) {
                 return {
                     found: false,
-                    error: `Unknown insertion position: ${target.insertionPosition}`
+                    error: "insertionPosition ('before' or 'after') is required for insert_entire_section operations",
+                    suggestions: {
+                        hint: "Use 'before' to insert before the reference section, or 'after' to insert after it",
+                        availablePositions: ['before', 'after']
+                    }
                 };
-        }
-
-        return {
-            found: true,
-            operationType: 'insert',
-            insertionPoint,
-            context: {
-                sectionTitle: section.title
             }
-        };
+
+            // 验证 insertionPosition 值
+            if (!['before', 'after'].includes(target.insertionPosition)) {
+                return {
+                    found: false,
+                    error: `Invalid insertionPosition '${target.insertionPosition}'. Only 'before' and 'after' are supported for insert_entire_section.`,
+                    suggestions: {
+                        hint: "Use 'before' or 'after' for insert_entire_section operations",
+                        availablePositions: ['before', 'after']
+                    }
+                };
+            }
+
+            let insertionPoint: vscode.Position;
+            switch (target.insertionPosition) {
+                case 'before':
+                    insertionPoint = new vscode.Position(section.startLine, 0);
+                    break;
+                case 'after':
+                    insertionPoint = new vscode.Position(section.endLine + 1, 0);
+                    break;
+            }
+
+            return {
+                found: true,
+                operationType: 'insert',
+                insertionPoint,
+                context: {
+                    sectionTitle: section.title
+                }
+            };
+
+        } else if (operationType === 'insert_lines_in_section') {
+            // insert_lines_in_section: 必须有 lineRange，忽略 insertionPosition
+            if (!target.lineRange) {
+                return {
+                    found: false,
+                    error: "lineRange is required for insert_lines_in_section operations",
+                    suggestions: {
+                        hint: "Specify the exact line number where you want to insert content using lineRange: { startLine: N, endLine: N }",
+                        sectionSummary: {
+                            title: section.title,
+                            totalLines: this.markdownLines.length,
+                            availableRange: `1-${this.markdownLines.length}`
+                        }
+                    }
+                };
+            }
+
+            // 使用绝对行号进行插入
+            const { startLine } = target.lineRange;
+            const totalDocumentLines = this.markdownLines.length;
+
+            if (startLine < 1 || startLine > totalDocumentLines + 1) {
+                return {
+                    found: false,
+                    error: `Insert line ${startLine} out of range. Valid range: 1-${totalDocumentLines + 1}`,
+                    suggestions: {
+                        validRange: `1-${totalDocumentLines + 1}`,
+                        hint: `Use absolute line numbers from the document. To insert at the end, use line ${totalDocumentLines + 1}.`
+                    }
+                };
+            }
+
+            const insertionPoint = new vscode.Position(startLine - 1, 0); // 转为0-based索引
+
+            return {
+                found: true,
+                operationType: 'insert',
+                insertionPoint,
+                context: {
+                    sectionTitle: section.title,
+                    lineRange: target.lineRange
+                }
+            };
+
+        } else {
+            return {
+                found: false,
+                error: `Unknown insertion operation type: ${operationType}`,
+                suggestions: {
+                    hint: "Supported insertion types: 'insert_entire_section', 'insert_lines_in_section'",
+                    availableTypes: ['insert_entire_section', 'insert_lines_in_section']
+                }
+            };
+        }
     }
 
     /**

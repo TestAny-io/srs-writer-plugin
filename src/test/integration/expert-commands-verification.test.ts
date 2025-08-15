@@ -201,7 +201,7 @@ describe('Expert Commands Verification', () => {
                 type: 'insert_entire_section',
                 target: {
                     sid: smartPathToSid(['相关页面及规则说明', '非长险规则配置']),
-                    insertionPosition: 'inside'
+                    insertionPosition: 'after' // insert_entire_section 只支持 'before' 和 'after'
                 },
                 content: '### 5.4.3 电子保单佣金生效日规则\n\n**规则描述**\n\n1. **适用范围**：所有非长险电子保单产品。',
                 reason: '业务新增电子保单佣金生效日子规则',
@@ -244,7 +244,7 @@ describe('Expert Commands Verification', () => {
                 type: 'insert_entire_section',
                 target: {
                     sid: smartPathToSid(['5 相关页面及规则说明']),
-                    insertionPosition: 'inside',
+                    insertionPosition: 'after', // insert_entire_section 只支持 'before' 和 'after'
                     siblingIndex: 4, // 在最后一个子节点(5.5)之前
                     siblingOperation: 'before'
                 },
@@ -267,7 +267,7 @@ describe('Expert Commands Verification', () => {
                 type: 'insert_entire_section',
                 target: {
                     sid: smartPathToSid(['5 相关页面及规则说明', '5.4 非长险规则配置']),
-                    insertionPosition: 'inside',
+                    insertionPosition: 'after', // insert_entire_section 只支持 'before' 和 'after'
                     siblingIndex: 1, // 在第二个子节点(5.4.2)之后
                     siblingOperation: 'after'
                 },
@@ -290,7 +290,7 @@ describe('Expert Commands Verification', () => {
                     type: 'insert_entire_section',
                     target: {
                         sid: smartPathToSid(['5 相关页面及规则说明']),
-                        insertionPosition: 'inside',
+                        insertionPosition: 'after', // insert_entire_section 只支持 'before' 和 'after'
                         siblingIndex: 4,
                         siblingOperation: 'before'
                     },
@@ -302,7 +302,7 @@ describe('Expert Commands Verification', () => {
                     type: 'insert_entire_section',
                     target: {
                         sid: smartPathToSid(['5 相关页面及规则说明', '5.4 非长险规则配置']),
-                        insertionPosition: 'inside',
+                        insertionPosition: 'after', // insert_entire_section 只支持 'before' 和 'after'
                         siblingIndex: 1,
                         siblingOperation: 'after'
                     },

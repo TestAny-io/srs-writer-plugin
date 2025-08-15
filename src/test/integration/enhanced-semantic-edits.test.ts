@@ -87,7 +87,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
                 type: 'insert_entire_section',
                 target: {
                     sid: smartPathToSid(['功能需求']),
-                    insertionPosition: 'inside',
+                    insertionPosition: 'after', // insert_entire_section 需要 insertionPosition
                     siblingIndex: 1, // 在第二个子节点（权限控制）之前
                     siblingOperation: 'before'
                 },
@@ -109,7 +109,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
                 type: 'insert_entire_section',
                 target: {
                     sid: smartPathToSid(['功能需求']),
-                    insertionPosition: 'inside',
+                    insertionPosition: 'after', // insert_entire_section 需要 insertionPosition
                     siblingIndex: 0, // 在第一个子节点（用户管理）之后
                     siblingOperation: 'after'
                 },
@@ -130,7 +130,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
                 type: 'insert_entire_section',
                 target: {
                     sid: smartPathToSid(['功能需求']),
-                    insertionPosition: 'inside',
+                    insertionPosition: 'after', // insert_entire_section 需要 insertionPosition
                     siblingIndex: 10, // 超出范围
                     siblingOperation: 'before'
                 },
@@ -238,7 +238,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
                 type: 'insert_entire_section',
                 target: {
                     sid: smartPathToSid(['功能需求']),
-                    insertionPosition: 'inside',
+                    insertionPosition: 'after', // insert_entire_section 需要 insertionPosition
                     siblingIndex: 1,
                     siblingOperation: 'before'
                 },

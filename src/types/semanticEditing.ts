@@ -27,27 +27,34 @@ export type SemanticEditType =
     | 'insert_lines_in_section';   // 插入内容到章节内
 
 /**
- * 插入位置枚举
+ * 插入位置枚举 - 🔄 简化：只用于 insert_entire_section
  */
 export type InsertionPosition = 
     | 'before'    // 在参照章节之前插入
-    | 'after'     // 在参照章节之后插入
-    | 'inside';   // 在参照章节内部插入
+    | 'after';    // 在参照章节之后插入
 
 /**
- * 语义目标定位接口 - 🆕 基于 sid 的精确定位
- * Breaking Changes: 完全废弃 path 和 targetContent，采用 sid + lineRange
+ * 语义目标定位接口 - 🔄 简化字段依赖关系
+ * 
+ * 字段使用规则：
+ * - replace_entire_section_with_title: 只需 sid
+ * - replace_lines_in_section: sid + lineRange (必需)
+ * - insert_entire_section: sid + insertionPosition (必需)
+ * - insert_lines_in_section: sid + lineRange (必需)
  */
 export interface SemanticTarget {
     sid: string;                            // Section ID，来自 readMarkdownFile（必需）
     
-    // 🆕 行号精确定位（替代 targetContent）
+    // 🔄 条件必需：用于行级别操作
     lineRange?: {
         startLine: number;                  // 目标起始行号（section内相对行号，1-based）
         endLine: number;                    // 目标结束行号（必需，避免歧义）
     };
     
-    insertionPosition?: InsertionPosition;  // 插入位置（insert操作时required）
+    // 🔄 条件必需：用于整章节插入
+    insertionPosition?: InsertionPosition;  // 插入位置：'before' | 'after'
+    
+    // 🔄 高级定位（可选）
     siblingIndex?: number;                  // 兄弟节点索引 (0-based)
     siblingOperation?: 'before' | 'after'; // 相对于指定兄弟的操作
 }
@@ -183,6 +190,9 @@ export interface LocationResult {
             totalLines?: number;
             availableRange?: string;
         };
+        // 🔄 新增字段：字段验证建议
+        availablePositions?: string[];  // 可用的插入位置
+        availableTypes?: string[];      // 可用的操作类型
     };
 }
 

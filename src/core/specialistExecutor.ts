@@ -29,6 +29,16 @@ interface SpecialistResumeState {
 }
 
 /**
+ * 🚀 网络错误分类接口
+ */
+interface NetworkErrorClassification {
+    retryable: boolean;
+    maxRetries: number;
+    errorCategory: 'network' | 'server' | 'auth' | 'config' | 'unknown';
+    userMessage: string;
+}
+
+/**
  * 🚀 专家任务执行器 - 智能多轮对话专家
  * 
  * 核心特性：
@@ -262,7 +272,7 @@ export class SpecialistExecutor {
                 // this.logger.info(`🔍 [TOOLS_DEBUG] - taskComplete: ${hasTaskComplete}`);
                 // this.logger.info(`🔍 [TOOLS_DEBUG] ==========================================`);
                 
-                // 3. 调用AI
+                // 3. 调用AI (with network error retry mechanism)
                 const messages = [vscode.LanguageModelChatMessage.User(prompt)];
                 const requestOptions: vscode.LanguageModelChatRequestOptions = {
                     justification: `执行专家任务: ${specialistId} (迭代 ${iteration})`
@@ -279,28 +289,15 @@ export class SpecialistExecutor {
                 this.logger.info(`🔍 [AI_REQUEST_DEBUG] 工具模式: ${requestOptions.toolMode || '未设置'}`);
                 this.logger.info(`🔍 [AI_REQUEST_DEBUG] ================================`);
 
-                const response = await model.sendRequest(messages, requestOptions);
-                
-                // 4. 处理AI响应
-                this.logger.info(`🔍 [DEBUG] Starting to process AI response for ${specialistId} iteration ${iteration}`);
-                let result = '';
-                let fragmentCount = 0;
-                
-                for await (const fragment of response.text) {
-                    fragmentCount++;
-                    result += fragment;
-                    // this.logger.info(`🔍 [DEBUG] Received fragment ${fragmentCount}, length: ${fragment.length}, total length so far: ${result.length}`);
-                }
-                
-                this.logger.info(`🔍 [DEBUG] Completed processing AI response. Total fragments: ${fragmentCount}, final length: ${result.length}`);
-                this.logger.info(`🔍 [DEBUG] Raw AI Response for ${specialistId}:\n---\n${result}\n---`);
+                // 🚀 新增：网络错误重试机制（包含响应流处理）
+                const result = await this.sendRequestAndProcessResponseWithRetry(model, messages, requestOptions, specialistId, iteration);
 
                 if (!result.trim()) {
                     this.logger.error(`❌ AI returned empty response for ${specialistId} iteration ${iteration}`);
                     throw new Error(`专家 ${specialistId} 在迭代 ${iteration} 返回了空响应`);
                 }
 
-                // 5. 解析AI计划
+                // 4. 解析AI计划
                 this.logger.info(`🔍 [DEBUG] Attempting to parse AI response for ${specialistId}`);
                 const aiPlan = this.parseAIResponse(result);
                 this.logger.info(`🔍 [DEBUG] AI plan parsing result for ${specialistId}: ${aiPlan ? 'SUCCESS' : 'FAILED'}`);
@@ -1531,5 +1528,196 @@ SUGGESTED ACTIONS:
             this.logger.error(`❌ 读取${specialistId}的模板配置失败`, error as Error);
             return {};
         }
+    }
+
+    // ============================================================================
+    // 🚀 网络错误重试机制
+    // ============================================================================
+
+    /**
+     * 带网络错误重试的 LLM API 调用和响应处理
+     */
+    private async sendRequestAndProcessResponseWithRetry(
+        model: vscode.LanguageModelChat,
+        messages: vscode.LanguageModelChatMessage[],
+        requestOptions: vscode.LanguageModelChatRequestOptions,
+        specialistId: string,
+        iteration: number
+    ): Promise<string> {
+        let retryCount = 0;
+        
+        while (true) {
+            try {
+                // 1. 发送请求获取响应
+                this.logger.info(`🔍 [DEBUG] Sending request to AI model for ${specialistId} iteration ${iteration}`);
+                const response = await model.sendRequest(messages, requestOptions);
+                
+                // 2. 处理AI响应流
+                this.logger.info(`🔍 [DEBUG] Starting to process AI response for ${specialistId} iteration ${iteration}`);
+                let result = '';
+                let fragmentCount = 0;
+                
+                for await (const fragment of response.text) {
+                    fragmentCount++;
+                    result += fragment;
+                    // this.logger.info(`🔍 [DEBUG] Received fragment ${fragmentCount}, length: ${fragment.length}, total length so far: ${result.length}`);
+                }
+                
+                this.logger.info(`🔍 [DEBUG] Completed processing AI response. Total fragments: ${fragmentCount}, final length: ${result.length}`);
+                this.logger.info(`🔍 [DEBUG] Raw AI Response for ${specialistId}:\n---\n${result}\n---`);
+                
+                return result;
+                
+            } catch (error) {
+                // 🔍 [DEBUG] 添加详细的错误调试信息
+                this.logger.error(`🔍 [DEBUG] 捕获到错误类型: ${error?.constructor?.name}`);
+                this.logger.error(`🔍 [DEBUG] 错误是否为LanguageModelError: ${error instanceof vscode.LanguageModelError}`);
+                this.logger.error(`🔍 [DEBUG] 错误消息: ${(error as Error).message}`);
+                this.logger.error(`🔍 [DEBUG] 错误code: ${(error as any).code || 'undefined'}`);
+                
+                // 分析错误类型
+                const errorClassification = this.classifyNetworkError(error as Error);
+                this.logger.warn(`🔍 [DEBUG] 错误分类结果: retryable=${errorClassification.retryable}, maxRetries=${errorClassification.maxRetries}, category=${errorClassification.errorCategory}`);
+                
+                // 检查是否可以重试
+                if (errorClassification.retryable && retryCount < errorClassification.maxRetries) {
+                    retryCount++;
+                    const delay = this.calculateBackoffDelay(retryCount);
+                    
+                    this.logger.warn(`🔄 [${specialistId}] 迭代 ${iteration} 网络错误 (${errorClassification.errorCategory}), 重试 ${retryCount}/${errorClassification.maxRetries}: ${(error as Error).message}`);
+                    
+                    // 等待指数退避延迟
+                    await this.sleep(delay);
+                    continue; // 重试，不增加迭代次数
+                    
+                } else {
+                    // 不可重试或重试次数耗尽
+                    if (retryCount > 0) {
+                        this.logger.error(`❌ [${specialistId}] 迭代 ${iteration} 网络错误重试失败: ${(error as Error).message}`);
+                    }
+                    
+                    // 抛出增强的错误信息
+                    const enhancedMessage = retryCount > 0 
+                        ? `${errorClassification.userMessage} (重试${errorClassification.maxRetries}次后仍失败: ${(error as Error).message})`
+                        : `${errorClassification.userMessage}: ${(error as Error).message}`;
+                        
+                    const enhancedError = new Error(enhancedMessage);
+                    enhancedError.stack = (error as Error).stack;
+                    throw enhancedError;
+                }
+            }
+        }
+    }
+
+    /**
+     * 分类网络错误并确定重试策略
+     */
+    private classifyNetworkError(error: Error): NetworkErrorClassification {
+        const message = error.message.toLowerCase();
+        const code = (error as any).code;
+        
+        // 🔍 [DEBUG] 记录错误详细信息
+        this.logger.warn(`🔍 [DEBUG] classifyNetworkError: instanceof LanguageModelError=${error instanceof vscode.LanguageModelError}`);
+        this.logger.warn(`🔍 [DEBUG] classifyNetworkError: error.constructor.name=${error.constructor.name}`);
+        this.logger.warn(`🔍 [DEBUG] classifyNetworkError: message="${message}"`);
+        this.logger.warn(`🔍 [DEBUG] classifyNetworkError: code="${code}"`);
+        
+        // 不仅检查 instanceof，也检查错误名称和内容
+        if (error instanceof vscode.LanguageModelError || 
+            error.constructor.name === 'LanguageModelError' ||
+            message.includes('net::') ||
+            message.includes('language model') ||
+            message.includes('firewall') ||
+            message.includes('network connection')) {
+            
+            // 可重试的网络错误（3次）
+            if (message.includes('net::err_network_changed') ||
+                message.includes('net::err_connection_refused') ||
+                message.includes('net::err_internet_disconnected') ||
+                message.includes('net::err_timed_out') ||
+                message.includes('net::err_name_not_resolved') ||
+                message.includes('network') && message.includes('connection')) {
+                return {
+                    retryable: true,
+                    maxRetries: 3,
+                    errorCategory: 'network',
+                    userMessage: '网络连接问题，正在重试'
+                };
+            }
+            
+            // 服务器错误（1次）
+            if (code === '500' || code === '502' || code === '503' || code === '504' ||
+                message.includes('server error') || message.includes('internal error')) {
+                return {
+                    retryable: true,
+                    maxRetries: 1,
+                    errorCategory: 'server',
+                    userMessage: '服务器临时错误，正在重试'
+                };
+            }
+            
+            // 不可重试的错误
+            if (code === '401') {
+                return {
+                    retryable: false,
+                    maxRetries: 0,
+                    errorCategory: 'auth',
+                    userMessage: 'AI模型认证失败，请检查GitHub Copilot配置'
+                };
+            }
+            
+            if (code === '429') {
+                return {
+                    retryable: false,
+                    maxRetries: 0,
+                    errorCategory: 'auth',
+                    userMessage: '请求频率过高，请稍后重试'
+                };
+            }
+            
+            // SSL证书和代理错误
+            if (message.includes('cert') || message.includes('proxy') ||
+                message.includes('ssl') || message.includes('certificate')) {
+                return {
+                    retryable: false,
+                    maxRetries: 0,
+                    errorCategory: 'config',
+                    userMessage: '网络配置问题，请检查证书或代理设置'
+                };
+            }
+            
+            // 防火墙相关错误
+            if (message.includes('firewall') || message.includes('blocked')) {
+                return {
+                    retryable: false,
+                    maxRetries: 0,
+                    errorCategory: 'config',
+                    userMessage: '防火墙阻止连接，请检查网络安全设置'
+                };
+            }
+        }
+        
+        // 默认：未知错误，不重试
+        return {
+            retryable: false,
+            maxRetries: 0,
+            errorCategory: 'unknown',
+            userMessage: '执行失败'
+        };
+    }
+
+    /**
+     * 计算指数退避延迟
+     */
+    private calculateBackoffDelay(retryCount: number): number {
+        // 指数退避：1s, 2s, 4s
+        return Math.pow(2, retryCount - 1) * 1000;
+    }
+
+    /**
+     * 异步延迟函数
+     */
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 } 

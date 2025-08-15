@@ -144,7 +144,7 @@ function testLineRangeLocator() {
     console.log('\nTest 5: Insertion operation');
     const result5 = locator.findTarget({
         sid: '/functional-requirements',
-        insertionPosition: 'inside',
+        // insertionPosition 已移除，insert_lines_in_section 使用 lineRange
         lineRange: { startLine: 5, endLine: 5 }
     }, 'insert_lines_in_section');
 

@@ -307,7 +307,7 @@ describe('Semantic Edit Engine Integration', () => {
                 type: 'insert_lines_in_section',
                 target: {
                     sid: smartPathToSid(['用户管理']),
-                    insertionPosition: 'inside'
+                    lineRange: { startLine: 7, endLine: 7 } // 在用户管理章节的第7行插入
                 },
                 content: '新增功能：用户权限管理\n',
                 reason: '添加权限管理功能',

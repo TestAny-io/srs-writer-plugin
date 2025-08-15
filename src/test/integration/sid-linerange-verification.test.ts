@@ -146,8 +146,7 @@ describe('SID + lineRange 精确定位验证', () => {
     test('应该正确处理插入操作', () => {
         const result = locator.findTarget({
             sid: '/functional-requirements',
-            insertionPosition: 'inside',
-            lineRange: { startLine: 5, endLine: 5 }
+            lineRange: { startLine: 5, endLine: 5 } // insert_lines_in_section 只需要 lineRange
         }, 'insert_lines_in_section');
 
         expect(result.found).toBe(true);

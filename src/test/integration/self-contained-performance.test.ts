@@ -157,8 +157,7 @@ ${Array(50).fill('测试计划相关的内容。').join('\n')}
                 type: 'insert_lines_in_section',
                 target: {
                     sid: '/functional-requirements',
-                    insertionPosition: 'inside',
-                    lineRange: { startLine: 1, endLine: 1 }
+                    lineRange: { startLine: 30, endLine: 30 } // 在功能需求章节的第30行插入
                 },
                 content: '插入的新功能需求内容',
                 reason: '性能测试 - 插入操作',

@@ -155,13 +155,13 @@ export async function executeSemanticEdits(
  */
 export const executeMarkdownEditsToolDefinition = {
     name: "executeMarkdownEdits",
-    description: "语义编辑工具 - 内部自动解析文档结构，基于SID精确定位和编辑Markdown文档，请先调用readMarkdownFile工具获取文档结构及相关定位参数",
+    description: "🔄 Semantic Edit Tool - +Field usage rules: replace_entire_section_with_title requires sid; replace_lines_in_section and insert_lines_in_section require sid+lineRange; insert_entire_section requires sid+insertionPosition",
     parameters: {
         type: "object",
         properties: {
             intents: {
                 type: "array",
-                description: "语义编辑意图数组",
+                description: "Semantic Edit Intents Array",
                 items: {
                     type: "object",
                     properties: {
@@ -173,7 +173,7 @@ export const executeMarkdownEditsToolDefinition = {
                                 "insert_entire_section",
                                 "insert_lines_in_section"
                             ],
-                            description: "编辑操作类型"
+                            description: "Edit Operation Type: replace_entire_section_with_title(Replace entire section), replace_lines_in_section(Replace specific lines in section), insert_entire_section(Insert entire section), insert_lines_in_section(Insert content in section)"
                         },
                         target: {
                             type: "object",
@@ -195,25 +195,25 @@ export const executeMarkdownEditsToolDefinition = {
                                         }
                                     },
                                     required: ["startLine", "endLine"],
-                                    description: "🆕 Absolute line number targeting - use the exact line numbers from readMarkdownFile output. Both startLine and endLine are required to eliminate ambiguity. If you only want to replace a single line, set endLine to the same value as startLine."
+                                    description: "🔄 Required for: replace_lines_in_section, insert_lines_in_section. Use absolute line numbers from readMarkdownFile output."
                                 },
                                 insertionPosition: {
                                     type: "string",
-                                    enum: ["before", "after", "inside"],
-                                    description: "Insertion position: before(before the reference section), after(after the reference section), inside(inside the reference section)"
+                                    enum: ["before", "after"],
+                                    description: "🔄 Required for: insert_entire_section. Only 'before' and 'after' are supported"
                                 },
                                 siblingIndex: {
                                     type: "number",
-                                    description: "Sibling node index"
+                                    description: "Sibling node index (advanced positioning)"
                                 },
                                 siblingOperation: {
                                     type: "string",
                                     enum: ["before", "after"],
-                                    description: "Sibling node operation direction"
+                                    description: "Sibling node operation direction (advanced positioning)"
                                 }
                             },
                             required: ["sid"],
-                            description: "Target location information - precise targeting based on SID"
+                            description: "🔄 Target location information. Field requirements by operation type: replace_entire_section_with_title(sid only), replace_lines_in_section(sid+lineRange), insert_entire_section(sid+insertionPosition), insert_lines_in_section(sid+lineRange)"
                         },
                         content: {
                             type: "string",
