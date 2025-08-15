@@ -204,6 +204,9 @@ export class SpecialistExecutor {
                 }
             }
 
+            // 🚀 新增：token limit和空响应重试计数器
+            let retryCount = 0;
+            
             while (iteration < MAX_INTERNAL_ITERATIONS) {
                 // 🚀 v6.0：在specialist内部迭代中检查是否被取消
                 if (cancelledCheckCallback && cancelledCheckCallback()) {
@@ -290,11 +293,41 @@ export class SpecialistExecutor {
                 this.logger.info(`🔍 [AI_REQUEST_DEBUG] ================================`);
 
                 // 🚀 新增：网络错误重试机制（包含响应流处理）
-                const result = await this.sendRequestAndProcessResponseWithRetry(model, messages, requestOptions, specialistId, iteration);
+                const result = await this.sendRequestAndProcessResponseWithRetry(model, messages, requestOptions, specialistId, iteration, contextForThisStep, internalHistory);
 
+                // 🚀 增强：空响应处理 - 作为token limit的替代重试机制  
                 if (!result.trim()) {
                     this.logger.error(`❌ AI returned empty response for ${specialistId} iteration ${iteration}`);
-                    throw new Error(`专家 ${specialistId} 在迭代 ${iteration} 返回了空响应`);
+                    
+                    // 创建一个模拟的token limit错误，触发重试机制
+                    const emptyResponseError = new Error('AI returned empty response - treating as token limit issue');
+                    const errorClassification = this.classifyEmptyResponseError();
+                    
+                    // 检查是否可以重试（使用相同的重试逻辑）
+                    if (errorClassification.retryable && retryCount < errorClassification.maxRetries) {
+                        retryCount++;
+                        this.logger.warn(`🔄 [${specialistId}] 迭代 ${iteration} 空响应错误, 重试 ${retryCount}/${errorClassification.maxRetries}`);
+                        
+                        // 🚀 关键：在重试前添加警告到internalHistory顶部
+                        internalHistory.unshift(`Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`);
+                        
+                        // 🚀 关键：清理历史中的"迭代 X - 结果"部分
+                        internalHistory = this.cleanIterationResults(internalHistory);
+                        
+                        // 重置retryCount为0，继续当前迭代
+                        retryCount = 0;
+                        
+                        // 等待一小段时间（不需要指数退避）
+                        await this.sleep(1000);
+                        continue; // 重试当前迭代
+                        
+                    } else {
+                        // 重试次数耗尽
+                        if (retryCount > 0) {
+                            this.logger.error(`❌ [${specialistId}] 迭代 ${iteration} 空响应重试失败`);
+                        }
+                        throw new Error(`专家 ${specialistId} 在迭代 ${iteration} 返回了空响应 (重试${errorClassification.maxRetries}次后仍失败)`);
+                    }
                 }
 
                 // 4. 解析AI计划
@@ -431,6 +464,9 @@ export class SpecialistExecutor {
                     
                     internalHistory.push(`迭代 ${iteration} - AI计划:\n${planSummary}`);
                     internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsSummary}`);
+                    
+                    // 🚀 新增：成功执行工具后重置重试计数器
+                    retryCount = 0;
                     
                     this.logger.info(`✅ [${specialistId}] 迭代 ${iteration} 记录了 ${toolResults.length} 个工具执行结果`);
                     
@@ -1536,13 +1572,16 @@ SUGGESTED ACTIONS:
 
     /**
      * 带网络错误重试的 LLM API 调用和响应处理
+     * 🚀 新增：支持token limit重试时的提示词优化
      */
     private async sendRequestAndProcessResponseWithRetry(
         model: vscode.LanguageModelChat,
         messages: vscode.LanguageModelChatMessage[],
         requestOptions: vscode.LanguageModelChatRequestOptions,
         specialistId: string,
-        iteration: number
+        iteration: number,
+        contextForThisStep?: any,
+        internalHistory?: string[]
     ): Promise<string> {
         let retryCount = 0;
         
@@ -1585,6 +1624,29 @@ SUGGESTED ACTIONS:
                     const delay = this.calculateBackoffDelay(retryCount);
                     
                     this.logger.warn(`🔄 [${specialistId}] 迭代 ${iteration} 网络错误 (${errorClassification.errorCategory}), 重试 ${retryCount}/${errorClassification.maxRetries}: ${(error as Error).message}`);
+                    
+                    // 🚀 新增：如果是token limit错误，需要优化提示词重新生成消息
+                    if (errorClassification.errorCategory === 'config' && 
+                        contextForThisStep && internalHistory &&
+                        ((error as Error).message.toLowerCase().includes('token limit') || 
+                         (error as Error).message.toLowerCase().includes('exceeds') && (error as Error).message.toLowerCase().includes('limit'))) {
+                        
+                        this.logger.info(`🚀 Token limit重试：优化提示词并重新生成消息`);
+                        
+                        // 🚀 关键：在重试前添加警告到internalHistory顶部
+                        const optimizedHistory = [
+                            `Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`,
+                            ...this.cleanIterationResults(internalHistory)
+                        ];
+                        
+                        // 重新生成优化后的提示词
+                        const optimizedPrompt = await this.loadSpecialistPrompt(specialistId, contextForThisStep, optimizedHistory, iteration);
+                        
+                        // 更新消息
+                        messages[0] = vscode.LanguageModelChatMessage.User(optimizedPrompt);
+                        
+                        this.logger.info(`🚀 已生成优化提示词，长度：${optimizedPrompt.length} (原长度：${messages[0].content?.length || 0})`);
+                    }
                     
                     // 等待指数退避延迟
                     await this.sleep(delay);
@@ -1629,6 +1691,19 @@ SUGGESTED ACTIONS:
             message.includes('language model') ||
             message.includes('firewall') ||
             message.includes('network connection')) {
+            
+            // 🚀 新增：Token limit错误（可重试3次）
+            if (message.includes('token limit') || 
+                message.includes('exceeds') && message.includes('limit') ||
+                message.includes('context length') ||
+                message.includes('maximum context')) {
+                return {
+                    retryable: true,
+                    maxRetries: 3,
+                    errorCategory: 'config',
+                    userMessage: 'Token限制错误，正在优化提示词重试'
+                };
+            }
             
             // 可重试的网络错误（3次）
             if (message.includes('net::err_network_changed') ||
@@ -1719,5 +1794,29 @@ SUGGESTED ACTIONS:
      */
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * 🚀 新增：空响应错误分类
+     * 将空响应统一按照token limit错误处理
+     */
+    private classifyEmptyResponseError(): NetworkErrorClassification {
+        return {
+            retryable: true,
+            maxRetries: 3,
+            errorCategory: 'config',
+            userMessage: '空响应错误，正在优化提示词重试'
+        };
+    }
+
+    /**
+     * 🚀 新增：清理内部历史中的"迭代 X - 结果"部分
+     * 在token limit重试时减少提示词长度
+     */
+    private cleanIterationResults(internalHistory: string[]): string[] {
+        return internalHistory.filter(entry => {
+            // 删除所有"迭代 X - 结果"相关的条目（包括多行内容）
+            return !entry.match(/^迭代 \d+ - (AI计划|工具结果|结果)/);
+        });
     }
 } 

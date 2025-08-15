@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2025-08-15
+
+### Enhanced
+
+- **Critical**: Advanced Token Limit and Empty Response Recovery System
+    - Implemented intelligent retry mechanism for token limit errors with automatic prompt optimization
+    - Added unified retry strategy for both "Message exceeds token limit" and empty AI responses (3 retries each)
+    - Enhanced specialist execution with smart history cleanup during retries - removes "迭代 X - 结果" entries to reduce token usage
+    - Automatic warning injection at history top: "Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully."
+    - Token limit errors now trigger prompt re-optimization and regeneration during retries
+    - Empty response handling now follows same intelligent retry pattern as token limit errors
+    - Retry attempts are independent of specialist iteration limits and reset after successful tool execution
+
 ## [0.4.3] - 2025-08-15
 
 ### Fixed

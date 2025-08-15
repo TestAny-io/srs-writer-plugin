@@ -336,12 +336,15 @@ async function showQuickOverview(): Promise<void> {
     const syncIcon = syncStatus.isConsistent ? '✅' : '⚠️';
     const baseDir = session?.baseDir ? require('path').basename(session.baseDir) : '无';
     
+    // 🚀 新增：获取最近活动信息
+    const recentActivity = await sessionManager.getRecentActivity();
+    
     // 构建状态信息文本
     const statusMessage = `🚀 SRS Writer 状态概览
 
 📁 当前项目: ${session?.projectName || '无项目'}
 📂 基础目录: ${baseDir}
-📄 活跃文件: ${session?.activeFiles.length || 0}个
+⏰ 最近活动: ${recentActivity}
 
 ${syncIcon} 同步状态: ${syncStatus.isConsistent ? '正常' : '需要同步'}
 

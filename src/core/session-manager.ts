@@ -738,6 +738,119 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
+     * 🚀 新增：获取最近活动文件信息
+     * 扫描项目目录中最近修改的文件，返回格式化的活动信息
+     */
+    public async getRecentActivity(): Promise<string> {
+        if (!this.currentSession?.baseDir) {
+            return '无项目';
+        }
+
+        try {
+            const recentFiles = await this.scanRecentFiles(this.currentSession.baseDir, 3);
+            
+            if (recentFiles.length === 0) {
+                return '暂无活动';
+            }
+
+            const activities = recentFiles.map(file => {
+                const timeAgo = this.formatTimeAgo(file.modifiedTime);
+                return `${file.name} (${timeAgo})`;
+            });
+
+            return activities.join(' | ');
+        } catch (error) {
+            this.logger.error('Failed to get recent activity', error as Error);
+            return '活动获取失败';
+        }
+    }
+
+    /**
+     * 扫描目录中最近修改的文件
+     */
+    private async scanRecentFiles(baseDir: string, limit: number = 3): Promise<Array<{name: string, modifiedTime: Date}>> {
+        try {
+            const fs = await import('fs/promises');
+            const path = await import('path');
+            
+            // 读取目录内容
+            const entries = await fs.readdir(baseDir, { withFileTypes: true });
+            const files: Array<{name: string, modifiedTime: Date}> = [];
+            
+            for (const entry of entries) {
+                // 跳过隐藏文件和目录，以及常见的排除目录
+                if (entry.name.startsWith('.') || 
+                    ['node_modules', 'dist', 'build', 'coverage'].includes(entry.name)) {
+                    continue;
+                }
+                
+                const fullPath = path.join(baseDir, entry.name);
+                try {
+                    const stats = await fs.stat(fullPath);
+                    
+                    // 只处理文件，且优先处理项目相关文件
+                    if (entry.isFile() && this.isProjectRelevantFile(entry.name)) {
+                        files.push({
+                            name: entry.name,
+                            modifiedTime: stats.mtime
+                        });
+                    }
+                } catch (statError) {
+                    // 忽略无法访问的文件
+                    continue;
+                }
+            }
+            
+            // 按修改时间排序，最新的在前
+            files.sort((a, b) => b.modifiedTime.getTime() - a.modifiedTime.getTime());
+            
+            return files.slice(0, limit);
+        } catch (error) {
+            this.logger.error('Failed to scan recent files', error as Error);
+            return [];
+        }
+    }
+
+    /**
+     * 判断是否为项目相关文件
+     */
+    private isProjectRelevantFile(fileName: string): boolean {
+        const relevantExtensions = ['.md', '.yaml', '.yml', '.json', '.txt'];
+        const relevantNames = ['SRS.md', 'requirements.yaml', 'requirements_scaffold.yaml', 'README.md'];
+        
+        // 优先显示重要文件
+        if (relevantNames.includes(fileName)) {
+            return true;
+        }
+        
+        // 其次显示相关扩展名的文件
+        return relevantExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+    }
+
+    /**
+     * 格式化时间为用户友好的"多久之前"格式
+     */
+    private formatTimeAgo(date: Date): string {
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMinutes = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        if (diffMinutes < 1) {
+            return '刚刚';
+        } else if (diffMinutes < 60) {
+            return `${diffMinutes}分钟前`;
+        } else if (diffHours < 24) {
+            return `${diffHours}小时前`;
+        } else if (diffDays < 7) {
+            return `${diffDays}天前`;
+        } else {
+            return date.toLocaleDateString();
+        }
+    }
+
+    /**
      * 强制刷新会话路径（优化：现在使用动态getter，此方法保留以维持接口兼容性）
      */
     public refreshSessionPath(): void {
