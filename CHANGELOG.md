@@ -7,70 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 2025-08-15
+## [0.4.3] - 2025-08-15
+
+### Fixed
+
+- **Critical**: Enhanced network error retry mechanism for VSCode LLM API calls
+    - Added automatic retry logic for network-related errors (net::ERR_NETWORK_CHANGED, connection failures, etc.)
+    - Implemented exponential backoff strategy with 3 retries for network errors and 1 retry for server errors
+    - Fixed issue where network interruptions during AI response stream processing would cause immediate plan failure
+    - Retry attempts no longer consume specialist iteration limits, ensuring consistent execution behavior
+    - Enhanced error classification to identify retryable vs. non-retryable errors automatically
+    - Improved error messages with retry status information for better user feedback
+
+### Enhanced
+
+- **Robustness**: Specialist execution resilience improvements
+    - Network errors are now gracefully handled without terminating entire plan execution
+    - Enhanced error handling covers both initial request sending and response stream processing phases
+    - Added comprehensive debugging logs for UAT phase validation (to be cleaned post-UAT)
+    - Improved system stability during network connectivity fluctuations
+
+## [0.4.0] - 2025-08-14
 
 ### Added
 
 - **New Feature**: Plugin Settings quick access in Control Panel
-  - Added "Plugin Settings" option to SRS Writer Control Panel
-  - One-click access to plugin configuration from status bar
-  - Direct navigation to plugin settings without manual search
-  - Supports multiple fallback mechanisms for maximum compatibility
+    - Added "Plugin Settings" option to SRS Writer Control Panel
+    - One-click access to plugin configuration from status bar
+    - Direct navigation to plugin settings without manual search
+    - Supports multiple fallback mechanisms for maximum compatibility
 
 ### Enhanced
 
 - **Project Switching**: Improved project switch experience with plan interruption
-  - Added intelligent plan execution detection during project switching
-  - Implemented user confirmation dialog when switching with active plans
-  - Added graceful plan cancellation at specialist loop level for immediate termination
-  - Enhanced progress bar with real-time synchronization of plan termination status
-  - Comprehensive context cleanup to prevent cross-project data contamination
+    - Added intelligent plan execution detection during project switching
+    - Implemented user confirmation dialog when switching with active plans
+    - Added graceful plan cancellation at specialist loop level for immediate termination
+    - Enhanced progress bar with real-time synchronization of plan termination status
+    - Comprehensive context cleanup to prevent cross-project data contamination
 
 - **User Experience**: Streamlined interface interactions
-  - Removed redundant status bar tooltip to eliminate "flashing" popups during project switching
-  - Optimized status bar updates from polling-based to event-driven for better performance
-  - Eliminated unnecessary confirmation dialogs in settings access for smoother workflow
-  - Improved visual feedback during project switching operations
+    - Removed redundant status bar tooltip to eliminate "flashing" popups during project switching
+    - Optimized status bar updates from polling-based to event-driven for better performance
+    - Eliminated unnecessary confirmation dialogs in settings access for smoother workflow
+    - Improved visual feedback during project switching operations
 
 ### Technical Improvements
 
 - **Architecture**: Enhanced global engine framework integration
-  - Strengthened cancellation mechanism propagation through execution chain
-  - Improved specialist-level execution control with callback-based cancellation
-  - Added comprehensive project context lifecycle management
-  - Enhanced session observer pattern for real-time status updates
+    - Strengthened cancellation mechanism propagation through execution chain
+    - Improved specialist-level execution control with callback-based cancellation
+    - Added comprehensive project context lifecycle management
+    - Enhanced session observer pattern for real-time status updates
 
 ## [0.3.4] - 2025-08-13
 
 ### Added
 
 - **New Feature**: "Exit Current Project" option in project switching interface
-  - Allows users to exit current project and return to clean plugin state
-  - Soft restart functionality using VSCode window reload
-  - Comprehensive project archiving before restart
-  - Progress indicators for user feedback during restart process
+    - Allows users to exit current project and return to clean plugin state
+    - Soft restart functionality using VSCode window reload
+    - Comprehensive project archiving before restart
+    - Progress indicators for user feedback during restart process
 
 ### Enhanced
 
 - **UI/UX Improvements**: Complete English interface support
-  - Renamed "状态管理" to "Control Panel" for better functionality representation
-  - Converted all interface text to English for international users
-  - Updated quickpick placeholders and descriptions to English
-  - Improved user experience for American and international users
+    - Renamed "状态管理" to "Control Panel" for better functionality representation
+    - Converted all interface text to English for international users
+    - Updated quickpick placeholders and descriptions to English
+    - Improved user experience for American and international users
 
 - **Documentation Structure**: SRS Table of Contents integration in prompts
-  - Added SRS ToC (Table of Contents) loading functionality using `readMarkdownFile` tool
-  - Integrated ToC into 9-part prompt structure (previously 8-part)
-  - Enhanced `PromptAssemblyEngine` with `loadProjectSRSContent` method using ToC mode
-  - Implemented stable SID generation for consistent `executeSemanticEdits` operations
-  - Added `SRS_TOC` and `CURRENT_SRS_TOC` context variables for specialist prompts
+    - Added SRS ToC (Table of Contents) loading functionality using `readMarkdownFile` tool
+    - Integrated ToC into 9-part prompt structure (previously 8-part)
+    - Enhanced `PromptAssemblyEngine` with `loadProjectSRSContent` method using ToC mode
+    - Implemented stable SID generation for consistent `executeSemanticEdits` operations
+    - Added `SRS_TOC` and `CURRENT_SRS_TOC` context variables for specialist prompts
 
 ### Fixed
 
 - **Stability**: SID generation consistency verification
-  - Validated SID stability across multiple document parses
-  - Ensured consistent SID generation for duplicate titles using hash-based disambiguation
-  - Verified compatibility with `executeSemanticEdits` tool requirements
+    - Validated SID stability across multiple document parses
+    - Ensured consistent SID generation for duplicate titles using hash-based disambiguation
+    - Verified compatibility with `executeSemanticEdits` tool requirements
 
 ## [0.3.0] - 2025-08-10
 
@@ -86,9 +106,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Major**: Redesigned `readMarkdownFile` output structure:
-  - Removed redundant `utf8` and `codepoint` fields from `TextOffset`
-  - Updated `offset.utf16` to provide section ranges instead of just title position
-  - Added `endLine` field to `TableOfContentsTreeNode` for better section boundary information
+    - Removed redundant `utf8` and `codepoint` fields from `TextOffset`
+    - Updated `offset.utf16` to provide section ranges instead of just title position
+    - Added `endLine` field to `TableOfContentsTreeNode` for better section boundary information
 - Improved `executeMarkdownEdits` tool definition with clearer absolute line number documentation
 - Enhanced validation logic to provide better error messages and section boundary hints
 - Removed deprecated `sectionTitle` fuzzy matching - now enforces strict SID-based targeting
