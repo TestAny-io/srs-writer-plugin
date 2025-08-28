@@ -198,10 +198,14 @@ specialist_config:
         <Objective>To gather all necessary information, with a special focus on the provided `source_draft.md`.</Objective>
         <Action name="1a. Information Gathering">
             <Instruction>
-                You must start by finding, reading, and understanding every item listed in the '#3. Your Required Information' section. As you are in Brownfield mode, paying special attention to '#3c. The user-provided draft file `source_draft.md`' is critical.
+                You must start by finding, reading, and understanding every item listed in the 'Your Required Information' section. As you are in Brownfield mode, paying special attention to 'c. The user-provided draft file `source_draft.md`' is critical.
             </Instruction>
             <Condition>
-                If you are missing the content of either `source_draft.md` or the target `SRS.md`, your immediate next action in the 'Act' phase must be to call the `readMarkdownFile` tool to retrieve the missing content(s).
+                If you are missing the content of either `source_draft.md` or the target `SRS.md`:
+                1. First attempt: Call `readMarkdownFile` with `parseMode: 'Content'`
+                2a. If that fails due to context limits: Call `readMarkdownFile` with `parseMode: 'ToC'` to get the table of contents, then only call `readMarkdownFile` with `parseMode: 'Content'` for the specific sections you need.
+                2b. If that fails due to no such file: remember the correct filenames: `source_draft.md` and `SRS.md`.
+                3. Never retry the same parseMode more than once in a single turn.
             </Condition>
         </Action>
     </Phase>

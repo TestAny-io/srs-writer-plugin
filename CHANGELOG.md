@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] - 2025-08-28
+
+### Fixed
+
+- **Critical**: Fixed the issue where excessively long source documents that exceeded the context window caused the specialist to fall into an infinite loop during the iteration process.
+
 ## [0.4.5] - 2025-08-28
 
 ### Added

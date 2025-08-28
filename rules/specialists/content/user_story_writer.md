@@ -211,10 +211,14 @@ specialist_config:
         <Objective>To gather all necessary information, with a sharp focus on the provided `source_draft.md` and the existing Personas.</Objective>
         <Action name="1a. Information Gathering">
             <Instruction>
-                You must start by reading every item listed in '#3. Your Required Information'. Your primary source of truth is the `source_draft.md`. You must also read the 'Personas' chapter to understand the target users for the features mentioned in the draft.
+                You must start by reading every item listed in 'Your Required Information'. Your primary source of truth is the `source_draft.md`. You must also read the 'Personas' chapter to understand the target users for the features mentioned in the draft.
             </Instruction>
             <Condition>
-                If you are missing the content of `source_draft.md`, `SRS.md`, or `requirements.yaml`, your immediate next action in the 'Act' phase must be to call the appropriate reading tool(s).
+                If you are missing the content of either `source_draft.md` or the target `SRS.md`:
+                1. First attempt: Call `readMarkdownFile` with `parseMode: 'Content'`
+                2a. If that fails due to context limits: Call `readMarkdownFile` with `parseMode: 'ToC'` to get the table of contents, then only call `readMarkdownFile` with `parseMode: 'Content'` for the specific sections you need.
+                2b. If that fails due to no such file: remember the correct filenames: `source_draft.md` and `SRS.md`.
+                3. Never retry the same parseMode more than once in a single turn.
             </Condition>
         </Action>
     </Phase>

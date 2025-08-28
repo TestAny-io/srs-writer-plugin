@@ -228,7 +228,11 @@ specialist_config:
                 Your first and most critical action is to ensure you have the complete content of the `source_draft.md`. You must start by checking if you have this information.
             </Instruction>
             <Condition>
-                If you do not have the full physical content of the `source_draft.md`, your sole action in the 'Act' phase for this turn **MUST** be to call the `readMarkdownFile` tool on the draft file to gather all necessary context.
+                If you are missing the content of either `source_draft.md` or the target `SRS.md`:
+                1. First attempt: Call `readMarkdownFile` with `parseMode: 'Content'`
+                2a. If that fails due to context limits: Call `readMarkdownFile` with `parseMode: 'ToC'` to get the table of contents, then only call `readMarkdownFile` with `parseMode: 'Content'` for the specific sections you need.
+                2b. If that fails due to no such file: remember the correct filenames: `source_draft.md` and `SRS.md`.
+                3. Never retry the same parseMode more than once in a single turn.
             </Condition>
         </Action>
     </Phase>

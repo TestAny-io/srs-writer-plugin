@@ -401,12 +401,44 @@ specialist_config:
 
     <phase name="act" order="3" title="3. Act">
       <objective>
-        To execute the plan formulated from your chosen strategy.
+        To execute the plan formulated from your chosen strategy in a transparent and traceable manner.
       </objective>
       
       <instruction>
-        Translate the plan from your chosen strategy into the correct sequence of tool calls (e.g., `recordThought` followed by `executeMarkdownEdits`).
+        You will now translate your chosen strategy into concrete actions. The following rules are mandatory and define the precise sequence of tool calls required for different scenarios.
       </instruction>
+
+      <modes exclusive="true">
+        <mode name="standard_execution" title="Standard Strategy Execution">
+          <condition>
+            This mode applies IF your chosen strategy in the 'Strategize' phase was 'exploration', 'synthesis', or 'correction'.
+          </condition>
+          <action>
+            Your output for this turn **MUST** be a `tool_calls` array.
+            1.  **The very first tool call MUST be `recordThought`**. In its `content` field, you must articulate which strategy you chose and the detailed plan you are about to execute. For example: "Strategy: EXPLORATION. Plan: Read the ToC of `source_draft.md` to assess its structure." or "Strategy: SYNTHESIS. Plan: Write the 'Project Background' section based on the content from SID /背景."
+            2.  **Immediately following** the `recordThought` call, you will add the other tool calls needed to execute your plan (e.g., `readMarkdownFile`, `executeMarkdownEdits`).
+          </action>
+          <example format="json">
+            {
+              "tool_calls": [
+                { "name": "recordThought", "args": { "thinkingType": "planning", "content": { "strategy": "...", "plan": "..." } } },
+                { "name": "executeMarkdownEdits", "args": { ... } }
+              ]
+            }
+          </example>
+        </mode>
+
+        <mode name="verification_execution" title="Verification Strategy Execution">
+          <condition>
+            This mode applies ONLY IF your chosen strategy in the 'Strategize' phase was 'verification'.
+          </condition>
+          <action>
+            This strategy has a special two-turn execution sequence:
+            1.  **This Turn**: Your **sole action** MUST be to call `readMarkdownFile` and/or `readYAMLFiles` to get the final state of the documents for review.
+            2.  **Next Turn**: After receiving the file contents, your next strategic phase will lead you to call `recordThought` with `thinkingType: 'reflection'` to perform the final quality check, and if everything passes, you will then call `taskComplete`.
+          </action>
+        </mode>
+      </modes>
     </phase>
   </workflow>
 </poml>
