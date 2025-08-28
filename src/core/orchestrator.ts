@@ -103,8 +103,13 @@ export class Orchestrator {
       
       // 知识问答模式
       if (initialPlan.response_mode === AIResponseMode.KNOWLEDGE_QA) {
-        this.logger.info(`🔍 [DEBUG] Processing KNOWLEDGE_QA mode`);
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] Orchestrator处理KNOWLEDGE_QA模式`);
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否有direct_response: ${!!initialPlan.direct_response}`);
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否有tool_calls: ${!!(initialPlan.tool_calls && initialPlan.tool_calls.length > 0)}`);
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - thought: ${initialPlan.thought?.substring(0, 100) || 'null'}`);
+        
         if (initialPlan.tool_calls && initialPlan.tool_calls.length > 0) {
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 有工具调用，进入ConversationalExecutor`);
           // 有工具调用（如知识检索），进入执行流程
           return await this.conversationalExecutor.executeConversationalPlanning(
             userInput,
@@ -116,8 +121,10 @@ export class Orchestrator {
             CallerType.ORCHESTRATOR_KNOWLEDGE_QA
           );
         } else {
-          // 无工具调用，基于已有知识直接回答
-          return {
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 无工具调用，直接返回响应`);
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response长度: ${initialPlan.direct_response?.length || 0}`);
+          
+          const result = {
             intent: 'direct_response',
             result: {
               mode: 'knowledge_qa',
@@ -125,6 +132,13 @@ export class Orchestrator {
               thought: initialPlan.thought
             }
           };
+          
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 准备返回结果:`);
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - intent: ${result.intent}`);
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - result.mode: ${result.result.mode}`);
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - result.response长度: ${result.result.response.length}`);
+          
+          return result;
         }
       }
     

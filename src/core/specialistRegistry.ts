@@ -18,6 +18,7 @@ import {
     SpecialistQueryOptions,
     SpecialistValidationResult
 } from '../types/specialistRegistry';
+import { filterSpecialistFiles } from '../utils/fileExtensions';
 
 /**
  * Specialist动态注册表
@@ -133,11 +134,11 @@ export class SpecialistRegistry {
             }
 
             const files = fs.readdirSync(dirPath);
-            const mdFiles = files.filter(file => file.endsWith('.md') && file !== '.gitkeep');
+            const specialistFiles = filterSpecialistFiles(files);
             
-            this.logger.info(`🔍 [SpecialistRegistry] 扫描${category}目录: 发现${mdFiles.length}个.md文件`);
+            this.logger.info(`🔍 [SpecialistRegistry] 扫描${category}目录: 发现${specialistFiles.length}个specialist文件`);
 
-            for (const fileName of mdFiles) {
+            for (const fileName of specialistFiles) {
                 const filePath = path.join(dirPath, fileName);
                 results.foundFiles.push(filePath);
                 results.scanStats.totalFiles++;

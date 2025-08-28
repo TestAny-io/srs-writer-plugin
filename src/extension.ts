@@ -209,13 +209,13 @@ function createEnhancedStatusBar(): vscode.StatusBarItem {
             const session = await sessionManager?.getCurrentSession();
             
             if (session?.projectName) {
-                statusBarItem.text = `$(notebook-kernel) SRS: ${session.projectName}`;
+                statusBarItem.text = `$(edit) SRS: ${session.projectName}`;
             } else {
-                statusBarItem.text = '$(notebook-kernel) SRS Writer';
+                statusBarItem.text = '$(edit) SRS Writer';
             }
         } catch (error) {
             // 静默处理错误，避免频繁的错误弹窗
-            statusBarItem.text = '$(notebook-kernel) SRS Writer';
+            statusBarItem.text = '$(edit) SRS Writer';
         }
     };
     

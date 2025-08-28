@@ -104,8 +104,9 @@ Based on the tool definitions above, these are the most commonly used tool types
 
 ## 📝 `readMarkdownFile` - Advanced semantic editing tool usage guide
 
-- **pick appropriate parseMode**: 每个mode的输出详细程度相差很大，请根据实际需要选择合适的mode。如果你只是想获取目录结构，请使用`parseMode: 'toc'`。如果你需要获取完整的物理内容，请使用`parseMode: 'content'`。
-- **pick precise SID**: 尽量只读取你关注的章节，这样你的思考和写作会更快，更准确。
+- **Always explore Table of Contents**: You have a limited length of content you can read at one time, so always use `parseMode: 'toc'` to explore the table of contents of the document, and then pick the appropriate SID to read the content.
+- **pick appropriate parseMode**: The output detail level varies greatly between each mode, so please choose the appropriate mode according to actual needs. If you just want to get the directory structure, please use parseMode: `toc`. If you need to get the complete physical content, please use parseMode: `content`.
+- **pick precise SID**: Always read the content of the section you are interested in, so your thinking and writing will be faster and more accurate.
 
 ## **Self-check list**
 

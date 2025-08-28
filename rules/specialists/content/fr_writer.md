@@ -23,7 +23,7 @@ specialist_config:
   
   # 🎯 迭代配置
   iteration_config:
-    max_iterations: 10
+    max_iterations: 20
     default_iterations: 5
   
   # 🎨 模版配置
@@ -127,26 +127,42 @@ specialist_config:
         </Action>
     </Phase>
 
-    <Phase name="3. Act & Verify">
-        <Objective>To execute the plan, populate the backlog, and then physically verify the changes before completion.</Objective>
-        
-        <Action name="3a. Record and Execute Plan (MANDATORY)">
-            <Instruction>
-                Your turn MUST contain tool calls to `executeMarkdownEdits` and `executeYAMLEdits` to write the content you have composed. You should always call the `recordThought` tool first to log your plan for the turn.
-            </Instruction>
-        </Action>
+    <Phase name="3. Act">
+        <Objective>To execute the plan from the 'Think' phase OR to verify the final result if writing is complete.</Objective>
+        <Description>
+            Based on your analysis in the 'Think' phase, you will decide whether to enter WRITING mode or VERIFICATION mode. These two modes are mutually exclusive in a single turn.
+        </Description>
 
-        <Action name="3b. Final Verification and Completion (MANDATORY PRE-COMPLETION STEP)">
-            <Instruction>
-                After you believe all writing tasks are done, you **MUST** perform one final verification loop. In this loop, your **first action** must be to call the `readMarkdownFile` and `readYAMLFiles` tools again to get the absolute final state of the documents.
-            </Instruction>
-            <Instruction>
-                Your **second action** in this verification loop is to perform a `reflection` thought. In this thought, you will compare the content you just read from the `SRS.md` and `requirements.yaml` files with your intended final state.
-            </Instruction>
+        <Rule name="WRITING_MODE">
             <Condition>
-                If, and only if, this final verification confirms that the documents you just read are completely edited and correct, your final tool call for the entire task must be to `taskComplete`. Otherwise, you must plan another editing cycle.
+                If you have composed new or updated content in your 'Think' phase that needs to be written to the files.
             </Condition>
-        </Action>
+            <Action>
+                Your output for this turn **MUST** be a `tool_calls` array containing a sequence of calls. The **first call MUST be `recordThought`** detailing your composition, followed immediately by the necessary `executeMarkdownEdits` and/or `executeYAMLEdits` calls to write the content.
+            </Action>
+            <Example>
+                ```json
+                {
+                "tool_calls": [
+                    { "name": "recordThought", "args": { ... } },
+                    { "name": "executeMarkdownEdits", "args": { ... } },
+                    { "name": "executeYAMLEdits", "args": { ... } }
+                ]
+                }
+                ```
+            </Example>
+        </Rule>
+
+        <Rule name="VERIFICATION_MODE">
+            <Condition>
+                If you have determined in the 'Think' phase that the content in the files is already complete and no more edits are needed.
+            </Condition>
+            <Action>
+                You **MUST** begin the final verification sequence. This sequence has two steps across two turns:
+                1.  **This Turn**: Your **sole action** MUST be to call `readMarkdownFile` and `readYAMLFiles` to get the final state of the documents.
+                2.  **Next Turn**: After receiving the file contents, your action will be to call `recordThought` with `thinkingType: 'reflection'` to perform the final quality check, and if everything passes, you will then call `taskComplete`.
+            </Action>
+        </Rule>
     </Phase>
 </MandatoryWorkflow>
 ```
@@ -229,24 +245,40 @@ specialist_config:
 
     <Phase name="3. Act & Verify">
         <Objective>To execute the refactoring plan, and then physically verify the changes before completion.</Objective>
+        <Description>
+            When you have completed your analysis and composed the content in the 'Think' phase, you MUST execute a specific sequence of tool calls WITHIN THE SAME TURN to update the document.
+        </Description>
         
-        <Action name="3a. Record and Execute Plan (MANDATORY)">
-            <Instruction>
-                Your turn MUST contain tool calls to `executeMarkdownEdits` and `executeYAMLEdits` to write the content you have composed. You should always call the `recordThought` tool first to log your plan for the turn.
-            </Instruction>
-        </Action>
-
-        <Action name="3b. Final Verification and Completion (MANDATORY PRE-COMPLETION STEP)">
-            <Instruction>
-                After you believe all writing tasks are done, you **MUST** perform one final verification loop. In this loop, your **first action** must be to call the `readMarkdownFile` and `readYAMLFiles` tools again to get the absolute final state of the documents.
-            </Instruction>
-            <Instruction>
-                Your **second action** in this verification loop is to perform a `reflection` thought. In this thought, you will compare the content you just read from the `SRS.md` and `requirements.yaml` files with your intended final state.
-            </Instruction>
+        <Rule name="WRITING_MODE">
             <Condition>
-                If, and only if, this final verification confirms that the documents you just read are completely edited and correct, your final tool call for the entire task must be to `taskComplete`. Otherwise, you must plan another editing cycle.
+                If you have composed new or updated content in your 'Think' phase that needs to be written to the files.
             </Condition>
-        </Action>
+            <Action>
+                Your output for this turn **MUST** be a `tool_calls` array containing a sequence of calls. The **first call MUST be `recordThought`** detailing your composition, followed immediately by the necessary `executeMarkdownEdits` and/or `executeYAMLEdits` calls to write the content.
+            </Action>
+            <Example>
+                ```json
+                {
+                "tool_calls": [
+                    { "name": "recordThought", "args": { ... } },
+                    { "name": "executeMarkdownEdits", "args": { ... } },
+                    { "name": "executeYAMLEdits", "args": { ... } }
+                ]
+                }
+                ```
+            </Example>
+        </Rule>
+
+        <Rule name="VERIFICATION_MODE">
+            <Condition>
+                If you have determined in the 'Think' phase that the content in the files is already complete and no more edits are needed.
+            </Condition>
+            <Action>
+                You **MUST** begin the final verification sequence. This sequence has two steps across two turns:
+                1.  **This Turn**: Your **sole action** MUST be to call `readMarkdownFile` and `readYAMLFiles` to get the final state of the documents.
+                2.  **Next Turn**: After receiving the file contents, your action will be to call `recordThought` with `thinkingType: 'reflection'` to perform the final quality check, and if everything passes, you will then call `taskComplete`.
+            </Action>
+        </Rule>
     </Phase>
 </MandatoryWorkflow>
 ```

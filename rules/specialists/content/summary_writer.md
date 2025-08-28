@@ -22,7 +22,7 @@ specialist_config:
   
   # 🎯 迭代配置
   iteration_config:
-    max_iterations: 10
+    max_iterations: 20
     default_iterations: 5
   
   # 🎨 模版配置
@@ -135,22 +135,41 @@ specialist_config:
     </Phase>
 
     <Phase name="3. Act">
-        <Objective>To execute the plan by calling the appropriate tools, starting with a mandatory thought recording.</Objective>
-        <Action name="3a. Record Your Thoughts (MANDATORY)">
-            <Instruction>
-                Your first tool call in this phase **MUST** be to the `recordThought` tool. You must record all of your thought processes from the 'Think' phase, including the full summary content you composed.
-            </Instruction>
-        </Action>
-        <Action name="3b. Execute a File Operation">
-            <Instruction>
-                After recording your thoughts, you will typically call the `executeMarkdownEdits` tool to write the composed summary into the `SRS.md` file.
-            </Instruction>
-        </Action>
-        <Action name="3c. Complete the Task if Threshold is Met">
+        <Objective>To execute the plan from the 'Think' phase OR to verify the final result if writing is complete.</Objective>
+        <Description>
+            Based on your analysis in the 'Think' phase, you will decide whether to enter WRITING mode or VERIFICATION mode. These two modes are mutually exclusive in a single turn.
+        </Description>
+
+        <Rule name="WRITING_MODE">
             <Condition>
-                If the 'Task Completion Threshold' has been met (as determined in step 2a), your final action for the entire task must be to call the `taskComplete` tool to signal completion.
+                If you have composed new or updated content in your 'Think' phase that needs to be written to the files.
             </Condition>
-        </Action>
+            <Action>
+                Your output for this turn **MUST** be a `tool_calls` array containing a sequence of calls. The **first call MUST be `recordThought`** detailing your composition, followed immediately by the necessary `executeMarkdownEdits` and/or `executeYAMLEdits` calls to write the content.
+            </Action>
+            <Example>
+                ```json
+                {
+                "tool_calls": [
+                    { "name": "recordThought", "args": { ... } },
+                    { "name": "executeMarkdownEdits", "args": { ... } },
+                    { "name": "executeYAMLEdits", "args": { ... } }
+                ]
+                }
+                ```
+            </Example>
+        </Rule>
+
+        <Rule name="VERIFICATION_MODE">
+            <Condition>
+                If you have determined in the 'Think' phase that the content in the files is already complete and no more edits are needed.
+            </Condition>
+            <Action>
+                You **MUST** begin the final verification sequence. This sequence has two steps across two turns:
+                1.  **This Turn**: Your **sole action** MUST be to call `readMarkdownFile` and `readYAMLFiles` to get the final state of the documents.
+                2.  **Next Turn**: After receiving the file contents, your action will be to call `recordThought` with `thinkingType: 'reflection'` to perform the final quality check, and if everything passes, you will then call `taskComplete`.
+            </Action>
+        </Rule>
     </Phase>
 </MandatoryWorkflow>
 ```
@@ -231,23 +250,42 @@ specialist_config:
         </Action>
     </Phase>
 
-    <Phase name="3. Act">
-        <Objective>To execute the plan by calling the appropriate tools, starting with a mandatory thought recording.</Objective>
-        <Action name="3a. Record Your Blueprint (MANDATORY)">
-            <Instruction>
-                Your first tool call in this phase **MUST** be to the `recordThought` tool. You must record your entire thought process from the 'Think' phase, including your detailed analysis of the draft and the full, final summary content you composed.
-            </Instruction>
-        </Action>
-        <Action name="3b. Execute a File Operation">
-            <Instruction>
-                After recording your thoughts, you will call the `executeMarkdownEdits` tool to write the final, complete summary into the `SRS.md` file. The edit strategy should be a full replacement of the target chapter.
-            </Instruction>
-        </Action>
-        <Action name="3c. Complete the Task if Threshold is Met">
+    <Phase name="3. Act & Verify">
+        <Objective>To execute the refactoring plan, and then physically verify the changes before completion.</Objective>
+        <Description>
+            When you have completed your analysis and composed the content in the 'Think' phase, you MUST execute a specific sequence of tool calls WITHIN THE SAME TURN to update the document.
+        </Description>
+        
+        <Rule name="WRITING_MODE">
             <Condition>
-                If the 'Task Completion Threshold' has been met (as determined in step 2a), your final action for the entire task must be to call the `taskComplete` tool to signal completion.
+                If you have composed new or updated content in your 'Think' phase that needs to be written to the files.
             </Condition>
-        </Action>
+            <Action>
+                Your output for this turn **MUST** be a `tool_calls` array containing a sequence of calls. The **first call MUST be `recordThought`** detailing your composition, followed immediately by the necessary `executeMarkdownEdits` and/or `executeYAMLEdits` calls to write the content.
+            </Action>
+            <Example>
+                ```json
+                {
+                "tool_calls": [
+                    { "name": "recordThought", "args": { ... } },
+                    { "name": "executeMarkdownEdits", "args": { ... } },
+                    { "name": "executeYAMLEdits", "args": { ... } }
+                ]
+                }
+                ```
+            </Example>
+        </Rule>
+
+        <Rule name="VERIFICATION_MODE">
+            <Condition>
+                If you have determined in the 'Think' phase that the content in the files is already complete and no more edits are needed.
+            </Condition>
+            <Action>
+                You **MUST** begin the final verification sequence. This sequence has two steps across two turns:
+                1.  **This Turn**: Your **sole action** MUST be to call `readMarkdownFile` and `readYAMLFiles` to get the final state of the documents.
+                2.  **Next Turn**: After receiving the file contents, your action will be to call `recordThought` with `thinkingType: 'reflection'` to perform the final quality check, and if everything passes, you will then call `taskComplete`.
+            </Action>
+        </Rule>
     </Phase>
 </MandatoryWorkflow>
 ```

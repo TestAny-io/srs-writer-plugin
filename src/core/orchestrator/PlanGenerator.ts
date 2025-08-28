@@ -77,9 +77,14 @@ export class PlanGenerator {
       
       // 🎯 透传 VSCode LanguageModelError 的原始错误信息
       if (error instanceof vscode.LanguageModelError) {
-        this.logger.error(`Language Model API Error - Code: ${error.code}, Message: ${error.message}`);
+        this.logger.error(`🚨 [TOKEN_LIMIT_DEBUG] Language Model API Error - Code: ${error.code}, Message: ${error.message}`);
         
-        return {
+        // 🚨 [DEBUG] 检查是否是token超限错误
+        const isTokenLimitError = error.message.toLowerCase().includes('token limit') || 
+                                 error.message.toLowerCase().includes('exceeds') && error.message.toLowerCase().includes('limit');
+        this.logger.error(`🚨 [TOKEN_LIMIT_DEBUG] 是否为token超限错误: ${isTokenLimitError}`);
+        
+        const errorResponse = {
           thought: `Language Model API Error: ${error.code} - ${error.message}`,
           response_mode: AIResponseMode.KNOWLEDGE_QA,
           direct_response: `❌ **AI模型服务错误**
@@ -95,6 +100,13 @@ export class PlanGenerator {
 如需帮助，请使用错误代码 \`${error.code}\` 搜索相关解决方案。`,
           tool_calls: []
         };
+        
+        this.logger.error(`🚨 [TOKEN_LIMIT_DEBUG] 准备返回错误响应:`);
+        this.logger.error(`🚨 [TOKEN_LIMIT_DEBUG] - response_mode: ${errorResponse.response_mode}`);
+        this.logger.error(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response长度: ${errorResponse.direct_response.length}`);
+        this.logger.error(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response前100字符: ${errorResponse.direct_response.substring(0, 100)}`);
+        
+        return errorResponse;
       }
       
       // 其他类型错误的通用处理

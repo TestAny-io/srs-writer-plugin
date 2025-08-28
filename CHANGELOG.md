@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2025-08-28
+
+### Added
+
+- **New Feature**: Support for .poml specialist rule files
+    - Added comprehensive support for `.poml` file format alongside existing `.md` files
+    - Implemented priority system: `.poml` files take precedence over `.md` files when both exist
+    - Maintains full backward compatibility with existing `.md` specialist files
+
+### Enhanced
+
+- **UI Improvement**: Updated status bar icon from `$(notebook-kernel)` to `$(edit)` for better visual representation
+- **Build System**: Enhanced specialist configuration build process to handle multiple file formats
+- **Validation**: Improved specialist validation scripts with dynamic file scanning instead of hardcoded lists
+- **Architecture**: Centralized file extension logic for consistent handling across the entire system
+
 ## [0.4.4] - 2025-08-15
 
 ### Enhanced

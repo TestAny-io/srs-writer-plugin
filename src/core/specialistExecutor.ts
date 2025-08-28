@@ -14,6 +14,7 @@ import { getSpecialistRegistry, SpecialistRegistry } from './specialistRegistry'
 import { SpecialistDefinition } from '../types/specialistRegistry';
 import { SPECIALIST_TEMPLATE_MAPPINGS, isTemplateConfigSupported, getTemplateConfigKey } from './generated/specialist-template-mappings';
 import { TokenAwareHistoryManager } from './history/TokenAwareHistoryManager';
+import { findSpecialistFileWithExtension, getSpecialistFileName } from '../utils/fileExtensions';
 
 /**
  * 🚀 专家状态恢复接口
@@ -154,9 +155,9 @@ export class SpecialistExecutor {
         progressCallback?.onSpecialistStart?.(specialistId);
 
         try {
-            // 🚀 关键修复：从恢复状态初始化，而不是从0开始
+            // 🚀 关键修复：从恢复状态初始化，统一使用1-based计数
             let internalHistory: string[] = resumeState?.internalHistory || [];
-            let iteration = resumeState?.iteration || 0;
+            let iteration = resumeState?.iteration || 1; // 🚀 修复：从1开始，统一1-based计数
             
             // 🚀 新增：动态获取specialist的最大迭代次数
             const iterationManager = SpecialistIterationManager.getInstance();
@@ -206,8 +207,11 @@ export class SpecialistExecutor {
 
             // 🚀 新增：token limit和空响应重试计数器
             let retryCount = 0;
+            // 🚀 新增：总循环计数器，防止无限重试
+            let totalLoopCount = 0;
             
-            while (iteration < MAX_INTERNAL_ITERATIONS) {
+            while (iteration <= MAX_INTERNAL_ITERATIONS && totalLoopCount < MAX_INTERNAL_ITERATIONS * 2) {
+                totalLoopCount++; // 每次循环都增加，防止无限重试
                 // 🚀 v6.0：在specialist内部迭代中检查是否被取消
                 if (cancelledCheckCallback && cancelledCheckCallback()) {
                     this.logger.info(`🛑 ${specialistId} execution cancelled during internal iteration ${iteration} - stopping specialist`);
@@ -217,17 +221,17 @@ export class SpecialistExecutor {
                         requires_file_editing: false,
                         metadata: {
                             specialist: specialistId,
-                            iterations: iteration,
+                            iterations: iteration - 1, // 🚀 修复：使用实际完成的迭代次数
                             executionTime: Date.now() - startTime,
                             timestamp: new Date().toISOString()
                         }
                     };
                 }
                 
-                iteration++;
+                // 🚀 修复：统一使用1-based显示，与传递给AI的信息一致
                 this.logger.info(`🔄 专家 ${specialistId} 内部迭代 ${iteration}/${MAX_INTERNAL_ITERATIONS}${isResuming ? ' (恢复模式)' : ''}`);
                 
-                // 🚀 新增：通知迭代开始
+                // 🚀 修复：通知迭代开始时使用一致的1-based计数
                 progressCallback?.onIterationStart?.(iteration, MAX_INTERNAL_ITERATIONS);
 
                 // 1. 加载专家提示词 (🚀 新增：传递迭代信息)
@@ -312,14 +316,14 @@ export class SpecialistExecutor {
                         internalHistory.unshift(`Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`);
                         
                         // 🚀 关键：清理历史中的"迭代 X - 结果"部分
-                        internalHistory = this.cleanIterationResults(internalHistory);
+                        // internalHistory = this.cleanIterationResults(internalHistory); // 🔧 UAT测试：注释掉清理机制
                         
-                        // 重置retryCount为0，继续当前迭代
-                        retryCount = 0;
+                        // 🚀 修复：移除错误的retryCount重置，保持重试计数累积
+                        // retryCount = 0; // ❌ 错误：这会重置重试计数
                         
                         // 等待一小段时间（不需要指数退避）
                         await this.sleep(1000);
-                        continue; // 重试当前迭代
+                        continue; // 重试当前迭代（不增加iteration）
                         
                     } else {
                         // 重试次数耗尽
@@ -465,13 +469,16 @@ export class SpecialistExecutor {
                     internalHistory.push(`迭代 ${iteration} - AI计划:\n${planSummary}`);
                     internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsSummary}`);
                     
+                    // 🚀 修复：成功处理AI响应后才增加迭代次数
+                    iteration++;
+                    
                     // 🚀 新增：成功执行工具后重置重试计数器
                     retryCount = 0;
                     
-                    this.logger.info(`✅ [${specialistId}] 迭代 ${iteration} 记录了 ${toolResults.length} 个工具执行结果`);
+                    this.logger.info(`✅ [${specialistId}] 迭代 ${iteration - 1} 记录了 ${toolResults.length} 个工具执行结果`);
                     
                     // 🔍 [DEBUG] 记录完整工具结果到日志（用于调试）
-                    this.logger.info(`🔧 [DEBUG] [${specialistId}] 迭代 ${iteration} 工具执行结果:\n${resultsSummary}`);
+                    this.logger.info(`🔧 [DEBUG] [${specialistId}] 迭代 ${iteration - 1} 工具执行结果:\n${resultsSummary}`);
                 }
             }
 
@@ -542,10 +549,10 @@ export class SpecialistExecutor {
             // 🚀 2.5. 加载Template文件内容
             const templateFiles = await this.loadTemplateFiles(specialistId);
             
-            // 🚀 新增：计算迭代信息
+            // 🚀 修复：计算迭代信息，使用1-based计数和正确的剩余次数计算
             let iterationInfo = undefined;
             if (currentIteration !== undefined && maxIterations !== undefined) {
-                const remainingIterations = maxIterations - currentIteration;
+                const remainingIterations = maxIterations - currentIteration + 1; // 🚀 修复：正确计算剩余次数
                 let phase: 'early' | 'middle' | 'final';
                 let strategyGuidance: string;
                 
@@ -561,7 +568,7 @@ export class SpecialistExecutor {
                 }
                 
                 iterationInfo = {
-                    currentIteration,
+                    currentIteration, // 现在是1-based值
                     maxIterations,
                     remainingIterations,
                     phase,
@@ -572,7 +579,7 @@ export class SpecialistExecutor {
             // 🚀 新增：应用智能历史压缩
             const optimizedHistory = this.historyManager.compressHistory(
                 internalHistory, 
-                currentIteration || 0
+                currentIteration || 1 // 🚀 修复：使用1-based计数
             );
 
             // 3. 构建SpecialistContext
@@ -624,31 +631,74 @@ export class SpecialistExecutor {
     }
 
     /**
-     * 根据specialistId获取对应的文件名
+     * 根据specialistId获取对应的文件名（动态检测扩展名）
      */
     private getSpecialistFileName(specialistId: string): string {
-        const fileMapping: { [key: string]: string } = {
-            'help_response': 'help_response.md',
-            'complexity_classification': 'ComplexityClassification.md',
-            
-            // 新的content类specialist
-            'project_initializer': 'content/project_initializer.md',  // 🚀 新增
-            'summary_writer': 'content/summary_writer.md',
-            'overall_description_writer': 'content/overall_description_writer.md',
-            'fr_writer': 'content/fr_writer.md',
-            'nfr_writer': 'content/nfr_writer.md',
-            'user_journey_writer': 'content/user_journey_writer.md',
-            'journey_writer': 'content/user_journey_writer.md', // 别名
-            'prototype_designer': 'content/prototype_designer.md',
-            
-            // 新的process类specialist
-            'requirement_syncer': 'process/requirement_syncer.md',
-            'document_formatter': 'process/document_formatter.md',
-            'doc_formatter': 'process/document_formatter.md', // 别名
-            'git_operator': 'process/git_operator.md'
-        };
+        // 构建可能的搜索路径
+        const searchPaths: string[] = [];
         
-        return fileMapping[specialistId] || `${specialistId}.md`;
+        try {
+            const extension = vscode.extensions.getExtension('Testany.srs-writer-plugin');
+            if (extension) {
+                searchPaths.push(
+                    path.join(extension.extensionPath, 'rules/specialists/content'),
+                    path.join(extension.extensionPath, 'rules/specialists/process'),
+                    path.join(extension.extensionPath, 'rules/specialists')
+                );
+            }
+        } catch (error) {
+            this.logger.warn('无法获取扩展路径，使用备用路径');
+        }
+        
+        // 添加其他可能的路径
+        searchPaths.push(
+            path.join(__dirname, '../../rules/specialists/content'),
+            path.join(__dirname, '../../rules/specialists/process'),
+            path.join(__dirname, '../../rules/specialists'),
+            path.join(__dirname, '../rules/specialists/content'),
+            path.join(__dirname, '../rules/specialists/process'),
+            path.join(__dirname, '../rules/specialists'),
+            path.join(process.cwd(), 'rules/specialists/content'),
+            path.join(process.cwd(), 'rules/specialists/process'),
+            path.join(process.cwd(), 'rules/specialists')
+        );
+
+        // 特殊映射处理（处理别名和特殊路径）
+        const specialMappings: { [key: string]: string[] } = {
+            'help_response': ['help_response'],
+            'complexity_classification': ['ComplexityClassification'],
+            'journey_writer': ['user_journey_writer'], // 别名
+            'doc_formatter': ['document_formatter'], // 别名
+        };
+
+        const searchNames = specialMappings[specialistId] || [specialistId];
+        
+        // 尝试找到实际存在的文件
+        for (const searchName of searchNames) {
+            // 首先尝试在content目录中查找
+            const contentPaths = searchPaths.filter(p => p.includes('content'));
+            const contentFile = findSpecialistFileWithExtension(searchName, contentPaths);
+            if (contentFile) {
+                return `content/${path.basename(contentFile)}`;
+            }
+            
+            // 然后尝试在process目录中查找
+            const processPaths = searchPaths.filter(p => p.includes('process'));
+            const processFile = findSpecialistFileWithExtension(searchName, processPaths);
+            if (processFile) {
+                return `process/${path.basename(processFile)}`;
+            }
+            
+            // 最后尝试在根目录中查找
+            const rootPaths = searchPaths.filter(p => !p.includes('content') && !p.includes('process'));
+            const rootFile = findSpecialistFileWithExtension(searchName, rootPaths);
+            if (rootFile) {
+                return path.basename(rootFile);
+            }
+        }
+        
+        // 如果都没找到，使用工具函数生成默认文件名
+        return getSpecialistFileName(specialistId);
     }
 
     /**
@@ -989,6 +1039,7 @@ ${context.dependentResults?.length > 0
 
     /**
      * 🚀 智能工具结果摘要 - 专门处理臃肿工具的简化显示
+     * 🚀 新增：第一层防护 - 单个工具结果的token检查
      */
     private summarizeToolResult(result: any): string {
         const { toolName, success } = result;
@@ -1017,9 +1068,45 @@ ${context.dependentResults?.length > 0
                 return `${toolName}: ✅ 成功 - 应用${yamlAppliedCount}个YAML编辑操作`;
                 
             default:
-                // 其他工具保持原有的完整格式（包括失败情况）
-                return `工具: ${toolName}, 成功: ${success}, 结果: ${JSON.stringify(result.result)}`;
+                // 🚀 第一层防护：检查单个工具结果的token长度
+                const originalResult = `工具: ${toolName}, 成功: ${success}, 结果: ${JSON.stringify(result.result)}`;
+                const resultTokens = this.estimateTokens(originalResult);
+                const immediateTokenLimit = this.getImmediateTokenLimit();
+                
+                if (resultTokens > immediateTokenLimit) {
+                    this.logger.warn(`⚠️ [第一层防护] 工具 ${toolName} 结果过大: ${resultTokens}/${immediateTokenLimit} tokens，已简化显示`);
+                    return `工具: ${toolName}, 成功: ${success}, 结果: Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`;
+                }
+                
+                return originalResult;
         }
+    }
+
+    /**
+     * 🚀 新增：Token估算方法 (修复版本，更准确地估算大文件)
+     */
+    private estimateTokens(text: string): number {
+        // 更准确的token估算：大约每4个字符 = 1个token
+        // 这是一个更接近实际GPT tokenization的估算，特别适用于大文件
+        return Math.ceil(text.length / 4);
+    }
+
+    /**
+     * 🚀 新增：获取immediate层token限制
+     */
+    private getImmediateTokenLimit(): number {
+        try {
+            const iterationManager = SpecialistIterationManager.getInstance();
+            const config = iterationManager.getHistoryConfig();
+            if (config && config.compressionEnabled) {
+                return Math.floor(config.tokenBudget * config.tierRatios.immediate);
+            }
+        } catch (error) {
+            this.logger.warn('⚠️ [SpecialistExecutor] 获取历史配置失败，使用默认immediate限制');
+        }
+        
+        // 默认值：40000 * 0.9 = 36000
+        return Math.floor(40000 * 0.9);
     }
 
     /**
@@ -1636,7 +1723,8 @@ SUGGESTED ACTIONS:
                         // 🚀 关键：在重试前添加警告到internalHistory顶部
                         const optimizedHistory = [
                             `Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`,
-                            ...this.cleanIterationResults(internalHistory)
+                            // ...this.cleanIterationResults(internalHistory) // 🔧 UAT测试：注释掉清理机制
+                            ...internalHistory // 🔧 UAT测试：保留完整历史
                         ];
                         
                         // 重新生成优化后的提示词
@@ -1684,6 +1772,21 @@ SUGGESTED ACTIONS:
         this.logger.warn(`🔍 [DEBUG] classifyNetworkError: message="${message}"`);
         this.logger.warn(`🔍 [DEBUG] classifyNetworkError: code="${code}"`);
         
+        // 🚀 优先检查：Token limit错误和空响应错误（不依赖错误类型）
+        if (message.includes('token limit') || 
+            message.includes('exceeds') && message.includes('limit') ||
+            message.includes('context length') ||
+            message.includes('maximum context') ||
+            message.includes('response contained no choices') ||
+            message.includes('no choices')) {
+            return {
+                retryable: true,
+                maxRetries: 3,
+                errorCategory: 'config',
+                userMessage: 'Token限制或空响应错误，正在优化提示词重试'
+            };
+        }
+        
         // 不仅检查 instanceof，也检查错误名称和内容
         if (error instanceof vscode.LanguageModelError || 
             error.constructor.name === 'LanguageModelError' ||
@@ -1692,31 +1795,19 @@ SUGGESTED ACTIONS:
             message.includes('firewall') ||
             message.includes('network connection')) {
             
-            // 🚀 新增：Token limit错误（可重试3次）
-            if (message.includes('token limit') || 
-                message.includes('exceeds') && message.includes('limit') ||
-                message.includes('context length') ||
-                message.includes('maximum context')) {
-                return {
-                    retryable: true,
-                    maxRetries: 3,
-                    errorCategory: 'config',
-                    userMessage: 'Token限制错误，正在优化提示词重试'
-                };
-            }
-            
             // 可重试的网络错误（3次）
             if (message.includes('net::err_network_changed') ||
                 message.includes('net::err_connection_refused') ||
                 message.includes('net::err_internet_disconnected') ||
                 message.includes('net::err_timed_out') ||
                 message.includes('net::err_name_not_resolved') ||
-                message.includes('network') && message.includes('connection')) {
+                message.includes('network') && message.includes('connection') ||
+                message.includes('server error') && message.includes('stream terminated')) {
                 return {
                     retryable: true,
                     maxRetries: 3,
                     errorCategory: 'network',
-                    userMessage: '网络连接问题，正在重试'
+                    userMessage: '网络连接或流式响应问题，正在重试'
                 };
             }
             
@@ -1812,11 +1903,12 @@ SUGGESTED ACTIONS:
     /**
      * 🚀 新增：清理内部历史中的"迭代 X - 结果"部分
      * 在token limit重试时减少提示词长度
+     * 🔧 UAT测试：暂时注释掉，保留完整迭代历史
      */
-    private cleanIterationResults(internalHistory: string[]): string[] {
-        return internalHistory.filter(entry => {
-            // 删除所有"迭代 X - 结果"相关的条目（包括多行内容）
-            return !entry.match(/^迭代 \d+ - (AI计划|工具结果|结果)/);
-        });
-    }
+    // private cleanIterationResults(internalHistory: string[]): string[] {
+    //     return internalHistory.filter(entry => {
+    //         // 删除所有"迭代 X - 结果"相关的条目（包括多行内容）
+    //         return !entry.match(/^迭代 \d+ - (AI计划|工具结果|结果)/);
+    //     });
+    // }
 } 

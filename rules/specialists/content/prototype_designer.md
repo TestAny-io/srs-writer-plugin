@@ -23,7 +23,7 @@ specialist_config:
   
   # 🎯 迭代配置
   iteration_config:
-    max_iterations: 8
+    max_iterations: 20
     default_iterations: 4
   
   # 🎨 模版配置

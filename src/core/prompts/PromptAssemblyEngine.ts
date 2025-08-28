@@ -14,6 +14,7 @@ import * as yaml from 'js-yaml';
 import { Logger } from '../../utils/logger';
 import { getSpecialistRegistry } from '../specialistRegistry';
 import { readMarkdownFile } from '../../tools/document/enhanced-readfile-tools';
+import { getSupportedSpecialistExtensions, filterSpecialistFiles } from '../../utils/fileExtensions';
 
 export interface SpecialistType {
   name: string;
@@ -296,13 +297,29 @@ export class PromptAssemblyEngine {
    * 加载专家特化模板（原方法，保持向后兼容）
    */
   private async loadSpecificTemplate(specialistName: string): Promise<string> {
-    // 🚀 新架构：支持specialists/content/和specialists/process/目录结构
-    const possiblePaths = [
-      `specialists/content/${specialistName}.md`,     // content specialists
-      `specialists/process/${specialistName}.md`,     // process specialists
-      `specialists/${specialistName}.md`,              // root specialists (向后兼容)
-      `specialist/${specialistName}-specific.md`      // 原设计格式 (向后兼容)
+    // 🚀 新架构：支持specialists/content/和specialists/process/目录结构，支持 .poml 和 .md 扩展名
+    const possiblePaths: string[] = [];
+    
+    // 为每个目录和每个支持的扩展名生成路径
+    const directories = [
+      'specialists/content',     // content specialists
+      'specialists/process',     // process specialists
+      'specialists',             // root specialists (向后兼容)
+      'specialist'               // 原设计格式目录 (向后兼容)
     ];
+    
+    const extensions = getSupportedSpecialistExtensions();
+    
+    for (const dir of directories) {
+      for (const ext of extensions) {
+        if (dir === 'specialist') {
+          // 原设计格式特殊处理
+          possiblePaths.push(`${dir}/${specialistName}-specific${ext}`);
+        } else {
+          possiblePaths.push(`${dir}/${specialistName}${ext}`);
+        }
+      }
+    }
     
     //this.logger.info(`🔍 [PromptAssembly] 尝试加载专家模板: ${specialistName}, 可能路径: ${possiblePaths.join(', ')}`);
     
@@ -865,7 +882,7 @@ Based on all the instructions and context above, generate a valid JSON object th
       // 扫描base目录
       const basePath = path.join(this.templateBasePath, 'base');
       const baseFiles = await fs.readdir(basePath);
-      baseTemplates.push(...baseFiles.filter(file => file.endsWith('.md')));
+      baseTemplates.push(...filterSpecialistFiles(baseFiles));
     } catch (error) {
       this.logger.warn('⚠️ [PromptAssembly] Base templates目录未找到');
     }
@@ -874,7 +891,7 @@ Based on all the instructions and context above, generate a valid JSON object th
       // 扫描domain目录
       const domainPath = path.join(this.templateBasePath, 'domain');
       const domainFiles = await fs.readdir(domainPath);
-      domainTemplates.push(...domainFiles.filter(file => file.endsWith('.md')));
+      domainTemplates.push(...filterSpecialistFiles(domainFiles));
     } catch (error) {
       this.logger.warn('⚠️ [PromptAssembly] Domain templates目录未找到');
     }
@@ -883,7 +900,7 @@ Based on all the instructions and context above, generate a valid JSON object th
       // 扫描specialist目录
       const specialistPath = path.join(this.templateBasePath, 'specialist');
       const specialistFiles = await fs.readdir(specialistPath);
-      specialistTemplates.push(...specialistFiles.filter(file => file.endsWith('.md')));
+      specialistTemplates.push(...filterSpecialistFiles(specialistFiles));
     } catch (error) {
       this.logger.warn('⚠️ [PromptAssembly] Specialist templates目录未找到');
     }

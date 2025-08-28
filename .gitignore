@@ -54,6 +54,7 @@ test-reports/
 debug-semantic-locator.js
 jest.config.js
 package-lock.json
+specialist-validation-report.json
 
 
 # 代码停车场 - 暂不使用的代码

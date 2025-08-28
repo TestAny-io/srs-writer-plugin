@@ -507,6 +507,7 @@ export class TokenAwareHistoryManager {
 
   /**
    * 按token预算截断内容
+   * 🚀 第二层防护：对工具结果条目进行智能处理，而不是直接跳过
    */
   private truncateToTokenBudget(entries: string[], budget: number): string[] {
     const result: string[] = [];
@@ -518,11 +519,40 @@ export class TokenAwareHistoryManager {
         result.push(entry);
         usedTokens += entryTokens;
       } else {
-        // 预算不足，停止添加
-        break;
+        // 🚀 第二层防护：对于工具结果条目，生成警告替代而不是直接跳过
+        if (this.isToolResultEntry(entry)) {
+          const warningEntry = this.generateToolResultWarning(entry);
+          const warningTokens = this.estimateTokens(warningEntry);
+          
+          if (usedTokens + warningTokens <= budget) {
+            result.push(warningEntry);
+            usedTokens += warningTokens;
+            this.logger.warn(`⚠️ [第二层防护] 工具结果条目过大，已替换为警告: ${entryTokens}/${budget} tokens`);
+          }
+        }
+        // 对于其他类型的条目，继续原有的跳过逻辑
+        // 注意：这里不break，因为可能还有其他较小的条目可以加入
+        continue;
       }
     }
 
     return result;
+  }
+
+  /**
+   * 🚀 第二层防护：检测是否为工具结果条目
+   */
+  private isToolResultEntry(entry: string): boolean {
+    return entry.includes('- 工具结果:');
+  }
+
+  /**
+   * 🚀 第二层防护：生成工具结果警告条目
+   */
+  private generateToolResultWarning(originalEntry: string): string {
+    const iterationMatch = originalEntry.match(/迭代 (\d+) - 工具结果:/);
+    const iteration = iterationMatch ? iterationMatch[1] : 'X';
+    
+    return `迭代 ${iteration} - 工具结果: Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`;
   }
 }

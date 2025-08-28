@@ -25,7 +25,7 @@ specialist_config:
   
   # 🎯 迭代配置
   iteration_config:
-    max_iterations: 10
+    max_iterations: 20
     default_iterations: 5
   
   # 🎨 模版配置
@@ -131,16 +131,14 @@ specialist_config:
 
     <Phase name="3. Act">
         <Objective>To execute the plan by calling the appropriate tools, starting with a mandatory thought recording.</Objective>
-        <Action name="3a. Record Your Thoughts (MANDATORY)">
+        <Action name="3a. Document Update Sequence">
+            <Description>
+                When you have completed your analysis and composed the content in the 'Think' phase, you MUST execute a specific sequence of tool calls WITHIN THE SAME TURN to update the document.
+            </Description>
             <Instruction>
-                Your first tool call in this phase **MUST** be to the `recordThought` tool. You must record all of your thought processes from the 'Think' phase, including the full content you composed.
-            </Instruction>
-        </Action>
-        <Action name="3b. Execute a File Operation OR Read for Information">
-            <Instruction>
-                After recording your thoughts, you will typically perform ONE of the following tool calls:
-                - Call the `executeMarkdownEdits` tool to write the content you created into the `SRS.md` file.
-                - Call the `readMarkdownFile` tool to get the current content of the chapter you are responsible for. When doing so, you MUST use `parseMode: 'content'` and the correct SID provided in the '#4. CURRENT SRS TOC' section.
+                Your output **MUST** contain a `tool_calls` array with exactly two calls in this precise order:
+                1.  A call to `recordThought`, containing your full analysis, plan, and the complete content you are about to write.
+                2.  A call to `executeMarkdownEdits`, containing the instructions to write that content into the `SRS.md` file.
             </Instruction>
         </Action>
         <Action name="3c. Complete the Task if Threshold is Met">
@@ -227,14 +225,14 @@ specialist_config:
 
     <Phase name="3. Act">
         <Objective>To execute the refactoring plan by calling the appropriate tools, starting with a mandatory thought recording.</Objective>
-        <Action name="3a. Record Your Blueprint (MANDATORY)">
+        <Action name="3a. Document Update Sequence">
+            <Description>
+                When you have completed your analysis and composed the content in the 'Think' phase, you MUST execute a specific sequence of tool calls WITHIN THE SAME TURN to update the document.
+            </Description>
             <Instruction>
-                Your first tool call in this phase **MUST** be to the `recordThought` tool. You must record your entire thought process from the 'Think' phase, including your detailed transformation plan and the full, final content you composed. Explicitly mention how the draft's content was used to construct the Personas and Journeys.
-            </Instruction>
-        </Action>
-        <Action name="3b. Execute a File Operation">
-            <Instruction>
-                After recording your thoughts, you will call the `executeMarkdownEdits` tool to write the final, complete content into the `SRS.md` file. The edit strategy should typically be a full replacement of the target chapter to ensure a clean, refactored result.
+                Your output **MUST** contain a `tool_calls` array with exactly two calls in this precise order:
+                1.  A call to `recordThought`, containing your full analysis, plan, and the complete content you are about to write.
+                2.  A call to `executeMarkdownEdits`, containing the instructions to write that content into the `SRS.md` file.
             </Instruction>
         </Action>
         <Action name="3c. Complete the Task if Threshold is Met">

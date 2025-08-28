@@ -611,17 +611,36 @@ export class SRSAgentEngine implements ISessionObserver {
     
     // 3. 检查响应模式
     if (plan.response_mode === AIResponseMode.KNOWLEDGE_QA) {
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 进入KNOWLEDGE_QA模式处理`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否有direct_response: ${!!plan.direct_response}`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否有tool_calls: ${!!(plan.tool_calls && plan.tool_calls.length > 0)}`);
+      
       // 🚀 修复：KNOWLEDGE_QA现在支持工具调用
       if (plan.direct_response) {
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 准备显示direct_response:`);
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response长度: ${plan.direct_response.length}`);
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response前100字符: ${plan.direct_response.substring(0, 100)}`);
+        
+        // 检查是否是错误响应
+        const isErrorResponse = plan.direct_response.includes('❌') || 
+                               plan.direct_response.includes('错误') ||
+                               plan.thought?.includes('Error');
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否为错误响应: ${isErrorResponse}`);
+        
         // 有直接回复，显示并完成
         this.stream.markdown(`💬 **AI回复**: ${plan.direct_response}\n\n`);
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 已调用stream.markdown显示响应`);
+        
         await this.recordExecution('result', plan.direct_response, true);
         this.state.stage = 'completed';
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 设置state.stage为completed，准备返回`);
         return;
       } else if (plan.tool_calls && plan.tool_calls.length > 0) {
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 没有direct_response但有tool_calls，继续执行工具`);
         // 没有直接回复但有工具调用，继续执行工具（如知识检索）
         // 不要return，让代码继续到工具执行部分
       } else {
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 既没有direct_response也没有tool_calls，任务完成`);
         // 既没有回复也没有工具调用，任务完成
         this.state.stage = 'completed';
         return;
@@ -781,7 +800,10 @@ export class SRSAgentEngine implements ISessionObserver {
       // this.logger.info(`🔍 [DEBUG] === END CONTEXT CONTENT ===`);
       
       // 调用Orchestrator的规划方法
-      this.logger.info(`🔍 [DEBUG] Calling orchestrator.generateUnifiedPlan...`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 准备调用orchestrator.generateUnifiedPlan`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - currentTask长度: ${this.state.currentTask.length}`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - historyContext长度: ${historyContext.length}`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - toolResultsContext长度: ${toolResultsContext.length}`);
       
       const plan = await this.orchestrator.generateUnifiedPlan(
         this.state.currentTask,
@@ -790,6 +812,16 @@ export class SRSAgentEngine implements ISessionObserver {
         historyContext, // 🚀 历史上下文
         toolResultsContext // 🚀 工具结果上下文
       );
+      
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] orchestrator.generateUnifiedPlan返回成功`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 返回的plan.response_mode: ${plan.response_mode}`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 返回的plan.direct_response存在: ${!!plan.direct_response}`);
+      this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 返回的plan.thought前100字符: ${plan.thought?.substring(0, 100) || 'null'}`);
+      
+      if (plan.direct_response) {
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - plan.direct_response长度: ${plan.direct_response.length}`);
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - plan.direct_response前100字符: ${plan.direct_response.substring(0, 100)}`);
+      }
       
       // this.logger.info(`🔍 [DEBUG] orchestrator.generateUnifiedPlan returned successfully`);
       // this.logger.info(`🔍 [DEBUG] Plan response_mode: ${plan.response_mode}`);
