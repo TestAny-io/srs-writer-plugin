@@ -26,6 +26,12 @@ export enum OperationType {
   "FILE_READ" = "FILE_READ",                       // 文件读取
   "DIRECTORY_CREATED" = "DIRECTORY_CREATED",       // 目录创建
   
+  // 🌿 Git 操作记录
+  "GIT_BRANCH_CREATED" = "GIT_BRANCH_CREATED",     // Git分支创建
+  "GIT_BRANCH_SWITCHED" = "GIT_BRANCH_SWITCHED",   // Git分支切换
+  "GIT_COMMIT_CREATED" = "GIT_COMMIT_CREATED",     // Git提交创建
+  "GIT_OPERATION_FAILED" = "GIT_OPERATION_FAILED", // Git操作失败
+  
   // 👤 用户交互记录
   "USER_INPUT_RECEIVED" = "USER_INPUT_RECEIVED",   // 接收用户输入
   "USER_QUESTION_ASKED" = "USER_QUESTION_ASKED",   // 向用户提问（askQuestion）
@@ -65,6 +71,7 @@ export interface SessionContext {
   projectName: string | null;
   baseDir: string | null;
   activeFiles: string[];
+  gitBranch?: string;              // 🚀 新增：当前项目的Git分支名称
   metadata: {
     srsVersion: string;      // SRS文档版本号，如"v1.0", "v1.1"
     created: string;         // ISO 8601 时间戳

@@ -1559,27 +1559,7 @@ export class PlanExecutor {
         }
     }
 
-    /**
-     * 🚀 辅助方法：获取文件内容摘要（用于调试）
-     */
-    private async getFileContentSummary(filePath: string): Promise<string> {
-        try {
-            const { FileManager } = await import('../../filesystem/file-manager');
-            const fileManager = new FileManager();
-            
-            const content = await fileManager.readFile(filePath);
-            
-            // 返回前200字符作为摘要
-            if (content.length <= 200) {
-                return content;
-            }
-            
-            return content.substring(0, 200) + '...';
-            
-        } catch (error) {
-            return `无法读取文件: ${(error as Error).message}`;
-        }
-    }
+
 
     /**
      * 🚀 辅助方法：从历史记录构建最终输出

@@ -833,6 +833,26 @@ function getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
     return workspaceFolders[0];
 }
 
+/**
+ * 🚀 新增：检查目录是否存在
+ * 用于支持自动重命名功能
+ */
+export async function checkDirectoryExists(path: string): Promise<boolean> {
+    try {
+        const workspaceFolder = getCurrentWorkspaceFolder();
+        if (!workspaceFolder) {
+            return false;
+        }
+
+        const dirUri = vscode.Uri.joinPath(workspaceFolder.uri, path);
+        const stat = await vscode.workspace.fs.stat(dirUri);
+        return stat.type === vscode.FileType.Directory;
+    } catch (error) {
+        // 如果stat失败，说明目录不存在
+        return false;
+    }
+}
+
 // ============================================================================
 // 导出定义和实现
 // ============================================================================
@@ -857,5 +877,6 @@ export const filesystemToolImplementations = {
     deleteFile,
     moveAndRenameFile,
     copyAndRenameFile,
-    _internalReadFile
+    _internalReadFile,
+    checkDirectoryExists
 }; 

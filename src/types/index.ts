@@ -164,31 +164,7 @@ export interface IReverseParser {
   getSupportedFileTypes(): SyncableFileType[];
 }
 
-/**
- * 定义解析器的输出结构 - v1.2增强版（类型安全）
- * 
- * 推荐的文件名（提供类型提示和安全性）：
- * - 核心同步文件：使用 SyncableFileType 枚举值
- * - 母文档：'mother_document.md'
- * - 解析日志：'writer_log.json'
- * - 其他文件：任意有效的文件名
- */
-export type ParsedArtifacts = Record<string, string>;
 
-/**
- * 推荐的标准文件名 - 提供类型安全的常量
- * 在创建 ParsedArtifacts 时推荐使用这些常量
- */
-export const StandardFileNames = {
-  SRS_MAIN: SyncableFileType.SRS_MAIN,
-  FUNCTIONAL_REQUIREMENTS: SyncableFileType.FUNCTIONAL_REQUIREMENTS,
-  NON_FUNCTIONAL_REQUIREMENTS: SyncableFileType.NON_FUNCTIONAL_REQUIREMENTS,
-  GLOSSARY: SyncableFileType.GLOSSARY,
-  CLASSIFICATION: SyncableFileType.CLASSIFICATION,
-  QUESTIONS: SyncableFileType.QUESTIONS,
-  MOTHER_DOCUMENT: 'mother_document.md',
-  WRITER_LOG: 'writer_log.json'
-} as const;
 
 /**
  * 定义解析选项，用于未来扩展
@@ -224,18 +200,7 @@ export interface IAICommunicator {
  */
 // ISRSParser接口已完全移除
 
-/**
- * 文件系统管理模块的接口
- */
-export interface IFileSystemManager {
-  /**
-   * 将解析后的产物写入本地文件系统
-   * @param artifacts 解析器返回的文件对象集
-   * @param baseDir 要写入的基础目录名, e.g., "srs-task-manager"
-   * @returns Promise<void>
-   */
-  writeArtifacts(artifacts: ParsedArtifacts, baseDir: string): Promise<void>;
-}
+
 
 /**
  * 错误分级枚举
@@ -257,20 +222,7 @@ export interface ParseError {
   details?: any;
 }
 
-/**
- * 解析结果接口（包含错误信息）
- */
-export interface ParseResult {
-  artifacts: ParsedArtifacts;
-  errors: ParseError[];
-  warnings: ParseError[];
-  metadata: {
-    timestamp: string;
-    promptVersion?: string;
-    parserVersion: string;
-    processedSections: string[];
-  };
-}
+
 
 // === 以下为原有接口，保持兼容性 ===
 

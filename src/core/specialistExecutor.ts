@@ -756,6 +756,10 @@ export class SpecialistExecutor {
         result = result.replace(/\{\{TIMESTAMP\}\}/g, new Date().toISOString());
         result = result.replace(/\{\{DATE\}\}/g, new Date().toISOString().split('T')[0]);
         
+        // 🚀 新增：Git分支信息变量替换
+        const gitBranch = context.sessionData?.gitBranch || `SRS/${context.sessionData?.projectName || 'Unknown'}`;
+        result = result.replace(/\{\{GIT_BRANCH\}\}/g, gitBranch);
+        
         // 🚀 新增：用户回复相关变量
         if (context.userResponse) {
             result = result.replace(/\{\{USER_RESPONSE\}\}/g, context.userResponse);

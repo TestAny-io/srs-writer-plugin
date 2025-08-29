@@ -662,9 +662,33 @@ async function viewArchiveHistoryCommand(): Promise<void> {
  * 🚀 v4.0新增：工作空间项目信息
  */
 interface WorkspaceProject {
-    name: string;
-    baseDir: string;
+    name: string;           // 从 srs-writer-log.json 的 project_name 读取
+    baseDir: string;        // 计算得出：workspaceRoot + 目录名
     isCurrentProject: boolean;
+    gitBranch?: string;     // 🚀 新增：从 srs-writer-log.json 的 git_branch 读取
+}
+
+/**
+ * 🚀 新增：从项目目录的 srs-writer-log.json 读取项目信息
+ */
+async function readProjectInfoFromLog(projectDir: string): Promise<{
+    project_name?: string;
+    git_branch?: string;
+} | null> {
+    try {
+        const logPath = path.join(projectDir, 'srs-writer-log.json');
+        const logContent = await vscode.workspace.fs.readFile(vscode.Uri.file(logPath));
+        const logData = JSON.parse(logContent.toString());
+        
+        return {
+            project_name: logData.project_name,
+            git_branch: logData.git_branch
+        };
+    } catch (error) {
+        // 如果读取失败，返回 null，使用回退逻辑
+        logger.debug(`Failed to read project info from log: ${(error as Error).message}`);
+        return null;
+    }
 }
 
 /**
@@ -702,11 +726,20 @@ async function scanWorkspaceProjects(): Promise<WorkspaceProject[]> {
                 
                 // 检查是否像项目文件夹
                 if (isLikelyProjectDirectory(itemName)) {
+                    // 🚀 新增：从 srs-writer-log.json 读取项目信息
+                    const projectInfo = await readProjectInfoFromLog(`${workspaceRoot}/${itemName}`);
+                    
+                    const projectName = projectInfo?.project_name || itemName;  // 优先使用log中的名称，回退到目录名
+                    const gitBranch = projectInfo?.git_branch;                  // Git分支信息
+                    
                     projects.push({
-                        name: itemName,
+                        name: projectName,
                         baseDir: `${workspaceRoot}/${itemName}`,
-                        isCurrentProject: itemName === currentProjectName
+                        isCurrentProject: projectName === currentProjectName,
+                        gitBranch: gitBranch
                     });
+                    
+                    logger.debug(`📂 Found project: ${projectName} (dir: ${itemName}, branch: ${gitBranch || 'none'})`);
                 }
             }
         }
@@ -716,10 +749,17 @@ async function scanWorkspaceProjects(): Promise<WorkspaceProject[]> {
 
     // 如果当前有项目但不在扫描列表中，添加它
     if (currentProjectName && !projects.find(p => p.name === currentProjectName)) {
+        // 🚀 尝试从当前会话的baseDir读取项目信息
+        let projectInfo = null;
+        if (currentSession?.baseDir) {
+            projectInfo = await readProjectInfoFromLog(currentSession.baseDir);
+        }
+        
         projects.push({
             name: currentProjectName,
             baseDir: currentSession?.baseDir || `${workspaceRoot}/${currentProjectName}`,
-            isCurrentProject: true
+            isCurrentProject: true,
+            gitBranch: projectInfo?.git_branch || currentSession?.gitBranch  // 优先使用log，回退到会话
         });
     }
 
@@ -838,6 +878,9 @@ async function switchProject(): Promise<void> {
             }
         }
 
+        // 🌿 Git分支切换结果变量（在外部作用域定义）
+        let gitBranchResult: any = null;
+        
         // 🚀 v6.0新增：使用进度对话框执行项目切换
         const result = await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -892,6 +935,119 @@ async function switchProject(): Promise<void> {
                     throw new Error(sessionResult.error || '项目切换失败');
                 }
 
+                // 阶段2.5：🌿 Git 分支切换
+                
+                if (targetProject.gitBranch) {
+                    progress.report({ 
+                        increment: 0, 
+                        message: '🌿 正在切换 Git 分支...' 
+                    });
+                    
+                    try {
+                        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                        if (workspaceFolder) {
+                            const gitRepoDir = workspaceFolder.uri.fsPath;  // 工作区根目录
+                            
+                            // 导入Git操作工具
+                            const { checkGitRepository, getCurrentBranch, checkBranchExists } = 
+                                await import('./tools/atomic/git-operations');
+                            
+                            // 检查是否为Git仓库
+                            if (await checkGitRepository(gitRepoDir)) {
+                                const currentBranch = await getCurrentBranch(gitRepoDir);
+                                
+                                if (currentBranch !== targetProject.gitBranch) {
+                                    // 检查目标分支是否存在
+                                    const branchExists = await checkBranchExists(gitRepoDir, targetProject.gitBranch);
+                                    
+                                    if (branchExists) {
+                                        // 切换到现有分支
+                                        const { execSync } = await import('child_process');
+                                        execSync(`git checkout "${targetProject.gitBranch}"`, { cwd: gitRepoDir });
+                                        
+                                        gitBranchResult = {
+                                            success: true,
+                                            message: `Switched to branch: ${targetProject.gitBranch}`,
+                                            branchName: targetProject.gitBranch,
+                                            operation: 'switched'
+                                        };
+                                        
+                                        logger.info(`🌿 [switchProject] Switched to branch: ${targetProject.gitBranch}`);
+                                        
+                                        // 更新会话中的Git分支信息
+                                        await sessionManager.updateSession({ gitBranch: targetProject.gitBranch });
+                                        
+                                        progress.report({ 
+                                            increment: 15, 
+                                            message: `✅ 已切换到分支: ${targetProject.gitBranch}` 
+                                        });
+                                    } else {
+                                        gitBranchResult = {
+                                            success: false,
+                                            message: `Branch does not exist: ${targetProject.gitBranch}`,
+                                            error: 'BRANCH_NOT_FOUND'
+                                        };
+                                        
+                                        logger.warn(`⚠️ [switchProject] Branch not found: ${targetProject.gitBranch}`);
+                                        progress.report({ 
+                                            increment: 15, 
+                                            message: `⚠️ 分支不存在: ${targetProject.gitBranch}` 
+                                        });
+                                    }
+                                } else {
+                                    gitBranchResult = {
+                                        success: true,
+                                        message: `Already on branch: ${targetProject.gitBranch}`,
+                                        branchName: targetProject.gitBranch,
+                                        operation: 'no-change'
+                                    };
+                                    
+                                    logger.info(`🌿 [switchProject] Already on correct branch: ${targetProject.gitBranch}`);
+                                    progress.report({ 
+                                        increment: 15, 
+                                        message: `✅ 已在正确分支: ${targetProject.gitBranch}` 
+                                    });
+                                }
+                            } else {
+                                gitBranchResult = {
+                                    success: false,
+                                    message: 'Not a Git repository',
+                                    error: 'NOT_GIT_REPO'
+                                };
+                                
+                                logger.warn(`⚠️ [switchProject] Not a Git repository: ${gitRepoDir}`);
+                                progress.report({ 
+                                    increment: 15, 
+                                    message: '⚠️ 不是Git仓库，跳过分支切换' 
+                                });
+                            }
+                        } else {
+                            progress.report({ 
+                                increment: 15, 
+                                message: '⚠️ 无工作区，跳过Git分支切换' 
+                            });
+                        }
+                    } catch (gitError) {
+                        gitBranchResult = {
+                            success: false,
+                            message: `Git operation failed: ${(gitError as Error).message}`,
+                            error: (gitError as Error).message
+                        };
+                        
+                        logger.warn(`⚠️ [switchProject] Git branch switch exception: ${(gitError as Error).message}`);
+                        progress.report({ 
+                            increment: 15, 
+                            message: `⚠️ Git分支切换异常` 
+                        });
+                    }
+                } else {
+                    progress.report({ 
+                        increment: 15, 
+                        message: '⚠️ 无Git分支信息，跳过切换' 
+                    });
+                    logger.info(`🌿 [switchProject] No Git branch info for project: ${targetProjectName}`);
+                }
+
                 // 阶段3：清理项目上下文
                 progress.report({ 
                     increment: 0, 
@@ -926,8 +1082,19 @@ async function switchProject(): Promise<void> {
             const archiveInfo = result.archivedSession ? 
                 `\n📦 原项目已归档: ${result.archivedSession.archiveFileName}` : '';
             
+            // 🚀 新增：Git分支信息
+            const branchInfo = gitBranchResult?.success 
+                ? (gitBranchResult.operation === 'switched'
+                    ? `\n🌿 已切换到分支: ${gitBranchResult.branchName}`
+                    : gitBranchResult.operation === 'no-change'
+                    ? `\n🌿 已在正确分支: ${gitBranchResult.branchName}`
+                    : `\n🌿 Git分支: ${gitBranchResult.branchName}`)
+                : (gitBranchResult 
+                    ? `\n⚠️ Git分支切换失败: ${gitBranchResult.error}` 
+                    : '');
+            
             // 🚀 v6.0新增：最终确认对话框，给用户明确的完成反馈
-            const successMessage = `✅ 项目切换完成！\n\n📁 当前项目: ${targetProjectName}${archiveInfo}\n📄 保留 ${preservedCount} 个活动文件\n\n🚀 准备开始新的工作！`;
+            const successMessage = `✅ 项目切换完成！\n\n📁 当前项目: ${targetProjectName}${archiveInfo}${branchInfo}\n📄 保留 ${preservedCount} 个活动文件\n\n🚀 准备开始新的工作！`;
             await vscode.window.showInformationMessage(
                 successMessage,
                 { modal: false },
@@ -1029,6 +1196,11 @@ async function createWorkspaceAndInitialize(): Promise<void> {
             // 目录不存在，这是期望的情况
         }
 
+        // 🌿 Git 操作结果变量（在外部作用域定义）
+        let gitInitResult: any = null;
+        let gitIgnoreResult: any = null;
+        let initialCommitResult: any = null;
+        
         // 显示进度指示器
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -1055,7 +1227,49 @@ async function createWorkspaceAndInitialize(): Promise<void> {
                 logger.warn('⚠️ 无法获取扩展上下文，跳过templates复制');
             }
 
-            progress.report({ increment: 60, message: '打开新工作区...' });
+            // Step 4.5: 🌿 Git 仓库初始化
+            progress.report({ increment: 60, message: '🌿 初始化 Git 仓库...' });
+            
+            try {
+                const { initializeGitRepository, createGitIgnoreFile, createInitialCommit } = 
+                    await import('./tools/atomic/git-operations');
+                
+                // 初始化 Git 仓库
+                gitInitResult = await initializeGitRepository(workspacePath);
+                if (gitInitResult.success) {
+                    logger.info(`🌿 [Workspace Init] ${gitInitResult.message}`);
+                    
+                    // Step 4.6: 创建 .gitignore 文件
+                    progress.report({ increment: 70, message: '🌿 创建 .gitignore 文件...' });
+                    gitIgnoreResult = await createGitIgnoreFile(workspacePath);
+                    
+                    if (gitIgnoreResult.success) {
+                        logger.info(`🌿 [Workspace Init] ${gitIgnoreResult.message}`);
+                        
+                        // Step 4.7: 创建初始提交
+                        progress.report({ increment: 80, message: '🌿 创建初始提交...' });
+                        initialCommitResult = await createInitialCommit(workspacePath, 'init commit');
+                        
+                        if (initialCommitResult.success) {
+                            logger.info(`🌿 [Workspace Init] ${initialCommitResult.message}`);
+                        } else {
+                            logger.warn(`🌿 [Workspace Init] Initial commit failed: ${initialCommitResult.error}`);
+                        }
+                    } else {
+                        logger.warn(`🌿 [Workspace Init] .gitignore creation failed: ${gitIgnoreResult.error}`);
+                    }
+                } else {
+                    logger.warn(`🌿 [Workspace Init] Git initialization failed: ${gitInitResult.error}`);
+                }
+            } catch (gitError) {
+                logger.warn(`🌿 [Workspace Init] Git operations failed: ${(gitError as Error).message}`);
+                gitInitResult = {
+                    success: false,
+                    error: (gitError as Error).message
+                };
+            }
+
+            progress.report({ increment: 90, message: '打开新工作区...' });
 
             // Step 5: 在VSCode中打开新的工作区
             const workspaceUri = vscode.Uri.file(workspacePath);
@@ -1064,13 +1278,35 @@ async function createWorkspaceAndInitialize(): Promise<void> {
             progress.report({ increment: 100, message: '完成!' });
         });
 
-        // 成功消息
-        vscode.window.showInformationMessage(
-            `🎉 工作区创建成功！\n\n` +
+        // 🌿 成功消息和 Git 状态反馈
+        const gitInfo = gitInitResult?.success 
+            ? `\n🌿 Git 仓库已初始化 (main 分支)`
+            : '';
+        
+        const successMessage = `🎉 工作区创建成功！\n\n` +
             `📁 位置: ${workspacePath}\n` +
-            `📋 模板文件已复制到工作区的 .templates 目录\n` +
-            `🚀 现在可以使用 @srs-writer 开始创建文档了！`
-        );
+            `📋 模板文件已复制到工作区的 .templates 目录${gitInfo}\n` +
+            `🚀 现在可以使用 @srs-writer 开始创建文档了！`;
+        
+        vscode.window.showInformationMessage(successMessage);
+        
+        // 🌿 Git 初始化失败时的友好提示
+        if (gitInitResult && !gitInitResult.success) {
+            setTimeout(() => {
+                vscode.window.showWarningMessage(
+                    `⚠️ Git 初始化失败\n\n` +
+                    `请手动初始化 Git 仓库：\n` +
+                    `1. 点击 VS Code 左侧的 Source Control 图标\n` +
+                    `2. 点击 "Initialize Repository" 按钮\n\n` +
+                    `错误信息：${gitInitResult.error}`,
+                    '打开 Source Control'
+                ).then(selection => {
+                    if (selection === '打开 Source Control') {
+                        vscode.commands.executeCommand('workbench.view.scm');
+                    }
+                });
+            }, 2000); // 2秒后显示，给用户时间看成功消息
+        }
 
         logger.info('✅ 工作区创建并初始化完成');
         

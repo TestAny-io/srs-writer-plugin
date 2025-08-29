@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7] - 2025-08-29
+
+### Added
+
+- **Git Integration**: Comprehensive Git branch management for projects
+    - Automatic Git branch creation (`SRS/ProjectName`) when creating new projects via `createNewProjectFolder`
+    - Intelligent Git status detection with proper handling of staged/unstaged changes
+    - Auto-commit functionality for staged changes before branch creation
+    - Git branch information persistence in `SessionContext` and `srs-writer-log.json`
+
+- **Workspace Initialization**: Enhanced "Create Workspace & Initialize" feature
+    - Automatic Git repository initialization with `main` branch
+    - Smart `.gitignore` file creation excluding templates and temporary files
+    - Initial commit creation with "init commit" message
+    - Graceful error handling with user-friendly fallback instructions
+
+- **Project Switching**: Git branch switching integration
+    - Unified project information system reading from `srs-writer-log.json`
+    - Automatic Git branch switching when switching projects
+    - Enhanced project scanning with real project names from log files
+    - Git branch status display in project switch success messages
+
 ## [0.4.6] - 2025-08-28
 
 ### Fixed
