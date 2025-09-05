@@ -36,7 +36,7 @@ export class Orchestrator {
   private toolCacheManager: ToolCacheManager;
   private resultFormatter: ResultFormatter;
   private contextWindowManager: ContextWindowManager;
-  private planExecutor: PlanExecutor; // 🚀 新增计划执行器
+  public planExecutor: PlanExecutor; // 🚀 改为 public，供 SRSAgentEngine 访问
   
   constructor() {
     // 🔧 新增：注册工具缓存失效监听器

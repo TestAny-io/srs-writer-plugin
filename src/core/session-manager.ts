@@ -4,18 +4,18 @@ import * as crypto from 'crypto';
 import { promises as fsPromises } from 'fs';
 import * as fs from 'fs';
 import { Logger } from '../utils/logger';
+import { SessionPathManager } from './SessionPathManager';
 import { 
     SessionContext, 
     ISessionManager, 
     ISessionObserver, 
     SyncStatus, 
-    ArchivedSessionInfo, 
-    ArchiveResult,
-    ArchiveFileEntry,
     UnifiedSessionFile,
     OperationLogEntry,
     OperationType,
-    SessionUpdateRequest
+    SessionUpdateRequest,
+    ProjectSessionInfo,
+    NewSessionResult
 } from '../types/session';
 import { SpecialistResumeContext } from './engine/AgentState';
 // 🚀 修复：移除不需要的引擎相关导入
@@ -59,16 +59,23 @@ export class SessionManager implements ISessionManager {
     // 🚀 观察者模式支持
     private observers: Set<ISessionObserver> = new Set();
 
+    // 🚀 阶段1新增：路径管理器
+    private pathManager: SessionPathManager | null = null;
+
     // 🚀 修复：移除引擎管理，专注于会话状态管理
-    private sessionFile: string;
+    private sessionFile: string; // 保留作为全局存储的备份
     private isInitialized = false;
 
     private constructor(private context: vscode.ExtensionContext) {
+        // 保留全局存储作为备份
         this.sessionFile = path.join(
             context.globalStoragePath,
             'srs-writer-session.json'
         );
         this.ensureStorageDirectory();
+        
+        // 🚀 阶段1新增：初始化路径管理器
+        this.initializePathManager();
     }
 
     /**
@@ -85,14 +92,41 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 动态获取会话文件路径（优化：适应工作区变化）
+     * 🚀 阶段1新增：初始化路径管理器
+     */
+    private initializePathManager(): void {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+            this.pathManager = new SessionPathManager(workspaceFolder.uri.fsPath);
+            this.logger.info('SessionPathManager initialized for current workspace');
+        } else {
+            this.logger.info('No workspace folder available, PathManager will be initialized when workspace opens');
+        }
+    }
+
+    /**
+     * 🚀 阶段2修改：动态获取会话文件路径 - 根据项目名选择正确的会话文件
      */
     private get sessionFilePath(): string | null {
+        if (!this.pathManager || !this.pathManager.validateWorkspacePath()) {
+            // 降级到旧位置（向后兼容）
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (workspaceFolder) {
             return path.join(workspaceFolder.uri.fsPath, '.vscode', 'srs-writer-session.json');
         }
         return null;
+        }
+
+        // 🚀 阶段2新逻辑：根据当前会话的项目名选择文件路径
+        const currentProjectName = this.currentSession?.projectName;
+        
+        if (currentProjectName) {
+            // 有具体项目名，使用项目级会话文件
+            return this.pathManager.getProjectSessionPath(currentProjectName);
+        } else {
+            // 没有项目名，使用主会话文件
+            return this.pathManager.getMainSessionPath();
+        }
     }
 
     /**
@@ -188,11 +222,26 @@ export class SessionManager implements ISessionManager {
     public async createNewSession(projectName?: string): Promise<SessionContext> {
         const now = new Date().toISOString();
         
+        // 🚀 修复：获取当前Git分支信息
+        let currentGitBranch: string | undefined;
+        try {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (workspaceFolder) {
+                const { getCurrentBranch } = await import('../tools/atomic/git-operations');
+                currentGitBranch = await getCurrentBranch(workspaceFolder.uri.fsPath) || undefined;
+                this.logger.info(`🌿 [createNewSession] Detected current Git branch: ${currentGitBranch || 'unknown'}`);
+            }
+        } catch (error) {
+            this.logger.warn(`🌿 [createNewSession] Failed to get Git branch: ${(error as Error).message}`);
+            // Git检查失败不阻止会话创建
+        }
+        
         this.currentSession = {
             sessionContextId: crypto.randomUUID(),  // 🚀 新增：项目唯一标识符
             projectName: projectName || null,
             baseDir: projectName ? path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', projectName) : null,
             activeFiles: [],
+            gitBranch: currentGitBranch,  // 🚀 修复：初始化Git分支字段
             metadata: {
                 srsVersion: 'v1.0',  // SRS文档版本号
                 created: now,
@@ -235,12 +284,9 @@ export class SessionManager implements ISessionManager {
         this.logger.warn('🚨 [AFTER CLEAR] currentSession set to null');
         this.logger.info('Session cleared');
         
-        // 删除会话文件
-        try {
-            await this.deleteSessionFile();
-        } catch (error) {
-            this.logger.error('Failed to delete session file', error as Error);
-        }
+        // 🚀 阶段3重构：废弃文件删除逻辑，保留所有会话文件
+        // 会话文件将保留在 .session-log/ 目录中，用户可以随时切换回来
+        this.logger.info('Session files preserved in .session-log/ directory for future access');
 
         // 🚀 v3.0新增：通知所有观察者
         this.notifyObservers();
@@ -248,7 +294,7 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 保存会话到文件 - v4.0兼容版本
+     * 🚀 阶段1修改：保存会话到文件 - 使用新的路径管理器
      */
     public async saveSessionToFile(): Promise<void> {
         if (!this.currentSession || !this.sessionFilePath) {
@@ -256,12 +302,17 @@ export class SessionManager implements ISessionManager {
         }
 
         try {
-            // 确保.vscode目录存在
-            const vscodeDirPath = path.dirname(this.sessionFilePath);
+            // 🚀 阶段1新增：确保 session-log 目录存在
+            if (this.pathManager) {
+                await this.pathManager.ensureSessionDirectory();
+            }
+            
+            // 确保目标目录存在
+            const sessionDirPath = path.dirname(this.sessionFilePath);
             try {
-                await fsPromises.access(vscodeDirPath);
+                await fsPromises.access(sessionDirPath);
             } catch {
-                await fsPromises.mkdir(vscodeDirPath, { recursive: true });
+                await fsPromises.mkdir(sessionDirPath, { recursive: true });
             }
 
             // 写入会话数据
@@ -296,12 +347,17 @@ export class SessionManager implements ISessionManager {
         }
 
         try {
-            // 确保.vscode目录存在
-            const vscodeDirPath = path.dirname(this.sessionFilePath);
+            // 🚀 阶段1新增：确保 session-log 目录存在
+            if (this.pathManager) {
+                await this.pathManager.ensureSessionDirectory();
+            }
+            
+            // 确保目标目录存在
+            const sessionDirPath = path.dirname(this.sessionFilePath);
             try {
-                await fsPromises.access(vscodeDirPath);
+                await fsPromises.access(sessionDirPath);
             } catch {
-                await fsPromises.mkdir(vscodeDirPath, { recursive: true });
+                await fsPromises.mkdir(sessionDirPath, { recursive: true });
             }
 
             // 读取现有文件或创建新文件
@@ -496,37 +552,252 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 🚀 v3.0新增：检查同步状态
+     * 🚀 v5.0重构：增强的同步状态检查
+     * 支持新的UnifiedSessionFile格式和项目级会话管理
      */
     public async checkSyncStatus(): Promise<SyncStatus> {
         const inconsistencies: string[] = [];
         
         try {
-            // 检查文件vs内存一致性
-            const fileSession = await this.loadSessionFromFileInternal();
-            if (fileSession && this.currentSession) {
-                if (fileSession.projectName !== this.currentSession.projectName) {
-                    inconsistencies.push('项目名称不一致');
-                }
-                if (fileSession.baseDir !== this.currentSession.baseDir) {
-                    inconsistencies.push('基础目录不一致');
-                }
-                if (fileSession.activeFiles.length !== this.currentSession.activeFiles.length) {
-                    inconsistencies.push('活跃文件数量不一致');
-                }
-            } else if (!fileSession && this.currentSession) {
-                inconsistencies.push('内存中有会话但文件不存在');
-            } else if (fileSession && !this.currentSession) {
-                inconsistencies.push('文件中有会话但内存中不存在');
+            // 检查当前项目的会话文件一致性
+            const projectName = this.currentSession?.projectName;
+            if (projectName) {
+                // 检查项目级会话文件
+                await this.checkProjectSessionConsistency(projectName, inconsistencies);
+            } else {
+                // 检查主会话文件
+                await this.checkMainSessionConsistency(inconsistencies);
             }
+            
+            // 检查Git分支一致性
+            await this.checkGitBranchConsistency(inconsistencies);
+            
+            // 检查路径管理器状态
+            await this.checkPathManagerConsistency(inconsistencies);
+            
         } catch (error) {
-            inconsistencies.push(`文件读取失败: ${(error as Error).message}`);
+            inconsistencies.push(`Sync check failed: ${(error as Error).message}`);
+            this.logger.error('Sync status check failed', error as Error);
         }
         
         return {
             isConsistent: inconsistencies.length === 0,
             inconsistencies,
             lastSyncCheck: new Date().toISOString()
+        };
+    }
+
+    /**
+     * 🚀 v5.0新增：检查项目会话文件一致性
+     */
+    private async checkProjectSessionConsistency(projectName: string, inconsistencies: string[]): Promise<void> {
+        try {
+            const projectSessionPath = this.pathManager?.getProjectSessionPath(projectName);
+            if (!projectSessionPath) {
+                inconsistencies.push('PathManager not available for project session check');
+                return;
+            }
+
+            // 检查文件是否存在
+            try {
+                await fsPromises.access(projectSessionPath);
+            } catch {
+                inconsistencies.push(`Project session file not found: ${projectName}`);
+                return;
+            }
+
+            // 加载并检查统一会话文件
+            const unifiedFile = await this.loadUnifiedSessionFileFromPath(projectSessionPath);
+            
+            if (!unifiedFile.currentSession) {
+                inconsistencies.push('Project session file exists but contains no current session');
+                return;
+            }
+
+            const fileSession = unifiedFile.currentSession;
+            
+            // 检查基本字段一致性
+            if (fileSession.projectName !== this.currentSession?.projectName) {
+                inconsistencies.push(`Project name mismatch: file="${fileSession.projectName}", memory="${this.currentSession?.projectName}"`);
+            }
+            
+            if (fileSession.baseDir !== this.currentSession?.baseDir) {
+                inconsistencies.push(`Base directory mismatch: file="${fileSession.baseDir}", memory="${this.currentSession?.baseDir}"`);
+            }
+            
+            if (fileSession.activeFiles.length !== (this.currentSession?.activeFiles.length || 0)) {
+                inconsistencies.push(`Active files count mismatch: file=${fileSession.activeFiles.length}, memory=${this.currentSession?.activeFiles.length || 0}`);
+            }
+
+            // 检查会话ID一致性
+            if (fileSession.sessionContextId !== this.currentSession?.sessionContextId) {
+                inconsistencies.push(`Session ID mismatch: file="${fileSession.sessionContextId}", memory="${this.currentSession?.sessionContextId}"`);
+            }
+
+            // 检查文件格式版本
+            if (unifiedFile.fileVersion !== '5.0') {
+                inconsistencies.push(`Outdated file format: ${unifiedFile.fileVersion} (expected: 5.0)`);
+            }
+
+        } catch (error) {
+            inconsistencies.push(`Project session consistency check failed: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 v5.0新增：检查主会话文件一致性
+     */
+    private async checkMainSessionConsistency(inconsistencies: string[]): Promise<void> {
+        try {
+            const mainSessionPath = this.pathManager?.getMainSessionPath();
+            if (!mainSessionPath) {
+                inconsistencies.push('PathManager not available for main session check');
+                return;
+            }
+
+            // 检查文件是否存在
+            try {
+                await fsPromises.access(mainSessionPath);
+                
+                // 如果文件存在但内存中没有会话，这是不一致的
+                if (!this.currentSession) {
+                    inconsistencies.push('Main session file exists but no session in memory');
+                }
+            } catch {
+                // 如果文件不存在但内存中有会话，这也是不一致的
+                if (this.currentSession) {
+                    inconsistencies.push('Session exists in memory but main session file not found');
+                }
+            }
+        } catch (error) {
+            inconsistencies.push(`Main session consistency check failed: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 v5.0新增：检查Git分支一致性
+     */
+    private async checkGitBranchConsistency(inconsistencies: string[]): Promise<void> {
+        try {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                // 没有工作区，跳过Git检查
+                return;
+            }
+
+            const { getCurrentBranch } = await import('../tools/atomic/git-operations');
+            const currentBranch = await getCurrentBranch(workspaceFolder.uri.fsPath);
+            
+            if (!currentBranch) {
+                // 不是Git仓库或无法获取分支信息
+                return;
+            }
+
+            const currentSession = this.currentSession;
+            
+            // 检查项目分支一致性
+            if (currentBranch.startsWith('SRS/')) {
+                const branchProjectName = currentBranch.substring(4);
+                
+                if (!currentSession) {
+                    inconsistencies.push(`On project branch "${currentBranch}" but no session in memory`);
+                } else if (currentSession.projectName !== branchProjectName) {
+                    inconsistencies.push(`Git branch project "${branchProjectName}" doesn't match session project "${currentSession.projectName}"`);
+                }
+            } else {
+                // 在主分支上
+                if (currentSession?.projectName) {
+                    inconsistencies.push(`On main branch "${currentBranch}" but session has project "${currentSession.projectName}"`);
+                }
+            }
+
+        } catch (error) {
+            // Git检查失败不算严重错误，只记录警告
+            this.logger.warn(`Git branch consistency check failed: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 v5.0新增：检查路径管理器状态一致性
+     */
+    private async checkPathManagerConsistency(inconsistencies: string[]): Promise<void> {
+        try {
+            if (!this.pathManager) {
+                inconsistencies.push('PathManager not initialized');
+                return;
+            }
+
+            // 检查工作区路径有效性
+            if (!this.pathManager.validateWorkspacePath()) {
+                inconsistencies.push('PathManager workspace path validation failed');
+            }
+
+        } catch (error) {
+            inconsistencies.push(`PathManager consistency check failed: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 v5.0新增：获取当前状态信息（用于状态显示）
+     */
+    public async getCurrentStatusInfo(): Promise<{
+        projectName: string;
+        baseDirectory: string;
+        activeFiles: number;
+        gitBranch: string;
+        sessionId: string;
+        fileFormat: string;
+    }> {
+        const currentSession = this.currentSession;
+        let gitBranch = 'Unknown';
+        let fileFormat = 'Unknown';
+
+        // 获取Git分支信息
+        try {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (workspaceFolder) {
+                const { getCurrentBranch } = await import('../tools/atomic/git-operations');
+                const branch = await getCurrentBranch(workspaceFolder.uri.fsPath);
+                gitBranch = branch || 'Not a Git repository';
+            } else {
+                gitBranch = 'No workspace';
+            }
+        } catch (error) {
+            gitBranch = 'Git check failed';
+        }
+
+        // 获取文件格式信息
+        try {
+            const projectName = currentSession?.projectName;
+            if (projectName) {
+                const projectSessionPath = this.pathManager?.getProjectSessionPath(projectName);
+                if (projectSessionPath) {
+                    const unifiedFile = await this.loadUnifiedSessionFileFromPath(projectSessionPath);
+                    fileFormat = `UnifiedSessionFile v${unifiedFile.fileVersion}`;
+                }
+            } else {
+                const mainSessionPath = this.pathManager?.getMainSessionPath();
+                if (mainSessionPath) {
+                    try {
+                        await fsPromises.access(mainSessionPath);
+                        const unifiedFile = await this.loadUnifiedSessionFileFromPath(mainSessionPath);
+                        fileFormat = `UnifiedSessionFile v${unifiedFile.fileVersion}`;
+                    } catch {
+                        fileFormat = 'No session file';
+                    }
+                }
+            }
+        } catch (error) {
+            fileFormat = 'Format check failed';
+        }
+
+        return {
+            projectName: currentSession?.projectName || 'No project',
+            baseDirectory: currentSession?.baseDir || 'No base directory',
+            activeFiles: currentSession?.activeFiles.length || 0,
+            gitBranch,
+            sessionId: currentSession?.sessionContextId || 'No session',
+            fileFormat
         };
     }
 
@@ -620,24 +891,8 @@ export class SessionManager implements ISessionManager {
         );
     }
 
-    /**
-     * 删除会话文件
-     */
-    private async deleteSessionFile(): Promise<void> {
-        if (!this.sessionFilePath) {
-            return;
-        }
-
-        try {
-            // 检查文件是否存在，如果不存在会抛出异常
-            await fsPromises.access(this.sessionFilePath);
-            await fsPromises.unlink(this.sessionFilePath);
-            this.logger.info('Session file deleted');
-        } catch (error) {
-            // 文件不存在或删除失败，都静默处理
-            this.logger.debug('Session file deletion skipped (file may not exist)');
-        }
-    }
+    // 🚀 阶段3重构：废弃 deleteSessionFile() 方法
+    // 根据重构设计，不再删除会话文件，所有会话文件都保留用于后续访问
 
     /**
      * 🚀 v5.0修复：检查会话是否过期 - 基于最后活跃时间而非创建时间
@@ -680,49 +935,225 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 自动初始化会话（在插件启动时调用）
-     * 修复：确保不会意外清空有效会话文件
+     * 🚀 智能会话初始化 - 支持基于Git分支的状态恢复
+     * 区分用户主动退出和意外重启，确保状态一致性
      */
     public async autoInitialize(): Promise<void> {
-        // 🕵️ 添加嫌疑人追踪日志
         const stack = new Error().stack;
-        this.logger.warn('🔍 [SUSPECT] autoInitialize() called! Call stack:');
-        this.logger.warn(stack || 'No stack trace available');
+        this.logger.info('🚀 [SMART RECOVERY] autoInitialize() called');
+        this.logger.debug(`Call stack: ${stack || 'No stack trace available'}`);
         
         try {
-            this.logger.warn('🔍 [STEP1] Attempting to load session from file...');
-            // 尝试从文件加载会话
-            const loadedSession = await this.loadSessionFromFile();
+            // 1. 检查退出意图标记
+            const exitFlag = this.context.globalState.get('srs-writer.intentional-exit-flag') as any;
+            const isIntentionalExit = exitFlag && (Date.now() - exitFlag.timestamp < 60000); // 1分钟内有效
             
-            if (loadedSession) {
-                this.logger.warn(`🔍 [STEP2] Session loaded successfully. ProjectName: ${loadedSession.projectName}, SessionId: ${loadedSession.sessionContextId}`);
-                
-                // 检查会话是否过期
-                this.logger.warn('🔍 [STEP3] Checking if session is expired...');
-                const isExpired = await this.isSessionExpired();
-                this.logger.warn(`🔍 [STEP4] Session expired check result: ${isExpired}`);
-                
-                if (isExpired) {
-                    this.logger.warn('🚨 [DANGER ZONE] Session is expired, but NOT clearing in autoInitialize!');
-                    this.logger.warn('🚨 [FIX] Expired sessions will be handled when actually accessed, not during auto-init');
-                    this.logger.info('Loaded session is expired, but keeping to avoid race conditions');
-                } else {
-                    this.logger.warn('🔍 [SAFE] Session is not expired, keeping it');
-                    this.logger.info('Session auto-loaded successfully');
-                }
-            } else {
-                // 🚀 修复：如果没有加载到会话，不要做任何操作
-                // 避免意外创建或清空会话文件
-                this.logger.warn('🔍 [NO SESSION] No existing session found during auto-initialization');
-                this.logger.info('No existing session found during auto-initialization');
+            if (isIntentionalExit) {
+                // 用户主动退出，清除标记并保持清理状态
+                await this.context.globalState.update('srs-writer.intentional-exit-flag', undefined);
+                this.logger.info('🚩 Detected intentional exit, skipping smart recovery');
+                return;
             }
+            
+            // 2. 清除可能的过期标记
+            if (exitFlag) {
+                await this.context.globalState.update('srs-writer.intentional-exit-flag', undefined);
+                this.logger.info('🚩 Cleared expired exit flag');
+            }
+            
+            // 3. 直接进行智能Git分支检测和恢复
+            // 跳过常规 loadSessionFromFile()，因为它只会加载主会话文件
+            this.logger.info('🔍 Starting smart recovery from Git branch detection');
+            await this.attemptSmartRecoveryFromGitBranch();
+            
         } catch (error) {
-            this.logger.error('Failed to auto-initialize session', error as Error);
-            this.logger.warn('🔍 [ERROR] autoInitialize failed, but NOT clearing session');
-            // 🚀 修复：出错时不要清空会话，只记录错误
+            this.logger.error('Smart recovery failed, but continuing startup', error as Error);
+            // 不抛出错误，确保插件能正常启动
         }
         
-        this.logger.warn('🔍 [COMPLETE] autoInitialize() completed');
+        this.logger.info('🚀 [SMART RECOVERY] autoInitialize() completed');
+    }
+
+    /**
+     * 🚀 智能Git分支检测和恢复
+     * 基于当前Git分支智能恢复对应的项目会话
+     */
+    private async attemptSmartRecoveryFromGitBranch(): Promise<void> {
+        try {
+            // 1. 检测当前Git分支
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                this.logger.info('🔍 No workspace folder, skipping Git branch detection');
+                return;
+            }
+            
+            const { getCurrentBranch } = await import('../tools/atomic/git-operations');
+            const currentBranch = await getCurrentBranch(workspaceFolder.uri.fsPath);
+            
+            this.logger.info(`🔍 Current Git branch: ${currentBranch || 'unknown'}`);
+            
+            // 2. 检查是否为项目分支 (SRS/xxx 格式)
+            if (!currentBranch || !currentBranch.startsWith('SRS/')) {
+                this.logger.info('🔍 Not on a project branch, attempting to load main session');
+                await this.attemptLoadMainSession();
+                return;
+            }
+            
+            // 3. 提取项目名
+            const projectName = currentBranch.substring(4); // 移除 "SRS/" 前缀
+            this.logger.info(`🔍 Detected project branch: ${currentBranch}, project: ${projectName}`);
+            
+            // 4. 检查对应的项目会话文件是否存在并加载
+            const projectSessionPath = this.pathManager?.getProjectSessionPath(projectName);
+            if (!projectSessionPath) {
+                this.logger.warn('🔍 PathManager not available, cannot determine project session path');
+                return;
+            }
+            
+            try {
+                await fsPromises.access(projectSessionPath);
+                // 会话文件存在，加载它
+                this.logger.info(`🔄 Smart recovery: Loading session for project ${projectName}`);
+                await this.loadProjectSessionDirect(projectName);
+            } catch {
+                // 会话文件不存在，创建新的项目会话
+                this.logger.info(`🔄 Smart recovery: Creating new session for existing project ${projectName}`);
+                await this.createProjectSessionForExistingProject(projectName);
+            }
+            
+        } catch (error) {
+            this.logger.warn(`Smart recovery failed: ${(error as Error).message}`);
+            // 静默失败，尝试加载主会话作为fallback
+            await this.attemptLoadMainSession();
+        }
+    }
+
+    /**
+     * 🚀 尝试加载主会话文件
+     */
+    private async attemptLoadMainSession(): Promise<void> {
+        try {
+            const mainSessionPath = this.pathManager?.getMainSessionPath();
+            if (!mainSessionPath) {
+                this.logger.info('🔍 PathManager not available for main session');
+                return;
+            }
+            
+            try {
+                await fsPromises.access(mainSessionPath);
+                const unifiedFile = await this.loadUnifiedSessionFileFromPath(mainSessionPath);
+                if (unifiedFile.currentSession) {
+                    this.currentSession = unifiedFile.currentSession;
+                    this.logger.info('✅ Loaded main session successfully');
+                    this.notifyObservers();
+                } else {
+                    this.logger.info('🔍 Main session file exists but contains no current session');
+                }
+            } catch {
+                this.logger.info('🔍 No main session file found, starting fresh');
+            }
+        } catch (error) {
+            this.logger.warn(`Failed to load main session: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 为现有项目创建会话（智能恢复场景）
+     */
+    private async createProjectSessionForExistingProject(projectName: string): Promise<void> {
+        try {
+            // 创建新的项目会话
+            const newSession = await this.createNewSession(projectName);
+            
+            // 记录会话创建事件
+            await this.updateSessionWithLog({
+                logEntry: {
+                    type: OperationType.SESSION_CREATED,
+                    operation: `Smart recovery: Created session for existing project: ${projectName}`,
+                    success: true,
+                    sessionData: newSession
+                }
+            });
+            
+            this.logger.info(`✅ Smart recovery: Created new session for existing project ${projectName}`);
+        } catch (error) {
+            this.logger.error(`Failed to create session for existing project ${projectName}: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 直接加载项目会话（用于智能恢复）
+     */
+    private async loadProjectSessionDirect(projectName: string): Promise<void> {
+        const projectSessionPath = this.pathManager?.getProjectSessionPath(projectName);
+        if (!projectSessionPath) {
+            throw new Error('PathManager not available');
+        }
+        
+        try {
+            const unifiedFile = await this.loadUnifiedSessionFileFromPath(projectSessionPath);
+            if (unifiedFile.currentSession) {
+                this.currentSession = unifiedFile.currentSession;
+                this.logger.info(`✅ Smart recovery: Restored session for project ${projectName}`);
+                this.notifyObservers();
+            } else {
+                this.logger.warn(`Project session file exists but contains no current session: ${projectName}`);
+            }
+        } catch (error) {
+            throw new Error(`Failed to load project session directly: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 从指定路径加载统一会话文件（用于智能恢复）
+     */
+    private async loadUnifiedSessionFileFromPath(filePath: string): Promise<UnifiedSessionFile> {
+        try {
+            // 检查文件是否存在
+            await fsPromises.access(filePath);
+            const fileContent = await fsPromises.readFile(filePath, 'utf8');
+            
+            if (!fileContent || fileContent.trim().length === 0) {
+                return this.createDefaultUnifiedFile();
+            }
+            
+            let parsedData;
+            try {
+                parsedData = JSON.parse(fileContent);
+            } catch (parseError) {
+                this.logger.warn(`Invalid JSON in session file ${filePath}, creating new unified file`);
+                return this.createDefaultUnifiedFile();
+            }
+            
+            // 检查是否为新格式的UnifiedSessionFile
+            if (this.isUnifiedSessionFile(parsedData)) {
+                return parsedData as UnifiedSessionFile;
+            }
+            
+            // 兼容旧格式：如果是SessionContext格式，转换为UnifiedSessionFile
+            if (this.isValidSessionData(parsedData)) {
+                this.logger.info(`Converting legacy session format to unified format: ${filePath}`);
+                return {
+                    fileVersion: '5.0',
+                    currentSession: parsedData as SessionContext,
+                    operations: [],
+                    timeRange: {
+                        startDate: new Date().toISOString().split('T')[0],
+                        endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                    },
+                    createdAt: parsedData.metadata?.created || new Date().toISOString(),
+                    lastUpdated: new Date().toISOString()
+                };
+            }
+            
+            // 无效格式，返回默认结构
+            this.logger.warn(`Unrecognized session file format: ${filePath}`);
+            return this.createDefaultUnifiedFile();
+            
+        } catch (error) {
+            this.logger.warn(`Failed to load session file ${filePath}: ${(error as Error).message}`);
+            return this.createDefaultUnifiedFile();
+        }
     }
 
     /**
@@ -743,14 +1174,14 @@ export class SessionManager implements ISessionManager {
      */
     public async getRecentActivity(): Promise<string> {
         if (!this.currentSession?.baseDir) {
-            return '无项目';
+            return 'No project';
         }
 
         try {
             const recentFiles = await this.scanRecentFiles(this.currentSession.baseDir, 3);
             
             if (recentFiles.length === 0) {
-                return '暂无活动';
+                return 'No activity';
             }
 
             const activities = recentFiles.map(file => {
@@ -761,7 +1192,7 @@ export class SessionManager implements ISessionManager {
             return activities.join(' | ');
         } catch (error) {
             this.logger.error('Failed to get recent activity', error as Error);
-            return '活动获取失败';
+            return 'Failed to get recent activity';
         }
     }
 
@@ -838,25 +1269,24 @@ export class SessionManager implements ISessionManager {
         const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
         if (diffMinutes < 1) {
-            return '刚刚';
+            return 'Just now';
         } else if (diffMinutes < 60) {
-            return `${diffMinutes}分钟前`;
+            return `${diffMinutes} minutes ago`;
         } else if (diffHours < 24) {
-            return `${diffHours}小时前`;
+            return `${diffHours} hours ago`;
         } else if (diffDays < 7) {
-            return `${diffDays}天前`;
+            return `${diffDays} days ago`;
         } else {
             return date.toLocaleDateString();
         }
     }
 
     /**
-     * 强制刷新会话路径（优化：现在使用动态getter，此方法保留以维持接口兼容性）
+     * 🚀 阶段1修改：强制刷新会话路径 - 重新初始化路径管理器
      */
     public refreshSessionPath(): void {
-        // 由于现在使用动态getter，路径会自动适应工作区变化
-        // 此方法保留以维持接口兼容性
-        this.logger.info('Session path is now dynamically retrieved (no refresh needed)');
+        this.initializePathManager();
+        this.logger.info('SessionPathManager refreshed for workspace changes');
     }
 
     /**
@@ -970,322 +1400,224 @@ export class SessionManager implements ISessionManager {
         return newSession;
     }
 
-    /**
-     * 🚀 v4.0修复：生成归档文件名 - 避免项目冲突
-     * 格式：srs-writer-session-YYYYMMDD-YYYYMMDD+15-[projectId].json
-     */
-    private generateArchiveFileName(session: SessionContext): string {
-        const createdDate = new Date(session.metadata.created);
-        const endDate = new Date(createdDate.getTime() + 15 * 24 * 60 * 60 * 1000); // +15天
-        
-        const formatDate = (date: Date) => date.toISOString().slice(0, 10).replace(/-/g, '');
-        
-        // 🚀 修复：添加项目标识符以避免文件名冲突
-        // 使用会话ID的前8位作为唯一标识符，确保不同项目有不同文件名
-        const projectId = session.sessionContextId ? session.sessionContextId.slice(0, 8) : Date.now().toString(36);
-        
-        return `srs-writer-session-${formatDate(createdDate)}-${formatDate(endDate)}-${projectId}.json`;
-    }
+    // 🚀 阶段4清理：移除 generateArchiveFileName 方法
+
+    // 🚀 阶段4清理：移除 archiveDirectoryPath getter
 
     /**
-     * 🚀 v4.0新增：获取归档目录路径
+     * 🚀 阶段3新增：扫描所有项目会话文件
      */
-    private get archiveDirectoryPath(): string | null {
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (workspaceFolder) {
-            return path.join(workspaceFolder.uri.fsPath, '.vscode', 'session-archives');
+    public async listProjectSessions(): Promise<ProjectSessionInfo[]> {
+        if (!this.pathManager) {
+            this.logger.warn('PathManager not initialized, cannot list project sessions');
+            return [];
         }
-        return null;
-    }
-
-    /**
-     * 🚀 v4.0新增：归档当前会话并开始新项目
-     */
-    public async archiveCurrentAndStartNew(
-        newProjectName?: string, 
-        archiveReason: 'age_limit' | 'manual_archive' | 'new_project' = 'new_project'
-    ): Promise<ArchiveResult> {
-        const filesPreserved: string[] = [];
+        
+        const sessionDir = this.pathManager.getSessionDirectory();
+        const projects: ProjectSessionInfo[] = [];
         
         try {
-            // 1. 获取用户资产文件列表
-            const userAssets = await this.getUserAssetFiles();
-            filesPreserved.push(...userAssets);
-
-            // 2. 归档当前会话（如果存在）
-            let archivedSession: ArchivedSessionInfo | undefined;
-            if (this.currentSession) {
-                const reason = archiveReason === 'new_project' ? 'manual_archive' : archiveReason;
-                const archiveInfo = await this.archiveCurrentSession(reason);
-                if (archiveInfo) {
-                    archivedSession = archiveInfo;
+            const sessionDirUri = vscode.Uri.file(sessionDir);
+            
+            // 检查会话目录是否存在
+            try {
+                await vscode.workspace.fs.stat(sessionDirUri);
+            } catch {
+                this.logger.info('Session directory does not exist yet');
+                return [];
+            }
+            
+            // 读取目录内容
+            const files = await vscode.workspace.fs.readDirectory(sessionDirUri);
+            
+            for (const [fileName, fileType] of files) {
+                // 只处理会话文件
+                if (fileType === vscode.FileType.File && fileName.startsWith('srs-writer-session_') && fileName.endsWith('.json')) {
+                    // 跳过主会话文件
+                    if (fileName === 'srs-writer-session_main.json') {
+                        continue;
+                    }
+                    
+                    // 解析项目名
+                    const projectName = this.extractProjectNameFromSessionFile(fileName);
+                    if (projectName) {
+                        const sessionFilePath = path.join(sessionDir, fileName);
+                        
+                        try {
+                            // 读取会话文件元数据
+                            const sessionData = await this.loadSessionFileContent(sessionFilePath);
+                            
+                            projects.push({
+                                projectName,
+                                sessionFile: sessionFilePath,
+                                lastModified: sessionData.metadata?.lastModified || '',
+                                isActive: projectName === this.currentSession?.projectName,
+                                operationCount: sessionData.operations?.length || 0,
+                                gitBranch: sessionData.gitBranch  // 🚀 阶段3新增：从会话文件中读取Git分支信息
+                            });
+                            
+                            this.logger.debug(`Found project session: ${projectName}`);
+        } catch (error) {
+                            this.logger.warn(`Failed to read session file ${fileName}: ${(error as Error).message}`);
+                        }
+                    }
                 }
             }
+        } catch (error) {
+            this.logger.error('Failed to scan session directory', error as Error);
+        }
+        
+        return projects;
+    }
 
-            // 3. 创建新会话
+    /**
+     * 🚀 阶段3新增：从会话文件名解析项目名
+     */
+    private extractProjectNameFromSessionFile(fileName: string): string | null {
+        // 文件名格式: srs-writer-session_{projectName}.json
+        const match = fileName.match(/^srs-writer-session_(.+)\.json$/);
+        return match ? match[1] : null;
+    }
+
+    /**
+     * 🚀 阶段3新增：加载会话文件内容（不影响当前会话）
+     */
+    private async loadSessionFileContent(sessionFilePath: string): Promise<any> {
+        const fileUri = vscode.Uri.file(sessionFilePath);
+        const content = await vscode.workspace.fs.readFile(fileUri);
+        return JSON.parse(content.toString());
+    }
+
+    /**
+     * 🚀 阶段3新增：项目会话切换
+     */
+    public async switchToProjectSession(projectName: string): Promise<void> {
+        try {
+            this.logger.info(`Starting switch to project session: ${projectName}`);
+            
+            // 1. 保存当前会话状态
+            if (this.currentSession) {
+                await this.saveCurrentSession();
+                this.logger.info('Current session saved');
+            }
+            
+            // 2. 加载或创建目标项目会话
+            const targetSession = await this.loadOrCreateProjectSession(projectName);
+            
+            // 3. 更新当前会话
+            this.currentSession = targetSession;
+            
+            // 4. 通知观察者
+            this.notifyObservers();
+            
+            this.logger.info(`Successfully switched to project session: ${projectName}`);
+        } catch (error) {
+            this.logger.error(`Failed to switch to project session: ${projectName}`, error as Error);
+            throw error;
+        }
+    }
+
+    /**
+     * 🚀 阶段3新增：加载或创建项目会话
+     */
+    private async loadOrCreateProjectSession(projectName: string): Promise<SessionContext> {
+        if (!this.pathManager) throw new Error('PathManager not initialized');
+        
+        const sessionPath = this.pathManager.getProjectSessionPath(projectName);
+        
+        try {
+            // 尝试加载现有会话文件
+            const sessionData = await this.loadSessionFileContent(sessionPath);
+            if (sessionData && sessionData.sessionContextId) {
+                this.logger.info(`Loaded existing session for project: ${projectName}`);
+                return sessionData;
+            }
+        } catch (error) {
+            this.logger.info(`Session file not found for project ${projectName}, creating new one`);
+        }
+        
+        // 如果文件不存在或无效，创建新会话
+        this.logger.info(`Creating new session for project: ${projectName}`);
+        
+        // 获取项目基础目录
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const projectBaseDir = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, projectName) : null;
+        
+        const newSession = await this.createNewSession(projectName);
+        
+        // 更新项目基础目录
+        if (projectBaseDir && newSession) {
+            await this.updateSession({
+                baseDir: projectBaseDir
+            });
+        }
+        
+        return newSession;
+    }
+
+    /**
+     * 🚀 阶段3新增：保存当前会话（不影响文件路径选择）
+     */
+    private async saveCurrentSession(): Promise<void> {
+        if (this.currentSession) {
+            await this.saveSessionToFile();
+        }
+    }
+
+    /**
+     * 🚀 阶段4重命名：简化的新会话创建方法
+     * 原 archiveCurrentAndStartNew 方法的重构版本，专注于创建新会话
+     */
+    public async startNewSession(newProjectName?: string): Promise<NewSessionResult> {
+        try {
+            this.logger.info(`🚀 [Phase4] Creating new session: ${newProjectName || 'unnamed'}`);
+            
+            // 如果有当前会话，简单清理（不归档）
+            const previousProjectName = this.currentSession?.projectName;
+            if (this.currentSession) {
+                this.logger.info(`🧹 [Phase4] Clearing previous session: ${previousProjectName}`);
+                // 简单清理，不保存到归档
+                this.currentSession = null;
+            }
+
+            // 创建新会话
             const newSession = await this.createNewSession(newProjectName);
 
-            this.logger.info(`Successfully started new project. Preserved ${filesPreserved.length} user files.`);
+            this.logger.info(`✅ [Phase4] Successfully started new session: ${newSession.projectName || 'unnamed'}`);
             
             return {
                 success: true,
-                archivedSession,
-                newSession,
-                filesPreserved
+                newSession
             };
 
         } catch (error) {
-            this.logger.error('Failed to archive and start new project', error as Error);
+            this.logger.error('Failed to start new session', error as Error);
             return {
                 success: false,
-                error: (error as Error).message,
-                filesPreserved
+                error: (error as Error).message
             };
         }
     }
 
     /**
-     * 🚀 v4.0修复：手动归档当前会话 - 保留完整历史 + 追加模式
+     * 🚀 阶段4兼容性：保持旧方法名的向后兼容
+     * @deprecated 使用 startNewSession 替代
      */
-    public async archiveCurrentSession(
-        reason: 'age_limit' | 'manual_archive' = 'manual_archive'
-    ): Promise<ArchivedSessionInfo | null> {
-        if (!this.currentSession || !this.archiveDirectoryPath) {
-            return null;
-        }
-
-        try {
-            // 确保归档目录存在
-            await fsPromises.mkdir(this.archiveDirectoryPath, { recursive: true });
-
-            // 生成归档文件名和路径
-            const archiveFileName = this.generateArchiveFileName(this.currentSession);
-            const archiveFilePath = path.join(this.archiveDirectoryPath, archiveFileName);
-
-            // 🚀 修复1：读取完整的当前会话文件（包含operations历史）
-            const unifiedFile = await this.loadUnifiedSessionFile();
-            
-            // 创建归档数据（包含完整历史）
-            const newArchiveEntry = {
-                sessionContextId: this.currentSession.sessionContextId,
-                projectName: this.currentSession.projectName,
-                baseDir: this.currentSession.baseDir,
-                activeFiles: this.currentSession.activeFiles,
-                metadata: this.currentSession.metadata,
-                operations: unifiedFile.operations, // 🚀 保留所有operations历史
-                timeRange: unifiedFile.timeRange,
-                archivedAt: new Date().toISOString(),
-                archiveReason: reason,
-                fileVersion: unifiedFile.fileVersion
-            };
-
-            // 🚀 修复2：读取现有归档文件，如果存在的话
-            let existingArchives: any[] = [];
-            try {
-                if (await this.fileExists(archiveFilePath)) {
-                    const existingContent = await fsPromises.readFile(archiveFilePath, 'utf8');
-                    if (existingContent.trim()) {
-                        const parsed = JSON.parse(existingContent);
-                        // 支持两种格式：单个对象（旧格式）或数组（新格式）
-                        existingArchives = Array.isArray(parsed) ? parsed : [parsed];
-                    }
-                }
-            } catch (parseError) {
-                this.logger.warn(`Failed to parse existing archive file, starting fresh: ${(parseError as Error).message}`);
-                existingArchives = [];
-            }
-
-            // 🚀 修复3：追加新的归档条目
-            existingArchives.push(newArchiveEntry);
-
-            // 🚀 修复4：写入合并后的数据
-            await fsPromises.writeFile(archiveFilePath, JSON.stringify(existingArchives, null, 2), 'utf8');
-
-            // 计算会话覆盖的天数
-            const created = new Date(this.currentSession.metadata.created);
-            const lastModified = new Date(this.currentSession.metadata.lastModified);
-            const daysCovered = Math.ceil((lastModified.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-
-            const archiveInfo: ArchivedSessionInfo = {
-                archiveFileName,
-                originalSession: { ...this.currentSession },
-                archiveDate: new Date().toISOString(),
-                daysCovered: Math.max(daysCovered, 1),
-                reason
-            };
-
-            this.logger.info(`Session archived: ${archiveFileName} (${daysCovered} days covered, ${existingArchives.length} total entries)`);
-            return archiveInfo;
-
-        } catch (error) {
-            this.logger.error('Failed to archive session', error as Error);
-            return null;
-        }
+    public async archiveCurrentAndStartNew(
+        newProjectName?: string, 
+        archiveReason?: string
+    ): Promise<NewSessionResult> {
+        this.logger.warn('🚨 [DEPRECATED] archiveCurrentAndStartNew is deprecated, use startNewSession instead');
+        return this.startNewSession(newProjectName);
     }
 
-    /**
-     * 🚀 v4.0修复：列出所有归档的会话 - 支持新的数组格式
-     */
-    public async listArchivedSessions(limit: number = 20): Promise<ArchivedSessionInfo[]> {
-        if (!this.archiveDirectoryPath) {
-            return [];
-        }
+    // 🚀 阶段4清理：移除 archiveCurrentSession 方法
 
-        try {
-            // 检查归档目录是否存在
-            await fsPromises.access(this.archiveDirectoryPath);
-            
-            const files = await fsPromises.readdir(this.archiveDirectoryPath);
-            const archiveFiles = files
-                .filter(file => file.startsWith('srs-writer-session-') && file.endsWith('.json'))
-                .sort()
-                .reverse(); // 最新的在前
+    // 🚀 阶段4清理：移除 listArchivedSessions 方法
 
-            const archives: ArchivedSessionInfo[] = [];
-            
-            for (const fileName of archiveFiles) {
-                try {
-                    const filePath = path.join(this.archiveDirectoryPath!, fileName);
-                    const fileContent = await fsPromises.readFile(filePath, 'utf8');
-                    
-                    // 🚀 修复：检查归档文件内容是否为空
-                    if (!fileContent || fileContent.trim().length === 0) {
-                        this.logger.warn(`Archive file ${fileName} is empty, skipping`);
-                        continue;
-                    }
-                    
-                    let archiveData;
-                    try {
-                        archiveData = JSON.parse(fileContent);
-                    } catch (parseError) {
-                        this.logger.warn(`Archive file ${fileName} contains invalid JSON: ${(parseError as Error).message}`);
-                        continue;
-                    }
-                    
-                    // 🚀 修复：处理新的数组格式和旧的单对象格式
-                    const archiveEntries = Array.isArray(archiveData) ? archiveData : [archiveData];
-                    
-                    for (const entry of archiveEntries) {
-                        if (this.isValidSessionData(entry)) {
-                            const created = new Date(entry.metadata.created);
-                            const lastModified = new Date(entry.metadata.lastModified);
-                            const daysCovered = Math.ceil((lastModified.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+    // 🚀 阶段4清理：移除 autoArchiveExpiredSessions 方法
 
-                            archives.push({
-                                archiveFileName: fileName,
-                                originalSession: {
-                                    sessionContextId: entry.sessionContextId,
-                                    projectName: entry.projectName,
-                                    baseDir: entry.baseDir,
-                                    activeFiles: entry.activeFiles,
-                                    metadata: entry.metadata
-                                },
-                                archiveDate: entry.archivedAt || entry.metadata.lastModified,
-                                daysCovered: Math.max(daysCovered, 1),
-                                reason: entry.archiveReason || 'manual_archive'
-                            });
-                        }
-                    }
-                } catch (fileError) {
-                    this.logger.warn(`Failed to read archive file ${fileName}: ${(fileError as Error).message}`);
-                }
-            }
-
-            // 按归档日期排序，最新的在前，然后应用limit
-            return archives
-                .sort((a, b) => new Date(b.archiveDate).getTime() - new Date(a.archiveDate).getTime())
-                .slice(0, limit);
-
-        } catch (error) {
-            this.logger.debug('Archive directory not found or empty');
-            return [];
-        }
-    }
-
-    /**
-     * 🚀 v5.0修复：自动归档过期会话 - 基于最后活跃时间而非创建时间
-     */
-    public async autoArchiveExpiredSessions(maxAgeDays: number = 15): Promise<ArchivedSessionInfo[]> {
-        const archived: ArchivedSessionInfo[] = [];
-
-        if (!this.currentSession) {
-            return archived;
-        }
-
-        // ✅ 修复：使用lastModified（最后活跃时间）而不是created（创建时间）
-        const lastActivity = new Date(this.currentSession.metadata.lastModified).getTime();
-        const inactivityPeriod = Date.now() - lastActivity;
-        const maxInactivityMs = maxAgeDays * 24 * 60 * 60 * 1000;
-
-        if (inactivityPeriod > maxInactivityMs) {
-            const archiveInfo = await this.archiveCurrentSession('age_limit');
-            if (archiveInfo) {
-                archived.push(archiveInfo);
-                const daysInactive = Math.round(inactivityPeriod / (1000 * 60 * 60 * 24) * 10) / 10;
-                this.logger.info(`Auto-archived expired session (${daysInactive} days inactive)`);
-            }
-        }
-
-        return archived;
-    }
-
-    /**
-     * 🚀 v4.0新增：获取用户资产文件列表
-     */
-    public async getUserAssetFiles(): Promise<string[]> {
-        const assetFiles: string[] = [];
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        
-        if (!workspaceFolder || !this.currentSession?.baseDir) {
-            return assetFiles;
-        }
-
-        try {
-            // 定义用户资产文件模式
-            const assetPatterns = [
-                'SRS.md',
-                'fr.yaml',
-                'nfr.yaml', 
-                'glossary.yaml',
-                'classification_decision.md',
-                'questions_and_suggestions.md',
-                'writer_log.json',
-                'mother_document.md',
-                'SRS_Report.md',
-                '*.backup.*' // 备份文件
-            ];
-
-            // 检查项目目录中的文件
-            const projectPath = this.currentSession.baseDir;
-            if (await this.directoryExists(projectPath)) {
-                const files = await fsPromises.readdir(projectPath);
-                
-                for (const pattern of assetPatterns) {
-                    if (pattern.includes('*')) {
-                        // 处理通配符模式
-                        const matchingFiles = files.filter(file => {
-                            if (pattern === '*.backup.*') {
-                                return file.includes('.backup.');
-                            }
-                            return false;
-                        });
-                        assetFiles.push(...matchingFiles.map(file => path.join(projectPath, file)));
-                    } else {
-                        // 精确匹配
-                        const filePath = path.join(projectPath, pattern);
-                        if (await this.fileExists(filePath)) {
-                            assetFiles.push(filePath);
-                        }
-                    }
-                }
-            }
-
-        } catch (error) {
-            this.logger.warn(`Failed to scan user asset files: ${(error as Error).message}`);
-        }
-
-        return assetFiles;
-    }
+    // 🚀 阶段4清理：移除 getUserAssetFiles 方法
 
     /**
      * 辅助方法：检查文件是否存在

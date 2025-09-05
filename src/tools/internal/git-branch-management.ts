@@ -44,16 +44,18 @@ async function getProjectGitBranchFromSession(projectName: string): Promise<stri
  */
 async function switchToProjectGitBranchFromSession(
     projectDir: string, 
-    projectName: string
+    projectName: string,
+    userGitChoice?: string | null
 ): Promise<{
     success: boolean;
     message: string;
     branchName?: string;
     operation: 'switched' | 'created' | 'no-change' | 'failed';
     error?: string;
+    fromBranch?: string;  // 🚀 新增：记录原分支
 }> {
     try {
-        const { checkGitRepository, getCurrentBranch, checkBranchExists } = 
+        const { checkGitRepository, getCurrentBranch, checkBranchExists, commitAllChanges, discardAllChanges } = 
             await import('../atomic/git-operations');
         
         // 1. 检查是否为Git仓库
@@ -65,9 +67,79 @@ async function switchToProjectGitBranchFromSession(
                 error: 'NOT_GIT_REPO'
             };
         }
+
+        // 🚀 新增：根据用户选择处理Git更改
+        try {
+            const { checkWorkspaceGitStatus } = await import('../atomic/git-operations');
+            const gitStatusCheck = await checkWorkspaceGitStatus();
+            
+            if (gitStatusCheck.hasChanges && gitStatusCheck.workspaceRoot) {
+                if (userGitChoice === 'Yes, commit them') {
+                    logger.info(`🌿 [switchToProjectGitBranchFromSession] User chose auto-commit, committing all changes`);
+                    
+                    const commitResult = await commitAllChanges(gitStatusCheck.workspaceRoot);
+                    if (!commitResult.success) {
+                        logger.error(`🌿 [switchToProjectGitBranchFromSession] Failed to commit changes: ${commitResult.error}`);
+                        return {
+                            success: false,
+                            message: `Failed to commit changes before branch switch: ${commitResult.error}`,
+                            operation: 'failed',
+                            error: commitResult.error
+                        };
+                    }
+                    
+                    if (commitResult.commitHash) {
+                        logger.info(`🌿 [switchToProjectGitBranchFromSession] Auto-committed changes: ${commitResult.commitHash}`);
+                    } else {
+                        logger.info(`🌿 [switchToProjectGitBranchFromSession] No changes to commit after git add`);
+                    }
+                } else if (userGitChoice === 'Discard changes and switch') {
+                    logger.info(`🌿 [switchToProjectGitBranchFromSession] User chose to discard changes, discarding all changes`);
+                    
+                    const discardResult = await discardAllChanges(gitStatusCheck.workspaceRoot);
+                    if (!discardResult.success) {
+                        logger.error(`🌿 [switchToProjectGitBranchFromSession] Failed to discard changes: ${discardResult.error}`);
+                        return {
+                            success: false,
+                            message: `Failed to discard changes before branch switch: ${discardResult.error}`,
+                            operation: 'failed',
+                            error: discardResult.error
+                        };
+                    }
+                    
+                    logger.info(`🌿 [switchToProjectGitBranchFromSession] Successfully discarded all changes`);
+                } else {
+                    // 没有用户选择或其他情况，使用默认的自动提交逻辑（向后兼容）
+                    logger.info(`🌿 [switchToProjectGitBranchFromSession] No user choice specified, using default auto-commit behavior`);
+                    
+                    const commitResult = await commitAllChanges(gitStatusCheck.workspaceRoot);
+                    if (!commitResult.success) {
+                        logger.error(`🌿 [switchToProjectGitBranchFromSession] Failed to commit changes: ${commitResult.error}`);
+                        return {
+                            success: false,
+                            message: `Failed to commit changes before branch switch: ${commitResult.error}`,
+                            operation: 'failed',
+                            error: commitResult.error
+                        };
+                    }
+                    
+                    if (commitResult.commitHash) {
+                        logger.info(`🌿 [switchToProjectGitBranchFromSession] Auto-committed changes: ${commitResult.commitHash}`);
+                    } else {
+                        logger.info(`🌿 [switchToProjectGitBranchFromSession] No changes to commit after git add`);
+                    }
+                }
+            } else {
+                logger.info(`🌿 [switchToProjectGitBranchFromSession] No uncommitted changes found`);
+            }
+        } catch (gitError) {
+            logger.warn(`🌿 [switchToProjectGitBranchFromSession] Git operation failed: ${(gitError as Error).message}`);
+            // Git操作失败不阻止分支切换，继续执行
+        }
         
         // 2. 获取当前分支
         const currentBranch = await getCurrentBranch(projectDir);
+        logger.info(`🔍 [switchToProjectGitBranchFromSession] Current branch: ${currentBranch}`);
         
         // 3. 🚀 优先从会话中获取分支信息
         let targetBranch = await getProjectGitBranchFromSession(projectName);
@@ -86,7 +158,8 @@ async function switchToProjectGitBranchFromSession(
                 success: true,
                 message: `Already on correct branch: ${targetBranch}`,
                 branchName: targetBranch,
-                operation: 'no-change'
+                operation: 'no-change',
+                fromBranch: currentBranch || undefined
             };
         }
         
@@ -102,7 +175,8 @@ async function switchToProjectGitBranchFromSession(
                 success: true,
                 message: `Switched to existing branch: ${targetBranch}`,
                 branchName: targetBranch,
-                operation: 'switched'
+                operation: 'switched',
+                fromBranch: currentBranch || undefined
             };
         } else {
             // 分支不存在，创建新分支
@@ -114,7 +188,8 @@ async function switchToProjectGitBranchFromSession(
                 message: result.message,
                 branchName: result.branchName,
                 operation: result.success ? 'created' : 'failed',
-                error: result.error
+                error: result.error,
+                fromBranch: currentBranch || undefined
             };
         }
         
@@ -123,7 +198,8 @@ async function switchToProjectGitBranchFromSession(
             success: false,
             message: `Git operation failed: ${(error as Error).message}`,
             operation: 'failed',
-            error: (error as Error).message
+            error: (error as Error).message,
+            fromBranch: undefined // 错误情况下无法获取
         };
     }
 }
@@ -149,7 +225,7 @@ async function updateSessionGitBranchForSwitch(branchName: string) {
 /**
  * 记录项目切换时的 Git 操作到会话日志
  */
-async function logGitOperationForSwitch(branchResult: any, sessionContextId?: string) {
+async function logGitOperationForSwitch(branchResult: any, sessionContextId?: string, fromBranch?: string) {
     if (!sessionContextId) return;
     
     try {
@@ -164,7 +240,13 @@ async function logGitOperationForSwitch(branchResult: any, sessionContextId?: st
                     type: OperationType.GIT_BRANCH_CREATED,
                     operation: `Created Git branch during project switch: ${branchResult.branchName}`,
                     success: true,
-                    toolName: 'switchProject'
+                    toolName: 'switchProject',
+                    gitOperation: fromBranch ? {
+                        fromBranch,
+                        toBranch: branchResult.branchName,
+                        reason: 'project_switch',
+                        branchCreated: true
+                    } : undefined
                 }
             });
         }
@@ -173,9 +255,15 @@ async function logGitOperationForSwitch(branchResult: any, sessionContextId?: st
             await sessionManager.updateSessionWithLog({
                 logEntry: {
                     type: OperationType.GIT_BRANCH_SWITCHED,
-                    operation: `Switched to Git branch during project switch: ${branchResult.branchName}`,
+                    operation: `Switched from ${fromBranch || 'unknown'} to ${branchResult.branchName} during project switch`,
                     success: true,
-                    toolName: 'switchProject'
+                    toolName: 'switchProject',
+                    gitOperation: fromBranch ? {
+                        fromBranch,
+                        toBranch: branchResult.branchName,
+                        reason: 'project_switch',
+                        branchCreated: false
+                    } : undefined
                 }
             });
         }

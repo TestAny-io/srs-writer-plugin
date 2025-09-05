@@ -80,17 +80,43 @@ export class UserInteractionHandler {
         recordExecution('user_interaction', `选择: ${selectedOption}`, true);
         
         if (interaction.toolCall) {
-            // 如果有关联的工具调用，添加用户选择到参数中
-            const updatedArgs = {
-                ...interaction.toolCall.args,
-                userChoice: selectedOption,
-                userChoiceIndex: selectedIndex
-            };
-            
-            await handleAutonomousTool({
-                name: interaction.toolCall.name,
-                args: updatedArgs
-            });
+            // 🚀 新增：处理计划恢复选择
+            if (interaction.toolCall.name === 'internal_plan_recovery') {
+                if (selectedOption === '继续执行写作计划') {
+                    stream.markdown(`✅ **开始恢复计划执行**\n\n`);
+                    
+                    // 触发计划恢复
+                    await handleAutonomousTool({
+                        name: 'internal_resume_plan',
+                        args: { 
+                            action: 'resume'
+                        }
+                    });
+                    
+                } else if (selectedOption === '结束写作计划') {
+                    stream.markdown(`❌ **计划执行已终止**\n\n`);
+                    
+                    await handleAutonomousTool({
+                        name: 'internal_resume_plan',
+                        args: { 
+                            action: 'terminate'
+                        }
+                    });
+                }
+                
+            } else {
+                // 原有的工具调用处理逻辑
+                const updatedArgs = {
+                    ...interaction.toolCall.args,
+                    userChoice: selectedOption,
+                    userChoiceIndex: selectedIndex
+                };
+                
+                await handleAutonomousTool({
+                    name: interaction.toolCall.name,
+                    args: updatedArgs
+                });
+            }
         }
         return { shouldReturnToWaiting: false };
     } else {

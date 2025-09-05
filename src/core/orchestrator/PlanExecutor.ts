@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Logger } from '../../utils/logger';
 import { SessionContext } from '../../types/session';
 import { SpecialistExecutor } from '../specialistExecutor';
+import { SessionLogService } from '../SessionLogService';
 import { SpecialistProgressCallback } from '../../types';
 import { SpecialistOutput, SpecialistExecutionHistory, SpecialistInteractionResult, SpecialistLoopState } from '../engine/AgentState';
 // 🚀 Phase 1新增：编辑指令支持（传统）
@@ -44,6 +45,7 @@ enum FailureType {
  */
 export class PlanExecutor {
     private logger = Logger.getInstance();
+    private sessionLogService = new SessionLogService();  // 🚀 新增：统一会话日志记录服务
     
     /**
      * 🚀 新增：specialist循环状态管理
@@ -63,6 +65,19 @@ export class PlanExecutor {
     ) {
         // 初始化specialist循环状态管理器
         this.specialistLoopStates = new Map();
+    }
+
+    /**
+     * 🚀 新增：获取 specialist 的显示名称（复用 SpecialistExecutor 的逻辑）
+     */
+    private getSpecialistName(specialistId: string): string {
+        try {
+            // 通过 SpecialistExecutor 的方法获取，避免重复实现
+            return (this.specialistExecutor as any).getSpecialistName(specialistId);
+        } catch (error) {
+            this.logger.warn(`Failed to get specialist name for ${specialistId}: ${(error as Error).message}`);
+            return specialistId;
+        }
     }
     
     /**
@@ -198,6 +213,25 @@ export class PlanExecutor {
                 // 检查specialist是否执行成功
                 if (!specialistOutput.success) {
                     this.logger.error(`❌ 步骤 ${step.step} ${step.specialist}执行失败: ${specialistOutput.error}`);
+                    
+                    // 🚀 修复3：记录 specialist 步骤失败到会话文件
+                    const stepExecutionTime = Date.now() - startTime;
+                    await this.recordSpecialistStepFailure(
+                        plan.planId,
+                        step,
+                        specialistOutput,
+                        stepExecutionTime
+                    );
+                    
+                    // 🚀 修复4：记录 plan_failed 事件到会话文件
+                    await this.recordPlanFailure(
+                        plan,
+                        step,
+                        specialistOutput,
+                        Object.keys(stepResults).length,
+                        stepExecutionTime
+                    );
+                    
                     return {
                         intent: 'plan_failed',
                         result: {
@@ -2058,6 +2092,239 @@ export class PlanExecutor {
                         })),
                         error: null
                     }
+                }
+            };
+        }
+    }
+
+    /**
+     * 🚀 修复3：记录 specialist 步骤失败到会话文件
+     */
+    private async recordSpecialistStepFailure(
+        planId: string,
+        step: any,
+        specialistOutput: SpecialistOutput,
+        stepExecutionTime: number
+    ): Promise<void> {
+        try {
+            await this.sessionLogService.recordToolExecution({
+                executor: 'plan_executor',
+                toolName: 'specialist_step_execution',
+                operation: `步骤 ${step.step} ${step.specialist} 执行失败: ${specialistOutput.error}`,
+                success: false,
+                error: specialistOutput.error,
+                executionTime: stepExecutionTime,
+                metadata: {
+                    planId: planId,
+                    stepNumber: step.step,
+                    specialistId: step.specialist,
+                    specialistName: this.getSpecialistName(step.specialist),
+                    iterations: specialistOutput.metadata?.iterations || 0,
+                    loopIterations: specialistOutput.metadata?.loopIterations || 0,
+                    failureReason: specialistOutput.error
+                }
+            });
+            
+            this.logger.info(`📋 Specialist step failure recorded: ${step.specialist} step ${step.step}`);
+            
+        } catch (error) {
+            // 错误隔离：记录失败不影响主流程
+            this.logger.warn(`Failed to record specialist step failure: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 修复4：记录 plan_failed 事件到会话文件
+     */
+    private async recordPlanFailure(
+        plan: { planId: string; description: string; steps: any[] },
+        failedStep: any,
+        specialistOutput: SpecialistOutput,
+        completedSteps: number,
+        stepExecutionTime: number
+    ): Promise<void> {
+        try {
+            await this.sessionLogService.recordLifecycleEvent({
+                eventType: 'plan_failed',
+                description: `计划 "${plan.description}" 执行失败: ${specialistOutput.error}`,
+                entityId: plan.planId,
+                metadata: {
+                    planId: plan.planId,
+                    planDescription: plan.description,
+                    failedStep: failedStep.step,
+                    failedStepDescription: failedStep.description,
+                    failedSpecialist: failedStep.specialist,
+                    failedSpecialistName: this.getSpecialistName(failedStep.specialist),
+                    totalSteps: plan.steps.length,
+                    completedSteps: completedSteps,
+                    error: specialistOutput.error,
+                    stepExecutionTime: stepExecutionTime,
+                    specialistIterations: specialistOutput.metadata?.iterations || 0
+                }
+            });
+            
+            this.logger.info(`📋 Plan failure recorded: ${plan.planId} failed at step ${failedStep.step}`);
+            
+        } catch (error) {
+            // 错误隔离：记录失败不影响主流程
+            this.logger.warn(`Failed to record plan failure: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 新增：从指定步骤恢复计划执行
+     * 保持原始 planId 和已完成步骤的上下文
+     */
+    public async resumeFromStep(
+        originalPlan: any,
+        failedStep: number,
+        completedStepResults: { [key: number]: SpecialistOutput },
+        sessionContext: any,
+        userInput: string,
+        selectedModel: vscode.LanguageModelChat,  // 🚀 新增：selectedModel 参数
+        progressCallback?: SpecialistProgressCallback
+    ): Promise<{ intent: string; result?: any }> {
+        
+        this.logger.info(`🔄 恢复计划执行: ${originalPlan.planId} 从步骤 ${failedStep} 开始`);
+        this.logger.info(`📊 已完成步骤: ${Object.keys(completedStepResults).length}`);
+        this.logger.info(`📊 待执行步骤: ${originalPlan.steps.length - failedStep + 1}`);
+        
+        const startTime = Date.now();
+        
+        // 🚀 关键：使用原始计划，保持 planId 和上下文
+        const stepResults: { [key: number]: SpecialistOutput } = { ...completedStepResults };
+        
+        // 🚀 反序列化会话上下文
+        let currentSessionContext: SessionContext;
+        if (typeof sessionContext === 'string') {
+            currentSessionContext = JSON.parse(sessionContext);
+        } else {
+            currentSessionContext = sessionContext;
+        }
+        
+        try {
+            // 🚀 从失败步骤开始执行（包含失败步骤，重新尝试）
+            const stepsToExecute = originalPlan.steps.filter((step: any) => step.step >= failedStep);
+            
+            this.logger.info(`🔄 准备执行 ${stepsToExecute.length} 个步骤，从步骤 ${failedStep} 开始`);
+            
+            for (const step of stepsToExecute) {
+                this.logger.info(`▶️ 恢复执行步骤 ${step.step}: ${step.description}`);
+                
+                // 🚀 复用现有的专家执行逻辑，传递已完成的步骤结果
+                const specialistResult = await this.executeSpecialistWithLoopSupport(
+                    step,
+                    stepResults,           // 🚀 关键：包含之前已完成的步骤
+                    currentSessionContext,
+                    userInput,
+                    selectedModel,
+                    originalPlan,          // 🚀 关键：保持原始计划
+                    progressCallback
+                );
+                
+                // 检查是否需要用户交互
+                if ('needsChatInteraction' in specialistResult && specialistResult.needsChatInteraction) {
+                    this.logger.info(`💬 恢复执行中需要用户交互: ${specialistResult.question}`);
+                    return {
+                        intent: 'user_interaction_required',
+                        result: specialistResult
+                    };
+                }
+                
+                const specialistOutput = specialistResult as SpecialistOutput;
+                
+                // 检查是否又失败了
+                if (!specialistOutput.success) {
+                    this.logger.error(`❌ 恢复执行在步骤 ${step.step} 再次失败: ${specialistOutput.error}`);
+                    
+                    // 🚀 记录恢复失败
+                    await this.recordSpecialistStepFailure(
+                        originalPlan.planId,
+                        step,
+                        specialistOutput,
+                        Date.now() - startTime
+                    );
+                    
+                    return {
+                        intent: 'plan_failed',
+                        result: {
+                            summary: `恢复执行在步骤 ${step.step} 再次失败`,
+                            error: `${step.specialist}执行失败: ${specialistOutput.error}`,
+                            failedStep: step.step,
+                            completedSteps: Object.keys(stepResults).length,
+                            planExecutionContext: {
+                                originalExecutionPlan: originalPlan,
+                                totalSteps: originalPlan.steps.length,
+                                completedSteps: Object.keys(stepResults).length,
+                                failedStep: step.step,
+                                failedSpecialist: step.specialist,
+                                completedWork: Object.keys(stepResults).map(stepNum => ({
+                                    step: parseInt(stepNum),
+                                    specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                                    description: originalPlan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                                    status: 'completed'
+                                })),
+                                error: `恢复执行失败: ${specialistOutput.error}`
+                            }
+                        }
+                    };
+                }
+                
+                // 🚀 步骤成功，保存结果并继续
+                stepResults[step.step] = specialistOutput;
+                this.logger.info(`✅ 恢复执行步骤 ${step.step} 成功`);
+                
+                // 🚀 更新会话上下文（如果步骤影响了会话状态）
+                const targetFile = specialistOutput.target_file || step.targetFile;
+                if (targetFile && this.checkIfFileAffectsSession(targetFile)) {
+                    currentSessionContext = await this.refreshOrUpdateSessionContext(
+                        currentSessionContext, 
+                        targetFile
+                    );
+                }
+            }
+            
+            // 🚀 所有步骤恢复执行成功
+            const executionTime = Date.now() - startTime;
+            this.logger.info(`✅ 计划恢复执行成功完成: ${originalPlan.planId}`);
+            
+            return {
+                intent: 'plan_completed',
+                result: {
+                    summary: `恢复执行成功完成: ${originalPlan.description}`,
+                    executionTime,
+                    totalSteps: originalPlan.steps.length,
+                    resumedFromStep: failedStep,
+                    completedSteps: Object.keys(stepResults).length,
+                    stepResults: this.formatStepResults(stepResults),
+                    finalOutput: this.extractFinalOutput(stepResults),
+                    planExecutionContext: {
+                        originalExecutionPlan: originalPlan,
+                        totalSteps: originalPlan.steps.length,
+                        completedSteps: Object.keys(stepResults).length,
+                        failedStep: null,
+                        failedSpecialist: null,
+                        completedWork: Object.keys(stepResults).map(stepNum => ({
+                            step: parseInt(stepNum),
+                            specialist: stepResults[parseInt(stepNum)].metadata?.specialist || 'unknown',
+                            description: originalPlan.steps.find((s: any) => s.step === parseInt(stepNum))?.description || 'unknown',
+                            status: 'completed'
+                        })),
+                        error: null,
+                        resumedExecution: true  // 🚀 标记这是恢复执行
+                    }
+                }
+            };
+            
+        } catch (error) {
+            this.logger.error(`❌ 计划恢复执行异常: ${(error as Error).message}`);
+            return {
+                intent: 'plan_failed',
+                result: {
+                    summary: `计划恢复执行异常`,
+                    error: `恢复执行异常: ${(error as Error).message}`,
+                    failedStep: failedStep,
+                    completedSteps: Object.keys(completedStepResults).length
                 }
             };
         }

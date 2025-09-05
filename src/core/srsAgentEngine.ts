@@ -14,6 +14,7 @@ import { LoopDetector } from './engine/LoopDetector';
 import { ContextManager } from './engine/ContextManager';
 import { SpecialistExecutor } from './specialistExecutor';
 import { SpecialistOutput } from '../types';
+import { PlanInterruptionState } from './engine/AgentState';
 
 /**
  * 🚀 SRS Agent Engine v6.0 - 全局引擎架构
@@ -39,6 +40,7 @@ export class SRSAgentEngine implements ISessionObserver {
   // 依赖注入的组件
   private orchestrator?: any;
   private toolExecutor?: any;
+  private planExecutor?: any;  // 🚀 新增：PlanExecutor 实例
   
   // 🚀 新增：拆分后的模块实例
   private userInteractionHandler: UserInteractionHandler;
@@ -123,6 +125,12 @@ export class SRSAgentEngine implements ISessionObserver {
   public setDependencies(orchestrator: any, toolExecutor: any): void {
     this.orchestrator = orchestrator;
     this.toolExecutor = toolExecutor;
+    
+    // 🚀 新增：获取 PlanExecutor 实例
+    if (orchestrator && orchestrator.planExecutor) {
+      this.planExecutor = orchestrator.planExecutor;
+      this.logger.info('📋 PlanExecutor instance injected into SRSAgentEngine');
+    }
     
     // 🚀 v6.0：设置Plan取消检查回调，让PlanExecutor能够检查取消状态
     if (orchestrator && typeof orchestrator.setPlanCancelledCheckCallback === 'function') {
@@ -553,29 +561,8 @@ export class SRSAgentEngine implements ISessionObserver {
           this.logger.info(`🔍 [DEBUG-CONTEXT] Task completed. Final executionHistory.length: ${this.state.executionHistory.length}`);
           return;
         } else if (executionResult.intent === 'plan_failed') {
-          this.stream.markdown(`❌ **计划执行失败**: ${executionResult.result?.error}\n\n`);
-          this.logger.info(`🔍 [DEBUG-CONTEXT] === PLAN EXECUTION FAILED ===`);
-        this.logger.info(`🔍 [DEBUG-CONTEXT] About to record execution: "计划执行失败: ${executionResult.result?.error}"`);
-        await this.recordExecution('result', `计划执行失败: ${executionResult.result?.error}`, false, 'planExecutor', executionResult.result?.planExecutionContext);
-        this.logger.info(`🔍 [DEBUG-CONTEXT] Plan execution failure recorded. New executionHistory.length: ${this.state.executionHistory.length}`);
-          
-          // 🚨 新增：Engine状态变为error的详细追踪
-          const errorStack = new Error().stack;
-          const timestamp = new Date().toISOString();
-          this.logger.warn(`🚨 [ENGINE ERROR] Engine state changing to ERROR at ${timestamp}`);
-          this.logger.warn(`🚨 [ENGINE ERROR] Failure reason: ${executionResult.result?.error}`);
-          this.logger.warn(`🚨 [ENGINE ERROR] Failed step: ${executionResult.result?.failedStep || 'unknown'}`);
-          this.logger.warn(`🚨 [ENGINE ERROR] Specialist: ${executionResult.result?.failedSpecialist || 'unknown'}`);
-          this.logger.warn(`🚨 [ENGINE ERROR] Call stack:`);
-          this.logger.warn(errorStack || 'No stack trace available');
-          
-          this.state.stage = 'error';
-          this.logger.info(`🔍 [DEBUG-CONTEXT] Task failed. Final executionHistory.length: ${this.state.executionHistory.length}`);
-          
-          // 🚨 新增：Engine进入error状态后的状态检查
-          this.logger.warn(`🚨 [ENGINE ERROR] Engine now in ERROR state - stage: ${this.state.stage}`);
-          this.logger.warn(`🚨 [ENGINE ERROR] This Engine may become orphaned if not properly handled`);
-          
+          // 🚀 新增：使用完整的恢复检测逻辑
+          await this.handlePlanFailedWithRecovery(executionResult);
           return;
         } else if (executionResult.intent === 'user_interaction_required') {
           // 需要用户交互
@@ -1053,6 +1040,12 @@ export class SRSAgentEngine implements ISessionObserver {
    * 自主工具处理 - 使用ToolExecutionHandler
    */
   private async handleAutonomousTool(toolCall: { name: string; args: any }): Promise<void> {
+    // 🚀 新增：处理内部计划恢复工具
+    if (toolCall.name === 'internal_resume_plan') {
+      await this.handleInternalPlanRecoveryTool(toolCall);
+      return;
+    }
+    
     await this.toolExecutionHandler.handleAutonomousTool(
       toolCall,
       this.stream,
@@ -1104,6 +1097,17 @@ export class SRSAgentEngine implements ISessionObserver {
       this.toolExecutor,
       this.selectedModel
     );
+  }
+
+  // 🚀 新增：处理内部计划恢复工具
+  private async handleInternalPlanRecoveryTool(toolCall: { name: string; args: any }): Promise<void> {
+    if (toolCall.name === 'internal_resume_plan') {
+      if (toolCall.args.action === 'resume') {
+        await this.resumePlanFromInterruption();
+      } else if (toolCall.args.action === 'terminate') {
+        await this.terminatePlan();
+      }
+    }
   }
 
   // 🚀 新增：特殊处理specialist工具的用户交互需求
@@ -1638,6 +1642,342 @@ export class SRSAgentEngine implements ISessionObserver {
       isAwaitingUser: this.isAwaitingUser(),
       executionHistoryLength: this.state.executionHistory.length,
       currentTask: this.state.currentTask
+    };
+  }
+
+  // ============================================================================
+  // 🚀 新增：计划恢复增强功能
+  // ============================================================================
+
+  /**
+   * 🚀 检测是否为被动中断（使用二分法 - MECE原则）
+   * 策略：明确识别"主动失败"，其余全部归类为"被动中断"
+   */
+  private detectPassiveInterruption(executionResult: any): boolean {
+    const error = executionResult.result?.error || '';
+    
+    // 🚀 二分法：明确的"主动失败"模式（业务逻辑错误，不应自动恢复）
+    const activeFailurePatterns = [
+      // 业务逻辑错误
+      '业务逻辑验证失败',
+      '业务规则冲突',
+      '数据完整性检查失败',
+      
+      // 参数和格式错误
+      '参数验证错误',
+      '参数格式错误',
+      'JSON格式错误',
+      '缺少必需字段',
+      '无效的参数值',
+      
+      // 权限和配置错误
+      '权限不足',
+      '访问被拒绝',
+      '文件权限错误',
+      '工具不存在',
+      '配置错误',
+      
+      // 用户输入错误
+      '用户输入无效',
+      '用户取消操作',
+      '用户拒绝确认',
+      
+      // Specialist 输出格式错误
+      'Specialist返回了无效',
+      '输出格式不符合要求',
+      '必需的工具调用缺失',
+      
+      // 文件系统错误（非临时性）
+      '文件不存在且无法创建',
+      '磁盘空间不足',
+      '路径无效'
+    ];
+    
+    // 🚀 检查是否为明确的主动失败
+    const isActiveFailure = activeFailurePatterns.some(pattern => 
+      error.includes(pattern)
+    );
+    
+    // 🚀 二分法核心：不是主动失败的，都视为被动中断（可恢复）
+    const isPassiveInterruption = !isActiveFailure;
+    
+    this.logger.info(`🔍 中断检测 (二分法): ${isPassiveInterruption ? '被动中断' : '主动失败'} - ${error.substring(0, 100)}`);
+    this.logger.info(`🔍 检测逻辑: ${isActiveFailure ? '匹配主动失败模式' : '未匹配主动失败模式，归类为被动中断'}`);
+    
+    return isPassiveInterruption;
+  }
+
+  /**
+   * 🚀 提取已完成步骤的结果
+   */
+  private extractCompletedStepResults(executionResult: any): { [key: number]: SpecialistOutput } {
+    const completedWork = executionResult.result?.planExecutionContext?.completedWork || [];
+    const stepResults: { [key: number]: SpecialistOutput } = {};
+    
+    // 从 planExecutionContext 中恢复已完成步骤的结果
+    completedWork.forEach((work: any) => {
+      if (work.status === 'completed') {
+        stepResults[work.step] = {
+          success: true,
+          content: work.summary || '',
+          requires_file_editing: false,  // 🚀 添加必需字段
+          metadata: {
+            specialist: work.specialist,
+            iterations: 0,
+            executionTime: 0,
+            timestamp: new Date().toISOString()
+          }
+        };
+      }
+    });
+    
+    this.logger.info(`📊 提取已完成步骤: ${Object.keys(stepResults).length} 个`);
+    return stepResults;
+  }
+
+  /**
+   * 🚀 序列化会话上下文
+   */
+  private serializeSessionContext(sessionContext: SessionContext | null): any {
+    if (!sessionContext) return null;
+    
+    return {
+      sessionContextId: sessionContext.sessionContextId,
+      projectName: sessionContext.projectName,
+      baseDir: sessionContext.baseDir,
+      activeFiles: sessionContext.activeFiles,
+      gitBranch: sessionContext.gitBranch,
+      metadata: sessionContext.metadata
+    };
+  }
+
+  /**
+   * 🚀 显示计划恢复选项
+   */
+  private async showPlanRecoveryOptions(): Promise<void> {
+    const state = this.state.planInterruptionState!;
+    
+    this.stream.markdown(`❌ **计划执行中断**: ${state.interruptionReason}\n\n`);
+    this.stream.markdown(`📋 **计划信息**:\n`);
+    this.stream.markdown(`- 计划: ${state.planDescription}\n`);
+    this.stream.markdown(`- 失败步骤: ${state.failedStep}\n`);
+    this.stream.markdown(`- 已完成: ${Object.keys(state.completedStepResults).length} 步骤\n`);
+    this.stream.markdown(`- 剩余: ${state.originalPlan.steps.length - state.failedStep + 1} 步骤\n\n`);
+    
+    // 🚀 复用现有的选择交互机制
+    this.state.stage = 'awaiting_user';
+    this.state.pendingInteraction = {
+      type: 'choice',
+      message: '计划执行遇到临时问题，您希望如何处理？',
+      options: [
+        '继续执行写作计划',
+        '结束写作计划'
+      ],
+      toolCall: {
+        name: 'internal_plan_recovery',
+        args: { action: 'user_choice_pending' }
+      }
+    };
+    
+    this.stream.markdown(`**请选择**:\n`);
+    this.stream.markdown(`1. 继续执行写作计划 (从步骤 ${state.failedStep} 重新开始)\n`);
+    this.stream.markdown(`2. 结束写作计划\n\n`);
+  }
+
+  /**
+   * 🚀 持久化中断状态
+   */
+  private async persistInterruptionState(interruptionState: PlanInterruptionState): Promise<void> {
+    try {
+      await this.sessionManager.updateSessionWithLog({
+        logEntry: {
+          type: OperationType.PLAN_INTERRUPTED,
+          operation: `计划 ${interruptionState.planId} 被动中断，已保存恢复状态`,
+          success: true,
+          userInput: {
+            planId: interruptionState.planId,
+            failedStep: interruptionState.failedStep,
+            completedSteps: Object.keys(interruptionState.completedStepResults).length,
+            interruptionReason: interruptionState.interruptionReason,
+            canResume: interruptionState.canResume
+          } as any
+        }
+      });
+      
+      this.logger.info(`📋 计划中断状态已持久化: ${interruptionState.planId}`);
+      
+    } catch (error) {
+      this.logger.warn(`Failed to persist interruption state: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * 🚀 恢复计划执行
+   */
+  private async resumePlanFromInterruption(): Promise<void> {
+    const interruptionState = this.state.planInterruptionState!;
+    
+    this.stream.markdown(`🔄 **正在恢复计划执行...**\n\n`);
+    this.stream.markdown(`📋 从步骤 ${interruptionState.failedStep} 重新开始\n\n`);
+    
+    try {
+      // 🚀 关键：调用 PlanExecutor.resumeFromStep() 保持原始上下文
+      const executionResult = await this.planExecutor.resumeFromStep(
+        interruptionState.originalPlan,
+        interruptionState.failedStep,
+        interruptionState.completedStepResults,
+        interruptionState.sessionContext,
+        interruptionState.userInput,
+        this.selectedModel,  // 🚀 传递 selectedModel
+        this.createProgressCallback()
+      );
+      
+      // 记录恢复执行
+      await this.sessionManager.updateSessionWithLog({
+        logEntry: {
+          type: OperationType.PLAN_RESUMED,
+          operation: `计划 ${interruptionState.planId} 恢复执行`,
+          success: executionResult.intent === 'plan_completed',
+          userInput: {
+            planId: interruptionState.planId,
+            resumedFromStep: interruptionState.failedStep,
+            result: executionResult.intent
+          } as any
+        }
+      });
+      
+      // 处理恢复结果
+      if (executionResult.intent === 'plan_completed') {
+        this.stream.markdown(`✅ **计划恢复执行成功完成**\n\n`);
+        this.state.stage = 'completed';
+        this.state.planInterruptionState = undefined; // 清除中断状态
+        
+      } else if (executionResult.intent === 'plan_failed') {
+        // 恢复执行又失败了，再次检查是否可以继续恢复
+        const isStillPassiveInterruption = this.detectPassiveInterruption(executionResult);
+        if (isStillPassiveInterruption && this.state.planInterruptionState) {
+          // 更新中断状态并再次显示选项
+          this.state.planInterruptionState.failedStep = executionResult.result?.failedStep;
+          this.state.planInterruptionState.interruptionReason = executionResult.result?.error;
+          this.state.planInterruptionState.interruptionTimestamp = new Date().toISOString();
+          await this.showPlanRecoveryOptions();
+        } else {
+          // 不可恢复的失败
+          this.stream.markdown(`❌ **计划恢复执行失败**: ${executionResult.result?.error}\n\n`);
+          this.state.stage = 'error';
+          this.state.planInterruptionState = undefined;
+        }
+      }
+      
+    } catch (error) {
+      this.logger.error(`❌ 恢复计划执行异常: ${(error as Error).message}`);
+      this.stream.markdown(`❌ **恢复执行异常**: ${(error as Error).message}\n\n`);
+      this.state.stage = 'error';
+      this.state.planInterruptionState = undefined;
+    }
+  }
+
+  /**
+   * 🚀 终止计划执行
+   */
+  private async terminatePlan(): Promise<void> {
+    const interruptionState = this.state.planInterruptionState!;
+    
+    this.stream.markdown(`❌ **计划执行已终止**\n\n`);
+    this.stream.markdown(`📋 **执行总结**:\n`);
+    this.stream.markdown(`- 计划: ${interruptionState.planDescription}\n`);
+    this.stream.markdown(`- 已完成: ${Object.keys(interruptionState.completedStepResults).length} 步骤\n`);
+    this.stream.markdown(`- 终止原因: 用户选择终止\n\n`);
+    
+    // 记录计划终止
+    await this.sessionManager.updateSessionWithLog({
+      logEntry: {
+        type: OperationType.PLAN_TERMINATED,
+        operation: `计划 ${interruptionState.planId} 用户选择终止`,
+        success: true,
+        userInput: {
+          planId: interruptionState.planId,
+          terminatedAtStep: interruptionState.failedStep,
+          completedSteps: Object.keys(interruptionState.completedStepResults).length,
+          reason: '用户选择终止'
+        } as any
+      }
+    });
+    
+    this.state.stage = 'completed';
+    this.state.planInterruptionState = undefined; // 清除中断状态
+  }
+
+  /**
+   * 🚀 处理 plan_failed 的完整逻辑（包含恢复检测）
+   */
+  private async handlePlanFailedWithRecovery(executionResult: any): Promise<void> {
+    const isPassiveInterruption = this.detectPassiveInterruption(executionResult);
+    
+    if (isPassiveInterruption) {
+      // 🚀 被动中断：保存状态并显示恢复选项
+      this.state.planInterruptionState = {
+        planId: executionResult.result?.planExecutionContext?.originalExecutionPlan?.planId || 'unknown',
+        planDescription: executionResult.result?.planExecutionContext?.originalExecutionPlan?.description || 'unknown',
+        originalPlan: executionResult.result?.planExecutionContext?.originalExecutionPlan,
+        failedStep: executionResult.result?.failedStep || 0,
+        completedStepResults: this.extractCompletedStepResults(executionResult),
+        sessionContext: this.serializeSessionContext(await this.getCurrentSessionContext()),
+        userInput: this.state.currentTask,
+        interruptionReason: executionResult.result?.error || 'unknown error',
+        interruptionTimestamp: new Date().toISOString(),
+        canResume: true
+      };
+      
+      // 🚀 持久化中断状态
+      await this.persistInterruptionState(this.state.planInterruptionState);
+      
+      // 🚀 显示恢复选项
+      await this.showPlanRecoveryOptions();
+      return; // 等待用户选择
+      
+    } else {
+      // 原有的失败处理逻辑（无法恢复的失败）
+      this.stream.markdown(`❌ **计划执行失败**: ${executionResult.result?.error}\n\n`);
+      this.logger.info(`🔍 [DEBUG-CONTEXT] === PLAN EXECUTION FAILED (不可恢复) ===`);
+      
+      this.logger.info(`🔍 [DEBUG-CONTEXT] About to record execution: "计划执行失败: ${executionResult.result?.error}"`);
+      await this.recordExecution('result', `计划执行失败: ${executionResult.result?.error}`, false, 'planExecutor', executionResult.result?.planExecutionContext);
+      this.logger.info(`🔍 [DEBUG-CONTEXT] Plan execution failure recorded. New executionHistory.length: ${this.state.executionHistory.length}`);
+        
+      // 🚨 新增：Engine状态变为error的详细追踪
+      const errorStack = new Error().stack;
+      const timestamp = new Date().toISOString();
+      this.logger.warn(`🚨 [ENGINE ERROR] Engine state changing to ERROR at ${timestamp}`);
+      this.logger.warn(`🚨 [ENGINE ERROR] Failure reason: ${executionResult.result?.error}`);
+      this.logger.warn(`🚨 [ENGINE ERROR] Failed step: ${executionResult.result?.failedStep || 'unknown'}`);
+      this.logger.warn(`🚨 [ENGINE ERROR] Specialist: ${executionResult.result?.failedSpecialist || 'unknown'}`);
+      this.logger.warn(`🚨 [ENGINE ERROR] Call stack:`);
+      this.logger.warn(errorStack || 'No stack trace available');
+      
+      this.state.stage = 'error';
+      this.logger.info(`🔍 [DEBUG-CONTEXT] Task failed. Final executionHistory.length: ${this.state.executionHistory.length}`);
+      
+      // 🚨 新增：Engine进入error状态后的状态检查
+      this.logger.warn(`🚨 [ENGINE ERROR] Engine now in ERROR state - stage: ${this.state.stage}`);
+      this.logger.warn(`🚨 [ENGINE ERROR] This Engine may become orphaned if not properly handled`);
+    }
+  }
+
+  /**
+   * 🚀 创建进度回调
+   */
+  private createProgressCallback(): any {
+    return {
+      onSpecialistStart: (specialistId: string) => {
+        this.stream.markdown(`🧠 **需求文档专家正在工作**: ${specialistId}\n\n`);
+      },
+      onIterationStart: (current: number, max: number) => {
+        this.stream.progress(`第 ${current}/${max} 轮迭代...`);
+      },
+      onTaskComplete: (summary: string) => {
+        this.stream.markdown(`📝 **任务完成** - ${summary}\n\n`);
+      }
     };
   }
 }

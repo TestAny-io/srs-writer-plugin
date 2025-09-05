@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -192,10 +192,7 @@
         "command": "srs-writer.startNewProject",
         "title": "SRS Writer: Start New Project"
       },
-      {
-        "command": "srs-writer.viewArchiveHistory",
-        "title": "SRS Writer: View Archive History"
-      },
+
       {
         "command": "srs-writer.toggleAIMode",
         "title": "SRS Writer: Toggle AI/Fallback Mode"
@@ -203,8 +200,41 @@
       {
         "command": "srs-writer.forceSyncContext",
         "title": "SRS Writer: Force Sync Context"
+      },
+      {
+        "command": "srs-writer.selectBranchForFolders",
+        "title": "Select Git Branch for Folders View",
+        "icon": "$(git-branch)"
       }
     ],
+    "_menus_note": "🚀 分支切换按钮功能已暂时隐藏 - 详细信息见下方注释块",
+    "_branch_switcher_feature": {
+      "_status": "TEMPORARILY_HIDDEN",
+      "_reason": "功能完整但暂时不发布到发布版本",
+      "_hidden_date": "2024-01-XX",
+      "_original_config": {
+        "view/title": [
+          {
+            "command": "srs-writer.selectBranchForFolders",
+            "when": "view == workbench.explorer.fileView && srs-writer:foldersViewEnhanced",
+            "group": "navigation"
+          }
+        ]
+      },
+      "_implementation_files": [
+        "src/core/FoldersViewEnhancer.ts - 主要实现类",
+        "src/extension.ts:177 - 命令注册",
+        "package.json:205-208 - 命令定义（仍保留）"
+      ],
+      "_restore_instructions": "要重新启用此功能，请将 _original_config 中的内容复制到 menus 对象中",
+      "_notes": [
+        "所有相关代码都完整保留，只是移除了UI入口",
+        "命令 srs-writer.selectBranchForFolders 仍可通过命令面板调用",
+        "功能包括：Git分支选择、智能切换、项目会话同步等"
+      ]
+    },
+    "menus": {
+    },
     "configuration": {
       "type": "object",
       "title": "SRS Writer",

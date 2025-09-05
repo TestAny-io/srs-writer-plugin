@@ -24,7 +24,7 @@ export interface GitOperationResult {
     wasSwitched?: boolean;
     commitCreated?: boolean;
     commitHash?: string;
-    operation?: 'created' | 'switched' | 'no-change' | 'failed';
+    operation?: 'created' | 'switched' | 'no-change' | 'failed' | 'updated';
 }
 
 /**
@@ -282,6 +282,9 @@ export async function createGitIgnoreFile(workspacePath: string): Promise<GitOpe
         const gitignoreContent = `# Templates (local use only)
 .templates/
 
+# Session Management (阶段1新增)
+.session-log/
+
 # VS Code Settings (optional)
 .vscode/settings.json
 
@@ -299,11 +302,34 @@ Thumbs.db
         
         // 检查 .gitignore 是否已存在
         if (fs.existsSync(gitignorePath)) {
-            logger.info(`🌿 [Git Init] .gitignore file already exists`);
+            logger.info(`🌿 [Git Init] .gitignore file already exists, checking if update needed`);
+            
+            // 读取现有内容
+            const existingContent = fs.readFileSync(gitignorePath, 'utf8');
+            
+            // 检查是否已包含 .session-log/
+            if (existingContent.includes('.session-log/')) {
+                logger.info(`🌿 [Git Init] .gitignore already includes .session-log/ directory`);
+                return {
+                    success: true,
+                    message: '.gitignore already includes .session-log/ directory',
+                    operation: 'no-change'
+                };
+            }
+            
+            // 需要更新：添加 .session-log/ 到现有文件
+            logger.info(`🌿 [Git Init] Adding .session-log/ to existing .gitignore`);
+            const updatedContent = existingContent.trimEnd() + `
+
+# Session Management (阶段1新增)
+.session-log/
+`;
+            fs.writeFileSync(gitignorePath, updatedContent, 'utf8');
+            
             return {
                 success: true,
-                message: '.gitignore file already exists',
-                operation: 'no-change'
+                message: 'Updated .gitignore to include .session-log/ directory',
+                operation: 'updated'
             };
         }
         
@@ -406,6 +432,194 @@ export async function createInitialCommit(
 }
 
 /**
+ * 🚀 新增：检查工作区Git状态（用于switchProject）
+ */
+export async function checkWorkspaceGitStatus(): Promise<{
+    hasChanges: boolean;
+    hasStagedChanges: boolean;
+    hasUnstagedChanges: boolean;
+    workspaceRoot: string | null;
+}> {
+    try {
+        // 获取工作区根目录
+        const vscode = await import('vscode');
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        
+        if (!workspaceFolder) {
+            logger.warn('🌿 [checkWorkspaceGitStatus] No workspace folder found');
+            return {
+                hasChanges: false,
+                hasStagedChanges: false,
+                hasUnstagedChanges: false,
+                workspaceRoot: null
+            };
+        }
+        
+        const workspaceRoot = workspaceFolder.uri.fsPath;
+        
+        // 检查是否为Git仓库
+        if (!await checkGitRepository(workspaceRoot)) {
+            logger.info('🌿 [checkWorkspaceGitStatus] Workspace is not a Git repository');
+            return {
+                hasChanges: false,
+                hasStagedChanges: false,
+                hasUnstagedChanges: false,
+                workspaceRoot
+            };
+        }
+        
+        // 获取Git状态
+        const gitStatus = await getGitStatus(workspaceRoot);
+        const hasChanges = gitStatus.hasStagedChanges || gitStatus.hasUnstagedChanges;
+        
+        logger.info(`🌿 [checkWorkspaceGitStatus] Status - HasChanges: ${hasChanges}, Staged: ${gitStatus.hasStagedChanges}, Unstaged: ${gitStatus.hasUnstagedChanges}`);
+        
+        return {
+            hasChanges,
+            hasStagedChanges: gitStatus.hasStagedChanges,
+            hasUnstagedChanges: gitStatus.hasUnstagedChanges,
+            workspaceRoot
+        };
+        
+    } catch (error) {
+        logger.error(`🌿 [checkWorkspaceGitStatus] Error: ${(error as Error).message}`);
+        return {
+            hasChanges: false,
+            hasStagedChanges: false,
+            hasUnstagedChanges: false,
+            workspaceRoot: null
+        };
+    }
+}
+
+/**
+ * 🚀 新增：提交所有更改（staged + unstaged）
+ */
+export async function commitAllChanges(workspaceRoot: string): Promise<{
+    success: boolean;
+    commitHash?: string;
+    error?: string;
+}> {
+    try {
+        logger.info(`🌿 [commitAllChanges] Starting to commit all changes in: ${workspaceRoot}`);
+        
+        // 1. 检查是否为Git仓库
+        if (!await checkGitRepository(workspaceRoot)) {
+            const error = 'Not a Git repository';
+            logger.error(`🌿 [commitAllChanges] ${error}`);
+            return {
+                success: false,
+                error
+            };
+        }
+        
+        // 2. 添加所有更改到暂存区（包括unstaged changes）
+        logger.info(`🌿 [commitAllChanges] Adding all changes to staging area...`);
+        execSync('git add .', { cwd: workspaceRoot });
+        
+        // 3. 检查是否真的有更改需要提交
+        const status = execSync('git status --porcelain', { 
+            cwd: workspaceRoot, 
+            encoding: 'utf8' 
+        });
+        
+        if (!status.trim()) {
+            logger.info(`🌿 [commitAllChanges] No changes to commit after git add`);
+            return {
+                success: true,
+                commitHash: undefined // 没有创建新提交
+            };
+        }
+        
+        // 4. 生成时间戳格式的提交消息
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hour = String(now.getHours()).padStart(2, '0');
+        const minute = String(now.getMinutes()).padStart(2, '0');
+        
+        const commitMessage = `auto-commit at ${year}-${month}-${day}, ${hour}:${minute}`;
+        
+        // 5. 创建提交
+        logger.info(`🌿 [commitAllChanges] Creating commit with message: "${commitMessage}"`);
+        execSync(`git commit -m "${commitMessage}"`, { cwd: workspaceRoot });
+        
+        // 6. 获取提交哈希
+        const commitHash = execSync('git rev-parse HEAD', { 
+            cwd: workspaceRoot, 
+            encoding: 'utf8' 
+        }).trim();
+        
+        logger.info(`🌿 [commitAllChanges] Successfully committed all changes: ${commitHash}`);
+        return {
+            success: true,
+            commitHash
+        };
+        
+    } catch (error) {
+        const errorMessage = (error as Error).message;
+        logger.error(`🌿 [commitAllChanges] Failed to commit changes: ${errorMessage}`);
+        return {
+            success: false,
+            error: errorMessage
+        };
+    }
+}
+
+/**
+ * 🚀 新增：丢弃所有更改（staged + unstaged）
+ */
+export async function discardAllChanges(workspaceRoot: string): Promise<{
+    success: boolean;
+    error?: string;
+}> {
+    try {
+        logger.info(`🌿 [discardAllChanges] Starting to discard all changes in: ${workspaceRoot}`);
+        
+        // 1. 检查是否为Git仓库
+        if (!await checkGitRepository(workspaceRoot)) {
+            const error = 'Not a Git repository';
+            logger.error(`🌿 [discardAllChanges] ${error}`);
+            return {
+                success: false,
+                error
+            };
+        }
+        
+        // 2. 重置暂存区（取消所有staged changes）
+        logger.info(`🌿 [discardAllChanges] Resetting staging area...`);
+        execSync('git reset HEAD', { cwd: workspaceRoot });
+        
+        // 3. 丢弃所有工作区更改（包括unstaged changes）
+        logger.info(`🌿 [discardAllChanges] Discarding all working directory changes...`);
+        execSync('git checkout -- .', { cwd: workspaceRoot });
+        
+        // 🚀 阶段3修复：只删除未跟踪的文件，保留目录结构（避免删除项目目录）
+        logger.info(`🌿 [discardAllChanges] Removing untracked files (preserving directories)...`);
+        try {
+            execSync('git clean -f', { cwd: workspaceRoot }); // 移除 -d 参数，只删除文件不删除目录
+        } catch (cleanError) {
+            logger.warn(`🌿 [discardAllChanges] Clean untracked files failed: ${(cleanError as Error).message}`);
+            // 清理未跟踪文件失败不算致命错误
+        }
+        
+        logger.info(`🌿 [discardAllChanges] Successfully discarded all changes`);
+        return {
+            success: true
+        };
+        
+    } catch (error) {
+        const errorMessage = (error as Error).message;
+        logger.error(`🌿 [discardAllChanges] Failed to discard changes: ${errorMessage}`);
+        return {
+            success: false,
+            error: errorMessage
+        };
+    }
+}
+
+/**
  * 工具导出 - 符合注册表格式
  */
 export const gitOperationsToolImplementations = {
@@ -417,5 +631,8 @@ export const gitOperationsToolImplementations = {
     createProjectBranch,
     initializeGitRepository,
     createGitIgnoreFile,
-    createInitialCommit
+    createInitialCommit,
+    checkWorkspaceGitStatus,
+    commitAllChanges,
+    discardAllChanges
 };
