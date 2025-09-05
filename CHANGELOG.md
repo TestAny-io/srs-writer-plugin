@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-09-05
+
+### Added
+
+- **Folders View Enhancer**: New Git branch switching capability in VS Code Explorer
+    - Added Git branch selection directly from Explorer title bar
+    - Real-time branch switching with automatic workspace update
+    - Smart handling of uncommitted changes with user confirmation
+    - Integration with project session synchronization for SRS branches
+
+- **Session Log Service**: Unified session logging system
+    - Centralized logging service for all specialist and tool executions
+    - Comprehensive task completion tracking with execution times
+    - Tool execution context recording with success/failure status
+    - Project-specific session log files (`srs-writer-session_{{projectName}}.json`)
+    - Error isolation ensuring log failures don't impact main workflows
+
+- **Session Path Manager**: Enhanced session file management
+    - Intelligent session file path resolution and management
+    - Support for both workspace-relative and global session storage
+    - Automatic directory creation and file organization
+    - Improved error handling for session file operations
+
+### Enhanced
+
+- **Session Management System**: Major architecture refactor
+    - **v5.0 Architecture**: Unified hybrid storage with event sourcing
+    - **Observer Pattern**: Automatic notification system for all dependent components
+    - **Singleton Pattern**: Global unique instance eliminating multi-head management issues
+    - **Sync Status Checking**: Automatic data consistency detection and repair
+    - **Mixed Storage**: Dual storage system (currentSession + operations) for fast recovery and complete audit trails
+    - **Event Sourcing**: All operations are type-safe recorded for complete operation history tracking
+
+- **Project Management**: Improved project switching and session handling
+    - Enhanced project initialization with comprehensive Git integration
+    - Simplified new session creation workflow (`startNewSession` method)
+    - Improved project scanning with real project names from log files
+    - Better error handling and recovery mechanisms for failed operations
+
+- **Git Integration**: Advanced Git branch management
+    - Enhanced Git operations with better error handling and retry logic
+    - Automatic WIP (work-in-progress) branch creation and switching
+    - Smart Git status detection and change management
+    - Improved branch creation and switching workflows
+
+### Fixed
+
+- **Session State Consistency**: Resolved session synchronization issues
+    - Fixed session context switching problems during project changes
+    - Resolved file system race conditions in session management
+    - Improved session observer notification reliability
+    - Fixed session archiving and cleanup processes
+
+- **Error Handling**: Enhanced error recovery and logging
+    - Better error messages and user feedback for failed operations
+    - Improved error isolation preventing cascading failures
+    - Enhanced debugging capabilities with detailed operation logs
+    - Fixed edge cases in Git operations and file system interactions
+
 ## [0.4.7] - 2025-08-29
 
 ### Added
