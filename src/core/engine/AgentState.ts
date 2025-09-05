@@ -1,4 +1,20 @@
 /**
+ * 🚀 新增：计划中断状态接口
+ */
+export interface PlanInterruptionState {
+  planId: string;
+  planDescription: string;
+  originalPlan: any;
+  failedStep: number;
+  completedStepResults: { [key: number]: SpecialistOutput };
+  sessionContext: any;  // 序列化的 SessionContext
+  userInput: string;
+  interruptionReason: string;
+  interruptionTimestamp: string;
+  canResume: boolean;
+}
+
+/**
  * Agent状态接口 - Agent的自我意识系统
  */
 export interface AgentState {
@@ -9,6 +25,7 @@ export interface AgentState {
   iterationCount: number;
   maxIterations: number;
   resumeContext?: SpecialistResumeContext;
+  planInterruptionState?: PlanInterruptionState;  // 🚀 新增：计划中断状态
   cancelled?: boolean; // v6.0: 用于Plan取消机制
 }
 

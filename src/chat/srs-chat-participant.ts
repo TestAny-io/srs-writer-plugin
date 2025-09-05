@@ -331,8 +331,8 @@ export class SRSChatParticipant implements ISessionObserver {
 
             if (token.isCancellationRequested) { return; }
 
-            // 执行归档并开始新项目 - 和 "Start New Project" 相同的逻辑
-            const result = await this.sessionManager.archiveCurrentAndStartNew(undefined, 'new_project');
+            // 🚀 阶段4修复：使用新的startNewSession方法
+            const result = await this.sessionManager.startNewSession(undefined);
 
             if (token.isCancellationRequested) { return; }
 
@@ -340,14 +340,7 @@ export class SRSChatParticipant implements ISessionObserver {
                 // 刷新全局引擎的会话上下文
                 await this.refreshGlobalEngineSession();
                 
-                const preservedCount = result.filesPreserved.length;
-                const archiveInfo = result.archivedSession ? 
-                    `\n📦 **原项目已归档**: ${result.archivedSession.archiveFileName}` : '';
-                
-                stream.markdown(`✅ **新项目创建成功！**${archiveInfo}\n\n`);
-                if (preservedCount > 0) {
-                    stream.markdown(`💾 **已保护用户文件**: ${preservedCount} 个\n\n`);
-                }
+                stream.markdown(`✅ **新项目创建成功！**\n\n`);
                 
                 // 显示新项目信息
                 if (result.newSession) {
@@ -357,7 +350,7 @@ export class SRSChatParticipant implements ISessionObserver {
                 
                 stream.markdown('💡 **提示**: 您现在可以开始描述新项目的需求，我将帮助您创建SRS文档！\n\n');
                 
-                this.logger.info(`/new command completed successfully. Preserved ${preservedCount} files.`);
+                this.logger.info(`/new command completed successfully.`);
             } else {
                 stream.markdown(`❌ **创建新项目失败**: ${result.error || '未知错误'}\n\n`);
                 stream.markdown('💡 请稍后重试或联系技术支持。\n\n');

@@ -55,22 +55,19 @@ specialist_config:
 
 1. **项目目录创建**: 使用createNewProjectFolder工具创建项目并切换上下文
 2. **处理源草稿**: 如果任务是Brownfield模式，你必须使用copyAndRenameFile工具将源草稿复制到项目目录下，并将至改名为source_draft.md
-3. **基础文件生成**: 根据执行计划里的language参数与output_chapter_title参数，遵循“重要约束”中的语言一致性要求，创建SRS.md、空白requirements.yaml、srs-writer-log.json等标准文件
+3. **基础文件生成**: 根据执行计划里的language参数与output_chapter_title参数，遵循"重要约束"中的语言一致性要求，创建SRS.md、空白requirements.yaml等标准文件
 4. **目录结构建立**: 建立prototype等必要的子目录
-5. **Git分支创建**: 使用createNewProjectFolder工具创建Git工作分支，并切换到新分支
-6. **任务完成确认**: 使用taskComplete工具标记初始化完成
+5. **任务完成确认**: 使用taskComplete工具标记初始化完成
 
 ## 🛠️ 标准工作流程
 
 ### 执行步骤概览
 
-1. 创建Git工作分支
-2. 创建新项目目录并切换会话上下文
-3. 生成基础SRS文档框架
-4. 创建空白requirements.yaml
-5. 创建项目日志文件
-6. 建立prototype目录
-7. 标记任务完成
+1. 创建新项目目录
+2. 生成基础SRS文档框架
+3. 创建空白requirements.yaml
+4. 建立prototype目录
+5. 标记任务完成
 
 ## 🔧 输出格式要求
 
@@ -103,13 +100,6 @@ specialist_config:
       }
     },
     {
-      "name": "writeFile",
-      "args": {
-        "path": "项目名称/srs-writer-log.json",
-        "content": "日志文件JSON内容"
-      }
-    },
-    {
       "name": "createDirectory",
       "args": {
         "path": "项目名称/prototype"
@@ -133,12 +123,6 @@ specialist_config:
             "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml",
             "type": "yaml",
             "description": "requirements.yaml初始模板内容"
-          },
-          {
-            "path": "项目名称/srs-writer-log.json",
-            "content": "{\n  \"project_name\": \"{{PROJECT_NAME}}\",\n  \"created_date\": \"{{DATE}}\",\n \"git_branch\": \"{{GIT_BRANCH}}\",\n \"initialization_log\": [\n    {\n      \"timestamp\": \"{{DATE}}\",\n      \"action\": \"project_initialized\",\n      \"specialist\": \"project_initializer\",\n      \"status\": \"success\",\n      \"details\": \"项目目录和基础文件创建完成\"\n    }\n  ],\n  \"generation_history\": [],\n  \"file_manifest\": [\n    \"SRS.md\",\n    \"requirements.yaml\",\n    \"srs-writer-log.json\",\n    \"prototype/\"\n  ]\n}",
-            "type": "json",
-            "description": "srs-writer-log.json初始内容"
           },
           {
             "path": "项目名称/prototype/",
@@ -187,13 +171,6 @@ specialist_config:
       }
     },
     {
-      "name": "writeFile",
-      "args": {
-        "path": "项目名称/srs-writer-log.json",
-        "content": "日志文件JSON内容"
-      }
-    },
-    {
       "name": "createDirectory",
       "args": {
         "path": "项目名称/prototype"
@@ -223,12 +200,6 @@ specialist_config:
             "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml",
             "type": "yaml",
             "description": "requirements.yaml初始模板内容"
-          },
-          {
-            "path": "项目名称/srs-writer-log.json",
-            "content": "{\n  \"project_name\": \"{{PROJECT_NAME}}\",\n  \"created_date\": \"{{DATE}}\",\n \"git_branch\": \"{{GIT_BRANCH}}\",\n \"initialization_log\": [\n    {\n      \"timestamp\": \"{{DATE}}\",\n      \"action\": \"project_initialized\",\n      \"specialist\": \"project_initializer\",\n      \"status\": \"success\",\n      \"details\": \"项目目录和基础文件创建完成\"\n    }\n  ],\n  \"generation_history\": [],\n  \"file_manifest\": [\n    \"SRS.md\",\n    \"requirements.yaml\",\n    \"srs-writer-log.json\",\n    \"prototype/\"\n  ]\n}",
-            "type": "json",
-            "description": "srs-writer-log.json初始内容"
           },
           {
             "path": "项目名称/prototype/",
@@ -295,31 +266,6 @@ _metadata:
   output_filename: requirements.yaml
 ```
 
-### srs-writer-log.json 日志模板
-
-```json
-{
-  "project_name": "{{PROJECT_NAME}}",
-  "created_date": "{{DATE}}",
-  "git_branch": "{{GIT_BRANCH}}",
-  "initialization_log": [
-    {
-      "timestamp": "{{DATE}}",
-      "action": "project_initialized",
-      "specialist": "project_initializer",
-      "status": "success",
-      "details": "项目目录和基础文件创建完成"
-    }
-  ],
-  "generation_history": [],
-  "file_manifest": [
-    "SRS.md",
-    "srs-writer-log.json",
-    "prototype/"
-  ]
-}
-```
-
 ## 🎯 项目名称提取规则
 
 从用户输入中智能提取项目名称：
@@ -338,7 +284,7 @@ _metadata:
 
 - `{{PROJECT_NAME}}`: 从用户输入提取的项目名称
 - `{{DATE}}`: 当前日期，格式为 YYYY-MM-DD
-- `{{GIT_BRANCH}}`: 当前会话的Git分支名称，如果没有则使用 "SRS/{{PROJECT_NAME}}"
+- `{{GIT_BRANCH}}`: 当前会话的Git分支名称，统一使用 "wip" 工作分支
 
 ## ✅ 成功标准
 
@@ -347,7 +293,6 @@ _metadata:
 - [x] createNewProjectFolder 成功执行，会话已切换到新项目
 - [x] SRS.md 基础框架已创建
 - [x] requirements.yaml 空白文件已创建
-- [x] srs-writer-log.json 日志文件已创建
 - [x] prototype/ 目录已创建
 - [x] taskComplete 工具被调用，标记任务完成
 

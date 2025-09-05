@@ -15,6 +15,7 @@ import { SpecialistDefinition } from '../types/specialistRegistry';
 import { SPECIALIST_TEMPLATE_MAPPINGS, isTemplateConfigSupported, getTemplateConfigKey } from './generated/specialist-template-mappings';
 import { TokenAwareHistoryManager } from './history/TokenAwareHistoryManager';
 import { findSpecialistFileWithExtension, getSpecialistFileName } from '../utils/fileExtensions';
+import { SessionLogService } from './SessionLogService';
 
 /**
  * 🚀 专家状态恢复接口
@@ -56,7 +57,9 @@ export class SpecialistExecutor {
     private promptAssemblyEngine: PromptAssemblyEngine;
     private specialistRegistry: SpecialistRegistry; // 🚀 新增：动态specialist注册表
     private currentSpecialistId?: string;  // 🆕 保存当前执行的specialistId
+    private currentContextForStep?: any;   // 🚀 新增：保存当前执行的上下文，用于获取 planId
     private historyManager = new TokenAwareHistoryManager(); // 🚀 新增：Token感知历史管理器
+    private sessionLogService = new SessionLogService(); // 🚀 新增：统一会话日志记录服务
     
     constructor() {
         this.logger.info('🚀 SpecialistExecutor v3.0 initialized - dynamic specialist registry architecture');
@@ -148,16 +151,19 @@ export class SpecialistExecutor {
         const isResuming = !!resumeState;
         this.logger.info(`🚀 执行专家任务: ${specialistId}${isResuming ? ` (从第${resumeState.iteration}轮恢复)` : ''}`);
 
-        // 🆕 保存当前specialist ID供工具调用使用
+        // 🆕 保存当前specialist ID和上下文供工具调用使用
         this.currentSpecialistId = specialistId;
+        this.currentContextForStep = contextForThisStep;  // 🚀 新增：保存上下文
 
         // 🚀 新增：通知specialist开始工作
         progressCallback?.onSpecialistStart?.(specialistId);
 
+        // 🚀 修复D：将 iteration 提到外层，以便在 catch 块中访问
+        let iteration = resumeState?.iteration || 1; // 🚀 修复：从1开始，统一1-based计数
+
         try {
             // 🚀 关键修复：从恢复状态初始化，统一使用1-based计数
             let internalHistory: string[] = resumeState?.internalHistory || [];
-            let iteration = resumeState?.iteration || 1; // 🚀 修复：从1开始，统一1-based计数
             
             // 🚀 新增：动态获取specialist的最大迭代次数
             const iterationManager = SpecialistIterationManager.getInstance();
@@ -445,6 +451,14 @@ export class SpecialistExecutor {
                         // 🚀 新增：通知任务完成
                         progressCallback?.onTaskComplete?.(taskResult?.summary || '任务已完成', true);
                         
+                        // 🚀 修复2：在 specialist 完成时记录 taskComplete 到会话文件（正确的时序）
+                        const totalExecutionTime = Date.now() - startTime;
+                        await this.recordTaskCompleteToSession(
+                            taskCompleteResult.result,  // taskComplete 的参数
+                            totalExecutionTime,         // 正确的总执行时间
+                            iteration                   // 迭代次数
+                        );
+                        
                         return {
                             success: true,
                             content: taskResult?.summary || '任务已完成',
@@ -455,7 +469,7 @@ export class SpecialistExecutor {
                             metadata: {
                                 specialist: specialistId,
                                 iterations: iteration,
-                                executionTime: Date.now() - startTime,
+                                executionTime: totalExecutionTime,  // 🚀 使用正确的总执行时间
                                 timestamp: new Date().toISOString(),
                                 toolsUsed
                             }
@@ -498,14 +512,24 @@ export class SpecialistExecutor {
 
         } catch (error) {
             this.logger.error(`❌ 专家 ${specialistId} 执行失败`, error as Error);
+            
+            // 🚀 修复2：记录 specialist 执行失败到会话文件
+            const totalExecutionTime = Date.now() - startTime;
+            await this.recordSpecialistFailureToSession(
+                specialistId,
+                (error as Error).message,
+                totalExecutionTime,
+                iteration - 1  // 🚀 修复D：传递真实的迭代次数
+            );
+            
             return {
                 success: false,
                 requires_file_editing: false, // 🚀 异常情况下设为false
                 error: (error as Error).message,
                 metadata: {
                     specialist: specialistId,
-                    iterations: 0,
-                    executionTime: Date.now() - startTime,
+                    iterations: iteration - 1,  // 🚀 修复D：使用真实的迭代次数
+                    executionTime: totalExecutionTime,
                     timestamp: new Date().toISOString()
                 }
             };
@@ -1176,6 +1200,96 @@ ${context.dependentResults?.length > 0
         }
 
         return results;
+    }
+
+    /**
+     * 🚀 获取 specialist 的显示名称
+     */
+    private getSpecialistName(specialistId: string): string {
+        try {
+            const specialist = this.specialistRegistry.getSpecialist(specialistId);
+            if (specialist?.config?.name) {
+                return specialist.config.name;
+            }
+        } catch (error) {
+            this.logger.warn(`Failed to get specialist name for ${specialistId}: ${(error as Error).message}`);
+        }
+        
+        // 如果获取失败，返回 ID 作为 fallback
+        return specialistId;
+    }
+
+    /**
+     * 🚀 修复2：记录 taskComplete 到会话文件（正确的时序和执行时间）
+     */
+    private async recordTaskCompleteToSession(
+        taskCompleteArgs: any,
+        totalExecutionTime: number,
+        iterationCount: number
+    ): Promise<void> {
+        try {
+            if (!this.currentSpecialistId) {
+                this.logger.warn('Cannot record taskComplete: no current specialist ID');
+                return;
+            }
+
+            // 🚀 修复3-4：从 contextForThisStep 中获取 planId
+            const planId = this.currentContextForStep?.executionPlan?.planId;
+            
+            await this.sessionLogService.recordSpecialistTaskCompletion({
+                specialistId: this.currentSpecialistId,
+                specialistName: this.getSpecialistName(this.currentSpecialistId),
+                planId: planId,                             // 🚀 新增：执行计划ID
+                taskCompleteArgs: {
+                    nextStepType: taskCompleteArgs.nextStepType,
+                    summary: taskCompleteArgs.summary,
+                    contextForNext: taskCompleteArgs.contextForNext
+                },
+                executionTime: totalExecutionTime,  // 🚀 使用正确的总执行时间
+                iterationCount: iterationCount      // 🚀 使用正确的迭代次数
+            });
+            
+            this.logger.info(`📋 TaskComplete recorded to session for specialist: ${this.currentSpecialistId} (${totalExecutionTime}ms)`);
+            
+        } catch (error) {
+            // 错误隔离：记录失败不影响主流程
+            this.logger.warn(`Failed to record taskComplete to session: ${(error as Error).message}`);
+        }
+    }
+
+    /**
+     * 🚀 修复2：记录 specialist 执行失败到会话文件
+     */
+    private async recordSpecialistFailureToSession(
+        specialistId: string,
+        errorMessage: string,
+        totalExecutionTime: number,
+        actualIterations?: number  // 🚀 修复D：新增真实迭代次数参数
+    ): Promise<void> {
+        try {
+            await this.sessionLogService.recordToolExecution({
+                executor: 'specialist',
+                toolName: 'specialist_execution',
+                operation: `Specialist ${specialistId} 执行失败: ${errorMessage}`,
+                success: false,
+                error: errorMessage,
+                executionTime: totalExecutionTime,
+                metadata: {
+                    specialistId: specialistId,
+                    specialistName: this.getSpecialistName(specialistId),
+                    planId: this.currentContextForStep?.executionPlan?.planId,  // 🚀 添加 planId
+                    actualIterations: actualIterations || 0,  // 🚀 修复D：真实迭代次数
+                    failureReason: errorMessage,
+                    totalExecutionTime: totalExecutionTime
+                }
+            });
+            
+            this.logger.info(`📋 Specialist failure recorded to session for: ${specialistId} (${totalExecutionTime}ms, ${actualIterations || 0} iterations)`);
+            
+        } catch (error) {
+            // 错误隔离：记录失败不影响主流程
+            this.logger.warn(`Failed to record specialist failure to session: ${(error as Error).message}`);
+        }
     }
 
     /**

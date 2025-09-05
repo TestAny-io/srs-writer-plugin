@@ -134,17 +134,9 @@ describe('退出当前项目功能', () => {
         // Mock sessionManager methods
         const getCurrentSessionSpy = jest.spyOn(sessionManager, 'getCurrentSession')
             .mockResolvedValue(mockSession);
-        const archiveCurrentAndStartNewSpy = jest.spyOn(sessionManager, 'archiveCurrentAndStartNew')
+        const startNewSessionSpy = jest.spyOn(sessionManager, 'startNewSession')
             .mockResolvedValue({
                 success: true,
-                filesPreserved: ['SRS.md', 'fr.yaml'],
-                archivedSession: {
-                    archiveFileName: 'test-archive.json',
-                    archiveDate: new Date().toISOString(),
-                    originalSession: mockSession,
-                    daysCovered: 5,
-                    reason: 'manual_archive'
-                },
                 newSession: undefined
             });
         const clearSessionSpy = jest.spyOn(sessionManager, 'clearSession')
@@ -189,9 +181,9 @@ describe('退出当前项目功能', () => {
             title: "正在退出当前项目...",
             cancellable: false
         }, async (progress) => {
-            // 归档当前项目
-            progress.report({ increment: 30, message: "归档当前项目..." });
-            await sessionManager.archiveCurrentAndStartNew();
+            // 清理当前项目会话
+            progress.report({ increment: 30, message: "清理当前项目..." });
+            await sessionManager.startNewSession();
             
             // 清理会话状态
             progress.report({ increment: 20, message: "清理会话状态..." });
@@ -204,7 +196,7 @@ describe('退出当前项目功能', () => {
 
         // 验证调用
         expect(getCurrentSessionSpy).toHaveBeenCalled();
-        expect(archiveCurrentAndStartNewSpy).toHaveBeenCalled();
+        expect(startNewSessionSpy).toHaveBeenCalled();
         expect(clearSessionSpy).toHaveBeenCalled();
         expect(executeCommandSpy).toHaveBeenCalledWith('workbench.action.reloadWindow');
 
@@ -217,7 +209,7 @@ describe('退出当前项目功能', () => {
             .mockResolvedValue('取消');
 
         // Mock sessionManager methods
-        const archiveCurrentAndStartNewSpy = jest.spyOn(sessionManager, 'archiveCurrentAndStartNew');
+        const startNewSessionSpy = jest.spyOn(sessionManager, 'startNewSession');
         const clearSessionSpy = jest.spyOn(sessionManager, 'clearSession');
 
         // Mock 窗口重载命令
@@ -236,7 +228,7 @@ describe('退出当前项目功能', () => {
         }
 
         // 验证没有执行清理操作
-        expect(archiveCurrentAndStartNewSpy).not.toHaveBeenCalled();
+        expect(startNewSessionSpy).not.toHaveBeenCalled();
         expect(clearSessionSpy).not.toHaveBeenCalled();
         expect(executeCommandSpy).not.toHaveBeenCalledWith('workbench.action.reloadWindow');
 

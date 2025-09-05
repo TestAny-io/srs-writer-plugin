@@ -54,6 +54,11 @@ export enum OperationType {
   "CRITICAL_ERROR" = "CRITICAL_ERROR",             // 严重错误
   "RECOVERY_ATTEMPTED" = "RECOVERY_ATTEMPTED",     // 尝试恢复
   
+  // 🚀 新增：计划恢复相关
+  "PLAN_INTERRUPTED" = "PLAN_INTERRUPTED",         // 计划被动中断
+  "PLAN_RESUMED" = "PLAN_RESUMED",                 // 计划恢复执行
+  "PLAN_TERMINATED" = "PLAN_TERMINATED",           // 计划终止
+  
   // 🔄 系统维护操作
   "SYSTEM_INITIALIZED" = "SYSTEM_INITIALIZED",     // 系统初始化
   "SYSTEM_SHUTDOWN" = "SYSTEM_SHUTDOWN",           // 系统关闭
@@ -81,6 +86,18 @@ export interface SessionContext {
 }
 
 /**
+ * 🚀 阶段3新增：项目会话信息接口
+ */
+export interface ProjectSessionInfo {
+  projectName: string;
+  sessionFile: string;
+  lastModified: string;
+  isActive: boolean;
+  operationCount?: number;
+  gitBranch?: string;  // 🚀 阶段3新增：从会话文件中读取的Git分支信息
+}
+
+/**
  * 🚀 v5.0更新：操作日志条目接口 - 支持类型化操作
  */
 export interface OperationLogEntry {
@@ -93,10 +110,20 @@ export interface OperationLogEntry {
   // 可选字段，根据操作类型选择性使用
   toolName?: string;               // 工具名称（TOOL_*类型使用）
   targetFiles?: string[];          // 操作的文件列表
-  userInput?: string;              // 触发操作的用户输入
+  userInput?: string | any;        // 触发操作的用户输入（支持字符串或对象）
   executionTime?: number;          // 执行耗时(ms)
   error?: string;                  // 如果失败，记录错误信息
   sessionData?: Partial<SessionContext>; // SESSION_*类型的会话数据变更
+  
+  // 🚀 新增：Git操作相关信息（用于GIT_*类型操作）
+  gitOperation?: {
+    fromBranch: string;            // 从哪个分支
+    toBranch: string;              // 切换到哪个分支
+    autoCommitCreated?: boolean;   // 是否有自动提交
+    autoCommitHash?: string;       // 自动提交的hash
+    reason: string;                // 切换原因
+    branchCreated?: boolean;       // 是否创建了新分支
+  };
 }
 
 /**
@@ -140,6 +167,15 @@ export interface SessionUpdateRequest {
     error?: string;
     executionTime?: number;
     sessionData?: Partial<SessionContext>;
+    // 🚀 新增：Git操作相关信息
+    gitOperation?: {
+      fromBranch: string;
+      toBranch: string;
+      autoCommitCreated?: boolean;
+      autoCommitHash?: string;
+      reason: string;
+      branchCreated?: boolean;
+    };
   };
 }
 
@@ -180,51 +216,19 @@ export interface SyncStatus {
   lastSyncCheck: string;
 }
 
-/**
- * 🚀 v4.0新增：归档会话信息
- */
-export interface ArchivedSessionInfo {
-  archiveFileName: string;      // 归档文件名，如 srs-writer-session-20240115-20240130.json
-  originalSession: SessionContext;
-  archiveDate: string;          // 归档时间 ISO 8601
-  daysCovered: number;          // 会话覆盖的天数
-  reason: 'age_limit' | 'manual_archive' | 'new_project';  // 归档原因
-}
+// 🚀 阶段4清理：移除 ArchivedSessionInfo 接口
+
+// 🚀 阶段4清理：移除 ArchiveFileEntry 接口
+
+// 🚀 阶段4清理：移除 ArchiveResult 接口
 
 /**
- * 🚀 v4.0修复：单个归档条目接口
- * 描述归档文件中单个项目的完整数据结构
+ * 🚀 阶段4新增：简化的新会话创建结果
  */
-export interface ArchiveFileEntry {
-  sessionContextId: string;
-  projectName: string | null;
-  baseDir: string | null;
-  activeFiles: string[];
-  metadata: {
-    srsVersion: string;
-    created: string;
-    lastModified: string;
-    version: string;
-  };
-  operations: OperationLogEntry[];  // 🚀 保留完整的操作历史
-  timeRange: {
-    startDate: string;
-    endDate: string;
-  };
-  archivedAt: string;              // 归档时间戳
-  archiveReason: 'age_limit' | 'manual_archive' | 'new_project';
-  fileVersion: string;             // 归档格式版本
-}
-
-/**
- * 🚀 v4.0新增：归档操作结果
- */
-export interface ArchiveResult {
+export interface NewSessionResult {
   success: boolean;
-  archivedSession?: ArchivedSessionInfo;
   newSession?: SessionContext;
   error?: string;
-  filesPreserved: string[];     // 保留的用户文件列表
 }
 
 export interface RuleContext {
@@ -314,38 +318,14 @@ export interface ISessionManager {
    */
   forceNotifyObservers(): void;
 
+  // 🚀 阶段4清理：移除归档相关方法声明
+  
   /**
-   * 🚀 v4.0新增：归档当前会话并开始新项目
-   * 这是"Start New Project"的正确实现 - 保护用户资产，归档历史
+   * 🚀 阶段4新增：简化的新会话创建方法
+   * 替代原来的 archiveCurrentAndStartNew，专注于创建新会话
    * @param newProjectName 新项目名称（可选）
-   * @param archiveReason 归档原因，默认为'new_project'
    */
-  archiveCurrentAndStartNew(newProjectName?: string, archiveReason?: 'age_limit' | 'manual_archive' | 'new_project'): Promise<ArchiveResult>;
-
-  /**
-   * 🚀 v4.0新增：手动归档当前会话（不创建新会话）
-   * 用于定期整理或手动备份
-   */
-  archiveCurrentSession(reason?: 'age_limit' | 'manual_archive'): Promise<ArchivedSessionInfo | null>;
-
-  /**
-   * 🚀 v4.0新增：列出所有归档的会话
-   * @param limit 返回的最大归档数量，默认为20
-   */
-  listArchivedSessions(limit?: number): Promise<ArchivedSessionInfo[]>;
-
-  /**
-   * 🚀 v4.0新增：自动归档过期会话
-   * 将超过指定天数的会话自动归档
-   * @param maxAgeDays 会话最大年龄（天），默认15天
-   */
-  autoArchiveExpiredSessions(maxAgeDays?: number): Promise<ArchivedSessionInfo[]>;
-
-  /**
-   * 🚀 v4.0新增：获取用户资产文件列表
-   * 返回当前项目中用户生成的所有文件，用于归档时确认保护
-   */
-  getUserAssetFiles(): Promise<string[]>;
+  startNewSession(newProjectName?: string): Promise<NewSessionResult>;
 
   /**
    * 🚀 v5.0新增：统一状态+日志更新入口

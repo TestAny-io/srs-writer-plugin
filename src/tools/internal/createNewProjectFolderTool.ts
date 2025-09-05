@@ -133,16 +133,14 @@ export async function createNewProjectFolder(args: {
             }
         }
 
-        // 🚀 4. 使用最终确定的项目名称执行归档并创建新项目
-        const result = await sessionManager.archiveCurrentAndStartNew(
-            finalProjectName !== 'unnamed' ? finalProjectName : undefined, 
-            'new_project'
+        // 🚀 4. 使用最终确定的项目名称创建新会话
+        const result = await sessionManager.startNewSession(
+            finalProjectName !== 'unnamed' ? finalProjectName : undefined
         );
 
         if (result.success) {
-            const preservedCount = result.filesPreserved.length;
             const newProjectName = result.newSession?.projectName || 'unnamed';
-            const archivedProject = result.archivedSession?.archiveFileName;
+            const archivedProject = currentProjectName;
 
             // 🚀 5. 创建实际的项目目录（现在名称已经一致了）
             let directoryCreated = false;
@@ -169,38 +167,51 @@ export async function createNewProjectFolder(args: {
                 }
             }
 
-            // 🚀 6. 创建并切换到项目分支
-            let branchResult: any = null;
+            // 🚀 重构：防御性检查，确保在wip分支上创建项目
+            let wipBranchResult: any = null;
             
-            if (directoryCreated && newProjectName !== 'unnamed') {
+            if (directoryCreated) {
                 try {
-                    // 动态导入 Git 操作工具
-                    const { createProjectBranch } = await import('../atomic/git-operations');
-                    
-                    // 🔧 修复：在工作区根目录中执行 Git 操作，而不是项目子目录
                     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
                     if (workspaceFolder) {
-                        // ✅ 正确：在工作区根目录（Git 仓库所在位置）中执行 Git 操作
                         const gitRepoDir = workspaceFolder.uri.fsPath;
                         
-                        branchResult = await createProjectBranch(gitRepoDir, newProjectName);
+                        wipBranchResult = await ensureOnWipBranch(gitRepoDir);
                         
-                        if (branchResult.success) {
-                            logger.info(`🌿 [createNewProjectFolder] ${branchResult.message}`);
+                        if (wipBranchResult.success) {
+                            logger.info(`✅ [createNewProjectFolder] ${wipBranchResult.message}`);
                             
-                            // 🚀 记录到会话日志
-                            await logGitOperation(branchResult, result.newSession?.sessionContextId, sessionManager);
+                            // 🚀 修复：更新会话中的gitBranch字段
+                            await sessionManager.updateSession({
+                                gitBranch: 'wip'
+                            });
                             
-                            // 🚀 新增：更新会话中的 Git 分支信息
-                            if (branchResult.branchName && result.newSession?.sessionContextId) {
-                                await updateSessionGitBranch(sessionManager, result.newSession.sessionContextId, branchResult.branchName);
+                            // 记录wip分支切换操作到会话日志
+                            if (wipBranchResult.branchSwitched) {
+                                await sessionManager.updateSessionWithLog({
+                                    logEntry: {
+                                        type: OperationType.GIT_BRANCH_SWITCHED,
+                                        operation: `Switched from ${wipBranchResult.fromBranch} to ${wipBranchResult.toBranch} for project creation: ${newProjectName}`,
+                                        success: true,
+                                        sessionData: result.newSession,
+                                        gitOperation: {
+                                            fromBranch: wipBranchResult.fromBranch!,
+                                            toBranch: wipBranchResult.toBranch!,
+                                            autoCommitCreated: wipBranchResult.autoCommitCreated,
+                                            autoCommitHash: wipBranchResult.autoCommitHash,
+                                            reason: 'project_creation',
+                                            branchCreated: wipBranchResult.branchCreated
+                                        }
+                                    }
+                                });
                             }
                         } else {
-                            logger.warn(`⚠️ [createNewProjectFolder] Git branch operation failed: ${branchResult.error}`);
+                            logger.warn(`⚠️ [createNewProjectFolder] WIP branch check failed: ${wipBranchResult.error}`);
+                            // 不阻止项目创建，但记录警告
                         }
                     }
-                } catch (gitError) {
-                    logger.warn(`⚠️ [createNewProjectFolder] Exception during Git operations: ${(gitError as Error).message}`);
+                } catch (wipError) {
+                    logger.warn(`⚠️ [createNewProjectFolder] Exception during WIP branch operations: ${(wipError as Error).message}`);
                 }
             }
 
@@ -211,17 +222,17 @@ export async function createNewProjectFolder(args: {
                     : ` 及项目目录 "${newProjectName}"`)
                 : '';
             
-            // Git 分支信息
-            const branchInfo = branchResult?.success 
-                ? (branchResult.wasCreated 
-                    ? ` 并创建了分支 "${branchResult.branchName}"${branchResult.commitCreated ? ' (已自动提交暂存更改)' : ''}` 
-                    : ` 并切换到现有分支 "${branchResult.branchName}"`)
-                : (branchResult 
-                    ? ` (Git分支操作失败: ${branchResult.error})` 
+            // WIP 分支信息
+            const branchInfo = wipBranchResult?.success 
+                ? (wipBranchResult.branchSwitched 
+                    ? ` 并切换到wip工作分支${wipBranchResult.autoCommitCreated ? ' (已自动提交当前分支更改)' : ''}` 
+                    : ` 在wip工作分支上`)
+                : (wipBranchResult 
+                    ? ` (WIP分支操作失败: ${wipBranchResult.error})` 
                     : '');
                 
             const message = currentProjectName 
-                ? `✅ 成功创建新项目 "${newProjectName}"${directoryInfo}${branchInfo}！原项目 "${currentProjectName}" 已安全归档，保护了 ${preservedCount} 个用户文件。`
+                ? `✅ 成功创建新项目 "${newProjectName}"${directoryInfo}${branchInfo}！原项目 "${currentProjectName}" 会话已清理。`
                 : `✅ 成功创建新项目 "${newProjectName}"${directoryInfo}${branchInfo}！`;
 
             logger.info(`✅ [createNewProjectFolder] Success: ${message}`);
@@ -231,16 +242,16 @@ export async function createNewProjectFolder(args: {
                 projectName: newProjectName,
                 archivedProject: currentProjectName || undefined,
                 message,
-                preservedFiles: preservedCount,
+                preservedFiles: 0,  // 🚀 阶段4简化：不再统计保护文件
                 directoryName: directoryCreated ? newProjectName : undefined,
                 directoryRenamed: directoryRenamed,
-                gitBranch: branchResult ? {
-                    created: branchResult.wasCreated || false,
-                    name: branchResult.branchName,
-                    switched: branchResult.wasSwitched || false,
-                    autoCommitCreated: branchResult.commitCreated,
-                    autoCommitHash: branchResult.commitHash,
-                    error: branchResult.success ? undefined : branchResult.error
+                gitBranch: wipBranchResult ? {
+                    created: false, // wip分支可能已存在
+                    name: 'wip',
+                    switched: wipBranchResult.branchSwitched || false,
+                    autoCommitCreated: wipBranchResult.autoCommitCreated || false,
+                    autoCommitHash: wipBranchResult.autoCommitHash,
+                    error: wipBranchResult.success ? undefined : wipBranchResult.error
                 } : undefined
             };
         } else {
@@ -264,6 +275,100 @@ export async function createNewProjectFolder(args: {
             projectName: null,
             message: `❌ 创建新项目时发生错误: ${errorMessage}`,
             error: errorMessage
+        };
+    }
+}
+
+/**
+ * 🚀 防御性检查：确保在wip分支上创建项目
+ * 如果不在wip分支，自动提交当前更改并切换到wip分支
+ */
+async function ensureOnWipBranch(workspaceRoot: string): Promise<{
+    success: boolean;
+    message: string;
+    error?: string;
+    branchSwitched?: boolean;
+    autoCommitCreated?: boolean;
+    autoCommitHash?: string;
+    fromBranch?: string;
+    toBranch?: string;
+    branchCreated?: boolean;
+}> {
+    try {
+        logger.info(`🔍 [ensureOnWipBranch] Checking current branch in: ${workspaceRoot}`);
+        
+        const { getCurrentBranch } = await import('../atomic/git-operations');
+        const currentBranch = await getCurrentBranch(workspaceRoot);
+        
+        if (currentBranch === 'wip') {
+            logger.info(`✅ [ensureOnWipBranch] Already on wip branch`);
+            return {
+                success: true,
+                message: 'Already on wip branch',
+                branchSwitched: false,
+                fromBranch: currentBranch || 'unknown',
+                toBranch: 'wip'
+            };
+        }
+        
+        logger.info(`🔄 [ensureOnWipBranch] Current branch: ${currentBranch}, need to switch to wip`);
+        
+        // 1. 检查并自动提交当前更改
+        const { checkWorkspaceGitStatus, commitAllChanges } = await import('../atomic/git-operations');
+        const gitStatus = await checkWorkspaceGitStatus();
+        
+        let autoCommitHash: string | undefined;
+        
+        if (gitStatus.hasChanges) {
+            logger.info(`💾 [ensureOnWipBranch] Auto-committing changes in ${currentBranch} before switching to wip`);
+            
+            const commitResult = await commitAllChanges(workspaceRoot);
+            if (!commitResult.success) {
+                return {
+                    success: false,
+                    message: `Failed to commit changes in ${currentBranch}`,
+                    error: commitResult.error
+                };
+            }
+            
+            autoCommitHash = commitResult.commitHash;
+            logger.info(`✅ [ensureOnWipBranch] Auto-committed changes: ${autoCommitHash || 'no hash'}`);
+        }
+        
+        // 2. 切换到wip分支（如果不存在则创建）
+        const { checkBranchExists } = await import('../atomic/git-operations');
+        const wipExists = await checkBranchExists(workspaceRoot, 'wip');
+        
+        const { execSync } = await import('child_process');
+        
+        let branchCreated = false;
+        if (wipExists) {
+            execSync('git checkout wip', { cwd: workspaceRoot });
+            logger.info(`🔄 [ensureOnWipBranch] Switched to existing wip branch`);
+        } else {
+            execSync('git checkout -b wip', { cwd: workspaceRoot });
+            logger.info(`🆕 [ensureOnWipBranch] Created and switched to new wip branch`);
+            branchCreated = true;
+        }
+        
+        return {
+            success: true,
+            message: `Successfully switched to wip branch from ${currentBranch}`,
+            branchSwitched: true,
+            autoCommitCreated: !!autoCommitHash,
+            autoCommitHash,
+            fromBranch: currentBranch || 'unknown',
+            toBranch: 'wip',
+            branchCreated
+        };
+        
+    } catch (error) {
+        const errorMessage = `Failed to ensure wip branch: ${(error as Error).message}`;
+        logger.error(`❌ [ensureOnWipBranch] ${errorMessage}`);
+        return {
+            success: false,
+            message: errorMessage,
+            error: (error as Error).message
         };
     }
 }

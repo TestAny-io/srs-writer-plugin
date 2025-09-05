@@ -2,9 +2,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { SRSChatParticipant } from './chat/srs-chat-participant';
 import { SessionManager } from './core/session-manager';
+import { ProjectSessionInfo, OperationType } from './types/session';
 import { Orchestrator } from './core/orchestrator';
 import { Logger } from './utils/logger';
 import { ErrorHandler } from './utils/error-handler';
+import { FoldersViewEnhancer } from './core/FoldersViewEnhancer';
 // Language Model Tools已禁用 - 暂时移除工具类导入
 // import { 
 //     InternetSearchTool, 
@@ -16,6 +18,7 @@ import { ErrorHandler } from './utils/error-handler';
 let chatParticipant: SRSChatParticipant;
 let sessionManager: SessionManager;
 let orchestrator: Orchestrator;
+let foldersViewEnhancer: FoldersViewEnhancer;
 const logger = Logger.getInstance();
 
 /**
@@ -66,11 +69,11 @@ export function activate(context: vscode.ExtensionContext) {
         // 🔧 修复：help命令注册ID匹配package.json声明
         const helpCommand = vscode.commands.registerCommand('srs-writer.help', () => {
             vscode.window.showInformationMessage(
-                '💡 **SRS Writer 使用指南**\n\n' +
-                '🚀 开始使用：在Chat面板中输入 @srs-writer\n' +
-                '📊 查看状态：Cmd+Shift+P → "SRS Writer: Show Status"\n' +
-                '🔄 强制同步：Cmd+Shift+P → "SRS Writer: Force Sync Context"\n' +
-                '🧹 清理会话：Cmd+Shift+P → "SRS Writer: Clear Session"'
+                '💡 **SRS Writer User Guide**\n\n' +
+                '🚀 Start using: Enter @srs-writer in Chat panel\n' +
+                '📊 View status: Cmd+Shift+P → "SRS Writer: Show Status"\n' +
+                '🔄 Force sync: Cmd+Shift+P → "SRS Writer: Force Sync Context"\n' +
+                '🧹 Clear session: Cmd+Shift+P → "SRS Writer: Clear Session"'
             );
         });
         context.subscriptions.push(helpCommand);
@@ -85,6 +88,17 @@ export function activate(context: vscode.ExtensionContext) {
             logger.info('Workspace changed, session path refreshed');
         });
         context.subscriptions.push(workspaceWatcher);
+        
+        // 🚀 新增：初始化Folders视图增强器
+        logger.info('Step 6: Initializing Folders View Enhancer...');
+        foldersViewEnhancer = new FoldersViewEnhancer();
+        
+        // 注册Folders视图增强命令
+        registerFoldersViewCommands(context);
+        
+        // 启用Folders视图增强功能
+        vscode.commands.executeCommand('setContext', 'srs-writer:foldersViewEnhanced', true);
+        logger.info('✅ Folders View Enhancer initialized successfully');
         
         logger.info('SRS Writer Plugin v1.3 activation completed successfully');
         
@@ -103,7 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
         logger.error('Failed to activate SRS Writer Plugin v1.2', error as Error);
         
         vscode.window.showErrorMessage(
-            'SRS Writer插件激活失败，请检查配置后重启VSCode。'
+            'SRS Writer plugin activation failed, please check the configuration and restart VSCode.'
         );
     }
 }
@@ -122,8 +136,7 @@ function registerCoreCommands(context: vscode.ExtensionContext): void {
     // 🚀 v4.0新增：开始新项目命令（归档旧项目）
     const startNewProjectCmd = vscode.commands.registerCommand('srs-writer.startNewProject', startNewProjectCommand);
     
-    // 🚀 v4.0新增：查看归档历史命令
-    const viewArchiveHistoryCmd = vscode.commands.registerCommand('srs-writer.viewArchiveHistory', viewArchiveHistoryCommand);
+    // 🚀 阶段4清理：移除归档历史命令注册
     
 
     
@@ -133,7 +146,7 @@ function registerCoreCommands(context: vscode.ExtensionContext): void {
         
         // 新架构：模式通过智能分诊自动确定，无需手动切换
         vscode.window.showInformationMessage(
-            `🚀 ${currentStatus.architecture} 已启用智能分诊\n\n插件版本: ${currentStatus.version}\n\n模式将根据用户意图自动切换：\n• 🚀 计划执行模式：复杂多步骤任务\n• 🛠️ 工具执行模式：需要操作文件的任务\n• 🧠 知识问答模式：咨询和对话`
+            `🚀 ${currentStatus.architecture} AI mode is enabled\n\nPlugin version: ${currentStatus.version}\n\nModes will be automatically switched based on user intent:\n• 🚀 Plan Execution mode: Complex multi-step tasks\n• 🛠️ Tool Execution mode: Tasks that require file operations\n• 🧠 Knowledge Question mode: Consultation and dialogue`
         );
     });
     
@@ -148,12 +161,27 @@ function registerCoreCommands(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         statusCommand,
         startNewProjectCmd,
-        viewArchiveHistoryCmd,
+        // 🚀 阶段4清理：移除 viewArchiveHistoryCmd
         toggleAIModeCommand,
         forceSyncCommand  // 🚀 新增强制同步命令
     );
     
     logger.info('Core commands registered successfully');
+}
+
+/**
+ * 🚀 新增：注册Folders视图增强命令
+ */
+function registerFoldersViewCommands(context: vscode.ExtensionContext): void {
+    // 为Folders视图选择分支命令
+    const selectBranchForFoldersCmd = vscode.commands.registerCommand('srs-writer.selectBranchForFolders', async () => {
+        await foldersViewEnhancer.selectBranchForFolders();
+    });
+
+    // 注册命令
+    context.subscriptions.push(selectBranchForFoldersCmd);
+
+    logger.info('Folders View Enhancer commands registered successfully');
 }
 
 /**
@@ -189,7 +217,7 @@ function registerLanguageModelTools(context: vscode.ExtensionContext): void {
         const errorMsg = `Failed to register Language Model Tools: ${(error as Error).message}`;
         logger.error(errorMsg);
         // 不抛出错误，允许扩展继续加载
-        vscode.window.showWarningMessage('部分工具注册失败，但扩展可以继续使用');
+        vscode.window.showWarningMessage('Some tools registration failed, but the extension can still be used');
     }
 }
 */
@@ -243,19 +271,14 @@ async function showEnhancedStatus(): Promise<void> {
     try {
         const options = await vscode.window.showQuickPick([
             {
-                label: '$(dashboard) Quick Overview',
-                description: 'View core status information',
-                detail: 'Project info, sync status'
-            },
-            {
                 label: '$(folder-library) Create Workspace & Initialize',
                 description: 'Create a complete workspace environment for first-time use',
                 detail: 'Select parent directory, create workspace, copy template files'
             },
             {
-                label: '$(arrow-swap) Switch Project',
-                description: 'Switch to another project in the workspace',
-                detail: 'Scan project list, archive current session, create new session'
+                label: '$(arrow-swap) Create / Switch Project',
+                description: 'Create new project or switch to existing project',
+                detail: 'Create new project directory or switch to existing project in workspace'
             },
             {
                 label: '$(sync) Sync Status Check', 
@@ -275,13 +298,10 @@ async function showEnhancedStatus(): Promise<void> {
         if (!options) return;
 
         switch (options.label) {
-            case '$(dashboard) Quick Overview':
-                await showQuickOverview();
-                break;
             case '$(folder-library) Create Workspace & Initialize':
                 await createWorkspaceAndInitialize();
                 break;
-            case '$(arrow-swap) Switch Project':
+            case '$(arrow-swap) Create / Switch Project':
                 await switchProject();
                 break;
             case '$(sync) Sync Status Check':
@@ -293,7 +313,7 @@ async function showEnhancedStatus(): Promise<void> {
         }
     } catch (error) {
         logger.error('Failed to show enhanced status', error as Error);
-        vscode.window.showErrorMessage(`状态查看失败: ${(error as Error).message}`);
+        vscode.window.showErrorMessage(`Failed to view status: ${(error as Error).message}`);
     }
 }
 
@@ -315,10 +335,10 @@ async function openPluginSettings(): Promise<void> {
         } catch (fallbackError) {
             // 只在完全失败时才显示错误，并提供手动解决方案
             vscode.window.showErrorMessage(
-                `无法打开设置页面: ${(error as Error).message}`,
-                '手动打开设置'
+                `Failed to open settings page: ${(error as Error).message}`,
+                'Open settings manually'
             ).then(selection => {
-                if (selection === '手动打开设置') {
+                if (selection === 'Open settings manually') {
                     vscode.commands.executeCommand('workbench.action.openSettings');
                 }
             });
@@ -326,101 +346,197 @@ async function openPluginSettings(): Promise<void> {
     }
 }
 
+
+
+
+
 /**
- * 显示快速概览 - 简化版，只显示用户关心的基本信息
+ * 🚀 v5.0重构：显示增强的同步状态和项目信息
  */
-async function showQuickOverview(): Promise<void> {
-    const session = await sessionManager.getCurrentSession();
-    const syncStatus = await sessionManager.checkSyncStatus();
-    
-    const syncIcon = syncStatus.isConsistent ? '✅' : '⚠️';
-    const baseDir = session?.baseDir ? require('path').basename(session.baseDir) : '无';
-    
-    // 🚀 新增：获取最近活动信息
-    const recentActivity = await sessionManager.getRecentActivity();
-    
-    // 构建状态信息文本
-    const statusMessage = `🚀 SRS Writer 状态概览
+async function showSyncStatus(): Promise<void> {
+    try {
+        // 执行同步状态检查
+        const syncStatus = await sessionManager.checkSyncStatus();
+        
+        // 获取当前状态信息
+        const statusInfo = await sessionManager.getCurrentStatusInfo();
+        
+        // 构建状态信息消息
+        const statusIcon = syncStatus.isConsistent ? '✅' : '⚠️';
+        const checkTime = new Date(syncStatus.lastSyncCheck).toLocaleString();
+        
+        const statusMessage = `${statusIcon} **Sync Status Check Results**
 
-📁 当前项目: ${session?.projectName || '无项目'}
-📂 基础目录: ${baseDir}
-⏰ 最近活动: ${recentActivity}
+📋 **Current Project Information:**
+• Project Name: ${statusInfo.projectName}
+• Base Directory: ${statusInfo.baseDirectory}
+• Active Files: ${statusInfo.activeFiles}
+• Git Branch: ${statusInfo.gitBranch}
+• Session ID: ${statusInfo.sessionId.substring(0, 8)}...
+• File Format: ${statusInfo.fileFormat}
 
-${syncIcon} 同步状态: ${syncStatus.isConsistent ? '正常' : '需要同步'}
+🕐 Check Time: ${checkTime}
 
-💡 使用提示: 使用 @srs-writer 开始对话${!syncStatus.isConsistent ? '\n⚠️ 操作建议: 尝试 "Force Sync Context" 命令' : ''}`;
-    
+${syncStatus.isConsistent 
+    ? '✅ All components are synchronized' 
+    : `❌ Found ${syncStatus.inconsistencies.length} sync issue(s):\n${syncStatus.inconsistencies.map(i => `  • ${i}`).join('\n')}`
+}`;
+
+        if (syncStatus.isConsistent) {
+            // 状态正常时显示信息消息
+            await vscode.window.showInformationMessage(
+                statusMessage,
+                { modal: true },
+                'OK'
+            );
+        } else {
+            // 有问题时显示警告消息并提供修复选项
+            const action = await vscode.window.showWarningMessage(
+                statusMessage + '\n\n💡 Suggestion: Use "Force Sync Context" to fix these issues.',
+                { modal: true },
+                'Fix Now',
+                'View Details',
+                'Later'
+            );
+            
+            switch (action) {
+                case 'Fix Now':
+                    await vscode.commands.executeCommand('srs-writer.forceSyncContext');
+                    break;
+                case 'View Details':
+                    await showSyncStatusDetails(syncStatus, statusInfo);
+                    break;
+            }
+        }
+    } catch (error) {
+        logger.error('Failed to show sync status', error as Error);
+        vscode.window.showErrorMessage(`Failed to check sync status: ${(error as Error).message}`);
+    }
+}
+
+/**
+ * 🚀 v5.0新增：显示同步状态详细信息
+ */
+async function showSyncStatusDetails(syncStatus: any, statusInfo: any): Promise<void> {
+    const detailsMessage = `🔍 **Detailed Sync Status Report**
+
+📊 **System Information:**
+• Plugin Version: ${require('../package.json').version}
+• Session Format: v5.0 (UnifiedSessionFile)
+• PathManager Status: ${statusInfo.pathManager || 'Active'}
+
+📁 **Project Details:**
+• Project: ${statusInfo.projectName}
+• Directory: ${statusInfo.baseDirectory}
+• Git Branch: ${statusInfo.gitBranch}
+• Session ID: ${statusInfo.sessionId}
+
+📋 **Inconsistency Analysis:**
+${syncStatus.inconsistencies.length === 0 
+    ? '✅ No issues detected'
+    : syncStatus.inconsistencies.map((issue: string, index: number) => 
+        `${index + 1}. ${issue}`
+    ).join('\n')
+}
+
+🕐 Last Check: ${new Date(syncStatus.lastSyncCheck).toLocaleString()}
+
+💡 **Recommendations:**
+${syncStatus.isConsistent 
+    ? '• System is healthy, no action needed'
+    : '• Run "Force Sync Context" to resolve issues\n• Consider restarting VS Code if problems persist\n• Check Git repository status if branch-related issues exist'
+}`;
+
     await vscode.window.showInformationMessage(
-        statusMessage,
+        detailsMessage,
         { modal: true },
-        '确定'
+        'Close'
     );
 }
 
 
 
-/**
- * 显示同步状态
- */
-async function showSyncStatus(): Promise<void> {
-    const syncStatus = await sessionManager.checkSyncStatus();
-    
-    if (syncStatus.isConsistent) {
-        vscode.window.showInformationMessage(
-            `✅ **同步状态正常**\n\n检查时间: ${new Date(syncStatus.lastSyncCheck).toLocaleString()}\n所有组件数据一致`
-        );
-    } else {
-        const message = `⚠️ **发现同步问题**\n\n检查时间: ${new Date(syncStatus.lastSyncCheck).toLocaleString()}\n\n问题清单:\n${syncStatus.inconsistencies.map(i => `• ${i}`).join('\n')}\n\n建议使用"Force Sync Context"命令修复`;
-        
-        const action = await vscode.window.showWarningMessage(
-            message,
-            '立即修复',
-            '稍后处理'
-        );
-        
-        if (action === '立即修复') {
-            await vscode.commands.executeCommand('srs-writer.forceSyncContext');
-        }
-    }
-}
-
-
-
 
 
 /**
- * 🚀 v3.0新增：强制同步会话状态
+ * 🚀 v5.0重构：增强的强制同步会话状态
+ * 集成智能恢复逻辑和新的UnifiedSessionFile格式支持
  */
 async function performForcedSync(): Promise<void> {
     try {
-        vscode.window.showInformationMessage('🔄 开始强制同步会话状态...');
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "Force syncing session status...",
+            cancellable: false
+        }, async (progress) => {
+            
+            progress.report({ increment: 0, message: "🔄 Starting forced sync..." });
+            
+            const sessionManager = SessionManager.getInstance();
+            
+            // 1. 使用智能恢复逻辑重新同步状态
+            progress.report({ increment: 25, message: "🔍 Running smart recovery..." });
+            await sessionManager.autoInitialize();
+            logger.info('✅ Smart recovery completed');
+            
+            // 2. 强制通知所有观察者
+            progress.report({ increment: 50, message: "📢 Notifying observers..." });
+            sessionManager.forceNotifyObservers();
+            logger.info('✅ All observers notified');
+            
+            // 3. 验证同步状态
+            progress.report({ increment: 75, message: "✅ Verifying sync status..." });
+            const syncStatus = await sessionManager.checkSyncStatus();
+            
+            // 4. 获取状态信息用于显示
+            progress.report({ increment: 90, message: "📋 Gathering status info..." });
+            const statusInfo = await sessionManager.getCurrentStatusInfo();
+            
+            progress.report({ increment: 100, message: "✅ Sync completed!" });
+            
+            // 显示同步结果
+            const resultIcon = syncStatus.isConsistent ? '✅' : '⚠️';
+            const resultMessage = `${resultIcon} **Force Sync Results**
+
+📋 **Updated Project Information:**
+• Project Name: ${statusInfo.projectName}
+• Base Directory: ${statusInfo.baseDirectory}
+• Active Files: ${statusInfo.activeFiles}
+• Git Branch: ${statusInfo.gitBranch}
+• Session ID: ${statusInfo.sessionId.substring(0, 8)}...
+
+${syncStatus.isConsistent 
+    ? '✅ All components successfully synchronized!'
+    : `⚠️ Sync completed with ${syncStatus.inconsistencies.length} remaining issue(s):\n${syncStatus.inconsistencies.map(i => `  • ${i}`).join('\n')}`
+}
+
+🕐 Completed: ${new Date().toLocaleString()}`;
+
+            if (syncStatus.isConsistent) {
+                vscode.window.showInformationMessage(
+                    resultMessage,
+                    { modal: true },
+                    'OK'
+                );
+                logger.info('✅ Forced sync completed successfully');
+            } else {
+                const action = await vscode.window.showWarningMessage(
+                    resultMessage + '\n\n💡 Some issues may require manual intervention or VS Code restart.',
+                    { modal: true },
+                    'View Details',
+                    'OK'
+                );
+                
+                if (action === 'View Details') {
+                    await showSyncStatusDetails(syncStatus, statusInfo);
+                }
+                
+                logger.warn(`⚠️ Sync completed with issues: ${syncStatus.inconsistencies.join(', ')}`);
+            }
+        });
         
-        const sessionManager = SessionManager.getInstance();
-        
-        // 1. 重新加载文件
-        await sessionManager.loadSessionFromFile();
-        logger.info('✅ Session reloaded from file');
-        
-        // 2. 全局引擎会自动适应新的会话上下文
-        logger.info('✅ Global engine ready for session update');
-        
-        // 3. 强制通知所有观察者
-        sessionManager.forceNotifyObservers();
-        logger.info('✅ All observers notified');
-        
-        // 4. 验证同步状态
-        const syncStatus = await sessionManager.checkSyncStatus();
-        
-        if (syncStatus.isConsistent) {
-            vscode.window.showInformationMessage('✅ 会话强制同步完成，所有组件状态已更新');
-            logger.info('✅ Forced sync completed successfully');
-        } else {
-            const message = `⚠️ 同步完成但仍有问题: ${syncStatus.inconsistencies.join(', ')}`;
-            vscode.window.showWarningMessage(message);
-            logger.warn(`⚠️ Sync completed with issues: ${syncStatus.inconsistencies.join(', ')}`);
-        }
     } catch (error) {
-        const errorMessage = `❌ 强制同步失败: ${(error as Error).message}`;
+        const errorMessage = `❌ Forced sync failed: ${(error as Error).message}`;
         vscode.window.showErrorMessage(errorMessage);
         logger.error('Failed to perform forced sync', error as Error);
     }
@@ -433,11 +549,11 @@ async function startNewProjectCommand(): Promise<void> {
     try {
         // 询问用户新项目名称
         const newProjectName = await vscode.window.showInputBox({
-            prompt: '请输入新项目名称（可选）',
-            placeHolder: '例如：mobile-app-v2',
+            prompt: 'Enter new project name',
+            placeHolder: 'e.g. mobile-app-v2',
             validateInput: (value) => {
                 if (value && !/^[a-zA-Z0-9_-]+$/.test(value)) {
-                    return '项目名称只能包含字母、数字、下划线和短横线';
+                    return 'Project name can only contain letters, numbers, underscores, and hyphens';
                 }
                 return undefined;
             }
@@ -454,16 +570,16 @@ async function startNewProjectCommand(): Promise<void> {
 
         // 显示确认对话框
         const confirmMessage = hasCurrentProject 
-            ? `📁 当前项目 "${currentSession.projectName}" 将被归档保存，不会丢失任何文件。\n\n🚀 开始新项目${newProjectName ? ` "${newProjectName}"` : ''}吗？`
-            : `🚀 开始新项目${newProjectName ? ` "${newProjectName}"` : ''}吗？`;
+            ? `📁 Current project "${currentSession.projectName}" will be archived and saved, no files will be lost.\n\n🚀 Start new project${newProjectName ? ` "${newProjectName}"` : ''}?`
+            : `🚀 Start new project${newProjectName ? ` "${newProjectName}"` : ''}?`;
 
         const confirmed = await vscode.window.showInformationMessage(
             confirmMessage,
             { modal: true },
-            '开始新项目'
+            'Start new project'
         );
 
-        if (confirmed !== '开始新项目') {
+        if (confirmed !== 'Start new project') {
             return;
         }
 
@@ -473,17 +589,17 @@ async function startNewProjectCommand(): Promise<void> {
         
         if (chatParticipant && chatParticipant.isPlanExecuting()) {
             hasPlanExecution = true;
-            planDescription = chatParticipant.getCurrentPlanDescription() || '当前有任务正在执行';
+            planDescription = chatParticipant.getCurrentPlanDescription() || 'Current task is being executed';
             
-            const planConfirmMessage = `⚠️ 检测到正在执行的计划：\n\n${planDescription}\n\n如果现在开始新项目，当前计划将被安全中止。是否确认继续？`;
+            const planConfirmMessage = `⚠️ Detected executing plan:\n\n${planDescription}\n\nIf you start a new project now, the current plan will be safely stopped. Do you want to continue?`;
             const planConfirmed = await vscode.window.showWarningMessage(
                 planConfirmMessage,
                 { modal: true },
-                '确认开始（中止计划）'
+                'Confirm start (stop plan)'
             );
 
-            if (planConfirmed !== '确认开始（中止计划）') {
-                vscode.window.showInformationMessage('已取消开始新项目，计划继续执行');
+            if (planConfirmed !== 'Confirm start (stop plan)') {
+                vscode.window.showInformationMessage('Start new project cancelled, plan continues execution');
                 return;
             }
         }
@@ -491,7 +607,7 @@ async function startNewProjectCommand(): Promise<void> {
         // 🚀 v6.0新增：使用进度对话框执行新项目创建
         const result = await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: `正在创建新项目${newProjectName ? ` "${newProjectName}"` : ''}...`,
+            title: `Creating new project${newProjectName ? ` "${newProjectName}"` : ''}...`,
             cancellable: false
         }, async (progress, token) => {
             try {
@@ -501,12 +617,12 @@ async function startNewProjectCommand(): Promise<void> {
                 if (hasPlanExecution) {
                     progress.report({ 
                         increment: 0, 
-                        message: '🛑 正在请求计划中止...' 
+                        message: '🛑 Requesting plan stop...' 
                     });
                     
                     progress.report({ 
                         increment: 10, 
-                        message: '⏳ 等待specialist安全停止...' 
+                        message: '⏳ Waiting for specialist to safely stop...' 
                     });
                     
                     logger.info('🛑 User confirmed to cancel plan for new project');
@@ -515,37 +631,37 @@ async function startNewProjectCommand(): Promise<void> {
                     
                     progress.report({ 
                         increment: 30, 
-                        message: '✅ 计划已完全停止' 
+                        message: '✅ Plan fully stopped' 
                     });
                 } else {
                     currentProgress = 40;
                     progress.report({ 
                         increment: 40, 
-                        message: '✅ 无需中止计划，继续创建...' 
+                        message: '✅ No plan to stop, continue creating...' 
                     });
                 }
 
                 // 阶段2：归档当前项目并创建新项目
                 progress.report({ 
                     increment: 0, 
-                    message: '📦 正在归档当前项目...' 
+                    message: '📦 Archiving current project...' 
                 });
 
-                const sessionResult = await sessionManager.archiveCurrentAndStartNew(newProjectName || undefined);
+                const sessionResult = await sessionManager.startNewSession(newProjectName || undefined);
                 
                 progress.report({ 
                     increment: 35, 
-                    message: sessionResult.success ? '✅ 项目创建完成' : '❌ 项目创建失败' 
+                    message: sessionResult.success ? '✅ Project created successfully' : '❌ Project creation failed' 
                 });
 
                 if (!sessionResult.success) {
-                    throw new Error(sessionResult.error || '新项目创建失败');
+                    throw new Error(sessionResult.error || 'New project creation failed');
                 }
 
                 // 阶段3：清理项目上下文
                 progress.report({ 
                     increment: 0, 
-                    message: '🧹 正在清理项目上下文...' 
+                    message: '🧹 Cleaning project context...' 
                 });
 
                 if (chatParticipant) {
@@ -554,13 +670,13 @@ async function startNewProjectCommand(): Promise<void> {
                 
                 progress.report({ 
                     increment: 20, 
-                    message: '✅ 上下文清理完成' 
+                    message: '✅ Context cleaned up' 
                 });
 
                 // 阶段4：最终完成
                 progress.report({ 
                     increment: 5, 
-                    message: '🚀 新项目创建完成！' 
+                    message: '🚀 New project created successfully!' 
                 });
 
                 return sessionResult;
@@ -572,38 +688,34 @@ async function startNewProjectCommand(): Promise<void> {
         });
 
         if (result.success) {
-            const preservedCount = result.filesPreserved.length;
-            const archiveInfo = result.archivedSession ? 
-                `\n📦 原项目已归档: ${result.archivedSession.archiveFileName}` : '';
-            
-            // 🚀 v6.0新增：最终确认对话框，给用户明确的完成反馈
-            const successMessage = `✅ 新项目创建完成！\n\n📁 当前项目: ${newProjectName || '新项目'}${archiveInfo}\n📄 保留 ${preservedCount} 个活动文件\n\n🚀 准备开始新的工作！`;
+            // 🚀 阶段4简化：移除归档相关信息显示
+            const successMessage = `✅ New project created successfully!\n\n📁 Current project: ${newProjectName || 'New project'}\n\n🚀 Ready to start new work!`;
             await vscode.window.showInformationMessage(
                 successMessage,
                 { modal: false },
-                '确认'
+                'Confirm'
             );
             
-            logger.info(`✅ New project created successfully. Preserved ${preservedCount} files.`);
+            logger.info(`✅ New project created successfully.`);
         } else {
-            throw new Error(result.error || '未知错误');
+            throw new Error(result.error || 'Unknown error');
         }
 
     } catch (error) {
         logger.error('Failed to start new project', error as Error);
         
         // 🚀 v6.0新增：增强错误处理，提供更好的用户反馈
-        const errorMessage = `❌ 新项目创建失败\n\n错误详情: ${(error as Error).message}\n\n请检查日志获取更多信息。`;
+        const errorMessage = `❌ New project creation failed\n\nError details: ${(error as Error).message}\n\nPlease check the logs for more information.`;
         const action = await vscode.window.showErrorMessage(
             errorMessage,
-            '查看日志',
-            '重试',
-            '取消'
+            'View logs',
+            'Retry',
+            'Cancel'
         );
         
-        if (action === '查看日志') {
+        if (action === 'View logs') {
             vscode.commands.executeCommand('workbench.action.toggleDevTools');
-        } else if (action === '重试') {
+        } else if (action === 'Retry') {
             // 重新执行开始新项目命令
             setTimeout(() => {
                 vscode.commands.executeCommand('srs-writer.startNewProject');
@@ -612,84 +724,35 @@ async function startNewProjectCommand(): Promise<void> {
     }
 }
 
-/**
- * 🚀 v4.0新增：查看项目归档历史
- */
-async function viewArchiveHistoryCommand(): Promise<void> {
-    try {
-        const archives = await sessionManager.listArchivedSessions(10);
-        
-        if (archives.length === 0) {
-            vscode.window.showInformationMessage('暂无归档历史');
-            return;
-        }
-
-        const archiveItems = archives.map(archive => ({
-            label: `📦 ${archive.originalSession.projectName || 'unnamed'}`,
-            description: `${archive.daysCovered}天 • ${new Date(archive.archiveDate).toLocaleDateString()}`,
-            detail: archive.archiveFileName,
-            archive
-        }));
-
-        const selected = await vscode.window.showQuickPick(archiveItems, {
-            placeHolder: '选择查看归档详情',
-            matchOnDescription: true,
-            matchOnDetail: true
-        });
-
-        if (selected) {
-            const archive = selected.archive;
-            const info = [
-                `项目名称: ${archive.originalSession.projectName || 'unnamed'}`,
-                `创建时间: ${new Date(archive.originalSession.metadata.created).toLocaleString()}`,
-                `归档时间: ${new Date(archive.archiveDate).toLocaleString()}`,
-                `持续天数: ${archive.daysCovered} 天`,
-                `归档原因: ${archive.reason}`,
-                `SRS版本: ${archive.originalSession.metadata.srsVersion}`,
-                `活跃文件: ${archive.originalSession.activeFiles.length} 个`
-            ].join('\n');
-
-            await vscode.window.showInformationMessage(info, { modal: true }, '确定');
-        }
-
-    } catch (error) {
-        logger.error('Failed to view archive history', error as Error);
-        vscode.window.showErrorMessage(`查看归档失败: ${(error as Error).message}`);
-    }
-}
+// 🚀 阶段4清理：移除 viewArchiveHistoryCommand 函数
 
 /**
  * 🚀 v4.0新增：工作空间项目信息
  */
 interface WorkspaceProject {
-    name: string;           // 从 srs-writer-log.json 的 project_name 读取
-    baseDir: string;        // 计算得出：workspaceRoot + 目录名
+    name: string;           // 从 srs-writer-log.json 的 project_name 读取Read from srs-writer-log.json project_name
+    baseDir: string;        // 计算得出：workspaceRoot + 目录名Calculate from workspaceRoot + directory name
     isCurrentProject: boolean;
-    gitBranch?: string;     // 🚀 新增：从 srs-writer-log.json 的 git_branch 读取
+    gitBranch?: string;     // 🚀 新增：从 srs-writer-log.json 的 git_branch 读取Read from srs-writer-log.json git_branch
 }
 
 /**
- * 🚀 新增：从项目目录的 srs-writer-log.json 读取项目信息
+ * 🚀 阶段3新增：增强的项目信息接口
  */
-async function readProjectInfoFromLog(projectDir: string): Promise<{
-    project_name?: string;
-    git_branch?: string;
-} | null> {
-    try {
-        const logPath = path.join(projectDir, 'srs-writer-log.json');
-        const logContent = await vscode.workspace.fs.readFile(vscode.Uri.file(logPath));
-        const logData = JSON.parse(logContent.toString());
-        
-        return {
-            project_name: logData.project_name,
-            git_branch: logData.git_branch
-        };
-    } catch (error) {
-        // 如果读取失败，返回 null，使用回退逻辑
-        logger.debug(`Failed to read project info from log: ${(error as Error).message}`);
-        return null;
-    }
+interface EnhancedProject {
+    name: string;
+    baseDir: string;
+    gitBranch?: string;
+    isCurrentProject: boolean;
+    hasDirectory: boolean;  // 是否有项目目录
+    hasSession: boolean;    // 是否有会话文件
+    lastModified?: string;  // 最后修改时间
+    operationCount?: number; // 操作数量
+    projectType: 'complete' | 'directory-only'; // 项目类型
 }
+
+// 🚀 阶段3清理：移除废弃的 readProjectInfoFromLog 函数
+// 现在统一从 .session-log/ 目录中的会话文件获取所有项目信息
 
 /**
  * 🚀 v4.0新增：扫描workspace中的项目
@@ -726,20 +789,17 @@ async function scanWorkspaceProjects(): Promise<WorkspaceProject[]> {
                 
                 // 检查是否像项目文件夹
                 if (isLikelyProjectDirectory(itemName)) {
-                    // 🚀 新增：从 srs-writer-log.json 读取项目信息
-                    const projectInfo = await readProjectInfoFromLog(`${workspaceRoot}/${itemName}`);
-                    
-                    const projectName = projectInfo?.project_name || itemName;  // 优先使用log中的名称，回退到目录名
-                    const gitBranch = projectInfo?.git_branch;                  // Git分支信息
+                    // 🚀 阶段3修复：直接使用目录名作为项目名，Git分支信息从会话文件获取
+                    const projectName = itemName;  // 直接使用目录名
                     
                     projects.push({
                         name: projectName,
                         baseDir: `${workspaceRoot}/${itemName}`,
                         isCurrentProject: projectName === currentProjectName,
-                        gitBranch: gitBranch
+                        gitBranch: undefined  // Git分支信息将从会话文件中获取
                     });
                     
-                    logger.debug(`📂 Found project: ${projectName} (dir: ${itemName}, branch: ${gitBranch || 'none'})`);
+                    logger.debug(`📂 Found project directory: ${projectName}`);
                 }
             }
         }
@@ -749,17 +809,12 @@ async function scanWorkspaceProjects(): Promise<WorkspaceProject[]> {
 
     // 如果当前有项目但不在扫描列表中，添加它
     if (currentProjectName && !projects.find(p => p.name === currentProjectName)) {
-        // 🚀 尝试从当前会话的baseDir读取项目信息
-        let projectInfo = null;
-        if (currentSession?.baseDir) {
-            projectInfo = await readProjectInfoFromLog(currentSession.baseDir);
-        }
-        
+        // 🚀 阶段3修复：直接从当前会话获取信息，不再读取项目日志文件
         projects.push({
             name: currentProjectName,
             baseDir: currentSession?.baseDir || `${workspaceRoot}/${currentProjectName}`,
             isCurrentProject: true,
-            gitBranch: projectInfo?.git_branch || currentSession?.gitBranch  // 优先使用log，回退到会话
+            gitBranch: currentSession?.gitBranch  // 直接从会话文件获取Git分支信息
         });
     }
 
@@ -794,34 +849,100 @@ function isLikelyProjectDirectory(dirName: string): boolean {
 }
 
 /**
+ * 🚀 阶段3新增：合并目录项目和会话项目列表
+ */
+function mergeProjectLists(directoryProjects: WorkspaceProject[], sessionProjects: ProjectSessionInfo[]): EnhancedProject[] {
+    const result: EnhancedProject[] = [];
+    
+    // 以目录项目为基准（只显示有目录的项目）
+    for (const dirProject of directoryProjects) {
+        // 🚀 阶段3修复：使用大小写不敏感的匹配，因为会话文件名经过 sanitize 处理
+        const sessionInfo = sessionProjects.find(s => 
+            s.projectName.toLowerCase() === dirProject.name.toLowerCase()
+        );
+        
+        result.push({
+            name: dirProject.name,
+            baseDir: dirProject.baseDir,
+            gitBranch: sessionInfo?.gitBranch || dirProject.gitBranch,  // 🚀 优先使用会话文件中的Git分支信息
+            isCurrentProject: dirProject.isCurrentProject,
+            
+            // 🎯 关键区分：是否有会话文件
+            hasDirectory: true,  // 肯定有目录
+            hasSession: !!sessionInfo,  // 可能有会话
+            lastModified: sessionInfo?.lastModified,
+            operationCount: sessionInfo?.operationCount || 0,
+            
+            // 决定项目类型
+            projectType: sessionInfo ? 'complete' : 'directory-only'
+        });
+    }
+    
+    return result;
+}
+
+/**
+ * 🚀 阶段3新增：格式化相对时间
+ */
+function formatRelativeTime(isoString?: string): string {
+    if (!isoString) return 'Unknown';
+    
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString();
+}
+
+/**
  * 🚀 v4.0新增：切换项目功能
  */
 async function switchProject(): Promise<void> {
     try {
         const currentSession = await sessionManager.getCurrentSession();
-        const currentProjectName = currentSession?.projectName || '无项目';
+        const currentProjectName = currentSession?.projectName || 'No Project';
 
-        const projects = await scanWorkspaceProjects();
-        const projectItems = projects.map(project => ({
-            label: `📁 ${project.name}${project.isCurrentProject ? ' (当前)' : ''}`,
-            description: `基础目录: ${project.baseDir}`,
-            detail: project.isCurrentProject ? '当前活跃项目' : '可切换到此项目',
-            project
+        // 🚀 阶段3新增：整合项目发现
+        const [directoryProjects, sessionProjects] = await Promise.all([
+            scanWorkspaceProjects(),              // 基于目录扫描
+            sessionManager.listProjectSessions() // 基于会话文件扫描
+        ]);
+        
+        // 合并项目列表：只显示有目录的项目
+        const allProjects = mergeProjectLists(directoryProjects, sessionProjects);
+        
+        const projectItems = allProjects.map(project => ({
+            label: `📁 ${project.name}${project.isCurrentProject ? ' (Current)' : ''}`,
+            description: project.hasSession 
+                ? `📂 Directory 💾 Session • ${formatRelativeTime(project.lastModified)}` 
+                : `📂 Directory • Session will be created`,
+            detail: project.isCurrentProject ? 'Currently active project' : 
+                   project.hasSession ? 'Complete project, ready to switch' : 'Will create project session automatically',
+            project,
+            action: 'switch' as const
         }));
 
-        // 🚀 新增：添加"退出当前项目"选项
+        // 🚀 UAT反馈：简化选项，移除"退出当前项目"
         const allOptions = [
-            ...projectItems,
             {
-                label: '$(sign-out) 退出当前项目',
-                description: '离开当前项目，回到插件初始状态',
-                detail: '当前项目将被安全归档，所有状态将被清空，准备开始新的工作',
-                project: null // 特殊标记
-            }
+                label: '🆕 Create New Project',
+                description: 'Create a brand new project directory and session',
+                detail: 'Enter project name, automatically create directory, session and Git branch',
+                action: 'create'  // 新增标识
+            },
+            ...projectItems
         ];
 
         const selectedOption = await vscode.window.showQuickPick(allOptions, {
-            placeHolder: `选择要切换到的项目 (当前: ${currentProjectName})`,
+            placeHolder: `Create new project or switch to existing project (Current: ${currentProjectName})`,
             matchOnDescription: true,
             matchOnDetail: true
         });
@@ -830,10 +951,15 @@ async function switchProject(): Promise<void> {
             return;
         }
 
-        // 🚀 新增：处理"退出当前项目"选项
-        if (selectedOption.project === null) {
-            // 用户选择了"退出当前项目"
-            await restartPlugin();
+        // 🚀 阶段2新增：处理"创建新项目"选项
+        if (selectedOption.action === 'create') {
+            await handleCreateNewProject();
+            return;
+        }
+
+        // 确保这是一个项目切换操作
+        if (!('project' in selectedOption) || !selectedOption.project) {
+            logger.warn('No project selected for switching');
             return;
         }
 
@@ -842,20 +968,25 @@ async function switchProject(): Promise<void> {
 
         // 如果选择的是当前项目，无需切换
         if (targetProject.isCurrentProject) {
-            vscode.window.showInformationMessage(`✅ 已经是当前项目: ${targetProjectName}`);
+            vscode.window.showInformationMessage(`✅ Already on current project: ${targetProjectName}`);
             return;
         }
 
-        const confirmMessage = `📁 当前项目 "${currentProjectName}" 将被归档保存，不会丢失任何文件。\n\n🚀 切换到项目 "${targetProjectName}" 吗？`;
+        // 🚀 阶段3新增：根据项目类型显示不同的确认信息
+        const confirmMessage = targetProject.hasSession 
+            ? `🔄 Switch to existing project "${targetProjectName}"?\n\nCurrent session will be saved, then load that project's session.`
+            : `🆕 Switch to project "${targetProjectName}" and create new session?\n\nA new session file will be created for this project.`;
+        
         const confirmed = await vscode.window.showInformationMessage(
             confirmMessage,
             { modal: true },
-            '切换项目'
+            'Continue'
         );
 
-        if (confirmed !== '切换项目') {
+        if (confirmed !== 'Continue') {
             return;
         }
+
 
         // 🚀 v6.0新增：检查是否有Plan正在执行
         let hasPlanExecution = false;
@@ -863,28 +994,26 @@ async function switchProject(): Promise<void> {
         
         if (chatParticipant && chatParticipant.isPlanExecuting()) {
             hasPlanExecution = true;
-            planDescription = chatParticipant.getCurrentPlanDescription() || '当前有任务正在执行';
+            planDescription = chatParticipant.getCurrentPlanDescription() || 'Current task is being executed';
             
-            const planConfirmMessage = `⚠️ 检测到正在执行的计划：\n\n${planDescription}\n\n如果现在切换项目，当前计划将被安全中止。是否确认继续切换？`;
+            const planConfirmMessage = `⚠️ Detected executing plan:\n\n${planDescription}\n\nIf you switch project now, the current plan will be safely stopped. Do you want to continue switching?`;
             const planConfirmed = await vscode.window.showWarningMessage(
                 planConfirmMessage,
                 { modal: true },
-                '确认切换（中止计划）'
+                'Confirm switch (stop plan)'
             );
 
-            if (planConfirmed !== '确认切换（中止计划）') {
-                vscode.window.showInformationMessage('已取消项目切换，计划继续执行');
+            if (planConfirmed !== 'Confirm switch (stop plan)') {
+                vscode.window.showInformationMessage('Project switch cancelled, plan continues execution');
                 return;
             }
         }
 
-        // 🌿 Git分支切换结果变量（在外部作用域定义）
-        let gitBranchResult: any = null;
         
-        // 🚀 v6.0新增：使用进度对话框执行项目切换
+        // 🚀 阶段3新增：使用会话切换而不是归档
         const result = await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: `正在切换到项目 "${targetProjectName}"...`,
+            title: `Switching to project "${targetProjectName}"...`,
             cancellable: false
         }, async (progress, token) => {
             try {
@@ -894,164 +1023,119 @@ async function switchProject(): Promise<void> {
                 if (hasPlanExecution) {
                     progress.report({ 
                         increment: 0, 
-                        message: '🛑 正在请求计划中止...' 
+                        message: '🛑 Stopping current plan...' 
                     });
                     
                     progress.report({ 
                         increment: 10, 
-                        message: '⏳ 等待specialist安全停止...' 
+                        message: '⏳ Waiting for specialist to stop safely...' 
                     });
                     
                     logger.info('🛑 User confirmed to cancel plan for project switch');
-                    await chatParticipant.cancelCurrentPlan(); // 这现在会等待真正停止
+                    await chatParticipant.cancelCurrentPlan();
                     currentProgress = 40;
                     
                     progress.report({ 
                         increment: 30, 
-                        message: '✅ 计划已完全停止' 
+                        message: '✅ Plan stopped completely' 
                     });
                 } else {
                     currentProgress = 40;
                     progress.report({ 
                         increment: 40, 
-                        message: '✅ 无需中止计划，继续切换...' 
+                        message: '✅ No plan to stop, continuing...' 
                     });
                 }
 
-                // 阶段2：归档当前项目并启动新项目
+                // 🚀 阶段3新增：使用会话切换逻辑
                 progress.report({ 
                     increment: 0, 
-                    message: '📦 正在归档当前项目...' 
+                    message: targetProject.hasSession ? '💾 Loading project session...' : '🆕 Creating project session...'
                 });
 
-                const sessionResult = await sessionManager.archiveCurrentAndStartNew(targetProjectName);
+                await sessionManager.switchToProjectSession(targetProjectName);
+                
+                // 🚀 确保会话中记录正确的Git分支信息
+                await sessionManager.updateSession({
+                    gitBranch: 'wip'
+                });
                 
                 progress.report({ 
                     increment: 35, 
-                    message: sessionResult.success ? '✅ 项目归档完成' : '❌ 项目归档失败' 
+                    message: '✅ Session switch completed' 
                 });
 
-                if (!sessionResult.success) {
-                    throw new Error(sessionResult.error || '项目切换失败');
-                }
-
-                // 阶段2.5：🌿 Git 分支切换
+                // 🚀 重构：简化的wip分支检查
+                progress.report({ 
+                    increment: 0, 
+                    message: '🌿 Ensuring on wip branch...' 
+                });
                 
-                if (targetProject.gitBranch) {
-                    progress.report({ 
-                        increment: 0, 
-                        message: '🌿 正在切换 Git 分支...' 
-                    });
-                    
-                    try {
-                        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-                        if (workspaceFolder) {
-                            const gitRepoDir = workspaceFolder.uri.fsPath;  // 工作区根目录
-                            
-                            // 导入Git操作工具
-                            const { checkGitRepository, getCurrentBranch, checkBranchExists } = 
-                                await import('./tools/atomic/git-operations');
-                            
-                            // 检查是否为Git仓库
-                            if (await checkGitRepository(gitRepoDir)) {
-                                const currentBranch = await getCurrentBranch(gitRepoDir);
-                                
-                                if (currentBranch !== targetProject.gitBranch) {
-                                    // 检查目标分支是否存在
-                                    const branchExists = await checkBranchExists(gitRepoDir, targetProject.gitBranch);
-                                    
-                                    if (branchExists) {
-                                        // 切换到现有分支
-                                        const { execSync } = await import('child_process');
-                                        execSync(`git checkout "${targetProject.gitBranch}"`, { cwd: gitRepoDir });
-                                        
-                                        gitBranchResult = {
-                                            success: true,
-                                            message: `Switched to branch: ${targetProject.gitBranch}`,
-                                            branchName: targetProject.gitBranch,
-                                            operation: 'switched'
-                                        };
-                                        
-                                        logger.info(`🌿 [switchProject] Switched to branch: ${targetProject.gitBranch}`);
-                                        
-                                        // 更新会话中的Git分支信息
-                                        await sessionManager.updateSession({ gitBranch: targetProject.gitBranch });
-                                        
-                                        progress.report({ 
-                                            increment: 15, 
-                                            message: `✅ 已切换到分支: ${targetProject.gitBranch}` 
-                                        });
-                                    } else {
-                                        gitBranchResult = {
-                                            success: false,
-                                            message: `Branch does not exist: ${targetProject.gitBranch}`,
-                                            error: 'BRANCH_NOT_FOUND'
-                                        };
-                                        
-                                        logger.warn(`⚠️ [switchProject] Branch not found: ${targetProject.gitBranch}`);
-                                        progress.report({ 
-                                            increment: 15, 
-                                            message: `⚠️ 分支不存在: ${targetProject.gitBranch}` 
-                                        });
-                                    }
-                                } else {
-                                    gitBranchResult = {
-                                        success: true,
-                                        message: `Already on branch: ${targetProject.gitBranch}`,
-                                        branchName: targetProject.gitBranch,
-                                        operation: 'no-change'
-                                    };
-                                    
-                                    logger.info(`🌿 [switchProject] Already on correct branch: ${targetProject.gitBranch}`);
-                                    progress.report({ 
-                                        increment: 15, 
-                                        message: `✅ 已在正确分支: ${targetProject.gitBranch}` 
-                                    });
-                                }
-                            } else {
-                                gitBranchResult = {
-                                    success: false,
-                                    message: 'Not a Git repository',
-                                    error: 'NOT_GIT_REPO'
-                                };
-                                
-                                logger.warn(`⚠️ [switchProject] Not a Git repository: ${gitRepoDir}`);
+                try {
+                    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                    if (workspaceFolder) {
+                        const gitRepoDir = workspaceFolder.uri.fsPath;
+                        
+                        // 🚀 简化：只检查是否需要切换到wip分支
+                        const wipSwitchResult = await ensureOnWipBranchForProjectSwitch(gitRepoDir, targetProjectName);
+                        
+                        if (wipSwitchResult.success) {
+                            if (wipSwitchResult.branchSwitched) {
+                                logger.info(`🌿 [switchProject] ${wipSwitchResult.message}`);
                                 progress.report({ 
                                     increment: 15, 
-                                    message: '⚠️ 不是Git仓库，跳过分支切换' 
+                                    message: `✅ Switched to wip branch` 
+                                });
+                                
+                                // 记录分支切换到会话日志
+                                await sessionManager.updateSessionWithLog({
+                                    logEntry: {
+                                        type: OperationType.GIT_BRANCH_SWITCHED,
+                                        operation: `Switched from ${wipSwitchResult.fromBranch} to wip for project switch: ${targetProjectName}`,
+                                        success: true,
+                                        toolName: 'switchProject',
+                                        gitOperation: {
+                                            fromBranch: wipSwitchResult.fromBranch!,
+                                            toBranch: 'wip',
+                                            autoCommitCreated: wipSwitchResult.autoCommitCreated,
+                                            autoCommitHash: wipSwitchResult.autoCommitHash,
+                                            reason: 'project_switch',
+                                            branchCreated: wipSwitchResult.branchCreated
+                                        }
+                                    }
+                                });
+                            } else {
+                                logger.info(`✅ [switchProject] Already on wip branch`);
+                                progress.report({ 
+                                    increment: 15, 
+                                    message: '✅ Already on wip branch' 
                                 });
                             }
                         } else {
+                            logger.warn(`⚠️ [switchProject] WIP branch check failed: ${wipSwitchResult.error}`);
                             progress.report({ 
                                 increment: 15, 
-                                message: '⚠️ 无工作区，跳过Git分支切换' 
+                                message: `⚠️ WIP branch check failed: ${wipSwitchResult.error}` 
                             });
                         }
-                    } catch (gitError) {
-                        gitBranchResult = {
-                            success: false,
-                            message: `Git operation failed: ${(gitError as Error).message}`,
-                            error: (gitError as Error).message
-                        };
-                        
-                        logger.warn(`⚠️ [switchProject] Git branch switch exception: ${(gitError as Error).message}`);
+                    } else {
                         progress.report({ 
                             increment: 15, 
-                            message: `⚠️ Git分支切换异常` 
+                            message: '⚠️ No workspace folder, skipping Git check' 
                         });
                     }
-                } else {
+                } catch (gitError) {
+                    logger.warn(`⚠️ [switchProject] Exception during WIP branch check: ${(gitError as Error).message}`);
                     progress.report({ 
                         increment: 15, 
-                        message: '⚠️ 无Git分支信息，跳过切换' 
+                        message: `⚠️ Git check error: ${(gitError as Error).message}` 
                     });
-                    logger.info(`🌿 [switchProject] No Git branch info for project: ${targetProjectName}`);
                 }
 
-                // 阶段3：清理项目上下文
+                // 清理项目上下文
                 progress.report({ 
                     increment: 0, 
-                    message: '🧹 正在清理项目上下文...' 
+                    message: '🧹 Cleaning project context...' 
                 });
 
                 if (chatParticipant) {
@@ -1060,16 +1144,21 @@ async function switchProject(): Promise<void> {
                 
                 progress.report({ 
                     increment: 20, 
-                    message: '✅ 上下文清理完成' 
+                    message: '✅ Context cleaned' 
                 });
 
-                // 阶段4：最终完成
+                // 最终完成
                 progress.report({ 
                     increment: 5, 
-                    message: '🚀 项目切换完成！' 
+                    message: '🚀 Project switch completed!' 
                 });
 
-                return sessionResult;
+                // 返回成功结果（简化的结构）
+                return {
+                    success: true,
+                    projectName: targetProjectName,
+                    sessionCreated: !targetProject.hasSession
+                };
 
             } catch (error) {
                 logger.error(`❌ Project switch failed: ${(error as Error).message}`);
@@ -1078,49 +1167,36 @@ async function switchProject(): Promise<void> {
         });
 
         if (result.success) {
-            const preservedCount = result.filesPreserved.length;
-            const archiveInfo = result.archivedSession ? 
-                `\n📦 原项目已归档: ${result.archivedSession.archiveFileName}` : '';
+            // 🚀 重构：简化的成功消息，专注于项目和会话状态
+            const sessionInfo = result.sessionCreated ? ' (New session created)' : ' (Existing session loaded)';
             
-            // 🚀 新增：Git分支信息
-            const branchInfo = gitBranchResult?.success 
-                ? (gitBranchResult.operation === 'switched'
-                    ? `\n🌿 已切换到分支: ${gitBranchResult.branchName}`
-                    : gitBranchResult.operation === 'no-change'
-                    ? `\n🌿 已在正确分支: ${gitBranchResult.branchName}`
-                    : `\n🌿 Git分支: ${gitBranchResult.branchName}`)
-                : (gitBranchResult 
-                    ? `\n⚠️ Git分支切换失败: ${gitBranchResult.error}` 
-                    : '');
-            
-            // 🚀 v6.0新增：最终确认对话框，给用户明确的完成反馈
-            const successMessage = `✅ 项目切换完成！\n\n📁 当前项目: ${targetProjectName}${archiveInfo}${branchInfo}\n📄 保留 ${preservedCount} 个活动文件\n\n🚀 准备开始新的工作！`;
+            const successMessage = `✅ Project switch completed!\n\n📁 Current project: ${targetProjectName}${sessionInfo}\n🌿 Working on wip branch\n\n🚀 Ready to start working!`;
             await vscode.window.showInformationMessage(
                 successMessage,
                 { modal: false },
-                '确认'
+                'OK'
             );
             
-            logger.info(`✅ Project switched successfully to ${targetProjectName}. Preserved ${preservedCount} files.`);
+            logger.info(`✅ Project switched successfully to ${targetProjectName}.`);
         } else {
-            throw new Error(result.error || '未知错误');
+            throw new Error('Project switch failed');
         }
 
     } catch (error) {
         logger.error('Failed to switch project', error as Error);
         
-        // 🚀 v6.0新增：增强错误处理，提供更好的用户反馈
-        const errorMessage = `❌ 项目切换失败\n\n错误详情: ${(error as Error).message}\n\n请检查日志获取更多信息。`;
+        // 🚀 阶段3更新：英文错误处理
+        const errorMessage = `❌ Project switch failed\n\nError details: ${(error as Error).message}\n\nPlease check logs for more information.`;
         const action = await vscode.window.showErrorMessage(
             errorMessage,
-            '查看日志',
-            '重试',
-            '取消'
+            'View Logs',
+            'Retry',
+            'Cancel'
         );
         
-        if (action === '查看日志') {
+        if (action === 'View Logs') {
             vscode.commands.executeCommand('workbench.action.toggleDevTools');
-        } else if (action === '重试') {
+        } else if (action === 'Retry') {
             // 重新执行切换项目命令
             setTimeout(() => {
                 vscode.commands.executeCommand('srs-writer.switchProject');
@@ -1130,51 +1206,136 @@ async function switchProject(): Promise<void> {
 }
 
 /**
+ * 🚀 阶段2新增：处理创建新项目的操作
+ */
+async function handleCreateNewProject(): Promise<void> {
+    try {
+        logger.info('🚀 [Phase2] Starting new project creation from Create / Switch Project...');
+
+        // 1. 获取项目名称
+        const projectName = await vscode.window.showInputBox({
+            prompt: 'Enter new project name',
+            placeHolder: 'e.g. mobile-app-v2',
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return 'Project name cannot be empty';
+                }
+                if (!/^[a-zA-Z0-9_-]+$/.test(value.trim())) {
+                    return 'Project name can only contain letters, numbers, underscores, and hyphens';
+                }
+                return undefined;
+            }
+        });
+
+        if (!projectName) {
+            logger.info('🚀 [Phase2] User cancelled project name input');
+            return;
+        }
+
+        // 2. 使用 createNewProjectFolder 工具创建项目
+        logger.info(`🚀 [Phase2] Creating new project: ${projectName}`);
+        
+        const { createNewProjectFolder } = await import('./tools/internal/createNewProjectFolderTool');
+        
+        // 3. 显示进度并执行创建
+        const result = await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Creating new project "${projectName}"...`,
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ increment: 0, message: '🚀 Starting project creation...' });
+            
+            const createResult = await createNewProjectFolder({
+                projectName: projectName.trim(),
+                reason: 'user_requested_from_switch_project',
+                confirmWithUser: false
+            });
+            
+            progress.report({ increment: 100, message: '✅ Project created successfully!' });
+            return createResult;
+        });
+
+        // 4. 显示结果
+        if (result.success) {
+            const gitBranchInfo = result.gitBranch?.name 
+                ? `\n🌿 Git branch: ${result.gitBranch.name}${result.gitBranch.created ? ' (newly created)' : ' (already exists)'}` 
+                : '';
+            
+            const directoryInfo = result.directoryRenamed 
+                ? `\n📁 Project directory: ${result.directoryName} (automatically renamed to avoid conflicts)`
+                : result.directoryName 
+                ? `\n📁 Project directory: ${result.directoryName}`
+                : '';
+
+            const successMessage = `✅ New project created successfully!\n\n📝 Project name: ${result.projectName}${directoryInfo}${gitBranchInfo}\n\n🚀 Ready to start working on the new project!`;
+            
+            await vscode.window.showInformationMessage(
+                successMessage,
+                { modal: false },
+                'Confirm'
+            );
+            
+            logger.info(`✅ [Phase2] New project created successfully: ${result.projectName}`);
+        } else {
+            const errorMessage = `❌ New project creation failed\n\nError details: ${result.error}\n\nPlease check the logs for more information.`;
+            
+            await vscode.window.showErrorMessage(errorMessage, 'Confirm');
+            logger.error(`❌ [Phase2] New project creation failed: ${result.error}`);
+        }
+
+    } catch (error) {
+        const errorMessage = `❌ An error occurred while creating a new project: ${(error as Error).message}`;
+        logger.error('Failed to handle create new project', error as Error);
+        await vscode.window.showErrorMessage(errorMessage, 'Confirm');
+    }
+}
+
+/**
  * 🚀 v3.0新增：创建工作区并初始化功能
  */
 async function createWorkspaceAndInitialize(): Promise<void> {
     try {
-        logger.info('🚀 开始创建工作区并初始化流程...');
+        logger.info('🚀 Starting workspace creation and initialization process...');
 
         // Step 1: 让用户选择父目录
         const parentDirResult = await vscode.window.showOpenDialog({
             canSelectFiles: false,
             canSelectFolders: true,
             canSelectMany: false,
-            openLabel: '选择工作区父目录',
-            title: '选择创建工作区的父目录位置'
+            openLabel: 'Select workspace parent directory',
+            title: 'Select the location of the parent directory for creating the workspace'
         });
 
         if (!parentDirResult || parentDirResult.length === 0) {
-            logger.info('用户取消了父目录选择');
+            logger.info('User cancelled parent directory selection');
             return;
         }
 
         const parentDir = parentDirResult[0].fsPath;
-        logger.info(`用户选择的父目录: ${parentDir}`);
+        logger.info(`User selected parent directory: ${parentDir}`);
 
         // Step 2: 让用户输入工作区文件夹名称
         const workspaceName = await vscode.window.showInputBox({
-            prompt: '请输入工作区文件夹名称',
-            placeHolder: '例如：my-srs-workspace',
+            prompt: 'Enter the workspace folder name',
+            placeHolder: 'e.g. my-srs-workspace',
             validateInput: (value) => {
                 if (!value || value.trim().length === 0) {
-                    return '工作区名称不能为空';
+                    return 'Workspace name cannot be empty';
                 }
                 if (!/^[a-zA-Z0-9_-]+$/.test(value.trim())) {
-                    return '工作区名称只能包含字母、数字、下划线和短横线';
+                    return 'Workspace name can only contain letters, numbers, underscores, and hyphens';
                 }
                 return undefined;
             }
         });
 
         if (!workspaceName) {
-            logger.info('用户取消了工作区名称输入');
+            logger.info('User cancelled workspace name input');
             return;
         }
 
         const trimmedWorkspaceName = workspaceName.trim();
-        logger.info(`用户输入的工作区名称: ${trimmedWorkspaceName}`);
+        logger.info(`User entered workspace name: ${trimmedWorkspaceName}`);
 
         // Step 3: 创建工作区目录
         const workspacePath = path.join(parentDir, trimmedWorkspaceName);
@@ -1183,17 +1344,17 @@ async function createWorkspaceAndInitialize(): Promise<void> {
         try {
             await vscode.workspace.fs.stat(vscode.Uri.file(workspacePath));
             const overwrite = await vscode.window.showWarningMessage(
-                `目录 "${trimmedWorkspaceName}" 已存在，是否继续？`,
+                `Directory "${trimmedWorkspaceName}" already exists, do you want to continue?`,
                 { modal: true },
-                '继续'
+                'Continue'
             );
             
-            if (overwrite !== '继续') {
-                logger.info('用户取消了覆盖已存在的目录');
+            if (overwrite !== 'Continue') {
+                logger.info('User cancelled overwriting existing directory');
                 return;
             }
         } catch {
-            // 目录不存在，这是期望的情况
+            // Directory does not exist, this is expected
         }
 
         // 🌿 Git 操作结果变量（在外部作用域定义）
@@ -1204,16 +1365,16 @@ async function createWorkspaceAndInitialize(): Promise<void> {
         // 显示进度指示器
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: '正在创建工作区...',
+            title: 'Creating workspace...',
             cancellable: false
         }, async (progress) => {
-            progress.report({ increment: 0, message: '创建工作区目录...' });
+            progress.report({ increment: 0, message: 'Creating workspace directory...' });
             
             // 创建工作区目录
             await vscode.workspace.fs.createDirectory(vscode.Uri.file(workspacePath));
-            logger.info(`✅ 工作区目录创建成功: ${workspacePath}`);
+            logger.info(`✅ Workspace directory created successfully: ${workspacePath}`);
 
-            progress.report({ increment: 30, message: '复制模板文件...' });
+            progress.report({ increment: 30, message: 'Copying template files...' });
 
             // Step 4: 复制 .templates 目录
             const extensionContext = getExtensionContext();
@@ -1222,13 +1383,13 @@ async function createWorkspaceAndInitialize(): Promise<void> {
                 const templatesTargetPath = path.join(workspacePath, '.templates');
                 
                 await copyDirectoryRecursive(templatesSourcePath, templatesTargetPath);
-                logger.info(`✅ Templates目录复制成功: ${templatesTargetPath}`);
+                logger.info(`✅ Templates directory copied successfully: ${templatesTargetPath}`);
             } else {
-                logger.warn('⚠️ 无法获取扩展上下文，跳过templates复制');
+                logger.warn('⚠️ Unable to get extension context, skipping templates copy');
             }
 
             // Step 4.5: 🌿 Git 仓库初始化
-            progress.report({ increment: 60, message: '🌿 初始化 Git 仓库...' });
+            progress.report({ increment: 60, message: '🌿 Initializing Git repository...' });
             
             try {
                 const { initializeGitRepository, createGitIgnoreFile, createInitialCommit } = 
@@ -1240,14 +1401,14 @@ async function createWorkspaceAndInitialize(): Promise<void> {
                     logger.info(`🌿 [Workspace Init] ${gitInitResult.message}`);
                     
                     // Step 4.6: 创建 .gitignore 文件
-                    progress.report({ increment: 70, message: '🌿 创建 .gitignore 文件...' });
+                    progress.report({ increment: 70, message: '🌿 Creating .gitignore file...' });
                     gitIgnoreResult = await createGitIgnoreFile(workspacePath);
                     
                     if (gitIgnoreResult.success) {
                         logger.info(`🌿 [Workspace Init] ${gitIgnoreResult.message}`);
                         
                         // Step 4.7: 创建初始提交
-                        progress.report({ increment: 80, message: '🌿 创建初始提交...' });
+                        progress.report({ increment: 80, message: '🌿 Creating initial commit...' });
                         initialCommitResult = await createInitialCommit(workspacePath, 'init commit');
                         
                         if (initialCommitResult.success) {
@@ -1255,9 +1416,106 @@ async function createWorkspaceAndInitialize(): Promise<void> {
                         } else {
                             logger.warn(`🌿 [Workspace Init] Initial commit failed: ${initialCommitResult.error}`);
                         }
+
+                        // 🚀 阶段1新增：Step 4.8: 创建 .session-log 目录
+                        progress.report({ increment: 3, message: '📁 Creating session management directory...' });
+                        
+                        try {
+                            const sessionLogDir = path.join(workspacePath, '.session-log');
+                            await vscode.workspace.fs.createDirectory(vscode.Uri.file(sessionLogDir));
+                            logger.info(`✅ Session log directory created: ${sessionLogDir}`);
+                            
+                            // Step 4.9: 创建主会话文件（如果不存在）
+                            progress.report({ increment: 5, message: '📝 Initializing session file...' });
+                            
+                            const mainSessionPath = path.join(sessionLogDir, 'srs-writer-session_main.json');
+                            const mainSessionUri = vscode.Uri.file(mainSessionPath);
+                            
+                            // 1. 检查是否需要创建新会话
+                            let needCreateSession = true;
+                            try {
+                                const existingContent = await vscode.workspace.fs.readFile(mainSessionUri);
+                                const existingSession = JSON.parse(existingContent.toString());
+                                
+                                // 2. 检查是否有有效的 sessionContextId
+                                if (existingSession.sessionContextId && existingSession.sessionContextId !== null) {
+                                    logger.info(`Valid session already exists: ${existingSession.sessionContextId}`);
+                                    needCreateSession = false;
+                                }
+                            } catch {
+                                // 文件不存在或格式错误，需要创建
+                                needCreateSession = true;
+                            }
+                            
+                            // 3. 只在需要时才创建新会话
+                            if (needCreateSession) {
+                                logger.info('Creating new main session...');
+                                
+                                // 🚀 使用 SessionManager 创建真实会话
+                                const newSession = await sessionManager.createNewSession(); // 不传项目名，创建工作区级别的会话
+                                
+                                // 4. 验证并强制切换到主分支（如果 Git 初始化成功）
+                                let actualBranch = undefined;
+                                if (gitInitResult?.success) {
+                                    try {
+                                        const { getCurrentBranch } = await import('./tools/atomic/git-operations');
+                                        const currentBranch = await getCurrentBranch(workspacePath);
+                                        logger.info(`🌿 [Session Init] Current Git branch: ${currentBranch}`);
+                                        
+                                        if (currentBranch !== 'main') {
+                                            logger.info(`🌿 [Session Init] Branch is ${currentBranch}, forcing switch to main...`);
+                                            const { execSync } = await import('child_process');
+                                            execSync('git checkout -f main', { cwd: workspacePath });
+                                            logger.info(`🌿 [Session Init] Force switched to main branch`);
+                                            actualBranch = 'main';
+                                        } else {
+                                            logger.info(`🌿 [Session Init] Already on main branch`);
+                                            actualBranch = 'main';
+                                        }
+                                    } catch (branchError) {
+                                        logger.warn(`🌿 [Session Init] Failed to verify/switch branch: ${(branchError as Error).message}`);
+                                        actualBranch = 'main'; // 假设为 main，因为 Git 初始化成功了
+                                    }
+                                }
+                                
+                                // 5. 更新 baseDir 为工作区根目录，并添加验证后的 Git 分支信息
+                                await sessionManager.updateSession({
+                                    baseDir: workspacePath,
+                                    gitBranch: actualBranch
+                                });
+                                
+                                logger.info(`✅ Main session created with ID: ${newSession.sessionContextId}`);
+                                logger.info(`✅ Session baseDir set to: ${workspacePath}`);
+                                logger.info(`✅ Session gitBranch set to: ${actualBranch || 'undefined'}`);
+                            } else {
+                                logger.info(`✅ Using existing main session file: ${mainSessionPath}`);
+                            }
+                        } catch (sessionError) {
+                            logger.warn(`⚠️ Failed to create session management directory: ${(sessionError as Error).message}`);
+                            // 不阻止工作区创建流程
+                        }
                     } else {
                         logger.warn(`🌿 [Workspace Init] .gitignore creation failed: ${gitIgnoreResult.error}`);
                     }
+                    
+                    // 🚀 新增：Step 4.8: 创建wip工作分支（在Git初始化成功后）
+                    if (gitInitResult?.success && initialCommitResult?.success) {
+                        progress.report({ increment: 2, message: '🌿 Creating wip working branch...' });
+                        
+                        try {
+                            const { execSync } = await import('child_process');
+                            
+                            // 创建wip分支并切换到它
+                            execSync('git checkout -b wip', { cwd: workspacePath });
+                            logger.info(`🌿 [Workspace Init] Created and switched to wip branch for daily work`);
+                            
+                        } catch (wipError) {
+                            logger.warn(`🌿 [Workspace Init] Failed to create wip branch: ${(wipError as Error).message}`);
+                            // 保持在main分支，不阻止初始化流程
+                            logger.info(`🌿 [Workspace Init] Continuing with main branch as working branch`);
+                        }
+                    }
+                    
                 } else {
                     logger.warn(`🌿 [Workspace Init] Git initialization failed: ${gitInitResult.error}`);
                 }
@@ -1269,24 +1527,24 @@ async function createWorkspaceAndInitialize(): Promise<void> {
                 };
             }
 
-            progress.report({ increment: 90, message: '打开新工作区...' });
+            progress.report({ increment: 8, message: 'Opening new workspace...' });
 
             // Step 5: 在VSCode中打开新的工作区
             const workspaceUri = vscode.Uri.file(workspacePath);
             await vscode.commands.executeCommand('vscode.openFolder', workspaceUri, false);
             
-            progress.report({ increment: 100, message: '完成!' });
+            progress.report({ increment: 100, message: 'Done!' });
         });
 
         // 🌿 成功消息和 Git 状态反馈
         const gitInfo = gitInitResult?.success 
-            ? `\n🌿 Git 仓库已初始化 (main 分支)`
+            ? `\n🌿 Git repository initialized (main branch)`
             : '';
         
-        const successMessage = `🎉 工作区创建成功！\n\n` +
-            `📁 位置: ${workspacePath}\n` +
-            `📋 模板文件已复制到工作区的 .templates 目录${gitInfo}\n` +
-            `🚀 现在可以使用 @srs-writer 开始创建文档了！`;
+        const successMessage = `🎉 Workspace created successfully!\n\n` +
+            `📁 Location: ${workspacePath}\n` +
+            `📋 Template files copied to .templates directory in the workspace${gitInfo}\n` +
+            `🚀 Now you can start creating documents using @srs-writer!`;
         
         vscode.window.showInformationMessage(successMessage);
         
@@ -1294,24 +1552,24 @@ async function createWorkspaceAndInitialize(): Promise<void> {
         if (gitInitResult && !gitInitResult.success) {
             setTimeout(() => {
                 vscode.window.showWarningMessage(
-                    `⚠️ Git 初始化失败\n\n` +
-                    `请手动初始化 Git 仓库：\n` +
-                    `1. 点击 VS Code 左侧的 Source Control 图标\n` +
-                    `2. 点击 "Initialize Repository" 按钮\n\n` +
-                    `错误信息：${gitInitResult.error}`,
-                    '打开 Source Control'
+                    `⚠️ Git initialization failed\n\n` +
+                    `Please manually initialize the Git repository:\n` +
+                    `1. Click the Source Control icon on the left side of VS Code\n` +
+                    `2. Click the "Initialize Repository" button\n\n` +
+                    `Error message: ${gitInitResult.error}`,
+                    'Open Source Control'
                 ).then(selection => {
-                    if (selection === '打开 Source Control') {
+                    if (selection === 'Open Source Control') {
                         vscode.commands.executeCommand('workbench.view.scm');
                     }
                 });
-            }, 2000); // 2秒后显示，给用户时间看成功消息
+            }, 2000); // 2 seconds later, give the user time to see the success message
         }
 
-        logger.info('✅ 工作区创建并初始化完成');
+        logger.info('✅ Workspace created and initialized successfully');
         
     } catch (error) {
-        const errorMessage = `创建工作区失败: ${(error as Error).message}`;
+        const errorMessage = `Failed to create workspace and initialize: ${(error as Error).message}`;
         logger.error('Failed to create workspace and initialize', error as Error);
         vscode.window.showErrorMessage(errorMessage);
     }
@@ -1329,7 +1587,7 @@ export async function copyDirectoryRecursive(sourcePath: string, targetPath: str
         try {
             await vscode.workspace.fs.stat(vscode.Uri.file(sourcePath));
         } catch {
-            logger.warn(`源目录不存在，跳过复制: ${sourcePath}`);
+            logger.warn(`Source directory does not exist, skipping copy: ${sourcePath}`);
             return;
         }
 
@@ -1353,13 +1611,13 @@ export async function copyDirectoryRecursive(sourcePath: string, targetPath: str
                     vscode.Uri.file(targetItemPath),
                     { overwrite: true }
                 );
-                logger.debug(`📄 复制文件: ${name}`);
+                logger.debug(`📄 Copying file: ${name}`);
             }
         }
 
-        logger.info(`📁 目录复制完成: ${sourcePath} → ${targetPath}`);
+        logger.info(`📁 Directory copied successfully: ${sourcePath} → ${targetPath}`);
     } catch (error) {
-        logger.error(`目录复制失败: ${sourcePath} → ${targetPath}`, error as Error);
+        logger.error(`Directory copy failed: ${sourcePath} → ${targetPath}`, error as Error);
         throw error;
     }
 }
@@ -1384,35 +1642,48 @@ async function restartPlugin(): Promise<void> {
 
         // 显示确认对话框
         const confirmMessage = hasCurrentProject 
-            ? `🔄 退出当前项目将清空所有状态并重新开始\n\n📦 当前项目 "${currentSession.projectName}" 将被自动归档保存\n⚠️ 所有打开的文件将重新加载\n\n确定要退出当前项目吗？`
-            : `🔄 重启插件将清空所有状态并重新开始\n\n⚠️ 所有打开的文件将重新加载\n\n确定要重启插件吗？`;
+            ? `🔄 Exiting current project will clear all status and start over\n\n📦 Current project "${currentSession.projectName}" will be automatically archived and saved\n⚠️ All open files will be reloaded\n\nAre you sure you want to exit the current project?`
+            : `🔄 Restarting plugin will clear all status and start over\n\n⚠️ All open files will be reloaded\n\nAre you sure you want to restart the plugin?`;
 
         const confirmed = await vscode.window.showWarningMessage(
             confirmMessage,
             { modal: true },
-            '退出项目'
+            'Exit project'
         );
 
-        if (confirmed !== '退出项目') {
+        if (confirmed !== 'Exit project') {
             return;
         }
 
         // 使用进度提示执行重启操作
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: "正在退出当前项目...",
+            title: "Exiting current project...",
             cancellable: false
         }, async (progress) => {
             
+            // 0. 🚩 设置退出意图标记
+            progress.report({ increment: 10, message: "Setting exit intention flag..." });
+            try {
+                await extensionContext?.globalState.update('srs-writer.intentional-exit-flag', {
+                    timestamp: Date.now(),
+                    reason: 'user_exit_current_project'
+                });
+                logger.info('🚩 Set intentional exit flag for user-initiated project exit');
+            } catch (error) {
+                logger.warn(`Failed to set exit flag: ${(error as Error).message}`);
+                // 不阻止退出流程
+            }
+            
             // 1. 归档当前状态
-            progress.report({ increment: 30, message: "归档当前项目..." });
+            progress.report({ increment: 20, message: "Archiving current project..." });
             if (hasCurrentProject) {
-                await sessionManager.archiveCurrentAndStartNew();
-                logger.info('✅ Current project archived successfully');
+                await sessionManager.startNewSession();
+                logger.info('✅ Current project session cleared successfully');
             }
             
             // 2. 全局引擎会自动清理状态
-            progress.report({ increment: 30, message: "清理缓存..." });
+            progress.report({ increment: 25, message: "Cleaning cache..." });
             try {
                 // v6.0: 全局引擎会自动适应新的会话上下文
                 logger.info('✅ Global engine will adapt to new session context');
@@ -1421,7 +1692,7 @@ async function restartPlugin(): Promise<void> {
             }
             
             // 3. 清理会话状态
-            progress.report({ increment: 20, message: "清理会话状态..." });
+            progress.report({ increment: 15, message: "Cleaning session state..." });
             try {
                 await sessionManager.clearSession();
                 logger.info('✅ Session cleared successfully');
@@ -1429,8 +1700,49 @@ async function restartPlugin(): Promise<void> {
                 logger.warn(`Warning during session cleanup: ${(error as Error).message}`);
             }
             
+            // 3.5. 🌿 强制切换到主分支
+            progress.report({ increment: 0, message: "🌿 Switching to main branch..." });
+            try {
+                const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+                if (workspaceFolder) {
+                    const gitRepoDir = workspaceFolder.uri.fsPath;
+                    const { checkGitRepository } = await import('./tools/atomic/git-operations');
+                    
+                    if (await checkGitRepository(gitRepoDir)) {
+                        const { execSync } = await import('child_process');
+                        
+                        // 尝试切换到主分支（按优先级：main -> master -> develop）
+                        const mainBranches = ['main', 'master', 'develop'];
+                        let switchedSuccessfully = false;
+                        
+                        for (const branchName of mainBranches) {
+                            try {
+                                execSync(`git checkout -f ${branchName}`, { cwd: gitRepoDir });
+                                logger.info(`🌿 [restartPlugin] Force switched to ${branchName} branch`);
+                                switchedSuccessfully = true;
+                                break;
+                            } catch (error) {
+                                logger.debug(`🌿 [restartPlugin] Branch ${branchName} not found or switch failed`);
+                                continue;
+                            }
+                        }
+                        
+                        if (!switchedSuccessfully) {
+                            logger.warn('🌿 [restartPlugin] Could not switch to any main branch (main/master/develop)');
+                        }
+                    } else {
+                        logger.info('🌿 [restartPlugin] Not a Git repository, skipping branch switch');
+                    }
+                } else {
+                    logger.info('🌿 [restartPlugin] No workspace folder, skipping branch switch');
+                }
+            } catch (error) {
+                logger.warn(`🌿 [restartPlugin] Git branch switch failed: ${(error as Error).message}`);
+                // 不阻止重启流程
+            }
+            
             // 4. 重新加载窗口
-            progress.report({ increment: 20, message: "重新加载窗口..." });
+            progress.report({ increment: 30, message: "Reloading window..." });
             logger.info('🔄 Initiating window reload for soft restart');
             
             // 短暂延迟确保日志写入
@@ -1442,7 +1754,98 @@ async function restartPlugin(): Promise<void> {
         
     } catch (error) {
         logger.error('Failed to restart plugin', error as Error);
-        vscode.window.showErrorMessage(`退出项目失败: ${(error as Error).message}`);
+        vscode.window.showErrorMessage(`Failed to exit project: ${(error as Error).message}`);
+    }
+}
+
+/**
+ * 🚀 项目切换时的简化wip分支检查
+ * 确保项目切换在wip分支上进行，自动处理从main分支的切换
+ */
+async function ensureOnWipBranchForProjectSwitch(workspaceRoot: string, targetProjectName: string): Promise<{
+    success: boolean;
+    message: string;
+    error?: string;
+    branchSwitched?: boolean;
+    autoCommitCreated?: boolean;
+    autoCommitHash?: string;
+    fromBranch?: string;
+    branchCreated?: boolean;
+}> {
+    try {
+        logger.info(`🔍 [ensureOnWipBranchForProjectSwitch] Checking current branch for project switch: ${targetProjectName}`);
+        
+        const { getCurrentBranch } = await import('./tools/atomic/git-operations');
+        const currentBranch = await getCurrentBranch(workspaceRoot);
+        
+        if (currentBranch === 'wip') {
+            logger.info(`✅ [ensureOnWipBranchForProjectSwitch] Already on wip branch`);
+            return {
+                success: true,
+                message: 'Already on wip branch',
+                branchSwitched: false,
+                fromBranch: currentBranch || 'unknown'
+            };
+        }
+        
+        logger.info(`🔄 [ensureOnWipBranchForProjectSwitch] Current branch: ${currentBranch}, switching to wip for project work`);
+        
+        // 1. 检查并自动提交当前更改
+        const { checkWorkspaceGitStatus, commitAllChanges } = await import('./tools/atomic/git-operations');
+        const gitStatus = await checkWorkspaceGitStatus();
+        
+        let autoCommitHash: string | undefined;
+        
+        if (gitStatus.hasChanges) {
+            logger.info(`💾 [ensureOnWipBranchForProjectSwitch] Auto-committing changes in ${currentBranch} before switching to wip`);
+            
+            const commitResult = await commitAllChanges(workspaceRoot);
+            if (!commitResult.success) {
+                return {
+                    success: false,
+                    message: `Failed to commit changes in ${currentBranch}`,
+                    error: commitResult.error
+                };
+            }
+            
+            autoCommitHash = commitResult.commitHash;
+            logger.info(`✅ [ensureOnWipBranchForProjectSwitch] Auto-committed changes: ${autoCommitHash || 'no hash'}`);
+        }
+        
+        // 2. 切换到wip分支（如果不存在则创建）
+        const { checkBranchExists } = await import('./tools/atomic/git-operations');
+        const wipExists = await checkBranchExists(workspaceRoot, 'wip');
+        
+        const { execSync } = await import('child_process');
+        
+        let branchCreated = false;
+        if (wipExists) {
+            execSync('git checkout wip', { cwd: workspaceRoot });
+            logger.info(`🔄 [ensureOnWipBranchForProjectSwitch] Switched to existing wip branch`);
+        } else {
+            execSync('git checkout -b wip', { cwd: workspaceRoot });
+            logger.info(`🆕 [ensureOnWipBranchForProjectSwitch] Created and switched to new wip branch`);
+            branchCreated = true;
+        }
+        
+        return {
+            success: true,
+            message: `Successfully switched to wip branch from ${currentBranch} for project work`,
+            branchSwitched: true,
+            autoCommitCreated: !!autoCommitHash,
+            autoCommitHash,
+            fromBranch: currentBranch || 'unknown',
+            branchCreated
+        };
+        
+    } catch (error) {
+        const errorMessage = `Failed to ensure wip branch for project switch: ${(error as Error).message}`;
+        logger.error(`❌ [ensureOnWipBranchForProjectSwitch] ${errorMessage}`);
+        return {
+            success: false,
+            message: errorMessage,
+            error: (error as Error).message
+        };
     }
 }
 
