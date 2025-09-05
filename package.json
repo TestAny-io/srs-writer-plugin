@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.4.8",
+  "version": "0.5.0",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -192,7 +192,6 @@
         "command": "srs-writer.startNewProject",
         "title": "SRS Writer: Start New Project"
       },
-
       {
         "command": "srs-writer.toggleAIMode",
         "title": "SRS Writer: Toggle AI/Fallback Mode"
@@ -233,8 +232,7 @@
         "功能包括：Git分支选择、智能切换、项目会话同步等"
       ]
     },
-    "menus": {
-    },
+    "menus": {},
     "configuration": {
       "type": "object",
       "title": "SRS Writer",
