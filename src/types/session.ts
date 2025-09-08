@@ -13,6 +13,7 @@ export enum OperationType {
   "SESSION_ARCHIVED" = "SESSION_ARCHIVED",         // 会话归档到历史文件
   "SESSION_RESTORED" = "SESSION_RESTORED",         // 从归档恢复会话
   "SESSION_CLEARED" = "SESSION_CLEARED",           // 会话清理/重置
+  "PROJECT_SWITCHED" = "PROJECT_SWITCHED",         // 项目切换操作
   
   // 🔧 工具执行记录
   "TOOL_EXECUTION_START" = "TOOL_EXECUTION_START", // 工具开始执行
@@ -114,6 +115,7 @@ export interface OperationLogEntry {
   executionTime?: number;          // 执行耗时(ms)
   error?: string;                  // 如果失败，记录错误信息
   sessionData?: Partial<SessionContext>; // SESSION_*类型的会话数据变更
+  projectName?: string;            // 项目名称（PROJECT_*类型使用）
   
   // 🚀 新增：Git操作相关信息（用于GIT_*类型操作）
   gitOperation?: {
@@ -156,27 +158,8 @@ export interface SessionUpdateRequest {
   // 状态更新（可选）
   stateUpdates?: Partial<SessionContext>;
   
-  // 日志记录（必需）
-  logEntry: {
-    type: OperationType;
-    operation: string;
-    toolName?: string;
-    targetFiles?: string[];
-    userInput?: string;
-    success: boolean;
-    error?: string;
-    executionTime?: number;
-    sessionData?: Partial<SessionContext>;
-    // 🚀 新增：Git操作相关信息
-    gitOperation?: {
-      fromBranch: string;
-      toBranch: string;
-      autoCommitCreated?: boolean;
-      autoCommitHash?: string;
-      reason: string;
-      branchCreated?: boolean;
-    };
-  };
+  // 日志记录（必需）- 使用完整的OperationLogEntry接口
+  logEntry: Omit<OperationLogEntry, 'timestamp' | 'sessionContextId'>;
 }
 
 /**

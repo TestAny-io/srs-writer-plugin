@@ -11,6 +11,8 @@ import { Logger } from '../../../utils/logger';
 // 🚀 复用：导入现有组件
 import { YAMLReader } from '../yamlEditor/YAMLReader';
 import { ScaffoldError, ScaffoldErrorType } from '../scaffoldGenerator/types';
+import { QualityReportWriter } from '../syntaxChecker/QualityReportWriter';
+import { Issue } from '../syntaxChecker/types';
 
 // 导入追溯计算组件
 import { 
@@ -18,13 +20,15 @@ import {
   TraceabilitySyncResult, 
   RequirementEntity,
   RequirementsYAMLStructure,
-  TraceabilityMap
+  TraceabilityMap,
+  ConsistencyValidationResult
 } from './types';
 import { EntityTypeClassifier } from './EntityTypeClassifier';
 import { TraceabilityMapBuilder } from './TraceabilityMapBuilder';
 import { DerivedFRComputer } from './DerivedFRComputer';
 import { ADCRelatedComputer } from './ADCRelatedComputer';
 import { TechSpecRelatedComputer } from './TechSpecRelatedComputer';
+import { SRSConsistencyValidator } from './SRSConsistencyValidator';
 
 const logger = Logger.getInstance();
 
@@ -43,11 +47,21 @@ export class TraceabilityCompleter {
     const startTime = Date.now();
     
     try {
-      logger.info(`🚀 开始追溯关系同步: ${args.description}`);
+      logger.info(`🚀 开始追溯关系同步和ID一致性验证: ${args.description}`);
       logger.info(`📁 目标文件: ${args.targetFile}`);
+      logger.info(`📄 SRS文件: ${args.srsFile || 'SRS.md'}`);
       
       // 🚀 Phase 1: 数据读取和验证 (100%复用YAMLReader)
       const { data, entities } = await this.loadAndParseYAML(args.targetFile);
+      
+      // 🆕 Phase 0: SRS-YAML ID一致性验证 (必执行)
+      const consistencyResult = await this.validateSRSConsistency(
+        args.srsFile || 'SRS.md', 
+        entities
+      );
+      
+      // 无论一致性结果如何，继续执行所有后续阶段
+      logger.info('📋 继续执行追溯关系计算...');
       
       // Phase 2: 字段清理 (保证幂等性)
       this.clearComputedFields(entities);
@@ -64,12 +78,16 @@ export class TraceabilityCompleter {
       // Phase 5: 文件输出 (复用YAMLEditor的写入配置)
       await this.saveYamlFile(args.targetFile, data);
       
-      // Phase 6: 写入summary日志到srs-writer-log.json
-      await this.writeSummaryLog(args.targetFile, args.description, entities, danglingRefs, derivedStats, adcStats, techSpecStats, Date.now() - startTime);
+      // Phase 6: 写入统一质量报告 (替换 writeSummaryLog)
+      await this.writeToQualityReport(
+        args, entities, danglingRefs,
+        derivedStats, adcStats, techSpecStats,
+        Date.now() - startTime, consistencyResult
+      );
       
       // 生成结果
       const executionTime = Date.now() - startTime;
-      return this.generateResult(entities, danglingRefs, derivedStats, adcStats, techSpecStats, executionTime);
+      return this.generateResult(entities, danglingRefs, derivedStats, adcStats, techSpecStats, executionTime, consistencyResult);
       
     } catch (error) {
       return this.handleError(error as Error, Date.now() - startTime);
@@ -83,6 +101,63 @@ export class TraceabilityCompleter {
    */
   async validateSync(args: TraceabilityCompletionArgs): Promise<TraceabilitySyncResult> {
     return await this.syncFile(args);
+  }
+  
+  /**
+   * 🆕 Phase 0: SRS-YAML ID一致性验证
+   * @param srsFile SRS.md文件路径
+   * @param entities YAML中的实体
+   * @returns 一致性验证结果
+   */
+  private async validateSRSConsistency(
+    srsFile: string, 
+    entities: RequirementEntity[]
+  ): Promise<ConsistencyValidationResult> {
+    logger.info('🔍 Phase 0: 开始SRS-YAML ID一致性验证...');
+    const startTime = performance.now();
+    
+    try {
+      // 🚀 先解析SRS文件路径，与targetFile使用相同的路径解析逻辑
+      const resolvedSrsFile = await this.resolveWorkspacePath(srsFile);
+      const result = await SRSConsistencyValidator.validateConsistency(resolvedSrsFile, entities);
+      
+      if (result.consistent) {
+        logger.info(`✅ ID一致性验证通过: SRS(${result.srsIds.length}) ↔ YAML(${result.yamlIds.length})`);
+      } else {
+        logger.warn(`⚠️ ID一致性验证发现问题，但将继续执行后续处理`);
+        if (result.missingInYaml.length > 0) {
+          logger.warn(`   - SRS中存在但YAML中缺失 (${result.missingInYaml.length}个): ${result.missingInYaml.slice(0, 5).join(', ')}${result.missingInYaml.length > 5 ? '...' : ''}`);
+        }
+        if (result.missingInSrs.length > 0) {
+          logger.warn(`   - YAML中存在但SRS中缺失 (${result.missingInSrs.length}个): ${result.missingInSrs.slice(0, 5).join(', ')}${result.missingInSrs.length > 5 ? '...' : ''}`);
+        }
+      }
+      
+      return result;
+      
+    } catch (error) {
+      const endTime = performance.now();
+      const executionTime = endTime - startTime;
+      
+      logger.error(`SRS一致性验证失败: ${(error as Error).message}`);
+      logger.warn('将跳过一致性验证，继续执行追溯关系计算');
+      
+      // 返回一个表示验证失败的结果，但包含正确的执行时间
+      return {
+        consistent: false,
+        srsIds: [],
+        yamlIds: entities.map(e => e.id).filter(id => id),
+        missingInYaml: [],
+        missingInSrs: [],
+        statistics: {
+          srsTotal: 0,
+          yamlTotal: entities.length,
+          consistent: false,
+          byType: {}
+        },
+        executionTime
+      };
+    }
   }
   
   /**
@@ -306,96 +381,7 @@ export class TraceabilityCompleter {
     return absolutePath;
   }
 
-  /**
-   * 写入summary日志到srs-writer-log.json文件
-   * 🚀 复用文件路径解析和写入逻辑
-   * @param targetFile 目标requirements.yaml文件名
-   * @param description 操作描述
-   * @param entities 处理的实体
-   * @param danglingRefs 悬空引用
-   * @param derivedStats derived_fr统计
-   * @param adcStats ADC_related统计  
-   * @param executionTime 执行时间
-   */
-  private async writeSummaryLog(
-    targetFile: string,
-    description: string,
-    entities: RequirementEntity[],
-    danglingRefs: string[],
-    derivedStats: { processed: number; updated: number; skipped: number },
-    adcStats: { processed: number; updated: number; skipped: number },
-    techSpecStats: { processed: number; updated: number; skipped: number },
-    executionTime: number
-  ): Promise<void> {
-    logger.info('📝 开始写入summary日志到srs-writer-log.json...');
-    
-    try {
-      // 🚀 复用路径解析逻辑，获取targetFile所在目录
-      const targetPath = await this.resolveWorkspacePath(targetFile);
-      const targetDir = path.dirname(targetPath);
-      const logFilePath = path.join(targetDir, 'srs-writer-log.json');
-      
-      // 检查日志文件是否存在
-      let logData: any;
-      try {
-        const existingContent = await fs.readFile(logFilePath, 'utf-8');
-        logData = JSON.parse(existingContent);
-      } catch (error) {
-        // 文件不存在或格式错误，创建新的日志结构
-        logger.info('📄 srs-writer-log.json不存在，创建新文件');
-        logData = {
-          project_name: "SRS Project", 
-          created_date: new Date().toISOString().split('T')[0],
-          initialization_log: [],
-          generation_history: [],
-          file_manifest: [
-            "SRS.md",
-            "requirements.yaml", 
-            "srs-writer-log.json"
-          ]
-        };
-      }
-      
-      // 确保traceability_completeness_issue对象存在
-      if (!logData.traceability_completeness_issue) {
-        logData.traceability_completeness_issue = [];
-      }
-      
-      // 添加新的日志条目
-      const logEntry = {
-        timestamp: new Date().toISOString(),
-        action: "traceability_completion",
-        description: description,
-        status: danglingRefs.length > 0 ? "success_with_warnings" : "success",
-        statistics: {
-          entities_processed: entities.length,
-          derived_fr_added: derivedStats.updated,
-          adc_related_added: adcStats.updated,
-          tech_spec_related_added: techSpecStats.updated,
-          dangling_references_found: danglingRefs.length,
-          execution_time_ms: executionTime
-        },
-        warnings: danglingRefs.length > 0 ? [`发现${danglingRefs.length}个悬空引用: ${danglingRefs.join(', ')}`] : undefined
-      };
-      
-      logData.traceability_completeness_issue.push(logEntry);
-      
-      // 🚀 复用JSON写入逻辑（类似YAML写入，但使用JSON.stringify）
-      const jsonContent = JSON.stringify(logData, null, 2);
-      
-      // 确保目录存在
-      await fs.mkdir(targetDir, { recursive: true });
-      
-      // 写入文件
-      await fs.writeFile(logFilePath, jsonContent, 'utf-8');
-      
-      logger.info(`✅ Summary日志写入成功: ${logFilePath}`);
-      
-    } catch (error) {
-      logger.warn(`⚠️ 写入summary日志失败: ${(error as Error).message}`);
-      // 不抛出错误，避免影响主流程
-    }
-  }
+  // writeSummaryLog 方法已被删除，现在使用统一的 writeToQualityReport 方法
   
   /**
    * 🆕 Phase 1.5: 标准化YAML数据结构
@@ -546,7 +532,9 @@ export class TraceabilityCompleter {
    * @param danglingReferences 悬空引用
    * @param derivedStats derived_fr统计
    * @param adcStats ADC_related统计
+   * @param techSpecStats tech_spec_related统计
    * @param executionTime 执行时间
+   * @param consistencyResult 一致性验证结果
    * @returns 同步结果
    */
   private generateResult(
@@ -555,7 +543,8 @@ export class TraceabilityCompleter {
     derivedStats: { processed: number; updated: number; skipped: number },
     adcStats: { processed: number; updated: number; skipped: number },
     techSpecStats: { processed: number; updated: number; skipped: number },
-    executionTime: number
+    executionTime: number,
+    consistencyResult?: ConsistencyValidationResult
   ): TraceabilitySyncResult {
     
     const warnings: string[] = [];
@@ -565,13 +554,16 @@ export class TraceabilityCompleter {
       warnings.push(`发现 ${danglingReferences.length} 个悬空引用: ${danglingReferences.join(', ')}`);
     }
     
-    logger.info('🎉 追溯关系同步完成!');
+    logger.info('🎉 追溯关系同步和ID一致性验证完成!');
     logger.info(`📊 统计信息:`);
     logger.info(`   - 实体总数: ${entities.length}`);
     logger.info(`   - derived_fr处理: ${derivedStats.processed} (更新: ${derivedStats.updated})`);
     logger.info(`   - ADC_related处理: ${adcStats.processed} (更新: ${adcStats.updated})`);
     logger.info(`   - tech_spec_related处理: ${techSpecStats.processed} (更新: ${techSpecStats.updated})`);
     logger.info(`   - 悬空引用: ${danglingReferences.length}`);
+    if (consistencyResult) {
+      logger.info(`   - ID一致性: ${consistencyResult.consistent ? '通过' : '不通过'} (SRS: ${consistencyResult.srsIds.length}, YAML: ${consistencyResult.yamlIds.length})`);
+    }
     logger.info(`   - 执行时间: ${executionTime}ms`);
     
     return {
@@ -582,8 +574,10 @@ export class TraceabilityCompleter {
         adcRelatedAdded: adcStats.updated,
         techSpecRelatedAdded: techSpecStats.updated,
         danglingReferencesFound: danglingReferences.length,
-        executionTime
+        executionTime,
+        consistencyValidated: !!consistencyResult
       },
+      consistencyResult,
       danglingReferences: danglingReferences.length > 0 ? danglingReferences : undefined
     };
   }
@@ -610,5 +604,134 @@ export class TraceabilityCompleter {
       },
       error: error.message
     };
+  }
+  
+  /**
+   * 写入统一的质量报告（替换 writeSummaryLog）
+   */
+  private async writeToQualityReport(
+    args: TraceabilityCompletionArgs,
+    entities: RequirementEntity[],
+    danglingRefs: string[],
+    derivedStats: { processed: number; updated: number; skipped: number },
+    adcStats: { processed: number; updated: number; skipped: number },
+    techSpecStats: { processed: number; updated: number; skipped: number },
+    executionTime: number,
+    consistencyResult?: ConsistencyValidationResult
+  ): Promise<void> {
+    try {
+      logger.info('📝 写入统一质量报告...');
+      
+      const reportWriter = new QualityReportWriter();
+      const projectName = await this.getProjectName();
+      
+      // 第一个检查项: ID 一致性验证
+      if (consistencyResult) {
+        const consistencyIssues = this.buildConsistencyIssues(consistencyResult);
+        
+        await reportWriter.appendCheckToReport(
+          projectName,
+          'id-consistency',
+          'traceability-completion-tool',
+          consistencyIssues,
+          {
+            srsIdsCount: consistencyResult.srsIds.length,
+            yamlIdsCount: consistencyResult.yamlIds.length,
+            missingInYaml: consistencyResult.missingInYaml.length,
+            missingInSrs: consistencyResult.missingInSrs.length,
+            consistent: consistencyResult.consistent,
+            executionTime: `${consistencyResult.executionTime}ms`
+          }
+        );
+        
+        logger.info(`✅ ID一致性检查报告已写入: ${consistencyResult.consistent ? '一致' : '发现问题'}`);
+      }
+      
+      // 第二个检查项: 追溯关系完整性
+      const traceabilityIssues = this.buildTraceabilityIssues(danglingRefs);
+      
+      await reportWriter.appendCheckToReport(
+        projectName,
+        'traceability-completeness',
+        'traceability-completion-tool',
+        traceabilityIssues,
+        {
+          entitiesProcessed: entities.length,
+          derivedFrAdded: derivedStats.updated,
+          adcRelatedAdded: adcStats.updated,
+          techSpecRelatedAdded: techSpecStats.updated,
+          danglingReferencesFound: danglingRefs.length,
+          executionTime: `${executionTime}ms`
+        }
+      );
+      
+      logger.info(`✅ 追溯关系完整性检查报告已写入: 处理${entities.length}个实体，发现${danglingRefs.length}个悬空引用`);
+      logger.info('📊 统一质量报告写入成功');
+      
+    } catch (error) {
+      logger.warn(`⚠️ 写入质量报告失败: ${(error as Error).message}`);
+      // 不抛出错误，避免影响主流程
+    }
+  }
+  
+  /**
+   * 构建 ID 一致性问题列表
+   */
+  private buildConsistencyIssues(consistencyResult: ConsistencyValidationResult): Issue[] {
+    const issues: Issue[] = [];
+    
+    // SRS中缺失的ID
+    for (const id of consistencyResult.missingInSrs) {
+      issues.push({
+        file: 'SRS.md',
+        severity: 'error',
+        message: `ID ${id} exists in requirements.yaml but missing in SRS.md`
+      });
+    }
+    
+    // YAML中缺失的ID
+    for (const id of consistencyResult.missingInYaml) {
+      issues.push({
+        file: 'requirements.yaml',
+        severity: 'error',
+        message: `ID ${id} exists in SRS.md but missing in requirements.yaml`
+      });
+    }
+    
+    return issues;
+  }
+  
+  /**
+   * 构建追溯关系问题列表
+   */
+  private buildTraceabilityIssues(danglingRefs: string[]): Issue[] {
+    const issues: Issue[] = [];
+    
+    // 悬空引用问题
+    for (const ref of danglingRefs) {
+      issues.push({
+        file: 'requirements.yaml',
+        severity: 'warning',
+        message: `Dangling reference found: ${ref} (referenced but not defined)`
+      });
+    }
+    
+    return issues;
+  }
+  
+  /**
+   * 获取项目名称
+   */
+  private async getProjectName(): Promise<string> {
+    try {
+      const { SessionManager } = await import('../../../core/session-manager');
+      const sessionManager = SessionManager.getInstance();
+      const currentSession = await sessionManager.getCurrentSession();
+      
+      return currentSession?.projectName || 'unnamed';
+    } catch (error) {
+      logger.warn(`Failed to get project name: ${(error as Error).message}`);
+      return 'unnamed';
+    }
   }
 } 

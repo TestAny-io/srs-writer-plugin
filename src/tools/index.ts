@@ -83,6 +83,12 @@ import {
     traceabilityCompletionToolsCategory
 } from './document/traceabilityCompletionTools';
 
+import {
+    syntaxCheckerToolDefinitions,
+    syntaxCheckerToolImplementations,
+    syntaxCheckerToolsCategory
+} from './document/syntaxCheckerTools';
+
 
 
 // 导入访问控制类型
@@ -264,6 +270,14 @@ class ToolRegistry {
             traceabilityCompletionToolDefinitions,
             traceabilityCompletionToolImplementations,
             traceabilityCompletionToolsCategory,
+            'document'
+        );
+
+        // 🚀 新增：注册语法检查工具
+        this.registerToolsFromCategory(
+            syntaxCheckerToolDefinitions,
+            syntaxCheckerToolImplementations,
+            syntaxCheckerToolsCategory,
             'document'
         );
 

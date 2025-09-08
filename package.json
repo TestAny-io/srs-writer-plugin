@@ -307,6 +307,51 @@
           "description": "默认数据集ID",
           "markdownDescription": "企业RAG系统的默认数据集ID。\n\n**说明**：\n- 当AI调用RAG检索时，如果未指定数据集ID，将使用此默认值\n- 可以在具体调用时通过参数覆盖此设置\n- 请确保此数据集ID在您的RAG系统中存在"
         },
+        "srs-writer.syntaxChecker.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用语法检查工具",
+          "markdownDescription": "启用 syntax-checker 工具对 Markdown 和 YAML 文件进行语法检查。"
+        },
+        "srs-writer.syntaxChecker.markdown.aEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 Markdown 语法检查"
+        },
+        "srs-writer.syntaxChecker.markdown.bMode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "standard", 
+            "no",
+            "custom"
+          ],
+          "default": "standard",
+          "description": "Markdown 检查模式",
+          "markdownDescription": "选择 Markdown 检查模式：\n\n- **all**: 执行所有 markdownlint 检查项\n- **standard**: 执行必要的检查项（推荐）\n- **no**: 关闭所有 markdownlint 检查\n- **custom**: 自定义模式，使用下方的自定义规则配置"
+        },
+        "srs-writer.syntaxChecker.markdown.zCustomRules": {
+          "type": "object",
+          "default": {},
+          "description": "自定义规则配置（仅在 Custom 模式下使用）",
+          "markdownDescription": "当选择 Custom 模式时，可以配置具体的 markdownlint 规则。\n\n**使用方法**：\n1. 将上方 Mode 设置为 'custom'\n2. 在此处配置具体规则\n\n**示例配置**：\n```json\n{\n  \"MD001\": true,\n  \"MD007\": { \"indent\": 4 },\n  \"MD033\": { \"allowed_elements\": [\"br\", \"details\", \"summary\"] },\n  \n**规则编号及释义**：\n[查看完整的 markdownlint 规则文档](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md) "
+        },
+        "srs-writer.syntaxChecker.yaml.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 YAML 语法检查"
+        },
+        "srs-writer.syntaxChecker.yaml.level": {
+          "type": "string",
+          "enum": [
+            "basic",
+            "standard",
+            "strict"
+          ],
+          "default": "standard",
+          "description": "YAML 检查级别",
+          "markdownDescription": "选择 YAML 检查级别：\n\n- **basic**: 只检查基础语法错误\n- **standard**: 检查语法 + 基本结构问题（推荐）\n- **strict**: 检查语法 + 结构 + requirements.yaml 特定规则"
+        },
         "srs-writer.templates.adcWriter": {
           "type": "object",
           "default": {
@@ -478,6 +523,7 @@
     "@cs-au-dk/jelly": "^0.10.0",
     "@types/jest": "^29.x",
     "@types/js-yaml": "^4.0.9",
+    "@types/markdownlint": "^0.18.0",
     "@types/marked": "^5.x",
     "@types/node": "^20.19.9",
     "@types/vscode": "^1.85.0",
@@ -500,6 +546,7 @@
     "github-slugger": "^2.0.0",
     "js-yaml": "^4.1.0",
     "jsonrepair": "^3.12.0",
+    "markdownlint": "^0.38.0",
     "marked": "^9.x",
     "minisearch": "^7.1.2",
     "remark-frontmatter": "^5.0.0",

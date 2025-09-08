@@ -108,24 +108,36 @@ export class SessionManager implements ISessionManager {
      * 🚀 阶段2修改：动态获取会话文件路径 - 根据项目名选择正确的会话文件
      */
     private get sessionFilePath(): string | null {
+        const currentProjectName = this.currentSession?.projectName;
+        const currentSessionId = this.currentSession?.sessionContextId;
+        
+        this.logger.warn(`🔍 [SESSION PATH] ===== GETTING SESSION FILE PATH =====`);
+        this.logger.warn(`🔍 [SESSION PATH] Current session project: ${currentProjectName || 'none'}`);
+        this.logger.warn(`🔍 [SESSION PATH] Current session ID: ${currentSessionId || 'none'}`);
+        
         if (!this.pathManager || !this.pathManager.validateWorkspacePath()) {
             // 降级到旧位置（向后兼容）
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (workspaceFolder) {
-            return path.join(workspaceFolder.uri.fsPath, '.vscode', 'srs-writer-session.json');
-        }
-        return null;
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (workspaceFolder) {
+                const legacyPath = path.join(workspaceFolder.uri.fsPath, '.vscode', 'srs-writer-session.json');
+                this.logger.warn(`🔍 [SESSION PATH] Using legacy path: ${legacyPath}`);
+                return legacyPath;
+            }
+            this.logger.warn(`🔍 [SESSION PATH] No workspace folder, returning null`);
+            return null;
         }
 
         // 🚀 阶段2新逻辑：根据当前会话的项目名选择文件路径
-        const currentProjectName = this.currentSession?.projectName;
-        
         if (currentProjectName) {
             // 有具体项目名，使用项目级会话文件
-            return this.pathManager.getProjectSessionPath(currentProjectName);
+            const projectPath = this.pathManager.getProjectSessionPath(currentProjectName);
+            this.logger.warn(`🔍 [SESSION PATH] Using project path: ${projectPath}`);
+            return projectPath;
         } else {
             // 没有项目名，使用主会话文件
-            return this.pathManager.getMainSessionPath();
+            const mainPath = this.pathManager.getMainSessionPath();
+            this.logger.warn(`🔍 [SESSION PATH] Using main path: ${mainPath}`);
+            return mainPath;
         }
     }
 
@@ -177,36 +189,23 @@ export class SessionManager implements ISessionManager {
         const previousSession = { ...this.currentSession };
         
         try {
-            // 深度合并更新，确保嵌套对象也被正确合并
-            this.currentSession = {
-                ...previousSession,
-                ...updates,
-                metadata: {
-                    ...previousSession.metadata,
-                    ...(updates.metadata || {}),
-                    lastModified: new Date().toISOString(),
-                    version: '3.0' // 🚀 更新版本号为3.0
-                }
-            };
-
             // 🔧 v3.0改进：只记录实际变更的字段，减少日志噪音
             const changedFields = this.getChangedFields(previousSession, updates);
             if (changedFields.length > 0) {
                 this.logger.info(`Session updated - changed fields: ${changedFields.join(', ')}`);
             }
             
-            // 同步保存到文件
-            try {
-                await this.saveSessionToFile();
-            } catch (error) {
-                this.logger.error('Failed to save session after update', error as Error);
-                // 🔧 v3.0新增：保存失败时回滚状态
-                this.currentSession = previousSession;
-                throw error;
-            }
-            
-            // 🚀 v3.0新增：通知所有观察者
-            this.notifyObservers();
+            // 🚀 修复：使用UnifiedSessionFile格式保存，避免覆盖operations历史
+            // updateSessionWithLog会自动更新状态和通知观察者
+            await this.updateSessionWithLog({
+                stateUpdates: updates,
+                logEntry: {
+                    type: OperationType.SESSION_UPDATED,
+                    operation: `Session updated - fields: ${changedFields.join(', ')}`,
+                    success: true,
+                    sessionData: updates
+                }
+            });
             
         } catch (error) {
             // 🔧 v3.0新增：更新失败时回滚状态
@@ -252,16 +251,21 @@ export class SessionManager implements ISessionManager {
 
         this.logger.info(`New session created${projectName ? ` for project: ${projectName}` : ''}`);
         
-        // 同步保存到文件
+        // 🚀 修复：使用UnifiedSessionFile格式保存，避免覆盖operations历史
+        // updateSessionWithLog会自动通知观察者
         try {
-            await this.saveSessionToFile();
+            await this.updateSessionWithLog({
+                logEntry: {
+                    type: OperationType.SESSION_CREATED,
+                    operation: `Created new session${projectName ? ` for project: ${projectName}` : ''}`,
+                    success: true,
+                    sessionData: this.currentSession
+                }
+            });
         } catch (error) {
             this.logger.error('Failed to save new session', error as Error);
             // 即使保存失败，也返回已创建的会话对象
         }
-
-        // 🚀 v3.0新增：通知所有观察者
-        this.notifyObservers();
 
         return this.currentSession!;
     }
@@ -336,7 +340,14 @@ export class SessionManager implements ISessionManager {
      * 修复：确保不会在没有会话时意外保存空文件
      */
     private async saveUnifiedSessionFile(newLogEntry: OperationLogEntry): Promise<void> {
+        this.logger.warn(`🔍 [SAVE UNIFIED] ===== SAVING UNIFIED SESSION FILE =====`);
+        this.logger.warn(`🔍 [SAVE UNIFIED] Operation type: ${newLogEntry.type}`);
+        this.logger.warn(`🔍 [SAVE UNIFIED] Operation: ${newLogEntry.operation}`);
+        this.logger.warn(`🔍 [SAVE UNIFIED] Current sessionFilePath: ${this.sessionFilePath}`);
+        this.logger.warn(`🔍 [SAVE UNIFIED] Current session: ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+        
         if (!this.sessionFilePath) {
+            this.logger.warn(`🔍 [SAVE UNIFIED] No sessionFilePath, returning`);
             return;
         }
 
@@ -360,8 +371,11 @@ export class SessionManager implements ISessionManager {
                 await fsPromises.mkdir(sessionDirPath, { recursive: true });
             }
 
+            this.logger.warn(`🔍 [SAVE UNIFIED] About to read existing file from: ${this.sessionFilePath}`);
             // 读取现有文件或创建新文件
             const existingFile = await this.loadUnifiedSessionFile();
+            this.logger.warn(`🔍 [SAVE UNIFIED] Existing file loaded, operations count: ${existingFile.operations.length}`);
+            this.logger.warn(`🔍 [SAVE UNIFIED] Existing file currentSession: ${existingFile.currentSession?.projectName} (${existingFile.currentSession?.sessionContextId})`);
             
             // 更新unified文件
             const updatedFile: UnifiedSessionFile = {
@@ -371,14 +385,21 @@ export class SessionManager implements ISessionManager {
                 lastUpdated: new Date().toISOString()
             };
             
+            this.logger.warn(`🔍 [SAVE UNIFIED] Updated file will have operations count: ${updatedFile.operations.length}`);
+            this.logger.warn(`🔍 [SAVE UNIFIED] Updated file currentSession: ${updatedFile.currentSession?.projectName} (${updatedFile.currentSession?.sessionContextId})`);
+            
             // 写入文件
+            this.logger.warn(`🔍 [SAVE UNIFIED] About to write to: ${this.sessionFilePath}`);
             await fsPromises.writeFile(this.sessionFilePath, JSON.stringify(updatedFile, null, 2), 'utf8');
+            this.logger.warn(`🔍 [SAVE UNIFIED] File written successfully to: ${this.sessionFilePath}`);
             this.logger.info(`Unified session file saved to: ${this.sessionFilePath}`);
             
         } catch (error) {
             this.logger.error('Failed to save unified session file', error as Error);
             throw error;
         }
+        
+        this.logger.warn(`🔍 [SAVE UNIFIED] ===== SAVE UNIFIED SESSION FILE COMPLETED =====`);
     }
 
     /**
@@ -386,22 +407,31 @@ export class SessionManager implements ISessionManager {
      * 如果文件不存在或格式错误，返回默认结构
      */
     private async loadUnifiedSessionFile(): Promise<UnifiedSessionFile> {
+        this.logger.warn(`🔍 [LOAD UNIFIED] ===== LOADING UNIFIED SESSION FILE =====`);
+        this.logger.warn(`🔍 [LOAD UNIFIED] Loading from path: ${this.sessionFilePath}`);
+        
         if (!this.sessionFilePath) {
+            this.logger.warn(`🔍 [LOAD UNIFIED] No sessionFilePath, creating default file`);
             return this.createDefaultUnifiedFile();
         }
 
         try {
             // 检查文件是否存在
             await fsPromises.access(this.sessionFilePath);
+            this.logger.warn(`🔍 [LOAD UNIFIED] File exists, reading content...`);
             const fileContent = await fsPromises.readFile(this.sessionFilePath, 'utf8');
             
             if (!fileContent || fileContent.trim().length === 0) {
+                this.logger.warn(`🔍 [LOAD UNIFIED] File is empty, creating default file`);
                 return this.createDefaultUnifiedFile();
             }
+            
+            this.logger.warn(`🔍 [LOAD UNIFIED] File content length: ${fileContent.length} chars`);
             
             let parsedData;
             try {
                 parsedData = JSON.parse(fileContent);
+                this.logger.warn(`🔍 [LOAD UNIFIED] JSON parsed successfully`);
             } catch (parseError) {
                 this.logger.warn('Invalid JSON in session file, creating new unified file');
                 return this.createDefaultUnifiedFile();
@@ -409,6 +439,9 @@ export class SessionManager implements ISessionManager {
             
             // 检查是否是新的UnifiedSessionFile格式
             if (this.isUnifiedSessionFile(parsedData)) {
+                this.logger.warn(`🔍 [LOAD UNIFIED] Valid UnifiedSessionFile format detected`);
+                this.logger.warn(`🔍 [LOAD UNIFIED] File currentSession: ${parsedData.currentSession?.projectName} (${parsedData.currentSession?.sessionContextId})`);
+                this.logger.warn(`🔍 [LOAD UNIFIED] File operations count: ${parsedData.operations.length}`);
                 return parsedData as UnifiedSessionFile;
             }
             
@@ -424,6 +457,7 @@ export class SessionManager implements ISessionManager {
             
         } catch (error) {
             // 文件不存在或读取失败，返回默认结构
+            this.logger.warn(`🔍 [LOAD UNIFIED] File access failed: ${(error as Error).message}, creating default file`);
             return this.createDefaultUnifiedFile();
         }
     }
@@ -1493,23 +1527,32 @@ export class SessionManager implements ISessionManager {
      */
     public async switchToProjectSession(projectName: string): Promise<void> {
         try {
-            this.logger.info(`Starting switch to project session: ${projectName}`);
+            this.logger.warn(`🔍 [SWITCH DEBUG] ===== STARTING PROJECT SWITCH =====`);
+            this.logger.warn(`🔍 [SWITCH DEBUG] Target project: ${projectName}`);
             
-            // 1. 保存当前会话状态
-            if (this.currentSession) {
-                await this.saveCurrentSession();
-                this.logger.info('Current session saved');
-            }
+            // 记录切换前的状态
+            const sourceProjectName = this.currentSession?.projectName || undefined;
+            const sourceSessionId = this.currentSession?.sessionContextId || 'none';
+            this.logger.warn(`🔍 [SWITCH DEBUG] Source project: ${sourceProjectName || 'workspace root'}`);
+            this.logger.warn(`🔍 [SWITCH DEBUG] Source session ID: ${sourceSessionId}`);
+            this.logger.warn(`🔍 [SWITCH DEBUG] Current sessionFilePath BEFORE switch: ${this.sessionFilePath}`);
             
-            // 2. 加载或创建目标项目会话
-            const targetSession = await this.loadOrCreateProjectSession(projectName);
+            // 1. 加载或创建目标项目会话
+            this.logger.warn(`🔍 [SWITCH DEBUG] Calling loadOrCreateProjectSession...`);
+            const targetSession = await this.loadOrCreateProjectSession(projectName, sourceProjectName);
             
-            // 3. 更新当前会话
+            this.logger.warn(`🔍 [SWITCH DEBUG] Target session loaded: ${targetSession.projectName} (${targetSession.sessionContextId})`);
+            this.logger.warn(`🔍 [SWITCH DEBUG] Current sessionFilePath AFTER loadOrCreate: ${this.sessionFilePath}`);
+            
+            // 2. 更新当前会话
+            this.logger.warn(`🔍 [SWITCH DEBUG] Setting currentSession to target session...`);
             this.currentSession = targetSession;
+            this.logger.warn(`🔍 [SWITCH DEBUG] Current sessionFilePath AFTER setting currentSession: ${this.sessionFilePath}`);
             
-            // 4. 通知观察者
+            // 3. 通知观察者
             this.notifyObservers();
             
+            this.logger.warn(`🔍 [SWITCH DEBUG] ===== PROJECT SWITCH COMPLETED =====`);
             this.logger.info(`Successfully switched to project session: ${projectName}`);
         } catch (error) {
             this.logger.error(`Failed to switch to project session: ${projectName}`, error as Error);
@@ -1518,51 +1561,202 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 🚀 阶段3新增：加载或创建项目会话
+     * 🚀 彻底修复：项目会话切换逻辑重构
+     * 简化为两种情况：使用目标项目session或创建新session，避免混合状态
      */
-    private async loadOrCreateProjectSession(projectName: string): Promise<SessionContext> {
+    private async loadOrCreateProjectSession(projectName: string, sourceProjectName?: string): Promise<SessionContext> {
+        this.logger.warn(`🔍 [LOAD OR CREATE] ===== STARTING LOAD OR CREATE PROJECT SESSION =====`);
+        this.logger.warn(`🔍 [LOAD OR CREATE] Target project: ${projectName}`);
+        this.logger.warn(`🔍 [LOAD OR CREATE] Source project: ${sourceProjectName || 'none'}`);
+        this.logger.warn(`🔍 [LOAD OR CREATE] Current session BEFORE: ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+        this.logger.warn(`🔍 [LOAD OR CREATE] Current sessionFilePath BEFORE: ${this.sessionFilePath}`);
+        
         if (!this.pathManager) throw new Error('PathManager not initialized');
         
         const sessionPath = this.pathManager.getProjectSessionPath(projectName);
+        this.logger.warn(`🔍 [LOAD OR CREATE] Target session file path: ${sessionPath}`);
         
         try {
-            // 尝试加载现有会话文件
-            const sessionData = await this.loadSessionFileContent(sessionPath);
-            if (sessionData && sessionData.sessionContextId) {
-                this.logger.info(`Loaded existing session for project: ${projectName}`);
-                return sessionData;
+            this.logger.warn(`🔍 [LOAD OR CREATE] Attempting to load target session file...`);
+            // 尝试加载目标项目的session文件
+            const unifiedFile = await this.loadUnifiedSessionFileFromPath(sessionPath);
+            this.logger.warn(`🔍 [LOAD OR CREATE] Target file loaded successfully`);
+            this.logger.warn(`🔍 [LOAD OR CREATE] Target file currentSession: ${unifiedFile.currentSession?.projectName} (${unifiedFile.currentSession?.sessionContextId})`);
+            this.logger.warn(`🔍 [LOAD OR CREATE] Target file operations count: ${unifiedFile.operations.length}`);
+            
+            if (unifiedFile.currentSession?.sessionContextId) {
+                // 情况1：目标项目有有效session，直接使用
+                this.logger.warn(`🔍 [LOAD OR CREATE] Target has valid session, loading it...`);
+                this.logger.warn(`🔍 [LOAD OR CREATE] Current session BEFORE loadTargetProjectSession: ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+                
+                const result = await this.loadTargetProjectSession(unifiedFile, projectName, sourceProjectName);
+                
+                this.logger.warn(`🔍 [LOAD OR CREATE] loadTargetProjectSession completed`);
+                this.logger.warn(`🔍 [LOAD OR CREATE] Current session AFTER loadTargetProjectSession: ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+                this.logger.warn(`🔍 [LOAD OR CREATE] Returning result: ${result.projectName} (${result.sessionContextId})`);
+                
+                return result;
+            } else {
+                // 情况2：目标项目session无效，创建新session
+                this.logger.warn(`🔍 [LOAD OR CREATE] Target session invalid, creating new session...`);
+                this.logger.warn(`🔍 [LOAD OR CREATE] Current session BEFORE createNewSessionForProject: ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+                
+                const result = await this.createNewSessionForProject(projectName, sourceProjectName);
+                
+                this.logger.warn(`🔍 [LOAD OR CREATE] createNewSessionForProject completed`);
+                this.logger.warn(`🔍 [LOAD OR CREATE] Current session AFTER createNewSessionForProject: ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+                this.logger.warn(`🔍 [LOAD OR CREATE] Returning result: ${result.projectName} (${result.sessionContextId})`);
+                
+                return result;
             }
+            
         } catch (error) {
-            this.logger.info(`Session file not found for project ${projectName}, creating new one`);
+            // 情况3：目标项目文件不存在，创建新session
+            this.logger.warn(`🔍 [LOAD OR CREATE] Target file not found, creating new session...`);
+            this.logger.warn(`🔍 [LOAD OR CREATE] Error: ${(error as Error).message}`);
+            this.logger.warn(`🔍 [LOAD OR CREATE] Current session BEFORE createNewSessionForProject (catch): ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+            
+            const result = await this.createNewSessionForProject(projectName, sourceProjectName);
+            
+            this.logger.warn(`🔍 [LOAD OR CREATE] createNewSessionForProject (catch) completed`);
+            this.logger.warn(`🔍 [LOAD OR CREATE] Current session AFTER createNewSessionForProject (catch): ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+            this.logger.warn(`🔍 [LOAD OR CREATE] Returning result (catch): ${result.projectName} (${result.sessionContextId})`);
+            
+            return result;
         }
-        
-        // 如果文件不存在或无效，创建新会话
-        this.logger.info(`Creating new session for project: ${projectName}`);
-        
-        // 获取项目基础目录
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        const projectBaseDir = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, projectName) : null;
-        
-        const newSession = await this.createNewSession(projectName);
-        
-        // 更新项目基础目录
-        if (projectBaseDir && newSession) {
-            await this.updateSession({
-                baseDir: projectBaseDir
-            });
-        }
-        
-        return newSession;
     }
 
     /**
-     * 🚀 阶段3新增：保存当前会话（不影响文件路径选择）
+     * 🚀 彻底修复：加载目标项目的现有session并记录切换日志
      */
-    private async saveCurrentSession(): Promise<void> {
-        if (this.currentSession) {
-            await this.saveSessionToFile();
+    private async loadTargetProjectSession(unifiedFile: UnifiedSessionFile, projectName: string, sourceProjectName?: string): Promise<SessionContext> {
+        if (!unifiedFile.currentSession) {
+            throw new Error('No valid session in unified file');
         }
+        
+        this.logger.warn(`🔍 [LOAD TARGET] ===== LOADING TARGET PROJECT SESSION =====`);
+        
+        // 直接使用目标项目的原有session
+        const targetSession = unifiedFile.currentSession;
+        this.logger.warn(`🔍 [LOAD TARGET] Target session from file: ${targetSession.projectName} (${targetSession.sessionContextId})`);
+        this.logger.warn(`🔍 [LOAD TARGET] Target session activeFiles: ${JSON.stringify(targetSession.activeFiles)}`);
+        this.logger.warn(`🔍 [LOAD TARGET] Current sessionFilePath BEFORE setting: ${this.sessionFilePath}`);
+        
+        // 设置为当前session
+        this.currentSession = targetSession;
+        this.logger.warn(`🔍 [LOAD TARGET] Current sessionFilePath AFTER setting: ${this.sessionFilePath}`);
+        
+        // 只记录项目切换日志，一次写入完成
+        this.logger.warn(`🔍 [LOAD TARGET] About to call updateSessionWithLog...`);
+        await this.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.PROJECT_SWITCHED,
+                operation: `Switched to existing project: ${projectName}${sourceProjectName ? ` (from: ${sourceProjectName})` : ''}`,
+                success: true,
+                projectName: projectName,
+                sessionData: targetSession
+            }
+        });
+        this.logger.warn(`🔍 [LOAD TARGET] updateSessionWithLog completed`);
+        
+        this.logger.warn(`🔍 [LOAD TARGET] ===== TARGET SESSION LOAD COMPLETED =====`);
+        return targetSession;
     }
+
+    /**
+     * 🚀 彻底修复：为项目创建新会话（处理文件不存在或无效的情况）
+     */
+    private async createNewSessionForProject(projectName: string, sourceProjectName?: string): Promise<SessionContext> {
+        this.logger.warn(`🔍 [CREATE NEW] ===== CREATING NEW SESSION FOR PROJECT =====`);
+        this.logger.warn(`🔍 [CREATE NEW] Target project: ${projectName}`);
+        this.logger.warn(`🔍 [CREATE NEW] Source project: ${sourceProjectName || 'none'}`);
+        this.logger.warn(`🔍 [CREATE NEW] Current session BEFORE: ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+        this.logger.warn(`🔍 [CREATE NEW] Current sessionFilePath BEFORE: ${this.sessionFilePath}`);
+        
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        const projectBaseDir = workspaceFolder ? path.join(workspaceFolder.uri.fsPath, projectName) : null;
+        this.logger.warn(`🔍 [CREATE NEW] Project base dir: ${projectBaseDir}`);
+        
+        // 创建全新的目标项目session
+        this.logger.warn(`🔍 [CREATE NEW] Creating new session without saving...`);
+        const newSession = await this.createNewSessionWithoutSaving(projectName);
+        this.logger.warn(`🔍 [CREATE NEW] New session created: ${newSession.projectName} (${newSession.sessionContextId})`);
+        
+        // 更新项目基础目录
+        if (projectBaseDir) {
+            newSession.baseDir = projectBaseDir;
+            this.logger.warn(`🔍 [CREATE NEW] Updated baseDir: ${newSession.baseDir}`);
+        }
+        
+        // 设置为当前session
+        this.logger.warn(`🔍 [CREATE NEW] Setting as current session...`);
+        this.logger.warn(`🔍 [CREATE NEW] Current sessionFilePath BEFORE setting: ${this.sessionFilePath}`);
+        this.currentSession = newSession;
+        this.logger.warn(`🔍 [CREATE NEW] Current sessionFilePath AFTER setting: ${this.sessionFilePath}`);
+        this.logger.warn(`🔍 [CREATE NEW] Current session is now: ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
+        
+        // 记录项目切换日志，一次写入完成
+        this.logger.warn(`🔍 [CREATE NEW] About to call updateSessionWithLog...`);
+        await this.updateSessionWithLog({
+            logEntry: {
+                type: OperationType.PROJECT_SWITCHED,
+                operation: `Created new session for project: ${projectName}${sourceProjectName ? ` (switched from: ${sourceProjectName})` : ''}`,
+                success: true,
+                projectName: projectName,
+                sessionData: newSession
+            }
+        });
+        this.logger.warn(`🔍 [CREATE NEW] updateSessionWithLog completed`);
+        
+        this.logger.warn(`🔍 [CREATE NEW] ===== CREATE NEW SESSION COMPLETED =====`);
+        return newSession;
+    }
+
+
+
+
+    /**
+     * 🚀 修复：创建新session但不自动保存（避免覆盖文件）
+     */
+    private async createNewSessionWithoutSaving(projectName?: string): Promise<SessionContext> {
+        const now = new Date().toISOString();
+        
+        // 🚀 修复：获取当前Git分支信息
+        let currentGitBranch: string | undefined;
+        try {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (workspaceFolder) {
+                const { getCurrentBranch } = await import('../tools/atomic/git-operations');
+                currentGitBranch = await getCurrentBranch(workspaceFolder.uri.fsPath) || undefined;
+                this.logger.info(`🌿 [createNewSessionWithoutSaving] Detected current Git branch: ${currentGitBranch || 'unknown'}`);
+            }
+        } catch (error) {
+            this.logger.warn(`🌿 [createNewSessionWithoutSaving] Failed to get Git branch: ${(error as Error).message}`);
+        }
+        
+        const newSession: SessionContext = {
+            sessionContextId: crypto.randomUUID(),
+            projectName: projectName || null,
+            baseDir: projectName ? path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', projectName) : null,
+            activeFiles: [],
+            gitBranch: currentGitBranch,
+            metadata: {
+                srsVersion: 'v1.0',
+                created: now,
+                lastModified: now,
+                version: '5.0'
+            }
+        };
+
+        this.currentSession = newSession;
+        this.logger.info(`New session created without auto-save${projectName ? ` for project: ${projectName}` : ''}`);
+        
+        // 🚀 通知观察者但不自动保存
+        this.notifyObservers();
+
+        return newSession;
+    }
+
 
     /**
      * 🚀 阶段4重命名：简化的新会话创建方法

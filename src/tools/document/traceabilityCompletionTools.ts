@@ -22,56 +22,40 @@ const logger = Logger.getInstance();
  */
 export const traceabilityCompletionToolDefinition = {
   name: "traceability-completion-tool",
-  description: `完成需求追溯关系计算，自动填充derived_fr、ADC_related和tech_spec_related字段。
-
-功能说明：
-- 读取requirements.yaml文件
-- 根据source_requirements字段计算反向追溯关系
-- 自动填充US/UC的derived_fr字段 (被哪些技术需求引用)
-- 自动填充技术需求的ADC_related字段 (引用了哪些ADC约束)
-- 自动填充FR的tech_spec_related字段 (被哪些技术规范需求引用)
-- 处理悬空引用并输出警告
-- 保证幂等性：多次运行结果一致
-
-适用场景：
-- SRS生成流程的最后步骤，统一计算所有追溯关系
-- 需求文档更新后重新同步追溯关系
-- 验证追溯关系完整性
-
-计算规则：
-- derived_fr: US/UC被哪些FR/NFR/IFR/DAR引用 (反向追溯)
-- ADC_related: FR/NFR/IFR/DAR引用了哪些ADC-ASSU/DEPEN/CONST约束
-- tech_spec_related: FR被哪些NFR/IFR/DAR技术规范需求引用 (反向追溯)
-- 字母升序排序: 所有computed字段按字母顺序排列
-- 悬空引用: 继续处理其他ID，最终从计算结果中排除`,
+  description: `Complete the calculation of requirement traceability relationships and ID consistency verification, automatically fill the derived_fr, ADC_related and tech_spec_related fields.`,
 
   parameters: {
     type: "object",
     properties: {
       description: {
         type: "string",
-        description: "简要描述本次追溯同步的目的 (如：'初始化SRS追溯关系', '更新需求变更后的追溯关系')"
+        description: "Brief description of the purpose of this traceability synchronization and consistency verification (e.g., 'Initialize SRS traceability relationships and verify consistency', 'Update traceability relationships after requirement changes')"
       },
       targetFile: {
         type: "string", 
-        description: "目标requirements.yaml文件名 (相对于项目根目录，工具自动获取baseDir，如：'requirements.yaml')",
+        description: "Target requirements.yaml file name (relative to the project root directory, the tool automatically gets baseDir, e.g., 'requirements.yaml')",
         default: "requirements.yaml"
+      },
+      srsFile: {
+        type: "string",
+        description: "SRS.md file path (used for ID consistency verification, relative to the project root directory, e.g., 'SRS.md')",
+        default: "SRS.md"
       }
     },
-    required: ["description", "targetFile"],
+    required: ["description"],
     additionalProperties: false
   },
   
-  // 🚀 复用：访问控制 (参考yamlEditorTools)
+  // 🚀 Reuse: Access control (reference yamlEditorTools)
       accessibleBy: [
         // CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
         // CallerType.SPECIALIST_CONTENT, 
         CallerType.SPECIALIST_PROCESS
       ],
   
-  // 🚀 复用：智能分类属性
+  // 🚀 Reuse: Intelligent classification attributes
   interactionType: 'autonomous',
-  riskLevel: 'medium',  // 涉及文件修改
+  riskLevel: 'medium',  // Involves file modification
   requiresConfirmation: false
 };
 
@@ -87,10 +71,7 @@ export const traceabilityCompletionToolDefinition = {
 export async function traceabilityCompletionTool(args: {
   description: string;
   targetFile?: string;
-  options?: {
-    checkOnly?: boolean;
-    verbose?: boolean;
-  };
+  srsFile?: string;
 }): Promise<TraceabilitySyncResult> {
   try {
     logger.info(`🔧 追溯性同步请求: ${args.description}`);
@@ -99,7 +80,8 @@ export async function traceabilityCompletionTool(args: {
     // 构建完整参数
     const fullArgs: TraceabilityCompletionArgs = {
       description: args.description,
-      targetFile: args.targetFile || 'requirements.yaml'
+      targetFile: args.targetFile || 'requirements.yaml',
+      srsFile: args.srsFile || 'SRS.md'
     };
     
     // 🚀 记录操作意图（用于调试和追踪）

@@ -36,6 +36,24 @@ export interface TraceabilityMap {
 }
 
 /**
+ * SRS-YAML ID一致性验证结果
+ */
+export interface ConsistencyValidationResult {
+  consistent: boolean;
+  srsIds: string[];
+  yamlIds: string[];
+  missingInYaml: string[];
+  missingInSrs: string[];
+  statistics: {
+    srsTotal: number;
+    yamlTotal: number;
+    consistent: boolean;
+    byType: Record<string, {srs: number, yaml: number, missing: number}>;
+  };
+  executionTime: number;
+}
+
+/**
  * 追溯关系同步结果
  */
 export interface TraceabilitySyncResult {
@@ -47,7 +65,9 @@ export interface TraceabilitySyncResult {
     techSpecRelatedAdded: number;
     danglingReferencesFound: number;
     executionTime: number;
+    consistencyValidated?: boolean;     // 新增：是否执行了一致性验证
   };
+  consistencyResult?: ConsistencyValidationResult;  // 新增：一致性验证结果
   danglingReferences?: string[];
   error?: string;
 }
@@ -58,6 +78,7 @@ export interface TraceabilitySyncResult {
 export interface TraceabilityCompletionArgs {
   description: string;
   targetFile: string;
+  srsFile?: string;  // 新增：SRS.md文件路径，默认 "SRS.md"
 }
 
 /**

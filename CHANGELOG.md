@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2025-09-08
+
+### Enhanced
+
+- **Traceability Completion Tool**: Major functionality enhancements
+    - **ID Consistency Validation Integration**: Automatically validates SRS-YAML ID consistency before executing traceability relationship calculations
+    - **Unified Quality Reports**: Replaces original summary logs with standardized quality report files
+    - **Enhanced Error Handling**: Continues with subsequent processing even when ID inconsistency issues are found
+    - **Performance Optimization**: Improved execution time statistics and report generation mechanisms
+    - **More Detailed Logging**: Enhanced debugging information and execution status tracking
+
+- **Session Manager**: Core architecture optimization
+    - Added 262 lines of code, significantly enhancing session handling capabilities
+    - Improved project switching and session synchronization mechanisms
+    - Enhanced error recovery and state consistency checking
+    - Optimized session lifecycle management
+
+### Fixed
+
+- **Session Switching Stability**: Fixed multiple issues in the session switching process
+    - Resolved state synchronization problems during project switching
+    - Improved session observer notification mechanisms
+    - Enhanced session recovery reliability
+
 ## [0.5.0] - 2025-09-05
 
 ### Added
