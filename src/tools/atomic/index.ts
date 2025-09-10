@@ -66,8 +66,7 @@ import {
 // 🚀 Phase 1新增：编辑执行工具
 import { executeEditInstructions } from './edit-execution-tools';
 
-// 🚀 Phase 1新增：语义编辑工具
-import { SemanticLocator, SemanticTarget, LocationResult } from './semantic-locator';
+// 🚀 Phase 1新增：语义编辑工具（已废弃的SemanticLocator已删除）
 
 const logger = Logger.getInstance();
 
@@ -296,12 +295,8 @@ export {
 } from './edit-execution-tools';
 
 // 🚀 Phase 1新增：语义编辑基础工具
-export {
-    // 语义定位器
-    SemanticLocator,
-    // 类型定义
-    SemanticTarget, LocationResult
-} from './semantic-locator';
+// 🚨 已删除：过时的SemanticLocator导出
+// 现在请使用 SidBasedSemanticLocator from './sid-based-semantic-locator'
 
 // ============================================================================
 // 📝 使用说明和示例

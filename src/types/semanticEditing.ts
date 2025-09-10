@@ -47,8 +47,8 @@ export interface SemanticTarget {
     
     // 🔄 条件必需：用于行级别操作
     lineRange?: {
-        startLine: number;                  // 目标起始行号（section内相对行号，1-based）
-        endLine: number;                    // 目标结束行号（必需，避免歧义）
+        startLine: number;                  // 目标起始行号（章节内相对行号，1-based，Line 1 = 章节标题后第一行内容）
+        endLine: number;                    // 目标结束行号（章节内相对行号，1-based，必需避免歧义）
     };
     
     // 🔄 条件必需：用于整章节插入
@@ -173,6 +173,18 @@ export interface LocationResult {
         sectionTitle?: string;      // 章节标题
         targetLines?: string[];     // 目标行内容
         lineRange?: { startLine: number; endLine: number }; // 行号范围
+        // 🚀 新增：相对行号到绝对行号的转换信息
+        relativeToAbsolute?: {
+            sectionRelativeStart: number;   // 章节内相对起始行号
+            sectionRelativeEnd: number;     // 章节内相对结束行号
+            documentAbsoluteStart: number;  // 文档绝对起始行号
+            documentAbsoluteEnd: number;    // 文档绝对结束行号
+        };
+        // 🚀 新增：插入操作的行号信息
+        sectionRelativeInsertLine?: number;  // 章节内相对插入行号
+        documentAbsoluteInsertLine?: number; // 文档绝对插入行号
+        // 🚀 新增：替换操作的标识信息
+        includesTitle?: boolean;             // 是否包含章节标题（用于replace_entire_section_with_title）
     };
     error?: string;                 // 错误信息
     suggestions?: {
@@ -188,11 +200,13 @@ export interface LocationResult {
         sectionSummary?: {          // 章节摘要信息
             title?: string;
             totalLines?: number;
+            totalContentLines?: number;  // 章节内容行数（不包括标题）
             availableRange?: string;
         };
         // 🔄 新增字段：字段验证建议
         availablePositions?: string[];  // 可用的插入位置
         availableTypes?: string[];      // 可用的操作类型
+        sectionPreview?: string;        // 章节内容预览（用于相对行号参考）
     };
 }
 

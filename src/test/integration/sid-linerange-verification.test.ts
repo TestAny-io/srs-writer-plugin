@@ -90,9 +90,11 @@ describe('SID + lineRange 精确定位验证', () => {
         expect(result.range).toBeDefined();
         
         if (result.range) {
-            // 用户管理从第11行开始（0-based: 10），第2-4行对应全局的第11-13行
-            expect(result.range.start.line).toBe(11); // 第2行在section内 = 全局第11行
-            expect(result.range.end.line).toBe(13);   // 第4行在section内 = 全局第13行
+            // 🚀 更新：现在使用相对行号系统
+            // 用户管理标题在第11行，内容从第12行开始（0-based: 11）
+            // 相对行号第2-4行对应绝对行号第13-15行（0-based: 12-14）
+            expect(result.range.start.line).toBe(12); // 相对第2行 = 绝对第13行（0-based: 12）
+            expect(result.range.end.line).toBe(14);   // 相对第4行 = 绝对第15行（0-based: 14）
         }
         
         expect(result.context?.sectionTitle).toBe('用户管理');
@@ -109,22 +111,24 @@ describe('SID + lineRange 精确定位验证', () => {
         expect(result.range).toBeDefined();
         
         if (result.range) {
-            // 引言从第3行开始（0-based: 2），第2行对应全局第3行
-            expect(result.range.start.line).toBe(3);
-            expect(result.range.end.line).toBe(3);  // 单行，start = end
+            // 🚀 更新：现在使用相对行号系统  
+            // 引言标题在第3行，内容从第4行开始（0-based: 3）
+            // 相对行号第2行对应绝对行号第5行（0-based: 4）
+            expect(result.range.start.line).toBe(4); // 相对第2行 = 绝对第5行（0-based: 4）
+            expect(result.range.end.line).toBe(4);   // 单行，start = end
         }
     });
 
     test('应该检测超出范围的行号', () => {
         const result = locator.findTarget({
             sid: '/introduction',
-            lineRange: { startLine: 10, endLine: 10 }  // 超出章节范围
+            lineRange: { startLine: 5, endLine: 5 }  // 超出章节范围（引言只有4行内容）
         }, 'replace_lines_in_section');
 
         expect(result.found).toBe(false);
-        expect(result.error).toContain('out of range');
+        expect(result.error).toContain('Section-relative line 5 out of range');
         expect(result.suggestions?.validRange).toBeDefined();
-        expect(result.suggestions?.nearbyLines).toBeDefined();
+        expect(result.suggestions?.sectionPreview).toBeDefined(); // 更新：现在使用sectionPreview而不是nearbyLines
     });
 
     test('应该正确处理整个章节替换', () => {
@@ -137,9 +141,11 @@ describe('SID + lineRange 精确定位验证', () => {
         expect(result.range).toBeDefined();
         
         if (result.range) {
-            // 数据管理从第20行开始，到第22行结束（0-based: 19-21）
-            expect(result.range.start.line).toBe(19);
-            expect(result.range.end.line).toBe(21);
+            // 🚀 更新：现在替换整个章节（包括标题）
+            // 从日志看：数据管理内容在第21-22行，标题在第20行
+            // replaceEntireSection 应该从标题行开始（0-based: 19）到内容结束（0-based: 21）
+            expect(result.range.start.line).toBe(19); // 标题行（第20行，0-based: 19）
+            expect(result.range.end.line).toBe(21);   // 内容结束（第22行，0-based: 21）
         }
     });
 
@@ -154,8 +160,8 @@ describe('SID + lineRange 精确定位验证', () => {
         expect(result.insertionPoint).toBeDefined();
         
         if (result.insertionPoint) {
-            // 功能需求从第9行开始（0-based: 8），第5行对应全局第12行
-            expect(result.insertionPoint.line).toBe(12);
+            // 🚀 更新：功能需求章节内容从第10行开始（0-based: 9），相对第5行对应绝对第14行（0-based: 13）
+            expect(result.insertionPoint.line).toBe(13); // 从日志看：相对第5行转换为绝对第14行（0-based: 13）
         }
     });
 
@@ -183,10 +189,10 @@ describe('SID + lineRange 精确定位验证', () => {
     test('应该处理无效的行号范围', () => {
         const result = locator.findTarget({
             sid: '/introduction',
-            lineRange: { startLine: 5, endLine: 3 }  // endLine < startLine
+            lineRange: { startLine: 2, endLine: 1 }  // endLine < startLine（都在有效范围内）
         }, 'replace_lines_in_section');
 
         expect(result.found).toBe(false);
-        expect(result.error).toContain('Invalid line range');
+        expect(result.error).toContain('Invalid section-relative line range'); // 检查 endLine < startLine 的错误
     });
 });

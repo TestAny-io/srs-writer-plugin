@@ -46,13 +46,34 @@ Based on the tool definitions above, these are the most commonly used tool types
 
 - **Absolutely forbidden** to output any content that is not in JSON format.
 
-## 🆕 `executeMarkdownEdits` - Advanced semantic editing tool usage guide
+## 🆕 `executeMarkdownEdits` - Section-relative line numbers usage guide
 
-- **SID based targeting** - the SID you got from `readMarkdownFile` is the stable section identifier (e.g. `/functional-requirements`), you must use it to locate the target section when you call `executeMarkdownEdits`.
-- **Line number precise targeting** - Use `lineRange` to locate the target section precisely, instead of content matching.
-- **Validation mode** (`validateOnly: true`) - You can validate the edit before actually executing it.
-- **Priority control** (`priority`) - Multiple edit intents can be sorted by priority, and the higher priority intents will be executed first.
-- **Sibling node operation** - You can use `siblingIndex` and `siblingOperation` to locate the target section precisely.
+### 🚨 **CRITICAL: Content Format Rule**
+
+**For `replace_lines_in_section` and `insert_lines_in_section` operations:**
+
+> **🚨 NEVER include section titles (###, ####, #####) in your content!**
+> 
+> Your content should ONLY contain the actual content lines, NOT the title line.
+> 
+> ❌ Wrong: `"##### BR-001\n- Content..."`  
+> ✅ Correct: `"- Content..."`
+
+### 🎯 **Section-relative line numbers explanation**
+
+use **section-relative line numbers**（1-based） for `startLine` and `endLine` in `lineRange`:
+
+- **Line 1**: The first line of content after the section title
+- **Line 2**: The second line of content after the section title
+- **And so on**
+
+### 🚀 **Core features**
+
+- **SID based targeting** - Use `readMarkdownFile` to get the stable section identifier (e.g. `/functional-requirements`)
+- **Section-relative line numbers** - Use section-relative line numbers, more intuitive, less error-prone
+- **🎯 LOWEST LEVEL SID REQUIREMENT** - For line-based operations (`replace_lines_in_section`, `insert_lines_in_section`), you MUST use the deepest/most specific SID available
+- **Validation mode** (`validateOnly: true`) - Can validate the edit operation before actual execution
+- **Priority control** (`priority`) - Multiple edit intents can be sorted by priority
 
 ### 🎯 **Best practices for SID based targeting**
 
@@ -63,31 +84,47 @@ Based on the tool definitions above, these are the most commonly used tool types
 {
   "type": "replace_entire_section_with_title",
   "target": {
-    "sid": "/functional-requirements"
+    "sid": "/functional-requirements" // The lowest level SID
   },
   "content": "New functional requirements content...",
   "reason": "Update functional requirements section",
   "priority": 1
 }
 
+// ✅ Section-relative line replacement example (using LOWEST LEVEL SID)
 {
   "type": "replace_lines_in_section", 
   "target": {
-    "sid": "/functional-requirements/user-management",
+    "sid": "/functional-requirements/user-authentication",  // ✅ LOWEST LEVEL SID - most specific
     "lineRange": {
-      "startLine": 5,
-      "endLine": 8
+      "startLine": 2,
+      "endLine": 4
     }
   },
-  "content": "Updated user management function description...",
-  "reason": "Precise replacement of lines 5-8"
+  "content": "- 密码强度验证\n- 双因子认证支持\n- 生物识别登录",  // ✅ CONTENT ONLY - no title
+  "reason": "Replace lines 2-4 within the user-authentication subsection"
 }
 
-// Insertion operation example
+// ✅ Section-relative line insertion example (using LOWEST LEVEL SID)
+{
+  "type": "insert_lines_in_section",
+  "target": {
+    "sid": "/functional-requirements/user-management/role-permissions",  // ✅ LOWEST LEVEL SID - most specific
+    "lineRange": {
+      "startLine": 3,
+      "endLine": 3
+    }
+  },
+  "content": "- 管理员权限验证\n- 用户角色继承",  // ✅ CONTENT ONLY - no title
+  "reason": "Insert new permission rules at line 3 within role-permissions subsection",
+  "priority": 1
+}
+
+// Entire section insertion example
 {
   "type": "insert_entire_section",
   "target": {
-    "sid": "/functional-requirements",
+    "sid": "/functional-requirements", // The lowest level SID
     "insertionPosition": "after"
   },
   "content": "## Performance requirements\n\nSystem performance requirements...",
@@ -96,11 +133,125 @@ Based on the tool definitions above, these are the most commonly used tool types
 }
 ```
 
+### 🚀 **AI usage suggestions**
+
+1. **Get the table of contents first**: use `readMarkdownFile({ parseMode: 'toc' })` to explore the table of contents of the document
+2. **Read the target section**: use `readMarkdownFile({ parseMode: 'content', targets: [{ type: 'section', sid: '/target-section' }] })` to get the specific content
+3. **🎯 CRITICAL: Always use the LOWEST LEVEL SID for line-based operations**: For `replace_lines_in_section` and `insert_lines_in_section`, you MUST use the most specific (deepest) SID that directly contains the content you want to edit. NEVER use parent-level SIDs when child SIDs exist. This ensures precise targeting and avoids ambiguity.
+4. **🚨 CRITICAL: NEVER include section title in content**: For `replace_lines_in_section` and `insert_lines_in_section`, your content should ONLY contain the actual content lines, NOT the section title (### Title). The title is managed separately by the system.
+5. **Count the relative line number**: count the number of lines to be modified in the section content (from 1, not including the title line)
+6. **No need to calculate the absolute line number**: directly use the relative line number within the section, the system will automatically convert
+
+### 🎯 **SID Selection Rules for Line-Based Operations**
+
+**For `replace_lines_in_section` and `insert_lines_in_section` operations:**
+
+❌ **WRONG - Using parent-level SID:**
+```json
+{
+  "type": "replace_lines_in_section",
+  "target": {
+    "sid": "/functional-requirements",  // ❌ Too broad! This is a parent section
+    "lineRange": { "startLine": 15, "endLine": 17 }  // ❌ Hard to count across subsections
+  }
+}
+```
+
+✅ **CORRECT - Using lowest-level SID:**
+```json
+{
+  "type": "replace_lines_in_section", 
+  "target": {
+    "sid": "/functional-requirements/user-authentication",  // ✅ Most specific SID
+    "lineRange": { "startLine": 2, "endLine": 4 }  // ✅ Easy to count within this specific section
+  }
+}
+```
+
+### 🚨 **CRITICAL REMINDERS**
+
+> **When using `replace_lines_in_section` or `insert_lines_in_section`:**
+> 
+> 🎯 **ALWAYS** use the **DEEPEST/MOST SPECIFIC SID** available!
+> 
+> ✅ Good: `/functional-requirements/user-management/authentication`  
+> ❌ Bad: `/functional-requirements` (too broad)
+> 
+> **This is the #1 cause of line counting errors!**
+
+> **🚨 CONTENT FORMAT CRITICAL RULE:**
+> 
+> **NEVER include the section title in your content for `replace_lines_in_section` or `insert_lines_in_section`!**
+> 
+> ❌ **WRONG - Including title:**
+> ```
+> "content": "#### My Section\n- Content line 1\n- Content line 2"
+> ```
+> 
+> ✅ **CORRECT - Content only:**
+> ```
+> "content": "- Content line 1\n- Content line 2"
+> ```
+> 
+> **If you need to replace the title too, use `replace_entire_section_with_title` instead!**
+
+### 🚨 **COMMON MISTAKES - Learn from these errors!**
+
+#### **❌ MISTAKE #1: Including title in content for line-based operations**
+
+**Wrong example that causes duplicate titles:**
+```json
+{
+  "type": "replace_lines_in_section",
+  "target": {
+    "sid": "/business-rules/br-001",
+    "lineRange": { "startLine": 1, "endLine": 6 }
+  },
+  "content": "##### **BR-001**\n- **规则名称**: Updated rule\n- **描述**: Updated description...",  // ❌ INCLUDES TITLE!
+  "reason": "Update BR-001 rule"
+}
+```
+**Result: Duplicate title!**
+```
+##### **BR-001**        ← Original title (not replaced)
+##### **BR-001**        ← Duplicate from your content!
+- **规则名称**: Updated rule
+- **描述**: Updated description...
+```
+
+**✅ Correct way:**
+```json
+{
+  "type": "replace_lines_in_section",
+  "target": {
+    "sid": "/business-rules/br-001",
+    "lineRange": { "startLine": 1, "endLine": 6 }
+  },
+  "content": "- **规则名称**: Updated rule\n- **描述**: Updated description...",  // ✅ CONTENT ONLY!
+  "reason": "Update BR-001 rule content"
+}
+```
+
+#### **❌ MISTAKE #2: Using wrong operation type**
+
+If you want to replace the title too, use the correct operation:
+```json
+{
+  "type": "replace_entire_section_with_title",  // ✅ CORRECT for title + content
+  "target": {
+    "sid": "/business-rules/br-001"  // No lineRange needed
+  },
+  "content": "##### **BR-001**\n- **规则名称**: Updated rule\n- **描述**: Updated description...",  // ✅ NOW title is OK!
+  "reason": "Replace entire BR-001 section including title"
+}
+```
+
 ### **Common error types**
 
 1. **SID not found**: The provided `sid` is not found in the document.
-2. **Line number out of range**: The line number specified by `lineRange` is out of the section range.
+2. **Section-relative line number out of range**: The line number specified by `lineRange` exceeds the section content lines.
 3. **File not found**: The `targetFile` path is incorrect.
+4. **🚨 Content format error**: Including section title in content for line-based operations.
 
 ## 📝 `readMarkdownFile` - Advanced semantic editing tool usage guide
 
@@ -115,9 +266,12 @@ Before each interaction with the system, please check the following points in yo
 1. [ ] **Is it a JSON?** My output is a complete and correctly formatted JSON object.
 2. [ ] **Did I call the tool?** The outermost layer of the JSON is `{"tool_calls": [{"name": "...", "args": {...}}]}` structure.
 3. [ ] **Do I need to edit the document?** If I need to edit the document, did I call `executeMarkdownEdits`?
-4. [ ] **Is the target SID correct?** Is the `intents[].target.sid` array exactly the same as the hierarchical structure in the document? (This is the most common reason for failure!)
-5. [ ] **Did I complete my task?** If my task is completed, did I choose `HANDOFF_TO_SPECIALIST` in `nextStepType`?
-6. [ ] **Did I handle user interaction?** If I called `askQuestion`, did I check `userResponse` correctly in the next iteration?
-7. [ ] **Are there three consecutive failures in the iteration record with the same reason?** If there are, please think about the reason and try different methods to solve it.
+4. [ ] **Is the target SID correct?** Is the `intents[].target.sid` exactly the same as the hierarchical structure in the document? (This is the most common reason for failure!)
+5. [ ] **🎯 Am I using the LOWEST LEVEL SID?** For `replace_lines_in_section` and `insert_lines_in_section`, did I use the deepest/most specific SID (e.g., `/functional-requirements/user-authentication` instead of `/functional-requirements`)? This is CRITICAL for accurate line counting!
+6. [ ] **🚨 Is my content format correct?** For `replace_lines_in_section` and `insert_lines_in_section`, did I EXCLUDE the section title from my content? My content should start directly with the actual content lines, NOT with "### Title" or "#### Title"!
+7. [ ] **🔄 Am I using the right operation type?** If I need to change the title too, am I using `replace_entire_section_with_title` instead of `replace_lines_in_section`?
+8. [ ] **Did I complete my task?** If my task is completed, did I choose `HANDOFF_TO_SPECIALIST` in `nextStepType`?
+9. [ ] **Did I handle user interaction?** If I called `askQuestion`, did I check `userResponse` correctly in the next iteration?
+10. [ ] **Are there three consecutive failures in the iteration record with the same reason?** If there are, please think about the reason and try different methods to solve it.
 
 ---

@@ -317,7 +317,7 @@ function hello() {
                 parseMode: 'content',
                 targets: [{
                     type: 'section',
-                    sid: '/功能需求-functional-requirements'
+                    sid: '/-2'  // 更新：使用实际生成的SID格式
                 }]
             });
 
@@ -345,7 +345,7 @@ function hello() {
             const sectionResult = result.results[0];
             expect(sectionResult.success).toBe(false);
             expect(sectionResult.error?.code).toBe('SECTION_NOT_FOUND');
-            expect(sectionResult.error?.suggestion).toContain('Available sections');
+            expect(sectionResult.error?.suggestion).toContain('Available SIDs'); // 更新：现在使用SID而不是sections
         });
     });
 

@@ -155,7 +155,7 @@ export async function executeSemanticEdits(
  */
 export const executeMarkdownEditsToolDefinition = {
     name: "executeMarkdownEdits",
-    description: "🔄 Semantic Edit Tool - +Field usage rules: replace_entire_section_with_title requires sid; replace_lines_in_section and insert_lines_in_section require sid+lineRange; insert_entire_section requires sid+insertionPosition",
+    description: "🔄 Semantic Edit Tool - lineRange uses section-relative line numbers (1-based). Field usage rules: replace_entire_section_with_title requires sid; replace_lines_in_section and insert_lines_in_section require sid+lineRange; insert_entire_section requires sid+insertionPosition",
     parameters: {
         type: "object",
         properties: {
@@ -180,22 +180,22 @@ export const executeMarkdownEditsToolDefinition = {
                             properties: {
                                 sid: {
                                     type: "string",
-                                    description: "🎯 Section SID - Must be obtained by calling readMarkdownFile tool first."
+                                    description: "🎯 Section SID - Must be obtained by calling readMarkdownFile tool first. 🚨 CRITICAL: For replace_lines_in_section and insert_lines_in_section, use the LOWEST LEVEL SID (most specific/deepest SID that directly contains your target content)."
                                 },
                                 lineRange: {
                                     type: "object",
                                     properties: {
                                         startLine: {
                                             type: "number",
-                                            description: "Target start line number (absolute line number in document), use the actual line numbers visible in readMarkdownFile output"
+                                            description: "Target start line number (section-relative line number, 1-based). Line 1 is the first line of content within the section (excluding the section title). NEVER count the title line itself."
                                         },
                                         endLine: {
                                             type: "number", 
-                                            description: "Target end line number (absolute line number in document), use the actual line numbers visible in readMarkdownFile output. Required to avoid ambiguity."
+                                            description: "Target end line number (section-relative line number, 1-based). Must be >= startLine. Required to avoid ambiguity. NEVER count the title line itself."
                                         }
                                     },
                                     required: ["startLine", "endLine"],
-                                    description: "🔄 Required for: replace_lines_in_section, insert_lines_in_section. Use absolute line numbers from readMarkdownFile output."
+                                    description: "🔄 Required for: replace_lines_in_section, insert_lines_in_section. Use section-relative line numbers (1-based). Line 1 = first content line after section title."
                                 },
                                 insertionPosition: {
                                     type: "string",
@@ -217,7 +217,7 @@ export const executeMarkdownEditsToolDefinition = {
                         },
                         content: {
                             type: "string",
-                            description: "Content to insert or replace"
+                            description: "Content to insert or replace. 🚨 CRITICAL: For replace_lines_in_section and insert_lines_in_section, do NOT include the section title (e.g., ### Title). Only provide the actual content lines. If you need to replace the title too, use replace_entire_section_with_title instead."
                         },
                         reason: {
                             type: "string",

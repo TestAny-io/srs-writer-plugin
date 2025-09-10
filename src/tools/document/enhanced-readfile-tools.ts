@@ -68,7 +68,7 @@ export interface TextOffset {
  * 树状目录节点 (用于structure和full模式)
  */
 export interface TableOfContentsTreeNode {
-    sid: string;                         // 稳定ID (如: /introduction/system-overview)
+    sid: string;                         // 层级稳定ID (如: /introduction/system-overview)
     displayId: string;                   // 显示ID (如: "1.1")
     title: string;                       // 原始标题
     normalizedTitle: string;             // 规范化标题 (去除编号)
@@ -111,7 +111,7 @@ export interface TableOfContentsToCNode {
  * 向后兼容的目录条目 (保持原有接口以免破坏现有代码)
  */
 export interface TableOfContents {
-    sid: string;                         // 稳定ID (如: /introduction/system-overview)
+    sid: string;                         // 层级稳定ID (如: /introduction/system-overview)
     displayId: string;                   // 显示ID (如: "1.1")
     title: string;                       // 原始标题
     normalizedTitle: string;             // 规范化标题 (去除编号)
@@ -552,8 +552,11 @@ export class StructureAnalyzer {
             // 1. 计算父级路径
             const parentPath = this.calculateParentPath(levelStack, headingLevel);
             
-            // 2. 生成基础slug
-            const baseSlug = this.slugger.slug(normalizedTitle);
+            // 2. 生成基础slug（中文友好）
+            const baseSlug = this.generateChineseFriendlySlug(normalizedTitle);
+            
+            // 🔍 调试：输出slug生成过程（仅在需要时启用）
+            // logger.debug(`🔍 SID生成调试: title="${title}" -> normalizedTitle="${normalizedTitle}" -> baseSlug="${baseSlug}" -> parentPath="${parentPath}"`);
             
             // 3. 计算稳定位置
             const stablePosition = this.calculateStablePosition(parentChildCount, parentPath, normalizedTitle);
@@ -578,10 +581,11 @@ export class StructureAnalyzer {
             
             slugOccurrences.set(slugKey, (slugOccurrences.get(slugKey) || 0) + 1);
             
-            // 5. 更新层级堆栈
-            this.updateLevelStack(levelStack, headingLevel, finalSlug);
+            // 5. 生成层级SID
+            const sid = parentPath && parentPath.length > 0 ? `/${parentPath}/${finalSlug}` : `/${finalSlug}`;
             
-            const sid = `/${finalSlug}`;
+            // 6. 更新层级堆栈
+            this.updateLevelStack(levelStack, headingLevel, finalSlug);
             
             // 计算文本偏移（暂时不包含endLine，将在calculateSectionEndLines后更新）
             const offset = this.calculateTextOffset(pos);
@@ -633,6 +637,40 @@ export class StructureAnalyzer {
             text += textNode.value;
         });
         return text;
+    }
+
+    /**
+     * 🚀 生成中文友好的slug
+     * 解决github-slugger对中文支持不好的问题
+     */
+    private generateChineseFriendlySlug(title: string): string {
+        if (!title || title.trim().length === 0) {
+            return 'untitled';
+        }
+
+        // 1. 基本清理
+        let slug = title.trim();
+        
+        // 2. 转换为小写并处理特殊字符
+        slug = slug
+            .toLowerCase()
+            .replace(/\s+/g, '-')           // 空格转为连字符
+            .replace(/[，。！？；：""''（）【】《》]/g, '-')  // 中文标点转为连字符
+            .replace(/[,\.!\?;:"'()\[\]<>]/g, '-')  // 英文标点转为连字符
+            .replace(/-+/g, '-')            // 多个连字符合并为一个
+            .replace(/^-+|-+$/g, '');       // 去除首尾连字符
+
+        // 3. 如果处理后为空（纯标点），使用github-slugger的fallback
+        if (!slug) {
+            return this.slugger.slug(title) || 'untitled';
+        }
+
+        // 4. 确保不以数字开头（如果是，添加前缀）
+        if (/^\d/.test(slug)) {
+            slug = `section-${slug}`;
+        }
+
+        return slug;
     }
 
     /**
@@ -891,6 +929,10 @@ export class StructureAnalyzer {
     /**
      * 🆕 计算所有章节的结束行号
      * 这是为 executeMarkdownEdits 提供的关键功能
+     * 
+     * 🔧 修复：最后一个heading级别的endLine计算错误
+     * - 原问题：预设错误初始值导致最后一个同级章节无法包含所有子章节
+     * - 修复：默认到文档末尾，只有找到真正边界才缩小范围
      */
     private calculateSectionEndLines(toc: TableOfContents[], totalLines: number): void {
         // 按行号排序，确保顺序处理
@@ -898,33 +940,23 @@ export class StructureAnalyzer {
         
         for (let i = 0; i < sortedToc.length; i++) {
             const currentSection = sortedToc[i];
-            const nextSection = sortedToc[i + 1];
             
-            if (nextSection) {
-                // 找到下一个同级或更高级别的标题
-                let endLine = nextSection.line - 1; // 下一个章节的前一行
+            // ✅ 修复：默认到文档末尾，只有找到真正边界才缩小范围
+            let endLine = totalLines;
+            
+            // 寻找下一个同级或更高级别的标题作为边界
+            for (let j = i + 1; j < sortedToc.length; j++) {
+                const candidateSection = sortedToc[j];
                 
-                // 检查是否有更高级别的标题更早出现
-                for (let j = i + 1; j < sortedToc.length; j++) {
-                    const candidateSection = sortedToc[j];
-                    
-                    // 如果遇到同级或更高级别的标题
-                    if (candidateSection.level <= currentSection.level) {
-                        endLine = candidateSection.line - 1;
-                        break;
-                    }
+                // 如果遇到同级或更高级别的标题，这就是真正的边界
+                if (candidateSection.level <= currentSection.level) {
+                    endLine = candidateSection.line - 1;
+                    break;
                 }
-                
-                currentSection.endLine = endLine;
-            } else {
-                // 最后一个章节，结束行就是文档的最后一行
-                currentSection.endLine = totalLines;
             }
             
-            // 确保 endLine 不小于 startLine
-            if (currentSection.endLine < currentSection.line) {
-                currentSection.endLine = currentSection.line;
-            }
+            // 设置结果，确保不小于起始行
+            currentSection.endLine = Math.max(endLine, currentSection.line);
             
             // 🆕 更新 offset 中的 endLine
             currentSection.offset.utf16.endLine = currentSection.endLine;

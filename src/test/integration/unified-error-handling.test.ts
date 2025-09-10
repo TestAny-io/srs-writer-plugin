@@ -40,13 +40,8 @@ jest.mock('../../tools/atomic/unified-edit-executor', () => ({
     executeUnifiedEdits: jest.fn()
 }));
 
-// 模拟工具相关模块
-jest.mock('../../tools/atomic/semantic-locator', () => ({
-    SemanticLocator: jest.fn().mockImplementation(() => ({
-        findTarget: jest.fn(),
-        getNodeCount: jest.fn().mockReturnValue(0)
-    }))
-}));
+// 🚨 已删除：过时的semantic-locator mock
+// 该文件已被删除，现在使用 SidBasedSemanticLocator
 
 // 模拟其他深层依赖
 jest.mock('../../core/orchestrator/ToolAccessController', () => ({

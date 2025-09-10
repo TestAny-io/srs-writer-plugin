@@ -20,7 +20,7 @@ const logger = Logger.getInstance();
  * 🆕 Phase 2: 完全兼容 readMarkdownFile 输出的章节信息接口
  */
 export interface TableOfContents {
-    sid: string;                         // 稳定ID (如: /introduction/system-overview)
+    sid: string;                         // 层级稳定ID (如: /introduction/system-overview)
     displayId?: string;                  // 显示ID (如: "1.1") - 可选，保持向后兼容
     title: string;                       // 原始标题
     normalizedTitle: string;             // 规范化标题 (去除编号)
@@ -177,7 +177,7 @@ export class SidBasedSemanticLocator {
     }
 
     /**
-     * 🆕 基于行号的精确定位
+     * 🚀 基于相对行号的精确定位 - 将章节内相对行号转换为文档绝对行号
      */
     private findByLineRange(section: SectionNode, lineRange: { startLine: number; endLine?: number }): LocationResult {
         const { startLine, endLine } = lineRange;
@@ -194,36 +194,40 @@ export class SidBasedSemanticLocator {
             };
         }
         
-        // 🆕 验证绝对行号范围（基于整个文档）
-        const totalDocumentLines = this.markdownLines.length;
+        // 🆕 验证相对行号范围（基于章节内容）
+        const sectionContentLines = section.content.length;
         
-        if (startLine < 1 || startLine > totalDocumentLines) {
+        if (startLine < 1 || startLine > sectionContentLines) {
             return {
                 found: false,
-                error: `Line ${startLine} out of range. Document has ${totalDocumentLines} lines.`,
+                error: `Section-relative line ${startLine} out of range. Section "${section.title}" has ${sectionContentLines} content lines.`,
                 suggestions: {
-                    validRange: `1-${totalDocumentLines}`,
-                    hint: `Use absolute line numbers from the document. Section "${section.title}" spans lines ${section.startLine + 1}-${section.endLine + 1}.`
+                    validRange: `1-${sectionContentLines}`,
+                    hint: `Use section-relative line numbers. Line 1 = first content line after section title.`,
+                    sectionPreview: this.generateSectionPreview(section)
                 }
             };
         }
 
-        if (endLine < startLine || endLine > totalDocumentLines) {
+        if (endLine < startLine || endLine > sectionContentLines) {
             return {
                 found: false,
-                error: `Invalid line range: ${startLine}-${endLine}. Document has ${totalDocumentLines} lines.`,
+                error: `Invalid section-relative line range: ${startLine}-${endLine}. Section "${section.title}" has ${sectionContentLines} content lines.`,
                 suggestions: {
-                    validRange: `1-${totalDocumentLines}`,
-                    hint: `Use absolute line numbers from the document. Section "${section.title}" spans lines ${section.startLine + 1}-${section.endLine + 1}.`
+                    validRange: `1-${sectionContentLines}`,
+                    hint: `Use section-relative line numbers. Line ${startLine} is valid, but line ${endLine} exceeds section content.`,
+                    sectionPreview: this.generateSectionPreview(section)
                 }
             };
         }
         
-        // 🆕 直接使用绝对行号（AI提供的就是绝对行号）
-        const globalStartLine = startLine - 1; // 转为0-based索引
-        const globalEndLine = endLine - 1;     // 转为0-based索引
+        // 🚀 关键转换：将相对行号转换为文档绝对行号
+        // section.startLine 是章节内容开始的绝对行号（0-based）
+        // 相对行号 1 对应章节内容的第一行
+        const globalStartLine = section.startLine + (startLine - 1); // 转换为绝对行号（0-based）
+        const globalEndLine = section.startLine + (endLine - 1);     // 转换为绝对行号（0-based）
         
-        logger.info(`✅ Found target at absolute lines ${startLine}-${endLine} (0-based: ${globalStartLine}-${globalEndLine})`);
+        logger.info(`✅ Found target at section-relative lines ${startLine}-${endLine}, converted to absolute lines ${globalStartLine + 1}-${globalEndLine + 1} (0-based: ${globalStartLine}-${globalEndLine})`);
         
         return {
             found: true,
@@ -235,25 +239,36 @@ export class SidBasedSemanticLocator {
             context: {
                 sectionTitle: section.title,
                 targetLines: this.getLines(globalStartLine, globalEndLine),
-                lineRange: { startLine, endLine }
+                lineRange: { startLine, endLine },
+                relativeToAbsolute: { 
+                    sectionRelativeStart: startLine, 
+                    sectionRelativeEnd: endLine,
+                    documentAbsoluteStart: globalStartLine + 1, 
+                    documentAbsoluteEnd: globalEndLine + 1 
+                }
             }
         };
     }
 
     /**
-     * 替换整个章节
+     * 🚀 替换整个章节（包括标题）
      */
     private replaceEntireSection(section: SectionNode): LocationResult {
+        // 🚀 关键修改：replace_entire_section_with_title 应该包括标题行
+        // section.startLine 是内容开始行，我们需要包括标题行
+        const titleLine = section.startLine - 1; // 标题行的绝对行号（0-based）
+        
         return {
             found: true,
             operationType: 'replace',
             range: new vscode.Range(
-                new vscode.Position(section.startLine, 0),
-                new vscode.Position(section.endLine, this.getLineLength(section.endLine))
+                new vscode.Position(titleLine, 0),        // 从标题行开始
+                new vscode.Position(section.endLine, this.getLineLength(section.endLine)) // 到内容结束
             ),
             context: {
                 sectionTitle: section.title,
-                targetLines: this.getLines(section.startLine, section.endLine)
+                targetLines: this.getLines(titleLine, section.endLine), // 包括标题和内容
+                includesTitle: true  // 标记包含标题
             }
         };
     }
@@ -314,32 +329,39 @@ export class SidBasedSemanticLocator {
                     found: false,
                     error: "lineRange is required for insert_lines_in_section operations",
                     suggestions: {
-                        hint: "Specify the exact line number where you want to insert content using lineRange: { startLine: N, endLine: N }",
+                        hint: "Specify the exact section-relative line number where you want to insert content using lineRange: { startLine: N, endLine: N }",
                         sectionSummary: {
                             title: section.title,
-                            totalLines: this.markdownLines.length,
-                            availableRange: `1-${this.markdownLines.length}`
-                        }
+                            totalContentLines: section.content.length,
+                            availableRange: `1-${section.content.length + 1}`
+                        },
+                        sectionPreview: this.generateSectionPreview(section)
                     }
                 };
             }
 
-            // 使用绝对行号进行插入
+            // 🚀 使用相对行号进行插入
             const { startLine } = target.lineRange;
-            const totalDocumentLines = this.markdownLines.length;
+            const sectionContentLines = section.content.length;
 
-            if (startLine < 1 || startLine > totalDocumentLines + 1) {
+            // 插入位置可以是 1 到 sectionContentLines + 1（在最后插入）
+            if (startLine < 1 || startLine > sectionContentLines + 1) {
                 return {
                     found: false,
-                    error: `Insert line ${startLine} out of range. Valid range: 1-${totalDocumentLines + 1}`,
+                    error: `Section-relative insert line ${startLine} out of range. Valid range: 1-${sectionContentLines + 1}`,
                     suggestions: {
-                        validRange: `1-${totalDocumentLines + 1}`,
-                        hint: `Use absolute line numbers from the document. To insert at the end, use line ${totalDocumentLines + 1}.`
+                        validRange: `1-${sectionContentLines + 1}`,
+                        hint: `Use section-relative line numbers. To insert at the end of section content, use line ${sectionContentLines + 1}.`,
+                        sectionPreview: this.generateSectionPreview(section)
                     }
                 };
             }
 
-            const insertionPoint = new vscode.Position(startLine - 1, 0); // 转为0-based索引
+            // 🚀 转换相对行号为绝对行号
+            const globalInsertLine = section.startLine + (startLine - 1); // 转换为绝对行号（0-based）
+            const insertionPoint = new vscode.Position(globalInsertLine, 0);
+
+            logger.info(`✅ Insert at section-relative line ${startLine}, converted to absolute line ${globalInsertLine + 1} (0-based: ${globalInsertLine})`);
 
             return {
                 found: true,
@@ -347,6 +369,8 @@ export class SidBasedSemanticLocator {
                 insertionPoint,
                 context: {
                     sectionTitle: section.title,
+                    sectionRelativeInsertLine: startLine,
+                    documentAbsoluteInsertLine: globalInsertLine + 1,
                     lineRange: target.lineRange
                 }
             };
@@ -364,21 +388,32 @@ export class SidBasedSemanticLocator {
     }
 
     /**
-     * 🆕 Phase 2: 构建 sid -> SectionNode 的直接映射（增强兼容性）
+     * 🚀 构建 sid -> SectionNode 的直接映射（支持相对行号）
      */
     private buildSidMapping(tocData: TableOfContents[]): void {
         for (const section of tocData) {
+            // 计算章节内容行（排除标题行）
+            const sectionTitleLine = section.line - 1; // 转为0-based，标题行
+            const sectionEndLine = this.calculateEndLine(section);
+            
+            // 🚀 关键修改：内容从标题行的下一行开始
+            const contentStartLine = sectionTitleLine + 1; // 跳过标题行，内容开始的绝对行号（0-based）
+            const contentEndLine = sectionEndLine;
+            
+            // 提取章节内容行数组（不包括标题行）
+            const sectionContentLines = this.markdownLines.slice(contentStartLine, contentEndLine + 1);
+            
             const sectionNode: SectionNode = {
                 sid: section.sid,
                 title: section.title,
-                startLine: section.line - 1, // 转为0-based索引
-                endLine: this.calculateEndLine(section),
-                totalLines: this.calculateSectionLines(section),
-                content: this.extractSectionContent(section)
+                startLine: contentStartLine,      // 内容开始的绝对行号（0-based）
+                endLine: contentEndLine,          // 内容结束的绝对行号（0-based）
+                totalLines: sectionContentLines.length,
+                content: sectionContentLines     // 章节内容行数组
             };
             
             this.sidToNodeMap.set(section.sid, sectionNode);
-            logger.debug(`📝 Mapped SID '${section.sid}' -> lines ${sectionNode.startLine}-${sectionNode.endLine} (${sectionNode.totalLines} lines)`);
+            logger.debug(`📝 Mapped SID '${section.sid}' -> content lines ${contentStartLine + 1}-${contentEndLine + 1} (${sectionContentLines.length} content lines, title at ${sectionTitleLine + 1})`);
             
             // 递归处理子章节
             if (section.children && section.children.length > 0) {
@@ -416,13 +451,26 @@ export class SidBasedSemanticLocator {
     }
 
     /**
-     * 提取章节内容
+     * 🚀 提取章节内容（已废弃，现在在buildSidMapping中直接处理）
      */
     private extractSectionContent(section: TableOfContents): string[] {
-        const startLine = section.line - 1; // 转为0-based
-        const endLine = section.endLine ? section.endLine - 1 : startLine;
+        // 这个方法已不再使用，内容提取现在在buildSidMapping中处理
+        return [];
+    }
+
+    /**
+     * 🆕 生成章节预览，帮助AI理解章节内容结构
+     */
+    private generateSectionPreview(section: SectionNode): string {
+        const maxLines = 10; // 最多显示10行
+        const preview = section.content.slice(0, maxLines).map((line, index) => {
+            const lineNumber = index + 1; // 相对行号（1-based）
+            const truncatedLine = line.length > 80 ? line.substring(0, 80) + '...' : line;
+            return `${lineNumber}: ${truncatedLine}`;
+        }).join('\n');
         
-        return this.markdownLines.slice(startLine, endLine + 1);
+        const hasMore = section.content.length > maxLines;
+        return preview + (hasMore ? `\n... (${section.content.length - maxLines} more lines)` : '');
     }
 
     /**
