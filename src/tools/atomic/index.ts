@@ -224,12 +224,12 @@ export function getAtomicToolsStats() {
 
 // 从原始atomicTools.ts重新导出的所有函数名（向后兼容）
 export {
-    // 文件系统操作 (注意：readFile已重构为统一工具，在document层提供)
-    _internalReadFile, writeFile, appendTextToFile, createDirectory, 
+    // 文件系统操作
+    readTextFile, _internalReadFile, writeFile, appendTextToFile, createDirectory, 
     listFiles, deleteFile, moveAndRenameFile, copyAndRenameFile,
     
-    // 文件系统工具定义 (注意：readFileToolDefinition已重构为统一工具)
-    writeFileToolDefinition, appendTextToFileToolDefinition,
+    // 文件系统工具定义
+    readTextFileToolDefinition, writeFileToolDefinition, appendTextToFileToolDefinition,
     createDirectoryToolDefinition, listFilesToolDefinition, deleteFileToolDefinition,
     moveAndRenameFileToolDefinition, copyAndRenameFileToolDefinition
 } from './filesystem-tools';

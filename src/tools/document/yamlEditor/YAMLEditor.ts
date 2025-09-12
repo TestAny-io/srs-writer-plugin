@@ -8,6 +8,7 @@ import * as path from 'path';
 // 🚀 真正复用：直接导入js-yaml，使用与scaffoldGenerator相同的库和配置
 import * as yaml from 'js-yaml';
 import { Logger } from '../../../utils/logger';
+import { resolveWorkspacePath } from '../../../utils/path-resolver';
 import { 
     ExecuteYAMLEditsArgs, 
     ExecuteYAMLEditsResult, 
@@ -194,8 +195,11 @@ export class YAMLEditor {
                 forceQuotes: false      // 不强制引号
             });
 
-            // 解析文件路径（🚀 修复：使用SessionContext的baseDir）
-            const resolvedPath = await this.resolveWorkspacePath(filePath);
+            // 解析文件路径（🚀 使用公共路径解析工具）
+            const resolvedPath = await resolveWorkspacePath(filePath, {
+                errorType: 'scaffold',
+                contextName: 'YAML文件'
+            });
             
             // 确保目录存在
             const dir = path.dirname(resolvedPath);
@@ -222,7 +226,10 @@ export class YAMLEditor {
      */
     private static async createBackup(filePath: string, content: string): Promise<string> {
         try {
-            const resolvedPath = await this.resolveWorkspacePath(filePath);
+            const resolvedPath = await resolveWorkspacePath(filePath, {
+                errorType: 'scaffold',
+                contextName: 'YAML文件'
+            });
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const backupPath = `${resolvedPath}.backup.${timestamp}`;
             
@@ -237,50 +244,5 @@ export class YAMLEditor {
         }
     }
 
-    /**
-     * 🚀 修复：解析相对于项目根目录的绝对路径
-     * 优先使用SessionContext的baseDir，回退到VSCode工作区
-     */
-    private static async resolveWorkspacePath(relativePath: string): Promise<string> {
-        // 如果已经是绝对路径，直接返回
-        if (path.isAbsolute(relativePath)) {
-            logger.info(`🔗 路径解析（绝对路径）: ${relativePath}`);
-            return relativePath;
-        }
-
-        try {
-            // 🚀 优先获取SessionContext的baseDir
-            const { SessionManager } = await import('../../../core/session-manager');
-            const sessionManager = SessionManager.getInstance();
-            const currentSession = await sessionManager.getCurrentSession();
-            
-            if (currentSession?.baseDir) {
-                const absolutePath = path.resolve(currentSession.baseDir, relativePath);
-                logger.info(`🔗 路径解析（使用项目baseDir）: ${relativePath} -> ${absolutePath}`);
-                logger.info(`📂 项目baseDir: ${currentSession.baseDir}`);
-                return absolutePath;
-            } else {
-                logger.warn(`⚠️ SessionContext中没有baseDir，回退到工作区根目录`);
-            }
-        } catch (error) {
-            logger.warn(`⚠️ 获取SessionContext失败，回退到工作区根目录: ${(error as Error).message}`);
-        }
-
-        // 🚀 回退策略：使用VSCode工作区根目录
-        const vscode = require('vscode');
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders || workspaceFolders.length === 0) {
-            throw new ScaffoldError(
-                ScaffoldErrorType.SCHEMA_LOAD_FAILED,
-                '未找到VSCode工作区，无法解析文件路径'
-            );
-        }
-
-        // 使用第一个工作区文件夹作为根目录
-        const workspaceRoot = workspaceFolders[0].uri.fsPath;
-        const absolutePath = path.resolve(workspaceRoot, relativePath);
-
-        logger.info(`🔗 路径解析（回退到工作区根目录）: ${relativePath} -> ${absolutePath}`);
-        return absolutePath;
-    }
+    // 🚀 路径解析现在使用公共工具 resolveWorkspacePath
 } 
