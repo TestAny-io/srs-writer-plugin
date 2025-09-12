@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { Logger } from '../../utils/logger';
 import { CallerType } from '../../types/index';
+import { resolveWorkspacePath, getCurrentWorkspaceFolder } from '../../utils/path-resolver';
 
 /**
  * 文件系统操作工具 - 基于 vscode.workspace.fs API
@@ -57,6 +59,153 @@ export async function _internalReadFile(args: { path: string }): Promise<{ succe
     }
 }
 
+
+/**
+ * 检查文件扩展名是否为支持的文本格式
+ */
+function isSupportedTextFile(filePath: string): boolean {
+    const ext = path.extname(filePath).toLowerCase();
+    const supportedExtensions = [
+        // JSON和配置文件
+        '.json', '.txt', '.csv', '.log', '.ini', '.env', '.gitignore', '.gitattributes',
+        // 代码文件
+        '.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.c', '.cpp', '.h', '.cs',
+        '.php', '.rb', '.go', '.rs', '.swift', '.kt',
+        // 配置和脚本文件
+        '.xml', '.toml', '.properties', '.conf', '.sh', '.bat', '.ps1', '.sql',
+        // Web相关文件
+        '.html', '.htm', '.css', '.scss', '.sass', '.less', '.svg',
+        // 其他文本格式
+        '.lock', '.editorconfig', '.npmrc', '.babelrc', '.eslintrc', '.prettierrc'
+        // 注意：不包含 .md, .markdown, .yaml, .yml - 这些有专门的工具
+    ];
+    
+    return supportedExtensions.includes(ext) || !ext; // 无扩展名的文件也视为文本文件
+}
+
+/**
+ * 读取文本文件内容
+ */
+export const readTextFileToolDefinition = {
+    name: "readTextFile",
+    description: "Read text-based files (JSON, code files, configs, logs). Cannot read binary formats like .docx, .xlsx, .pdf, images. Excludes .md/.yaml/.yml files (use readMarkdownFile/readYAMLFiles instead). Supports .json, .txt, .csv, .log, .js, .ts, .py, .java, .xml, .html, .css, etc.",
+    parameters: {
+        type: "object",
+        properties: {
+            path: {
+                type: "string",
+                description: "File path relative to workspace root"
+            },
+            encoding: {
+                type: "string",
+                description: "File encoding (default: utf-8)",
+                default: "utf-8"
+            }
+        },
+        required: ["path"]
+    },
+    // 🚀 智能分类属性
+    interactionType: 'autonomous',
+    riskLevel: 'low',
+    requiresConfirmation: false,
+    // 🚀 访问控制：文本文件读取是安全查询操作
+    accessibleBy: [
+        CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
+        CallerType.SPECIALIST_CONTENT,
+        CallerType.SPECIALIST_PROCESS,
+        CallerType.DOCUMENT
+    ]
+};
+
+export async function readTextFile(args: { 
+    path: string; 
+    encoding?: string 
+}): Promise<{ 
+    success: boolean; 
+    content?: string; 
+    fileSize?: number;
+    fileType?: string;
+    error?: string 
+}> {
+    try {
+        logger.info(`📖 开始读取文本文件: ${args.path}`);
+
+        // 1. 检查文件扩展名是否为支持的文本格式
+        if (!isSupportedTextFile(args.path)) {
+            const ext = path.extname(args.path).toLowerCase();
+            return { 
+                success: false, 
+                error: `Unsupported file type: ${ext}. This tool only supports text-based files. For binary files like .docx, .xlsx, .pdf, .png, etc., use specialized tools.` 
+            };
+        }
+
+        // 2. 解析文件路径（使用公共路径解析工具，启用存在性检查）
+        const resolvedPath = await resolveWorkspacePath(args.path, { 
+            contextName: '文本文件',
+            checkExistence: true  // 🚀 启用存在性检查，触发智能回退
+        });
+        logger.info(`🔗 解析后的路径: ${resolvedPath}`);
+
+        // 3. 读取文件内容（路径解析已确保文件存在）
+        try {
+            const fs = require('fs/promises');
+            const stat = await fs.stat(resolvedPath);
+            
+            if (!stat.isFile()) {
+                return { 
+                    success: false, 
+                    error: `Path is not a file: ${args.path}` 
+                };
+            }
+
+            // 检查文件大小，避免读取过大的文件
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            if (stat.size > maxSize) {
+                return { 
+                    success: false, 
+                    error: `File too large: ${(stat.size / 1024 / 1024).toFixed(1)}MB. Maximum supported size is 10MB.` 
+                };
+            }
+
+            // 4. 读取文件内容
+            const encoding = args.encoding || 'utf-8';
+            const content = await fs.readFile(resolvedPath, encoding);
+            
+            // 5. 获取文件信息
+            const fileExtension = path.extname(args.path).toLowerCase();
+            const fileType = fileExtension || 'text';
+            
+            logger.info(`✅ 文本文件读取成功: ${args.path} (${content.length} 字符, ${(stat.size / 1024).toFixed(1)}KB)`);
+            
+            return {
+                success: true,
+                content,
+                fileSize: stat.size,
+                fileType: fileType.replace('.', '')
+            };
+
+        } catch (error) {
+            const nodeError = error as NodeJS.ErrnoException;
+            if (nodeError.code === 'EACCES') {
+                return { 
+                    success: false, 
+                    error: `Permission denied: ${args.path}` 
+                };
+            }
+            throw error;
+        }
+
+    } catch (error) {
+        const errorMsg = `文本文件读取失败: ${(error as Error).message}`;
+        logger.error(errorMsg, error as Error);
+        return {
+            success: false,
+            error: errorMsg
+        };
+    }
+}
+
 /**
  * 写入文件内容
  */
@@ -91,14 +240,23 @@ export const writeFileToolDefinition = {
 
 export async function writeFile(args: { path: string; content: string }): Promise<{ success: boolean; error?: string }> {
     try {
-        const workspaceFolder = getCurrentWorkspaceFolder();
-        if (!workspaceFolder) {
-            return { success: false, error: 'No workspace folder is open' };
-        }
-
-        const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, args.path);
-        const contentBytes = new TextEncoder().encode(args.content);
+        let fileUri: vscode.Uri;
         
+        // 🚀 智能路径检测（方案一）
+        if (path.isAbsolute(args.path)) {
+            // 绝对路径：直接使用
+            fileUri = vscode.Uri.file(args.path);
+            logger.info(`🔗 检测到绝对路径: ${args.path}`);
+        } else {
+            // 相对路径：使用公共路径解析工具
+            const resolvedPath = await resolveWorkspacePath(args.path, {
+                contextName: '文件'
+            });
+            fileUri = vscode.Uri.file(resolvedPath);
+            logger.info(`🔗 相对路径解析: ${args.path} -> ${resolvedPath}`);
+        }
+        
+        const contentBytes = new TextEncoder().encode(args.content);
         await vscode.workspace.fs.writeFile(fileUri, contentBytes);
         
         logger.info(`✅ Wrote file: ${args.path} (${args.content.length} chars)`);
@@ -235,14 +393,25 @@ export async function createDirectory(args: {
     projectRegistered?: boolean;
 }> {
     try {
-        const workspaceFolder = getCurrentWorkspaceFolder();
-        if (!workspaceFolder) {
-            return { success: false, error: 'No workspace folder is open' };
-        }
-
-        const dirUri = vscode.Uri.joinPath(workspaceFolder.uri, args.path);
-        await vscode.workspace.fs.createDirectory(dirUri);
+        let dirUri: vscode.Uri;
+        let resolvedDirPath: string;
         
+        // 🚀 智能路径检测（方案一）
+        if (path.isAbsolute(args.path)) {
+            // 绝对路径：直接使用
+            dirUri = vscode.Uri.file(args.path);
+            resolvedDirPath = args.path;
+            logger.info(`🔗 检测到绝对路径: ${args.path}`);
+        } else {
+            // 相对路径：使用公共路径解析工具
+            resolvedDirPath = await resolveWorkspacePath(args.path, {
+                contextName: '目录'
+            });
+            dirUri = vscode.Uri.file(resolvedDirPath);
+            logger.info(`🔗 相对路径解析: ${args.path} -> ${resolvedDirPath}`);
+        }
+        
+        await vscode.workspace.fs.createDirectory(dirUri);
         logger.info(`✅ Created directory: ${args.path}`);
         
         // 🚀 智能项目检测：检测是否是项目目录
@@ -259,7 +428,7 @@ export async function createDirectory(args: {
                 const currentSession = await sessionManager.getCurrentSession();
                 if (!currentSession?.projectName) {
                     const projectName = _extractProjectNameFromPath(args.path);
-                    const baseDir = workspaceFolder.uri.fsPath + '/' + args.path;
+                    const baseDir = resolvedDirPath;  // 🚀 使用解析后的绝对路径
                     
                     if (currentSession) {
                         // 更新现有会话
@@ -325,14 +494,30 @@ export async function listFiles(args: { path: string }): Promise<{
     error?: string 
 }> {
     try {
-        const workspaceFolder = getCurrentWorkspaceFolder();
-        if (!workspaceFolder) {
-            return { success: false, error: 'No workspace folder is open' };
+        let dirUri: vscode.Uri;
+        
+        // 🚀 智能路径检测（方案一）
+        if (args.path === '.') {
+            // 特殊情况：当前工作区根目录
+            const workspaceFolder = getCurrentWorkspaceFolder();
+            if (!workspaceFolder) {
+                return { success: false, error: 'No workspace folder is open' };
+            }
+            dirUri = workspaceFolder.uri;
+            logger.info(`🔗 列出工作区根目录: ${workspaceFolder.uri.fsPath}`);
+        } else if (path.isAbsolute(args.path)) {
+            // 绝对路径：直接使用
+            dirUri = vscode.Uri.file(args.path);
+            logger.info(`🔗 检测到绝对路径: ${args.path}`);
+        } else {
+            // 相对路径：使用公共路径解析工具
+            const resolvedPath = await resolveWorkspacePath(args.path, {
+                contextName: '目录',
+                checkExistence: true
+            });
+            dirUri = vscode.Uri.file(resolvedPath);
+            logger.info(`🔗 相对路径解析: ${args.path} -> ${resolvedPath}`);
         }
-
-        const dirUri = args.path === '.' 
-            ? workspaceFolder.uri 
-            : vscode.Uri.joinPath(workspaceFolder.uri, args.path);
             
         const entries = await vscode.workspace.fs.readDirectory(dirUri);
         const files = entries.map(([name, type]) => ({
@@ -822,16 +1007,7 @@ function _extractProjectNameFromPath(path: string): string {
     return path.replace(/^\/+/, '').split('/').pop() || path;
 }
 
-/**
- * 获取当前工作区文件夹
- */
-function getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        return undefined;
-    }
-    return workspaceFolders[0];
-}
+// 🚀 getCurrentWorkspaceFolder 现在从公共工具导入
 
 /**
  * 🚀 新增：检查目录是否存在
@@ -858,6 +1034,7 @@ export async function checkDirectoryExists(path: string): Promise<boolean> {
 // ============================================================================
 
 export const filesystemToolDefinitions = [
+    readTextFileToolDefinition,
     writeFileToolDefinition,
     appendTextToFileToolDefinition,
     createDirectoryToolDefinition,
@@ -869,6 +1046,7 @@ export const filesystemToolDefinitions = [
 ];
 
 export const filesystemToolImplementations = {
+    readTextFile,
     writeFile,
     appendTextToFile,
     createDirectory,

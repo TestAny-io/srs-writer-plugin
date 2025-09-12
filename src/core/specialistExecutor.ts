@@ -1637,13 +1637,15 @@ SUGGESTED ACTIONS:
         // Content Specialists
         const contentSpecialists = [
             'summary_writer', 'overall_description_writer', 'fr_writer', 
-            'nfr_writer', 'user_journey_writer', 'journey_writer', 'prototype_designer'
+            'nfr_writer', 'user_journey_writer', 'journey_writer', 'prototype_designer',
+            'adc_writer', 'biz_req_and_rule_writer', 'ifr_and_dar_writer', 'use_case_writer', 'user_story_writer'
         ];
         
         // Process Specialists  
         const processSpecialists = [
             'project_initializer',  // 🚀 修复：移到正确的process分类
-            'requirement_syncer', 'document_formatter', 'doc_formatter', 'git_operator'
+            'requirement_syncer', 'document_formatter', 'doc_formatter', 'git_operator',
+            'srs_reviewer'
         ];
         
         if (contentSpecialists.includes(specialistId)) {

@@ -7,6 +7,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { Logger } from '../../../utils/logger';
+import { resolveWorkspacePath } from '../../../utils/path-resolver';
 
 // 🚀 复用：导入现有组件
 import { YAMLReader } from '../yamlEditor/YAMLReader';
@@ -118,7 +119,10 @@ export class TraceabilityCompleter {
     
     try {
       // 🚀 先解析SRS文件路径，与targetFile使用相同的路径解析逻辑
-      const resolvedSrsFile = await this.resolveWorkspacePath(srsFile);
+      const resolvedSrsFile = await resolveWorkspacePath(srsFile, {
+        errorType: 'scaffold',
+        contextName: 'SRS文件'
+      });
       const result = await SRSConsistencyValidator.validateConsistency(resolvedSrsFile, entities);
       
       if (result.consistent) {
@@ -324,7 +328,10 @@ export class TraceabilityCompleter {
     });
     
     // 🚀 复用YAMLReader的路径解析逻辑
-    const resolvedPath = await this.resolveWorkspacePath(filePath);
+    const resolvedPath = await resolveWorkspacePath(filePath, {
+      errorType: 'scaffold',
+      contextName: 'YAML文件'
+    });
     
     // 确保目录存在
     const dir = path.dirname(resolvedPath);
@@ -336,50 +343,7 @@ export class TraceabilityCompleter {
     logger.info(`✅ YAML文件写入成功: ${resolvedPath}`);
   }
   
-  /**
-   * 🚀 复用YAMLReader的路径解析方法
-   * @param relativePath 相对路径
-   * @returns 绝对路径
-   */
-  private async resolveWorkspacePath(relativePath: string): Promise<string> {
-    // 如果已经是绝对路径，直接返回
-    if (path.isAbsolute(relativePath)) {
-      return relativePath;
-    }
-
-    try {
-      // 🚀 优先获取SessionContext的baseDir (与YAMLReader完全相同的逻辑)
-      const { SessionManager } = await import('../../../core/session-manager');
-      const sessionManager = SessionManager.getInstance();
-      const currentSession = await sessionManager.getCurrentSession();
-      
-      if (currentSession?.baseDir) {
-        const absolutePath = path.resolve(currentSession.baseDir, relativePath);
-        logger.info(`🔗 路径解析（使用项目baseDir）: ${relativePath} -> ${absolutePath}`);
-        return absolutePath;
-      } else {
-        logger.warn(`⚠️ SessionContext中没有baseDir，回退到工作区根目录`);
-      }
-    } catch (error) {
-      logger.warn(`⚠️ 获取SessionContext失败，回退到工作区根目录: ${(error as Error).message}`);
-    }
-
-    // 🚀 回退策略：使用VSCode工作区根目录 (与YAMLReader相同)
-    const vscode = require('vscode');
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      throw new ScaffoldError(
-        ScaffoldErrorType.SCHEMA_LOAD_FAILED,
-        '未找到VSCode工作区，无法解析文件路径'
-      );
-    }
-
-    const workspaceRoot = workspaceFolders[0].uri.fsPath;
-    const absolutePath = path.resolve(workspaceRoot, relativePath);
-    
-    logger.info(`🔗 路径解析（回退到工作区根目录）: ${relativePath} -> ${absolutePath}`);
-    return absolutePath;
-  }
+  // 🚀 路径解析现在使用公共工具 resolveWorkspacePath
 
   // writeSummaryLog 方法已被删除，现在使用统一的 writeToQualityReport 方法
   

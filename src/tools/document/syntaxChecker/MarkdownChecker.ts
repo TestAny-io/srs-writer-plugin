@@ -8,6 +8,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 const { lint: markdownlintSync } = require('markdownlint/sync');
 import { Logger } from '../../../utils/logger';
+import { resolveWorkspacePath } from '../../../utils/path-resolver';
 import { ScaffoldError, ScaffoldErrorType } from '../scaffoldGenerator/types';
 import { SyntaxCheckerConfigLoader } from './SyntaxCheckerConfigLoader';
 import { Issue, FileCheckResult, MarkdownConfig } from './types';
@@ -119,7 +120,10 @@ export class MarkdownChecker {
    */
   private async readFileContent(filePath: string): Promise<string> {
     try {
-      const resolvedPath = await this.resolveWorkspacePath(filePath);
+      const resolvedPath = await resolveWorkspacePath(filePath, {
+        errorType: 'scaffold',
+        contextName: 'Markdown文件'
+      });
       const content = await fs.readFile(resolvedPath, 'utf-8');
       
       logger.debug(`📄 File read successfully: ${filePath} (${Buffer.byteLength(content, 'utf-8')} bytes)`);
@@ -133,35 +137,7 @@ export class MarkdownChecker {
     }
   }
   
-  /**
-   * 解析工作区路径
-   * 复用现有的路径解析逻辑
-   */
-  private async resolveWorkspacePath(filePath: string): Promise<string> {
-    try {
-      const { SessionManager } = await import('../../../core/session-manager');
-      const sessionManager = SessionManager.getInstance();
-      const currentSession = await sessionManager.getCurrentSession();
-      
-      if (currentSession?.baseDir) {
-        return path.resolve(currentSession.baseDir, filePath);
-      }
-    } catch (error) {
-      logger.warn(`Failed to get baseDir from session: ${(error as Error).message}`);
-    }
-
-    // 回退到VSCode工作区
-    const vscode = require('vscode');
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      throw new ScaffoldError(
-        ScaffoldErrorType.SCHEMA_LOAD_FAILED,
-        'No workspace base directory found'
-      );
-    }
-
-    return path.resolve(workspaceFolders[0].uri.fsPath, filePath);
-  }
+  // 🚀 路径解析现在使用公共工具 resolveWorkspacePath
   
   /**
    * 转换 markdownlint 问题为统一格式

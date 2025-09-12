@@ -10,6 +10,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { Logger } from '../../utils/logger';
+import { resolveWorkspacePath } from '../../utils/path-resolver';
 import { SmartIntentExecutor } from '../atomic/smart-intent-executor';
 import { 
     SemanticEditIntent, 
@@ -249,48 +250,7 @@ export const executeMarkdownEditsToolDefinition = {
     ]
 };
 
-/**
- * 🚀 智能路径解析：优先使用SessionContext的baseDir，回退到VSCode工作区
- * 复用其他工具的成熟实现模式
- */
-async function resolveWorkspacePath(relativePath: string): Promise<string> {
-    // 如果已经是绝对路径，直接返回
-    if (path.isAbsolute(relativePath)) {
-        logger.info(`🔗 路径解析（绝对路径）: ${relativePath}`);
-        return relativePath;
-    }
-
-    try {
-        // 🚀 优先获取SessionContext的baseDir
-        const { SessionManager } = await import('../../core/session-manager');
-        const sessionManager = SessionManager.getInstance();
-        const currentSession = await sessionManager.getCurrentSession();
-        
-        if (currentSession?.baseDir) {
-            const absolutePath = path.resolve(currentSession.baseDir, relativePath);
-            logger.info(`🔗 路径解析（使用项目baseDir）: ${relativePath} -> ${absolutePath}`);
-            logger.info(`📂 项目baseDir: ${currentSession.baseDir}`);
-            return absolutePath;
-        } else {
-            logger.warn(`⚠️ SessionContext中没有baseDir，回退到工作区根目录`);
-        }
-    } catch (error) {
-        logger.warn(`⚠️ 获取SessionContext失败，回退到工作区根目录: ${(error as Error).message}`);
-    }
-
-    // 🚀 回退策略：使用VSCode工作区根目录
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        throw new Error('未找到VSCode工作区，无法解析文件路径');
-    }
-
-    // 使用第一个工作区文件夹作为根目录
-    const workspaceRoot = workspaceFolders[0].uri.fsPath;
-    const absolutePath = path.resolve(workspaceRoot, relativePath);
-
-    logger.info(`🔗 路径解析（回退到工作区根目录）: ${relativePath} -> ${absolutePath}`);
-    return absolutePath;
-}
+// 🚀 路径解析现在使用公共工具 resolveWorkspacePath
 
 /**
  * 🆕 自包含语义编辑工具实现
@@ -303,8 +263,10 @@ export const semanticEditEngineToolImplementations = {
         logger.info(`🚀 executeMarkdownEdits called with ${params.intents.length} intents for ${params.targetFile}`);
         
         try {
-            // 🔧 修复：正确解析文件路径
-            const resolvedPath = await resolveWorkspacePath(params.targetFile);
+            // 🔧 修复：正确解析文件路径（使用公共路径解析工具）
+            const resolvedPath = await resolveWorkspacePath(params.targetFile, {
+                contextName: 'Markdown文件'
+            });
             const targetUri = vscode.Uri.file(resolvedPath);
             
             logger.debug(`📁 文件路径解析完成: ${params.targetFile} -> ${resolvedPath}`);
