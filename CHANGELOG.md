@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2025-09-12
+
+### Added
+
+- **SRS Reviewer Specialist**: New requirements document quality review expert
+    - **7-Dimensional Quality Assessment Model**: Document structure completeness, requirements completeness, requirements consistency, requirements clarity, technical feasibility, business value, and AI generation quality
+    - **Professional Scoring Standards**: 0-10 point scoring system based on IEEE 830 standards
+    - **Structured Review Reports**: Automatically generates detailed review reports with specific improvement suggestions and itemized scores
+    - **AI Content Professional Assessment**: Specialized detection for AI-generated content issues (hallucination, over-idealization, domain adaptation)
+    - **Dynamic Specialist Registration**: Supports specialist_config configuration format for configurable expert registration mechanism
+
+- **Path Resolver Enhancement**: New intelligent path resolution tool
+    - **Existence Checking**: Automatically validates file and directory path validity
+    - **Smart Path Resolution**: Supports intelligent conversion between relative and absolute paths
+    - **Error Handling Optimization**: Provides detailed path resolution error messages and suggestions
+
+### Enhanced
+
+- **Semantic Edit Engine**: Core functionality optimization
+    - **SID Location Precision Improvement**: Enhanced SID-based semantic location algorithms
+    - **Hierarchical SID Support**: Improved semantic location capabilities for complex document structures
+    - **Relative Line Number Calculation**: Optimized relative line number calculation logic
+    - **Endpoint Line Calculation**: Improved accuracy of edit range endpoint calculations
+
+- **File System Tools**: Feature expansion
+    - **readTextFile Tool Enhancement**: Improved reliability and error handling for text file reading
+    - **Path Resolution Integration**: Integrated new path resolver to enhance file operation stability
+    - **Existence Validation**: Added pre-check mechanism for file and directory existence
+
+- **YAML Editor**: Stability improvements
+    - **Error Handling Optimization**: Improved error handling mechanisms during YAML file editing
+    - **Data Validation Enhancement**: Strengthened validation logic for YAML data structures
+    - **Read/Write Operation Stability**: Enhanced reliability of YAML file read/write operations
+
+### Fixed
+
+- **Semantic Edit Tools**: Multiple bug fixes
+    - **SID Location Errors**: Fixed SID location inaccuracy issues in certain scenarios
+    - **Line Number Calculation Errors**: Fixed boundary condition errors in relative line number calculations
+    - **Edit Range Issues**: Fixed precision problems in semantic edit range calculations
+
 ## [0.5.1] - 2025-09-08
 
 ### Enhanced
