@@ -27,9 +27,9 @@ export const traceabilityCompletionToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      description: {
+      summary: {
         type: "string",
-        description: "Brief description of the purpose of this traceability synchronization and consistency verification (e.g., 'Initialize SRS traceability relationships and verify consistency', 'Update traceability relationships after requirement changes')"
+        description: "Brief summary of the purpose of this traceability synchronization and consistency verification (e.g., 'Initialize SRS traceability relationships and verify consistency', 'Update traceability relationships after requirement changes')"
       },
       targetFile: {
         type: "string", 
@@ -42,7 +42,7 @@ export const traceabilityCompletionToolDefinition = {
         default: "SRS.md"
       }
     },
-    required: ["description"],
+    required: ["summary"],
     additionalProperties: false
   },
   
@@ -69,23 +69,23 @@ export const traceabilityCompletionToolDefinition = {
  * @returns 同步结果
  */
 export async function traceabilityCompletionTool(args: {
-  description: string;
+  summary: string;
   targetFile?: string;
   srsFile?: string;
 }): Promise<TraceabilitySyncResult> {
   try {
-    logger.info(`🔧 追溯性同步请求: ${args.description}`);
+    logger.info(`🔧 追溯性同步请求: ${args.summary}`);
     logger.info(`📁 目标文件: ${args.targetFile || 'requirements.yaml'}`);
     
     // 构建完整参数
     const fullArgs: TraceabilityCompletionArgs = {
-      description: args.description,
+      summary: args.summary,
       targetFile: args.targetFile || 'requirements.yaml',
       srsFile: args.srsFile || 'SRS.md'
     };
     
     // 🚀 记录操作意图（用于调试和追踪）
-    logger.info(`🎯 追溯同步意图: ${fullArgs.description}`);
+    logger.info(`🎯 追溯同步意图: ${fullArgs.summary}`);
     
     // 创建追溯完成器实例并执行
     const completer = new TraceabilityCompleter();

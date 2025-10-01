@@ -39,12 +39,16 @@ jest.mock('../../core/session-manager', () => ({
 
 // Mock fs
 jest.mock('fs/promises', () => ({
-    readFile: jest.fn()
+    readFile: jest.fn(),
+    stat: jest.fn(),
+    access: jest.fn()
 }));
 
 describe('readMarkdownFile baseDir路径解析', () => {
     const mockSessionManager = SessionManager.getInstance as jest.MockedFunction<typeof SessionManager.getInstance>;
     const mockReadFile = fs.readFile as jest.MockedFunction<typeof fs.readFile>;
+    const mockStat = fs.stat as jest.MockedFunction<typeof fs.stat>;
+    const mockAccess = fs.access as jest.MockedFunction<typeof fs.access>;
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -61,9 +65,23 @@ describe('readMarkdownFile baseDir路径解析', () => {
             getCurrentSession: jest.fn().mockResolvedValue(mockSession)
         } as any);
 
+        // Mock文件存在性检查 - 项目目录中存在文件
+        mockAccess.mockImplementation((filePath: any) => {
+            if (filePath === '/project/my-srs-project/docs/README.md') {
+                return Promise.resolve(); // 文件存在
+            }
+            return Promise.reject(new Error('File not found')); // 其他路径不存在
+        });
+
         // Mock文件内容
         const testContent = '# Test Markdown\n\nThis is a test file.';
         mockReadFile.mockResolvedValue(testContent);
+
+        // Mock文件stat信息
+        mockStat.mockResolvedValue({
+            mtime: new Date(),
+            size: testContent.length
+        } as any);
 
         // 调用readMarkdownFile
         const result = await readMarkdownFile({
@@ -92,9 +110,23 @@ describe('readMarkdownFile baseDir路径解析', () => {
             getCurrentSession: jest.fn().mockResolvedValue(mockSession)
         } as any);
 
+        // Mock文件存在性检查 - 工作区根目录中存在文件
+        mockAccess.mockImplementation((filePath: any) => {
+            if (filePath === '/mock/workspace/docs/README.md') {
+                return Promise.resolve(); // 文件存在
+            }
+            return Promise.reject(new Error('File not found')); // 其他路径不存在
+        });
+
         // Mock文件内容
         const testContent = '# Test Markdown\n\nThis is a test file.';
         mockReadFile.mockResolvedValue(testContent);
+
+        // Mock文件stat信息
+        mockStat.mockResolvedValue({
+            mtime: new Date(),
+            size: testContent.length
+        } as any);
 
         // 调用readMarkdownFile
         const result = await readMarkdownFile({
@@ -118,9 +150,23 @@ describe('readMarkdownFile baseDir路径解析', () => {
             getCurrentSession: jest.fn().mockRejectedValue(new Error('Session error'))
         } as any);
 
+        // Mock文件存在性检查 - 工作区根目录中存在文件
+        mockAccess.mockImplementation((filePath: any) => {
+            if (filePath === '/mock/workspace/docs/README.md') {
+                return Promise.resolve(); // 文件存在
+            }
+            return Promise.reject(new Error('File not found')); // 其他路径不存在
+        });
+
         // Mock文件内容
         const testContent = '# Test Markdown\n\nThis is a test file.';
         mockReadFile.mockResolvedValue(testContent);
+
+        // Mock文件stat信息
+        mockStat.mockResolvedValue({
+            mtime: new Date(),
+            size: testContent.length
+        } as any);
 
         // 调用readMarkdownFile
         const result = await readMarkdownFile({
@@ -149,12 +195,26 @@ describe('readMarkdownFile baseDir路径解析', () => {
             getCurrentSession: jest.fn().mockResolvedValue(mockSession)
         } as any);
 
+        // 使用绝对路径调用readMarkdownFile
+        const absolutePath = '/absolute/path/to/file.md';
+
+        // Mock文件存在性检查 - 绝对路径存在文件
+        mockAccess.mockImplementation((filePath: any) => {
+            if (filePath === absolutePath) {
+                return Promise.resolve(); // 文件存在
+            }
+            return Promise.reject(new Error('File not found')); // 其他路径不存在
+        });
+
         // Mock文件内容
         const testContent = '# Test Markdown\n\nThis is a test file.';
         mockReadFile.mockResolvedValue(testContent);
 
-        // 使用绝对路径调用readMarkdownFile
-        const absolutePath = '/absolute/path/to/file.md';
+        // Mock文件stat信息
+        mockStat.mockResolvedValue({
+            mtime: new Date(),
+            size: testContent.length
+        } as any);
         const result = await readMarkdownFile({
             path: absolutePath
         });
@@ -178,6 +238,9 @@ describe('readMarkdownFile baseDir路径解析', () => {
             getCurrentSession: jest.fn().mockResolvedValue(mockSession)
         } as any);
 
+        // Mock文件存在性检查 - 所有路径都不存在文件
+        mockAccess.mockRejectedValue(new Error('File not found'));
+
         // Mock文件不存在错误
         const enoentError = new Error('File not found') as NodeJS.ErrnoException;
         enoentError.code = 'ENOENT';
@@ -190,9 +253,9 @@ describe('readMarkdownFile baseDir路径解析', () => {
 
         // 验证结果
         expect(result.success).toBe(false);
-        expect(result.content).toBe('');
-        expect(result.error).toContain('Markdown文件不存在');
-        expect(result.error).toContain('/project/my-srs-project/docs/nonexistent.md');
+        expect(result.content).toBeUndefined(); // 错误时内容为undefined
+        expect(result.error?.message).toContain('Markdown文件在所有尝试的位置都不存在');
+        expect(result.error?.message).toContain('docs/nonexistent.md');
     });
 
     it('权限错误时应该返回适当的错误信息', async () => {
@@ -206,6 +269,9 @@ describe('readMarkdownFile baseDir路径解析', () => {
             getCurrentSession: jest.fn().mockResolvedValue(mockSession)
         } as any);
 
+        // Mock文件存在性检查 - 所有路径都不存在文件
+        mockAccess.mockRejectedValue(new Error('File not found'));
+
         // Mock权限错误
         const eaccesError = new Error('Permission denied') as NodeJS.ErrnoException;
         eaccesError.code = 'EACCES';
@@ -218,9 +284,9 @@ describe('readMarkdownFile baseDir路径解析', () => {
 
         // 验证结果
         expect(result.success).toBe(false);
-        expect(result.content).toBe('');
-        expect(result.error).toContain('没有权限读取Markdown文件');
-        expect(result.error).toContain('/project/my-srs-project/docs/protected.md');
+        expect(result.content).toBeUndefined(); // 错误时内容为undefined
+        expect(result.error?.message).toContain('Markdown文件在所有尝试的位置都不存在');
+        expect(result.error?.message).toContain('docs/protected.md');
     });
 
     it('结构分析功能应该正常工作', async () => {
@@ -233,6 +299,14 @@ describe('readMarkdownFile baseDir路径解析', () => {
         mockSessionManager.mockReturnValue({
             getCurrentSession: jest.fn().mockResolvedValue(mockSession)
         } as any);
+
+        // Mock文件存在性检查 - 项目目录中存在文件
+        mockAccess.mockImplementation((filePath: any) => {
+            if (filePath === '/project/my-srs-project/docs/structured.md') {
+                return Promise.resolve(); // 文件存在
+            }
+            return Promise.reject(new Error('File not found')); // 其他路径不存在
+        });
 
         // Mock包含多个章节的文件内容
         const testContent = `# Main Title
@@ -248,6 +322,12 @@ More content`;
 
         mockReadFile.mockResolvedValue(testContent);
 
+        // Mock文件stat信息
+        mockStat.mockResolvedValue({
+            mtime: new Date(),
+            size: testContent.length
+        } as any);
+
         // 调用readMarkdownFile with structure analysis
         const result = await readMarkdownFile({
             path: 'docs/structured.md',
@@ -257,7 +337,7 @@ More content`;
         // 验证结果
         expect(result.success).toBe(true);
         expect(result.content).toBe(testContent);
-        expect(result.tableOfContents).toBeDefined();
-        expect(result.tableOfContents!.length).toBeGreaterThan(0);
+        expect(result.tableOfContentsTree).toBeDefined();
+        expect(result.tableOfContentsTree!.length).toBeGreaterThan(0);
     });
 });

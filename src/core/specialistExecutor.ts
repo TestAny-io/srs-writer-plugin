@@ -16,6 +16,7 @@ import { SPECIALIST_TEMPLATE_MAPPINGS, isTemplateConfigSupported, getTemplateCon
 import { TokenAwareHistoryManager } from './history/TokenAwareHistoryManager';
 import { findSpecialistFileWithExtension, getSpecialistFileName } from '../utils/fileExtensions';
 import { SessionLogService } from './SessionLogService';
+import { ThoughtRecordManager } from '../tools/internal/ThoughtRecordManager';
 
 /**
  * 🚀 专家状态恢复接口
@@ -60,6 +61,7 @@ export class SpecialistExecutor {
     private currentContextForStep?: any;   // 🚀 新增：保存当前执行的上下文，用于获取 planId
     private historyManager = new TokenAwareHistoryManager(); // 🚀 新增：Token感知历史管理器
     private sessionLogService = new SessionLogService(); // 🚀 新增：统一会话日志记录服务
+    private thoughtRecordManager = new ThoughtRecordManager(); // 🚀 新增：思考记录管理器
     
     constructor() {
         this.logger.info('🚀 SpecialistExecutor v3.0 initialized - dynamic specialist registry architecture');
@@ -154,6 +156,9 @@ export class SpecialistExecutor {
         // 🆕 保存当前specialist ID和上下文供工具调用使用
         this.currentSpecialistId = specialistId;
         this.currentContextForStep = contextForThisStep;  // 🚀 新增：保存上下文
+
+        // 🚀 新增：专家开始执行时清空思考记录
+        this.thoughtRecordManager.clearThoughts(specialistId);
 
         // 🚀 新增：通知specialist开始工作
         progressCallback?.onSpecialistStart?.(specialistId);
@@ -477,11 +482,24 @@ export class SpecialistExecutor {
                     }
 
                     // 🚀 将工具执行结果添加到历史记录，支持specialist的循环迭代 - 使用智能摘要
-                    const planSummary = aiPlan?.tool_calls?.map((call: any) => this.summarizeToolCall(call)).join('\n') || '无工具调用';
-                    const resultsSummary = toolResults.map(result => this.summarizeToolResult(result)).join('\n');
+                    // 🚀 关键修改：过滤掉recordThought工具调用和结果，避免重复显示
+                    // 🚀 新增：当前迭代总是最新的，显示完整的executeMarkdownEdits和executeYAMLEdits内容
+                    const isLatestIteration = true; // 选项A：当前正在执行的迭代就是最新的
+                    
+                    const planSummary = aiPlan?.tool_calls
+                        ?.map((call: any) => this.summarizeToolCall(call, isLatestIteration))
+                        .filter((summary: string) => summary.trim()) // 过滤空摘要
+                        .join('\n') || '无工具调用';
+                    
+                    const resultsSummary = toolResults
+                        .filter(result => result.toolName !== 'recordThought') // 🚀 过滤掉recordThought
+                        .map(result => this.summarizeToolResult(result, isLatestIteration))
+                        .join('\n');
                     
                     internalHistory.push(`迭代 ${iteration} - AI计划:\n${planSummary}`);
-                    internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsSummary}`);
+                    if (resultsSummary.trim()) { // 只有非空结果才添加
+                        internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsSummary}`);
+                    }
                     
                     // 🚀 修复：成功处理AI响应后才增加迭代次数
                     iteration++;
@@ -629,6 +647,8 @@ export class SpecialistExecutor {
                 iterationInfo,
                 // 🚀 方案一实现：直接将工具schema作为模板变量数据传入
                 TOOLS_JSON_SCHEMA: toolsInfo.jsonSchema,
+                // 🚀 新增：获取格式化的思考记录
+                PREVIOUS_THOUGHTS: this.thoughtRecordManager.getFormattedThoughts(specialistId),
                 // 🚀 新增：添加template文件内容
                 ...templateFiles
             };
@@ -1041,9 +1061,21 @@ ${context.dependentResults?.length > 0
 
     /**
      * 🚀 智能工具调用摘要 - 专门处理臃肿工具的简化显示
+     * @param toolCall 工具调用对象
+     * @param isLatestIteration 是否为最新一轮迭代（最新一轮显示完整内容）
      */
-    private summarizeToolCall(toolCall: { name: string; args: any }): string {
+    private summarizeToolCall(toolCall: { name: string; args: any }, isLatestIteration: boolean = false): string {
         const { name, args } = toolCall;
+        
+        // 🚀 过滤掉recordThought工具调用的摘要显示
+        if (name === 'recordThought') {
+            return ''; // 返回空字符串，不在AI计划中显示
+        }
+        
+        // 🚀 新增：如果是最新一轮迭代，对executeMarkdownEdits和executeYAMLEdits显示完整内容
+        if (isLatestIteration && (name === 'executeMarkdownEdits' || name === 'executeYAMLEdits')) {
+            return `${name}: ${JSON.stringify(args)}`;
+        }
         
         // 对于需要简化的工具，使用 description
         switch (name) {
@@ -1068,9 +1100,16 @@ ${context.dependentResults?.length > 0
     /**
      * 🚀 智能工具结果摘要 - 专门处理臃肿工具的简化显示
      * 🚀 新增：第一层防护 - 单个工具结果的token检查
+     * @param result 工具执行结果对象
+     * @param isLatestIteration 是否为最新一轮迭代（最新一轮显示完整内容）
      */
-    private summarizeToolResult(result: any): string {
+    private summarizeToolResult(result: any, isLatestIteration: boolean = false): string {
         const { toolName, success } = result;
+        
+        // 🚀 新增：如果是最新一轮迭代，对executeMarkdownEdits和executeYAMLEdits显示完整内容
+        if (isLatestIteration && (toolName === 'executeMarkdownEdits' || toolName === 'executeYAMLEdits')) {
+            return `工具: ${toolName}, 成功: ${success}, 结果: ${JSON.stringify(result.result)}`;
+        }
         
         // 只对这两个臃肿工具进行简化显示
         switch (toolName) {
@@ -1109,6 +1148,8 @@ ${context.dependentResults?.length > 0
                 return originalResult;
         }
     }
+
+
 
     /**
      * 🚀 新增：Token估算方法 (修复版本，更准确地估算大文件)
@@ -1165,6 +1206,14 @@ ${context.dependentResults?.length > 0
                     callerType  // 动态确定调用者类型
                 );
                 
+                // 🚀 新增：检查recordThought调用并记录到思考管理器
+                if (toolCall.name === 'recordThought' && executionResult.success) {
+                    this.thoughtRecordManager.recordThought(
+                        this.currentSpecialistId!, 
+                        executionResult.result.thoughtRecord
+                    );
+                }
+
                 results.push({
                     toolName: toolCall.name,
                     success: executionResult.success,    // 👈 现在是真正的业务成功状态！

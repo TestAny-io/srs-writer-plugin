@@ -27,12 +27,12 @@ export const showInformationMessageToolDefinition = {
     parameters: {
         type: "object",
         properties: {
-            message: {
+            content: {
                 type: "string",
                 description: "Information message to display"
             }
         },
-        required: ["message"]
+        required: ["content"]
     },
     // 🚀 访问控制：用户消息显示，不暴露给specialist
     accessibleBy: [
@@ -43,9 +43,9 @@ export const showInformationMessageToolDefinition = {
     ]
 };
 
-export async function showInformationMessage(args: { message: string }): Promise<{ success: boolean }> {
-    vscode.window.showInformationMessage(args.message);
-    logger.info(`✅ Showed info message: ${args.message}`);
+export async function showInformationMessage(args: { content: string }): Promise<{ success: boolean }> {
+    vscode.window.showInformationMessage(args.content);
+    logger.info(`✅ Showed info message: ${args.content}`);
     return { success: true };
 }
 
@@ -58,12 +58,12 @@ export const showWarningMessageToolDefinition = {
     parameters: {
         type: "object",
         properties: {
-            message: {
+            content: {
                 type: "string",
                 description: "Warning message to display"
             }
         },
-        required: ["message"]
+        required: ["content"]
     },
     // 🚀 访问控制：警告消息显示，不暴露给specialist
     accessibleBy: [
@@ -74,9 +74,9 @@ export const showWarningMessageToolDefinition = {
     ]
 };
 
-export async function showWarningMessage(args: { message: string }): Promise<{ success: boolean }> {
-    vscode.window.showWarningMessage(args.message);
-    logger.info(`✅ Showed warning message: ${args.message}`);
+export async function showWarningMessage(args: { content: string }): Promise<{ success: boolean }> {
+    vscode.window.showWarningMessage(args.content);
+    logger.info(`✅ Showed warning message: ${args.content}`);
     return { success: true };
 }
 
@@ -93,7 +93,7 @@ export const askQuestionToolDefinition = {
     parameters: {
         type: "object",
         properties: {
-            question: {
+            content: {
                 type: "string",
                 description: "Question to ask the user"
             },
@@ -102,7 +102,7 @@ export const askQuestionToolDefinition = {
                 description: "Placeholder text for the input box (optional, only used in traditional VSCode mode)"
             }
         },
-        required: ["question"]
+        required: ["content"]
     },
     // 🚀 访问控制：用户交互工具，specialist需要能够询问用户
     accessibleBy: [
@@ -116,7 +116,7 @@ export const askQuestionToolDefinition = {
     requiresConfirmation: false
 };
 
-export async function askQuestion(args: { question: string; placeholder?: string }): Promise<{ 
+export async function askQuestion(args: { content: string; placeholder?: string }): Promise<{ 
     success: boolean; 
     answer?: string; 
     cancelled?: boolean;
@@ -129,27 +129,27 @@ export async function askQuestion(args: { question: string; placeholder?: string
         
         if (inChatEnvironment) {
             // 🚀 Chat环境：返回特殊状态，让聊天系统处理用户交互
-            logger.info(`💬 [CHAT MODE] Requesting user interaction in chat: ${args.question}`);
+            logger.info(`💬 [CHAT MODE] Requesting user interaction in chat: ${args.content}`);
             return {
                 success: true,
                 needsChatInteraction: true,
-                chatQuestion: args.question,
+                chatQuestion: args.content,
                 answer: undefined // 将由聊天系统填充
             };
         } else {
             // 🔄 传统VSCode环境：使用原来的输入框方式
-            logger.info(`🖥️ [VSCODE MODE] Using traditional input box: ${args.question}`);
+            logger.info(`🖥️ [VSCODE MODE] Using traditional input box: ${args.content}`);
             const answer = await vscode.window.showInputBox({
-                prompt: args.question,
+                prompt: args.content,
                 placeHolder: args.placeholder
             });
             
             if (answer === undefined) {
-                logger.info(`❌ User cancelled question: ${args.question}`);
+                logger.info(`❌ User cancelled question: ${args.content}`);
                 return { success: true, cancelled: true };
             }
             
-            logger.info(`✅ User answered question: ${args.question} → ${answer}`);
+            logger.info(`✅ User answered question: ${args.content} → ${answer}`);
             return { success: true, answer };
         }
     } catch (error) {

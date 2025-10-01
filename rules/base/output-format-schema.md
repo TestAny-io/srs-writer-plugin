@@ -87,7 +87,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
     "sid": "/functional-requirements" // The lowest level SID
   },
   "content": "New functional requirements content...",
-  "reason": "Update functional requirements section",
+  "summary": "Update functional requirements section",
   "priority": 1
 }
 
@@ -102,7 +102,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
     }
   },
   "content": "- 密码强度验证\n- 双因子认证支持\n- 生物识别登录",  // ✅ CONTENT ONLY - no title
-  "reason": "Replace lines 2-4 within the user-authentication subsection"
+  "summary": "Replace lines 2-4 within the user-authentication subsection"
 }
 
 // ✅ Section-relative line insertion example (using LOWEST LEVEL SID)
@@ -116,7 +116,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
     }
   },
   "content": "- 管理员权限验证\n- 用户角色继承",  // ✅ CONTENT ONLY - no title
-  "reason": "Insert new permission rules at line 3 within role-permissions subsection",
+  "summary": "Insert new permission rules at line 3 within role-permissions subsection",
   "priority": 1
 }
 
@@ -128,7 +128,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
     "insertionPosition": "after"
   },
   "content": "## Performance requirements\n\nSystem performance requirements...",
-  "reason": "Insert new section after functional requirements",
+  "summary": "Insert new section after functional requirements",
   "priority": 1
 }
 ```
@@ -208,7 +208,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
     "lineRange": { "startLine": 1, "endLine": 6 }
   },
   "content": "##### **BR-001**\n- **规则名称**: Updated rule\n- **描述**: Updated description...",  // ❌ INCLUDES TITLE!
-  "reason": "Update BR-001 rule"
+  "summary": "Update BR-001 rule"
 }
 ```
 **Result: Duplicate title!**
@@ -228,7 +228,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
     "lineRange": { "startLine": 1, "endLine": 6 }
   },
   "content": "- **规则名称**: Updated rule\n- **描述**: Updated description...",  // ✅ CONTENT ONLY!
-  "reason": "Update BR-001 rule content"
+  "summary": "Update BR-001 rule content"
 }
 ```
 
@@ -242,7 +242,7 @@ If you want to replace the title too, use the correct operation:
     "sid": "/business-rules/br-001"  // No lineRange needed
   },
   "content": "##### **BR-001**\n- **规则名称**: Updated rule\n- **描述**: Updated description...",  // ✅ NOW title is OK!
-  "reason": "Replace entire BR-001 section including title"
+  "summary": "Replace entire BR-001 section including title"
 }
 ```
 

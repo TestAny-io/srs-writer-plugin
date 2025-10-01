@@ -13,7 +13,7 @@ export async function exampleCheckProjectDocumentation() {
   
   try {
     const result = await syntaxCheckerTool({
-      description: "Check project documentation syntax and format",
+      summary: "Check project documentation syntax and format",
       files: [
         { path: "SRS.md" },
         { path: "README.md" },
@@ -47,7 +47,7 @@ export async function exampleCheckMixedFileTypes() {
   
   try {
     const result = await syntaxCheckerTool({
-      description: "Check mixed file types with some unsupported formats",
+      summary: "Check mixed file types with some unsupported formats",
       files: [
         { path: "docs/guide.md" },      // 支持
         { path: "config.yaml" },        // 支持
@@ -78,7 +78,7 @@ export async function exampleCheckYAMLOnly() {
   
   try {
     const result = await syntaxCheckerTool({
-      description: "Check YAML configuration files",
+      summary: "Check YAML configuration files",
       files: [
         { path: "requirements.yaml" },
         { path: "config/settings.yml" },

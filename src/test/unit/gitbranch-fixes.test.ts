@@ -165,7 +165,7 @@ describe('Git Branch Fixes', () => {
 
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'test_git_operation_logging'
+                summary: 'test_git_operation_logging'
             });
 
             expect(result.success).toBe(true);
@@ -180,7 +180,7 @@ describe('Git Branch Fixes', () => {
                         toBranch: 'wip',
                         autoCommitCreated: true,
                         autoCommitHash: 'abc123456',
-                        reason: 'project_creation',
+                        summary: 'project_creation',
                         branchCreated: false
                     })
                 })
@@ -199,7 +199,7 @@ describe('Git Branch Fixes', () => {
 
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'test_branch_creation'
+                summary: 'test_branch_creation'
             });
 
             expect(result.success).toBe(true);
@@ -225,7 +225,7 @@ describe('Git Branch Fixes', () => {
 
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'test_no_switch_needed'
+                summary: 'test_no_switch_needed'
             });
 
             expect(result.success).toBe(true);
@@ -273,7 +273,7 @@ describe('Git Branch Fixes', () => {
 
                 const result = await createNewProjectFolder({
                     projectName: 'testproject',
-                    reason: 'test_scenario'
+                    summary: 'test_scenario'
                 });
 
                 expect(result.success).toBe(true);
@@ -305,7 +305,7 @@ describe('Git Branch Fixes', () => {
 
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'test_session_update'
+                summary: 'test_session_update'
             });
 
             expect(result.success).toBe(true);

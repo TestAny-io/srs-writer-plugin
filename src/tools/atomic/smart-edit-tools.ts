@@ -83,7 +83,7 @@ export const findAndReplaceToolDefinition = {
     parameters: {
         type: "object",
         properties: {
-            filePath: {
+            path: {
                 type: "string",
                 description: "File path relative to workspace root (optional, uses active editor if not provided)"
             },
@@ -97,22 +97,25 @@ export const findAndReplaceToolDefinition = {
             },
             isRegex: {
                 type: "boolean",
-                description: "Whether searchPattern is a regular expression (default: false)"
+                description: "Whether searchPattern is a regular expression",
+                default: false
             },
             matchCase: {
                 type: "boolean",
-                description: "Whether to match case (default: false)"
+                description: "Whether to match case",
+                default: false
             },
             replaceAll: {
                 type: "boolean",
-                description: "Whether to replace all occurrences (default: false, replaces only first match)"
+                description: "Whether to replace all occurrences (false = replaces only first match)",
+                default: false
             },
-            changeDescription: {
+            summary: {
                 type: "string",
                 description: "Description of what this change does"
             }
         },
-        required: ["searchPattern", "replacement", "changeDescription"]
+        required: ["searchPattern", "replacement", "summary"]
     },
     // 🚀 智能分类属性
     interactionType: 'autonomous',
@@ -126,13 +129,13 @@ export const findAndReplaceToolDefinition = {
 };
 
 export async function findAndReplace(args: {
-    filePath?: string;
+    path?: string;
     searchPattern: string;
     replacement: string;
     isRegex?: boolean;
     matchCase?: boolean;
     replaceAll?: boolean;
-    changeDescription: string;
+    summary: string;
 }): Promise<{ 
     success: boolean; 
     matchesFound?: number;
@@ -149,15 +152,15 @@ export async function findAndReplace(args: {
         let document: vscode.TextDocument;
         let targetFilePath: string;
         
-        if (args.filePath) {
+        if (args.path) {
             const workspaceFolder = getCurrentWorkspaceFolder();
             if (!workspaceFolder) {
                 return { success: false, error: 'No workspace folder is open' };
             }
-            const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, args.filePath);
+            const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, args.path);
             document = await vscode.workspace.openTextDocument(fileUri);
             await vscode.window.showTextDocument(document);
-            targetFilePath = args.filePath;
+            targetFilePath = args.path;
         } else {
             const activeEditor = vscode.window.activeTextEditor;
             if (!activeEditor) {
@@ -261,7 +264,7 @@ export async function findAndReplace(args: {
             }
         }
 
-        logger.info(`✅ Applied ${replacements.length} replacements: ${args.changeDescription}`);
+        logger.info(`✅ Applied ${replacements.length} replacements: ${args.summary}`);
         return {
             success: true,
             matchesFound: replacements.length,
@@ -286,7 +289,7 @@ export const findInFileToolDefinition = {
     parameters: {
         type: "object",
         properties: {
-            filePath: {
+            path: {
                 type: "string",
                 description: "File path relative to workspace root (optional, uses active editor if not provided)"
             },
@@ -296,19 +299,23 @@ export const findInFileToolDefinition = {
             },
             isRegex: {
                 type: "boolean",
-                description: "Whether searchPattern is a regular expression (default: false)"
+                description: "Whether searchPattern is a regular expression",
+                default: false
             },
             matchCase: {
                 type: "boolean",
-                description: "Whether to match case (default: false)"
+                description: "Whether to match case",
+                default: false
             },
             contextLines: {
                 type: "number",
-                description: "Number of context lines to show around each match (default: 2)"
+                description: "Number of context lines to show around each match",
+                default: 2
             },
             maxResults: {
                 type: "number",
-                description: "Maximum number of matches to return (default: 10)"
+                description: "Maximum number of matches to return",
+                default: 10
             }
         },
         required: ["searchPattern"]
@@ -325,7 +332,7 @@ export const findInFileToolDefinition = {
 };
 
 export async function findInFile(args: {
-    filePath?: string;
+    path?: string;
     searchPattern: string;
     isRegex?: boolean;
     matchCase?: boolean;
@@ -346,12 +353,12 @@ export async function findInFile(args: {
 }> {
     try {
         // 1. 确定目标文件并获取内容
-        if (args.filePath) {
+        if (args.path) {
             const workspaceFolder = getCurrentWorkspaceFolder();
             if (!workspaceFolder) {
                 return { success: false, error: 'No workspace folder is open' };
             }
-            const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, args.filePath);
+            const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, args.path);
             const document = await vscode.workspace.openTextDocument(fileUri);
             await vscode.window.showTextDocument(document);
         } else {
@@ -462,15 +469,18 @@ export const replaceInSelectionToolDefinition = {
             },
             isRegex: {
                 type: "boolean",
-                description: "Whether searchPattern is a regular expression (default: false)"
+                description: "Whether searchPattern is a regular expression",
+                default: false
             },
             matchCase: {
                 type: "boolean",
-                description: "Whether to match case (default: false)"
+                description: "Whether to match case",
+                default: false
             },
             replaceAll: {
                 type: "boolean",
-                description: "Whether to replace all occurrences in selection (default: true)"
+                description: "Whether to replace all occurrences in selection",
+                default: true
             }
         },
         required: ["searchPattern", "replacement"]

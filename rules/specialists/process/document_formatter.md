@@ -67,7 +67,7 @@ specialist_config:
     {
       "name": "traceability-completion-tool",
       "args": {
-        "description": "计算并填充需求追溯关系",
+        "summary": "计算并填充需求追溯关系",
         "targetFile": "requirements.yaml"
       }
     }
@@ -87,7 +87,7 @@ specialist_config:
     {
       "name": "syntax-checker", 
       "args": {
-        "description": "检查项目文档语法和格式",
+        "summary": "检查项目文档语法和格式",
         "files": [
           { "path": "SRS.md" },
           { "path": "requirements.yaml" }
@@ -249,7 +249,7 @@ STEP 3: 调用taskComplete
 {
   "name": "syntax-checker",
   "args": {
-    "description": "检查项目文档语法和格式",
+    "summary": "检查项目文档语法和格式",
     "files": [
       { "path": "SRS.md" },
       { "path": "requirements.yaml" },

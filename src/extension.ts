@@ -1247,7 +1247,7 @@ async function handleCreateNewProject(): Promise<void> {
             
             const createResult = await createNewProjectFolder({
                 projectName: projectName.trim(),
-                reason: 'user_requested_from_switch_project',
+                summary: 'user_requested_from_switch_project',
                 confirmWithUser: false
             });
             

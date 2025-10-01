@@ -74,7 +74,7 @@ non_functional_requirements:
     await fs.writeFile(yamlFilePath, yamlContent);
 
     const args: TraceabilityCompletionArgs = {
-      description: '测试ID一致性验证',
+      summary: '测试ID一致性验证',
       targetFile: yamlFilePath,
       srsFile: srsFilePath
     };
@@ -134,7 +134,7 @@ functional_requirements:
     await fs.writeFile(yamlFilePath, yamlContent);
 
     const args: TraceabilityCompletionArgs = {
-      description: '测试ID不一致情况',
+      summary: '测试ID不一致情况',
       targetFile: yamlFilePath,
       srsFile: srsFilePath
     };
@@ -175,7 +175,7 @@ functional_requirements:
     await fs.writeFile(yamlFilePath, yamlContent);
 
     const args: TraceabilityCompletionArgs = {
-      description: '测试SRS文件缺失情况',
+      summary: '测试SRS文件缺失情况',
       targetFile: yamlFilePath,
       srsFile: path.join(tempDir, 'nonexistent.md')
     };
@@ -216,7 +216,7 @@ functional_requirements:
     await fs.writeFile(yamlFilePath, yamlContent);
 
     const args: TraceabilityCompletionArgs = {
-      description: '测试默认SRS文件名',
+      summary: '测试默认SRS文件名',
       targetFile: yamlFilePath
       // 不指定srsFile，应该使用默认的'SRS.md'
     };
@@ -257,7 +257,7 @@ functional_requirements:
     await fs.writeFile(yamlFilePath, yamlContent);
 
     const args: TraceabilityCompletionArgs = {
-      description: '测试日志记录',
+      summary: '测试日志记录',
       targetFile: yamlFilePath,
       srsFile: srsFilePath
     };
@@ -374,7 +374,7 @@ constraints:
     await fs.writeFile(yamlFilePath, yamlContent);
 
     const args: TraceabilityCompletionArgs = {
-      description: '测试复杂ID类型统计',
+      summary: '测试复杂ID类型统计',
       targetFile: yamlFilePath,
       srsFile: srsFilePath
     };

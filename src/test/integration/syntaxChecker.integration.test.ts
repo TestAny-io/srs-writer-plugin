@@ -67,7 +67,7 @@ _metadata:
   
   it('should check valid markdown and YAML files successfully', async () => {
     const result = await syntaxCheckerTool({
-      description: 'Test valid files',
+      summary: 'Test valid files',
       files: [
         { path: markdownFile },
         { path: yamlFile }
@@ -87,7 +87,7 @@ _metadata:
   
   it('should handle YAML syntax errors', async () => {
     const result = await syntaxCheckerTool({
-      description: 'Test YAML syntax error',
+      summary: 'Test YAML syntax error',
       files: [
         { path: invalidYamlFile }
       ]
@@ -108,7 +108,7 @@ _metadata:
     await fs.writeFile(jsFile, 'console.log("test");');
     
     const result = await syntaxCheckerTool({
-      description: 'Test mixed file types',
+      summary: 'Test mixed file types',
       files: [
         { path: markdownFile },
         { path: jsFile },
@@ -126,7 +126,7 @@ _metadata:
     const nonExistentFile = path.join(tempDir, 'non-existent.md');
     
     const result = await syntaxCheckerTool({
-      description: 'Test file access error',
+      summary: 'Test file access error',
       files: [
         { path: markdownFile },      // 存在的文件
         { path: nonExistentFile }    // 不存在的文件
@@ -145,7 +145,7 @@ _metadata:
   
   it('should handle empty file list', async () => {
     const result = await syntaxCheckerTool({
-      description: 'Test empty file list',
+      summary: 'Test empty file list',
       files: []
     });
     
@@ -168,7 +168,7 @@ _metadata:
     }));
     
     const result = await syntaxCheckerTool({
-      description: 'Test report generation',
+      summary: 'Test report generation',
       files: [
         { path: markdownFile },
         { path: yamlFile }

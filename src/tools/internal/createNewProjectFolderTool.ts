@@ -61,9 +61,9 @@ When to use:
                 type: 'string',
                 description: 'Name for the new project (optional - will be auto-generated if not provided)'
             },
-            reason: {
+            summary: {
                 type: 'string', 
-                description: 'Reason for creating new project (for logging and user feedback)'
+                description: 'Summary for creating new project (for logging and user feedback)'
             },
             confirmWithUser: {
                 type: 'boolean',
@@ -71,7 +71,7 @@ When to use:
                 default: true
             }
         },
-        required: ['reason']
+        required: ['summary']
     },
     // 🚀 访问控制：只有specialist可以创建新项目
     accessibleBy: [
@@ -85,12 +85,12 @@ When to use:
  */
 export async function createNewProjectFolder(args: {
     projectName?: string;
-    reason: string;
+    summary: string;
     confirmWithUser?: boolean;
 }): Promise<CreateNewProjectResult> {
     try {
         logger.info(`🚀 [createNewProjectFolder] Starting new project creation: ${args.projectName || 'auto-generated'}`);
-        logger.info(`🚀 [createNewProjectFolder] Reason: ${args.reason}`);
+        logger.info(`🚀 [createNewProjectFolder] Summary: ${args.summary}`);
 
         // 动态导入 SessionManager 以避免循环依赖
         const { SessionManager } = await import('../../core/session-manager');

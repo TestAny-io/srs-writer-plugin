@@ -82,27 +82,27 @@ specialist_config:
       "name": "createNewProjectFolder",
       "args": {
         "projectName": "项目名称",
-        "reason": "用户要求创建新的需求文档项目"
+        "summary": "用户要求创建新的需求文档项目"
       }
     },
     {
       "name": "writeFile", 
       "args": {
-        "path": "项目名称/SRS.md",
+        "path": "SRS.md",
         "content": "SRS文档初始内容" // 此处需根据执行计划中的language参数与relevant_context字段中提供的章节标题，遵循“重要约束”中的语言一致性要求，创建SRS.md的内容
       }
     },
     {
       "name": "writeFile", 
       "args": {
-        "path": "项目名称/requirements.yaml",
+        "path": "requirements.yaml",
         "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml"
       }
     },
     {
       "name": "createDirectory",
       "args": {
-        "path": "项目名称/prototype"
+        "path": "prototype"
       }
     },
     {
@@ -113,19 +113,19 @@ specialist_config:
         "summary": "项目初始化完成，已创建基础文件结构",
         "deliverables": [
           {
-            "path": "项目名称/SRS.md",
+            "path": "SRS.md",
             "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n"  // 此处需根据执行计划中的language参数与relevant_context字段中提供的章节标题，遵循“重要约束”中的语言一致性要求，创建SRS.md的各章节标题
             "type": "markdown",
             "description": "SRS.md初始内容"
           },
           {
-            "path": "项目名称/requirements.yaml",
+            "path": "requirements.yaml",
             "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml",
             "type": "yaml",
             "description": "requirements.yaml初始模板内容"
           },
           {
-            "path": "项目名称/prototype/",
+            "path": "prototype/",
             "content": "prototype/初始内容",
             "type": "directory",
             "description": "prototype/初始内容"
@@ -146,34 +146,34 @@ specialist_config:
       "name": "createNewProjectFolder",
       "args": {
         "projectName": "项目名称",
-        "reason": "用户要求创建新的需求文档项目"
+        "summary": "用户要求创建新的需求文档项目"
       }
     },
     {
       "name": "copyAndRenameFile",
       "args": {
-        "oldPath": "源草稿路径/源草稿文件名.md",
-        "newPath": "项目名称/source_draft.md"
+        "sourcePath": "源草稿路径/源草稿文件名.md",
+        "targetPath": "项目名称/source_draft.md"
       }
     },
     {
       "name": "writeFile", 
       "args": {
-        "path": "项目名称/SRS.md",
+        "path": "SRS.md",
         "content": "SRS文档初始内容" // 此处需根据执行计划中的language参数与relevant_context字段中提供的章节标题，遵循“重要约束”中的语言一致性要求，创建SRS.md的各章节标题
       }
     },
     {
       "name": "writeFile", 
       "args": {
-        "path": "项目名称/requirements.yaml",
+        "path": "requirements.yaml",
         "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml"
       }
     },
     {
       "name": "createDirectory",
       "args": {
-        "path": "项目名称/prototype"
+        "path": "prototype"
       }
     },
     {
@@ -184,25 +184,25 @@ specialist_config:
         "summary": "项目初始化完成，已创建基础文件结构",
         "deliverables": [
           {
-            "path": "项目名称/source_draft.md",
+            "path": "source_draft.md",
             "content": "源草稿内容",
             "type": "markdown",
             "description": "源草稿内容"
           },
           {
-            "path": "项目名称/SRS.md",
+            "path": "SRS.md",
             "content": "# {{PROJECT_NAME}} - 软件需求规格说明书\n\n> 文档版本: 1.0  \n> 创建日期: {{DATE}}  \n> 最后更新: {{DATE}}  \n"  // 此处需根据执行计划中的language参数与relevant_context字段中提供的章节标题，遵循“重要约束”中的语言一致性要求，创建SRS.md的各章节标题
             "type": "markdown",
             "description": "SRS.md初始内容"
           },
           {
-            "path": "项目名称/requirements.yaml",
+            "path": "requirements.yaml",
             "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml",
             "type": "yaml",
             "description": "requirements.yaml初始模板内容"
           },
           {
-            "path": "项目名称/prototype/",
+            "path": "prototype/",
             "content": "prototype/初始内容",
             "type": "directory",
             "description": "prototype/初始内容"

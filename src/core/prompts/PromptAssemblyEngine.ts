@@ -493,19 +493,27 @@ export class PromptAssemblyEngine {
       .map(key => context[key] || 'Chapter template not available')
       .join('\n\n');
     
+    // 🚀 获取思考记录
+    const previousThoughts = context.PREVIOUS_THOUGHTS || '';
+    
     const structuredPrompt = `You are a ${roleDefinition}. Below is the context information and the task you need to complete. Follow these instructions carefully:
 
 Table of Contents:
 
+0. YOUR PREVIOUS THOUGHTS
 1. SPECIALIST INSTRUCTIONS
 2. CURRENT TASK
 3. LATEST RESPONSE FROM USER
-4. TABLE OF CONTENTS OF CURRENT SRS
+4. TABLE OF CONTENTS OF CURRENT SRS (SRS.md)
 5. TEMPLATE FOR YOUR CHAPTERS
 6. DYNAMIC CONTEXT
 7. GUIDELINES AND SAMPLE OF TOOLS USING
 8. YOUR TOOLS LIST
 9. FINAL INSTRUCTION
+
+**# 0. YOUR PREVIOUS THOUGHTS**
+
+${previousThoughts}
 
 **# 1. SPECIALIST INSTRUCTIONS**
 
@@ -530,7 +538,7 @@ ${context.resumeGuidance.continueInstructions?.join('\n') || 'Continue based on 
 
 **Resume Context**: You were waiting for user input and now the user has responded. Please continue your work based on their response.` : ''}` : 'No user response provided - this is the initial execution.'}
 
-**# 4. TABLE OF CONTENTS OF CURRENT SRS**
+**# 4. TABLE OF CONTENTS OF CURRENT SRS (SRS.md)**
 
 ${context.SRS_TOC || context.CURRENT_SRS_TOC || 'No SRS document structure available - you may be working on a new document or the SRS file could not be located.'}
 

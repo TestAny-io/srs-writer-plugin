@@ -282,16 +282,17 @@ export const appendTextToFileToolDefinition = {
                 type: "string",
                 description: "File path relative to workspace root"
             },
-            textToAppend: {
+            content: {
                 type: "string",
                 description: "Text to append to the file"
             },
             addNewline: {
                 type: "boolean",
-                description: "Whether to add a newline before the text (default: true)"
+                description: "Whether to add a newline before the text",
+                default: true
             }
         },
-        required: ["path", "textToAppend"]
+        required: ["path", "content"]
     },
     // 🚀 智能分类属性
     interactionType: 'confirmation',
@@ -306,7 +307,7 @@ export const appendTextToFileToolDefinition = {
 
 export async function appendTextToFile(args: { 
     path: string; 
-    textToAppend: string; 
+    content: string; 
     addNewline?: boolean 
 }): Promise<{ success: boolean; error?: string }> {
     try {
@@ -331,13 +332,13 @@ export async function appendTextToFile(args: {
         const addNewline = args.addNewline !== false; // 默认为true
         const newContent = existingContent + 
             (addNewline && existingContent && !existingContent.endsWith('\n') ? '\n' : '') + 
-            args.textToAppend;
+            args.content;
         
         // 写入更新后的内容
         const contentBytes = new TextEncoder().encode(newContent);
         await vscode.workspace.fs.writeFile(fileUri, contentBytes);
         
-        logger.info(`✅ Appended ${args.textToAppend.length} chars to: ${args.path}`);
+        logger.info(`✅ Appended ${args.content.length} chars to: ${args.path}`);
         return { success: true };
     } catch (error) {
         const errorMsg = `Failed to append to file ${args.path}: ${(error as Error).message}`;
@@ -403,12 +404,23 @@ export async function createDirectory(args: {
             resolvedDirPath = args.path;
             logger.info(`🔗 检测到绝对路径: ${args.path}`);
         } else {
-            // 相对路径：使用公共路径解析工具
-            resolvedDirPath = await resolveWorkspacePath(args.path, {
-                contextName: '目录'
-            });
+            // 🚀 修复：项目目录创建时强制使用工作区根目录
+            if (args.isProjectDirectory) {
+                // 项目目录：强制使用工作区根目录，避免嵌套路径问题
+                const workspaceFolder = getCurrentWorkspaceFolder();
+                if (!workspaceFolder) {
+                    throw new Error('未找到VSCode工作区，无法创建项目目录');
+                }
+                resolvedDirPath = path.resolve(workspaceFolder.uri.fsPath, args.path);
+                logger.info(`🎯 项目目录路径解析（使用工作区根目录）: ${args.path} -> ${resolvedDirPath}`);
+            } else {
+                // 非项目目录：使用原有的智能路径解析逻辑
+                resolvedDirPath = await resolveWorkspacePath(args.path, {
+                    contextName: '目录'
+                });
+                logger.info(`🔗 相对路径解析: ${args.path} -> ${resolvedDirPath}`);
+            }
             dirUri = vscode.Uri.file(resolvedDirPath);
-            logger.info(`🔗 相对路径解析: ${args.path} -> ${resolvedDirPath}`);
         }
         
         await vscode.workspace.fs.createDirectory(dirUri);
@@ -851,16 +863,16 @@ export const moveAndRenameFileToolDefinition = {
     parameters: {
         type: "object",
         properties: {
-            oldPath: {
+            sourcePath: {
                 type: "string",
                 description: "Current file path relative to workspace root"
             },
-            newPath: {
+            targetPath: {
                 type: "string",
                 description: "New file path relative to workspace root"
             }
         },
-        required: ["oldPath", "newPath"]
+        required: ["sourcePath", "targetPath"]
     },
     // 🚀 智能分类属性
     interactionType: 'confirmation',
@@ -875,22 +887,22 @@ export const moveAndRenameFileToolDefinition = {
     ]
 };
 
-export async function moveAndRenameFile(args: { oldPath: string; newPath: string }): Promise<{ success: boolean; error?: string }> {
+export async function moveAndRenameFile(args: { sourcePath: string; targetPath: string }): Promise<{ success: boolean; error?: string }> {
     try {
         const workspaceFolder = getCurrentWorkspaceFolder();
         if (!workspaceFolder) {
             return { success: false, error: 'No workspace folder is open' };
         }
 
-        const oldUri = vscode.Uri.joinPath(workspaceFolder.uri, args.oldPath);
-        const newUri = vscode.Uri.joinPath(workspaceFolder.uri, args.newPath);
+        const oldUri = vscode.Uri.joinPath(workspaceFolder.uri, args.sourcePath);
+        const newUri = vscode.Uri.joinPath(workspaceFolder.uri, args.targetPath);
         
         await vscode.workspace.fs.rename(oldUri, newUri);
         
-        logger.info(`✅ Renamed: ${args.oldPath} → ${args.newPath}`);
+        logger.info(`✅ Renamed: ${args.sourcePath} → ${args.targetPath}`);
         return { success: true };
     } catch (error) {
-        const errorMsg = `Failed to rename ${args.oldPath} to ${args.newPath}: ${(error as Error).message}`;
+        const errorMsg = `Failed to rename ${args.sourcePath} to ${args.targetPath}: ${(error as Error).message}`;
         logger.error(errorMsg);
         return { success: false, error: errorMsg };
     }

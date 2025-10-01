@@ -34,7 +34,7 @@ user_stories:
   "0":
     id: US-AD-001
     summary: 广告自动高可用展示
-    description:
+    summary:
       - 广告商希望广告页面能自动定时扫描风险并在被标记为风险时自动切换域名，无需人工干预。
     as_a:
       - 微信广告商
@@ -44,7 +44,7 @@ user_stories:
   "1":
     id: US-USER-001
     summary: 用户顺畅访问广告页面
-    description:
+    summary:
       - 观看广告用户希望广告页面能自动规避风险域名，始终顺畅访问，无需技术操作。
     as_a:
       - 观看广告用户
@@ -56,7 +56,7 @@ use_cases:
   "0":
     id: UC-AD-001
     summary: 自动拦截微信风险提示
-    description:
+    summary:
       - 系统在广告商微信端访问广告页面时，自动识别并拦截微信官方弹出的风险提示。
     actor:
       - WeChatAdRiskBypass系统
@@ -67,7 +67,7 @@ use_cases:
 functional_requirements:
   - id: FR-AD-001
     summary: 定时页面状态扫描
-    description:
+    summary:
       - 系统每1分钟自动检测广告页面状态，判断是否被标记为风险
     source_requirements:
       - US-AD-001
@@ -98,7 +98,7 @@ _metadata:
     // 🚀 执行：运行追溯关系同步工具
     const completer = new TraceabilityCompleter();
     const result = await completer.syncFile({
-      description: '测试数据结构修复功能',
+      summary: '测试数据结构修复功能',
       targetFile: testYamlFile
     });
 
@@ -131,7 +131,7 @@ _metadata:
 user_stories:
   - id: US-AD-001
     summary: 广告自动高可用展示
-    description:
+    summary:
       - 广告商希望广告页面能自动定时扫描风险并在被标记为风险时自动切换域名，无需人工干预。
     metadata:
       status: draft
@@ -156,7 +156,7 @@ _metadata:
     // 🚀 执行：运行追溯关系同步工具
     const completer = new TraceabilityCompleter();
     const result = await completer.syncFile({
-      description: '测试标准格式文件处理',
+      summary: '测试标准格式文件处理',
       targetFile: testYamlFile
     });
 
@@ -219,7 +219,7 @@ _metadata:
     // 🚀 执行：运行追溯关系同步工具
     const completer = new TraceabilityCompleter();
     const result = await completer.syncFile({
-      description: '测试混合格式文件处理',
+      summary: '测试混合格式文件处理',
       targetFile: testYamlFile
     });
 
@@ -275,7 +275,7 @@ _metadata:
     // 🚀 执行：运行追溯关系同步工具
     const completer = new TraceabilityCompleter();
     const result = await completer.syncFile({
-      description: '测试边界情况处理',
+      summary: '测试边界情况处理',
       targetFile: testYamlFile
     });
 

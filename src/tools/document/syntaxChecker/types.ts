@@ -72,7 +72,7 @@ export interface SyntaxCheckerConfig {
  * 语法检查参数
  */
 export interface SyntaxCheckArgs {
-  description: string;
+  summary: string;
   files: Array<{ path: string }>;
 }
 

@@ -136,7 +136,7 @@ describe('Path Resolver Existence Check Tests', () => {
 
             await expect(
                 resolveWorkspacePath('totally-non-existent.json', options)
-            ).rejects.toThrow('不存在的文件在所有位置都不存在');
+            ).rejects.toThrow('不存在的文件在所有尝试的位置都不存在: totally-non-existent.json');
         });
 
         it('文件在两个位置都不存在时应该支持scaffold错误类型', async () => {

@@ -48,7 +48,7 @@ export class TraceabilityCompleter {
     const startTime = Date.now();
     
     try {
-      logger.info(`🚀 开始追溯关系同步和ID一致性验证: ${args.description}`);
+      logger.info(`🚀 开始追溯关系同步和ID一致性验证: ${args.summary}`);
       logger.info(`📁 目标文件: ${args.targetFile}`);
       logger.info(`📄 SRS文件: ${args.srsFile || 'SRS.md'}`);
       

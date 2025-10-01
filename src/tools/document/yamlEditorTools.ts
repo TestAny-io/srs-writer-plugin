@@ -69,9 +69,9 @@ export const executeYAMLEditsToolDefinition = {
     parameters: {
         type: "object",
         properties: {
-            description: {
+            summary: {
                 type: "string",
-                description: "Brief description of what this YAML editing operation will accomplish (e.g., 'Update user story priorities in requirements.yaml', 'Add new functional requirements'). Used for history tracking."
+                description: "Brief summary of what this YAML editing operation will accomplish (e.g., 'Update user story priorities in requirements.yaml', 'Add new functional requirements'). Used for history tracking."
             },
             targetFile: {
                 type: "string",
@@ -114,7 +114,7 @@ export const executeYAMLEditsToolDefinition = {
                 default: false
             }
         },
-        required: ["description", "targetFile", "edits"]
+        required: ["summary", "targetFile", "edits"]
     },
             accessibleBy: [
             CallerType.SPECIALIST_CONTENT,
@@ -203,16 +203,16 @@ export async function executeYAMLEdits(args: ExecuteYAMLEditsArgs): Promise<Exec
 export const yamlEditorToolImplementations = {
     readYAMLFiles,
     executeYAMLEdits: async (args: {
-        description: string;
+        summary: string;
         targetFile: string;
         edits: Array<any>;
         createBackup?: boolean;
     }) => {
         // 🚀 记录操作意图（用于调试和追踪）
-        logger.info(`🎯 YAML编辑意图: ${args.description}`);
+        logger.info(`🎯 YAML编辑意图: ${args.summary}`);
         
-        // 调用原有实现，但不传递 description（避免破坏现有接口）
-        const { description, ...originalArgs } = args;
+        // 调用原有实现，但不传递 summary（避免破坏现有接口）
+        const { summary, ...originalArgs } = args;
         return await executeYAMLEdits(originalArgs as ExecuteYAMLEditsArgs);
     }
 };

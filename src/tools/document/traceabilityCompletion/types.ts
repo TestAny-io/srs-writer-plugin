@@ -76,7 +76,7 @@ export interface TraceabilitySyncResult {
  * 追溯完成器参数
  */
 export interface TraceabilityCompletionArgs {
-  description: string;
+  summary: string;
   targetFile: string;
   srsFile?: string;  // 新增：SRS.md文件路径，默认 "SRS.md"
 }

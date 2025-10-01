@@ -8,7 +8,7 @@ describe('taskComplete Tool', () => {
     });
 
     test('should have correct access control', () => {
-      expect(taskCompleteToolDefinition.accessibleBy).toEqual(['specialist']);
+      expect(taskCompleteToolDefinition.accessibleBy).toEqual(['specialist:content', 'specialist:process']);
     });
 
     test('should have required parameters', () => {

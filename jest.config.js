@@ -43,7 +43,8 @@ module.exports = {
     '^unist-util-position$': '<rootDir>/src/test/__mocks__/unist-util-position.ts',
     '^github-slugger$': '<rootDir>/src/test/__mocks__/github-slugger.ts',
     '^minisearch$': '<rootDir>/src/test/__mocks__/minisearch.ts',
-    '^lru-cache$': '<rootDir>/src/test/__mocks__/lru-cache.ts'
+    '^lru-cache$': '<rootDir>/src/test/__mocks__/lru-cache.ts',
+    '^markdownlint$': '<rootDir>/src/test/__mocks__/markdownlint.ts'
   },
   
   // 代码覆盖率

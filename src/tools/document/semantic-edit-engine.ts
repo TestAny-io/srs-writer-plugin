@@ -220,9 +220,9 @@ export const executeMarkdownEditsToolDefinition = {
                             type: "string",
                             description: "Content to insert or replace. 🚨 CRITICAL: For replace_lines_in_section and insert_lines_in_section, do NOT include the section title (e.g., ### Title). Only provide the actual content lines. If you need to replace the title too, use replace_entire_section_with_title instead."
                         },
-                        reason: {
+                        summary: {
                             type: "string",
-                            description: "Reason for executing this edit"
+                            description: "Summary for executing this edit"
                         },
                         priority: {
                             type: "number",
@@ -233,7 +233,7 @@ export const executeMarkdownEditsToolDefinition = {
                             description: "Only validate, do not execute"
                         }
                     },
-                    required: ["type", "target", "content", "reason"]
+                    required: ["type", "target", "content", "summary"]
                 }
             },
             targetFile: {

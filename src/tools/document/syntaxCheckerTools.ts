@@ -24,9 +24,9 @@ export const syntaxCheckerToolDefinition = {
   parameters: {
     type: "object",
     properties: {
-      description: {
+      summary: {
         type: "string",
-        description: "Brief description of the syntax checking purpose (e.g., 'Check project documentation syntax', 'Validate file formats before release')"
+        description: "Brief summary of the syntax checking purpose (e.g., 'Check project documentation syntax', 'Validate file formats before release')"
       },
       files: {
         type: "array",
@@ -44,7 +44,7 @@ export const syntaxCheckerToolDefinition = {
         description: "Array of file objects to check. Tool automatically detects if file is Markdown (.md) or YAML (.yaml/.yml) and skips other formats with warnings."
       }
     },
-    required: ["description", "files"],
+    required: ["summary", "files"],
     additionalProperties: false
   },
   
@@ -71,11 +71,11 @@ export const syntaxCheckerToolDefinition = {
  * @returns 检查结果
  */
 export async function syntaxCheckerTool(args: {
-  description: string;
+  summary: string;
   files: Array<{ path: string }>;
 }): Promise<SyntaxCheckResult> {
   try {
-    logger.info(`🔧 Syntax check request: ${args.description}`);
+    logger.info(`🔧 Syntax check request: ${args.summary}`);
     logger.info(`📁 Files to check: ${args.files.length} files`);
     
     // 记录文件列表
@@ -86,7 +86,7 @@ export async function syntaxCheckerTool(args: {
     // 创建语法检查器实例并执行
     const checker = new SyntaxChecker();
     const result = await checker.checkFiles({
-      description: args.description,
+      summary: args.summary,
       files: args.files
     });
     

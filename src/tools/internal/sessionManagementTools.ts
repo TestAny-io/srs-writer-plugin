@@ -281,7 +281,7 @@ async function archiveLogFile(logFile: UnifiedSessionFile): Promise<void> {
         
         // 🚀 使用atomic层工具移动文件到归档目录
         const currentPath = getCurrentLogFilePath();
-        const renameResult = await moveAndRenameFile({ oldPath: currentPath, newPath: archivePath });
+        const renameResult = await moveAndRenameFile({ sourcePath: currentPath, targetPath: archivePath });
         if (!renameResult.success) {
             throw new Error(renameResult.error || 'Failed to archive file');
         }

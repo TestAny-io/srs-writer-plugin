@@ -28,7 +28,7 @@ export class SyntaxChecker {
     const startTime = Date.now();
     
     try {
-      logger.info(`🚀 Starting syntax check: ${args.description}`);
+      logger.info(`🚀 Starting syntax check: ${args.summary}`);
       
       // 1. 检查工具是否启用
       const config = SyntaxCheckerConfigLoader.loadConfig();

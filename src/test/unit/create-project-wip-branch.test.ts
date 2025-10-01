@@ -101,7 +101,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true);
@@ -132,7 +132,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true);
@@ -161,7 +161,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true);
@@ -191,7 +191,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true);
@@ -223,7 +223,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true); // 项目创建仍然成功
@@ -242,7 +242,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true); // 项目创建仍然成功
@@ -254,7 +254,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true); // 项目创建仍然成功
@@ -272,7 +272,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             // 验证记录了分支切换操作
@@ -289,7 +289,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             // 验证没有记录分支切换操作
@@ -317,7 +317,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true);
@@ -330,7 +330,7 @@ describe('Create Project WIP Branch Defense', () => {
             
             const result = await createNewProjectFolder({
                 projectName: 'testproject',
-                reason: 'user_requested_test'
+                summary: 'user_requested_test'
             });
             
             expect(result.success).toBe(true);
