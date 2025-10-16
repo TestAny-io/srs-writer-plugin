@@ -21,6 +21,17 @@ export interface SpecialistType {
   category: 'content' | 'process';
 }
 
+export interface EnvironmentContext {
+  projectDirectory: string;
+  projectFiles: FileInfo[];
+}
+
+export interface FileInfo {
+  name: string;
+  isDirectory: boolean;
+  relativePath: string;
+}
+
 export interface SpecialistContext {
   userRequirements?: string;
   language?: string;  // 🚀 新增：明确定义language字段，用于指定specialist输出的语言
@@ -177,7 +188,11 @@ export class PromptAssemblyEngine {
       //this.logger.info(`🔍 [PromptAssembly] domain模板已跳过加载`);
       //this.logger.info(`🔍 [PromptAssembly] - domain模板长度: ${domainTemplate.length} 字符`);
       
-      // 🚀 新增步骤3.5：为需要SRS内容的specialist动态加载当前项目SRS内容
+      // 🚀 新增步骤3.5：收集环境感知信息
+      this.logger.info(`📄 [PromptAssembly] 步骤3.5: 收集环境感知信息`);
+      const environmentContext = await this.gatherEnvironmentContext(context);
+      
+      // 🚀 新增步骤3.6：为需要SRS内容的specialist动态加载当前项目SRS内容
       // Content specialist默认需要，某些Process specialist（如requirement_syncer）也需要
       const needsSRSContent = specialistType.category === 'content' || 
                               ['requirement_syncer'].includes(specialistType.name);
@@ -201,8 +216,8 @@ export class PromptAssemblyEngine {
       
       // 🚀 v3.0: 增强配置已在上面创建，这里直接使用
       
-      // 🚀 使用新的模板分组方式调用mergeTemplates
-      const assembledPrompt = this.mergeTemplates(allTemplates, context, enhancedConfig, baseTemplates, contentTemplates);
+      // 🚀 使用新的模板分组方式调用mergeTemplates，传入环境上下文
+      const assembledPrompt = this.mergeTemplates(allTemplates, context, enhancedConfig, baseTemplates, contentTemplates, environmentContext);
       
       // 5. 验证组装结果
       //this.logger.info(`📄 [PromptAssembly] 步骤5: 验证组装结果`);
@@ -434,7 +449,7 @@ export class PromptAssemblyEngine {
    * - 提高specialist对当前项目状态的理解能力
    * - 🚀 v4.0新顺序：专家指令 → 用户任务 → 用户响应 → SRS目录 → 章节模板 → 动态上下文 → 指导原则 → 工具列表 → 最终指令
    */
-  private mergeTemplates(templates: string[], context: SpecialistContext, config?: AssemblyConfig, baseTemplates: string[] = [], contentTemplates: string[] = []): string {
+  private mergeTemplates(templates: string[], context: SpecialistContext, config?: AssemblyConfig, baseTemplates: string[] = [], contentTemplates: string[] = [], environmentContext?: EnvironmentContext): string {
     this.logger.info(`🔧 [PromptAssembly] v3.0 开始结构化合并模板，总数: ${templates.length}`);
     
     // 过滤掉空模板
@@ -560,6 +575,18 @@ ${context.iterationInfo ? `## 🎯 Resource Budget & Strategy
 \`\`\`json
 ${context.projectMetadata ? JSON.stringify(context.projectMetadata, null, 2) : 'No project metadata available'}
 \`\`\`
+
+## 🌍 Environment Context
+
+${environmentContext ? `**Project Directory (Absolute Path)**: \`${environmentContext.projectDirectory}\`
+
+**Project Files (Relative to baseDir)**:
+${environmentContext.projectFiles.length > 0 ? 
+  environmentContext.projectFiles.map(file => 
+    `- ${file.relativePath}${file.isDirectory ? ' (directory)' : ''}`
+  ).join('\n') : 
+  '- No files found in project directory'
+}` : 'Environment context not available'}
 
 ## Current Step
 \`\`\`json
@@ -1095,6 +1122,83 @@ Based on all the instructions and context above, generate a valid JSON object th
 
     // this.logger.info(`📊 [PromptAssembly] 模板统计: ${JSON.stringify(stats, null, 2)}`);
     return stats;
+  }
+
+  /**
+   * 🚀 新增：收集环境感知信息
+   */
+  private async gatherEnvironmentContext(context: SpecialistContext): Promise<EnvironmentContext> {
+    const baseDir = context.projectMetadata?.baseDir;
+    
+    this.logger.info(`🌍 [EnvironmentSensing] 开始收集环境信息`);
+    this.logger.info(`🌍 [EnvironmentSensing] baseDir: ${baseDir}`);
+    
+    if (!baseDir) {
+      this.logger.warn('🌍 [EnvironmentSensing] No baseDir available, using empty environment context');
+      return {
+        projectDirectory: '',
+        projectFiles: []
+      };
+    }
+
+    try {
+      // 获取项目目录文件列表
+      const projectFiles = await this.listDirectoryFiles(baseDir, baseDir);
+      this.logger.info(`🌍 [EnvironmentSensing] 项目目录文件数量: ${projectFiles.length}`);
+      
+      const environmentContext: EnvironmentContext = {
+        projectDirectory: baseDir,
+        projectFiles
+      };
+      
+      this.logger.info(`🌍 [EnvironmentSensing] 环境感知信息收集完成`);
+      return environmentContext;
+      
+    } catch (error) {
+      this.logger.error('🌍 [EnvironmentSensing] 环境信息收集失败', error as Error);
+      return {
+        projectDirectory: baseDir,
+        projectFiles: []
+      };
+    }
+  }
+
+  /**
+   * 🚀 新增：列出指定目录下的所有文件和子目录，生成相对于baseDir的路径
+   */
+  private async listDirectoryFiles(targetDir: string, baseDir: string): Promise<FileInfo[]> {
+    try {
+      const entries = await fs.readdir(targetDir, { withFileTypes: true });
+      const fileInfos: FileInfo[] = [];
+      
+      for (const entry of entries) {
+        // 跳过隐藏文件和特殊目录
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+          continue;
+        }
+        
+        const fullPath = path.join(targetDir, entry.name);
+        const relativePath = path.relative(baseDir, fullPath);
+        
+        fileInfos.push({
+          name: entry.name,
+          isDirectory: entry.isDirectory(),
+          relativePath: './' + relativePath.replace(/\\/g, '/') // 统一使用正斜杠
+        });
+      }
+      
+      // 按名称排序，目录在前
+      fileInfos.sort((a, b) => {
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      return fileInfos;
+    } catch (error) {
+      this.logger.warn(`🌍 [EnvironmentSensing] 无法读取目录: ${targetDir}, 错误: ${(error as Error).message}`);
+      return [];
+    }
   }
 
   /**

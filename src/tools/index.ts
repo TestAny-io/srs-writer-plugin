@@ -71,11 +71,18 @@ import {
     requirementScaffoldToolsCategory 
 } from './document/requirementScaffoldTools';
 
-import {
-    yamlEditorToolDefinitions,
+import { 
+    yamlEditorToolDefinitions, 
     yamlEditorToolImplementations,
-    yamlEditorToolsCategory
+    yamlEditorToolsCategory 
 } from './document/yamlEditorTools';
+
+// Text File Editor Tools
+import {
+    textFileEditorToolDefinitions,
+    textFileEditorToolImplementations,
+    textFileEditorToolsCategory
+} from './document/textFileEditorTools';
 
 import {
     traceabilityCompletionToolDefinitions,
@@ -92,7 +99,7 @@ import {
 
 
 // 导入访问控制类型
-import { CallerType } from '../types/index';
+import { CallerType, CallerName, AccessControl } from '../types/index';
 
 /**
  * 调用指南接口 - AI智能工具使用指导系统
@@ -114,7 +121,7 @@ export interface CallingGuide {
 }
 
 /**
- * 工具定义接口 - v3.0 智能分类增强版 + 分布式访问控制 + AI指导系统
+ * 工具定义接口 - v3.0 智能分类增强版 + 混合访问控制 + AI指导系统
  */
 export interface ToolDefinition {
     name: string;
@@ -124,13 +131,13 @@ export interface ToolDefinition {
     category?: string;
     deprecated?: boolean;
     experimental?: boolean;
-    // 🚀 新增：智能分类属性
+    // 🚀 v2.0: 智能分类属性
     interactionType?: 'autonomous' | 'confirmation' | 'interactive';
     riskLevel?: 'low' | 'medium' | 'high';
     requiresConfirmation?: boolean;
-    // 🚀 新增：分布式访问控制
-    accessibleBy?: CallerType[];
-    // 🚀 新增：AI智能指导系统
+    // 🚀 v3.0: 混合访问控制 - 支持 CallerType 和 CallerName（specialist ID）
+    accessibleBy?: Array<CallerType | CallerName>;
+    // 🚀 v2.0: AI智能指导系统
     callingGuide?: CallingGuide;
 }
 
@@ -262,6 +269,14 @@ class ToolRegistry {
             yamlEditorToolDefinitions,
             yamlEditorToolImplementations,
             yamlEditorToolsCategory,
+            'document'
+        );
+
+        // Text File Editor Tools
+        this.registerToolsFromCategory(
+            textFileEditorToolDefinitions,
+            textFileEditorToolImplementations,
+            textFileEditorToolsCategory,
             'document'
         );
 

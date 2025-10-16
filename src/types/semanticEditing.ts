@@ -5,7 +5,7 @@
  * 支持基于VSCode原生API的精确文档编辑
  * 
  * 重构后的架构：
- * - 4种操作类型：replace_entire_section_with_title, replace_lines_in_section, insert_entire_section, insert_lines_in_section
+ * - 4种操作类型：replace_section_and_title, replace_section_content_only, insert_section_and_title, insert_section_content_only
  * - 核心字段：sectionName, startFromAnchor, targetContent, insertionPosition
  * - startFromAnchor为必需字段，提供精确定位
  * - 搜索范围：前向5行，提高定位精度
@@ -19,15 +19,19 @@ import * as vscode from 'vscode';
 
 /**
  * 语义编辑意图类型枚举
+ * 
+ * 🎯 命名规则：
+ * - *_and_title: 操作包含标题（content 必须包含完整标题）
+ * - *_content_only: 操作仅针对内容（content 不应包含标题）
  */
 export type SemanticEditType = 
-    | 'replace_entire_section_with_title'     // 替换整个章节(包括标题)
-    | 'replace_lines_in_section'   // 替换章节内特定内容
-    | 'insert_entire_section'      // 插入整个章节
-    | 'insert_lines_in_section';   // 插入内容到章节内
+    | 'replace_section_and_title'      // 替换整个章节(包括标题) - content MUST include title
+    | 'replace_section_content_only'   // 替换章节内特定内容(不含标题) - content must NOT include title
+    | 'insert_section_and_title'       // 插入整个章节(包括标题) - content MUST include title
+    | 'insert_section_content_only';   // 插入内容到章节内(不含标题) - content must NOT include title
 
 /**
- * 插入位置枚举 - 🔄 简化：只用于 insert_entire_section
+ * 插入位置枚举 - 🔄 简化：只用于 insert_section_and_title
  */
 export type InsertionPosition = 
     | 'before'    // 在参照章节之前插入
@@ -37,10 +41,10 @@ export type InsertionPosition =
  * 语义目标定位接口 - 🔄 简化字段依赖关系
  * 
  * 字段使用规则：
- * - replace_entire_section_with_title: 只需 sid
- * - replace_lines_in_section: sid + lineRange (必需)
- * - insert_entire_section: sid + insertionPosition (必需)
- * - insert_lines_in_section: sid + lineRange (必需)
+ * - replace_section_and_title: 只需 sid
+ * - replace_section_content_only: sid + lineRange (必需)
+ * - insert_section_and_title: sid + insertionPosition (必需)
+ * - insert_section_content_only: sid + lineRange (必需)
  */
 export interface SemanticTarget {
     sid: string;                            // Section ID，来自 readMarkdownFile（必需）
@@ -184,7 +188,7 @@ export interface LocationResult {
         sectionRelativeInsertLine?: number;  // 章节内相对插入行号
         documentAbsoluteInsertLine?: number; // 文档绝对插入行号
         // 🚀 新增：替换操作的标识信息
-        includesTitle?: boolean;             // 是否包含章节标题（用于replace_entire_section_with_title）
+        includesTitle?: boolean;             // 是否包含章节标题（用于replace_section_and_title）
     };
     error?: string;                 // 错误信息
     suggestions?: {
@@ -360,10 +364,10 @@ export interface DocumentAnalysisOptions {
  * 支持四种核心操作类型
  */
 export type SemanticEditOperation = 
-    | { type: 'replace_entire_section_with_title'; target: SemanticTarget; content: string; }
-    | { type: 'replace_lines_in_section'; target: SemanticTarget; content: string; }
-    | { type: 'insert_entire_section'; target: SemanticTarget; content: string; }
-    | { type: 'insert_lines_in_section'; target: SemanticTarget; content: string; };
+    | { type: 'replace_section_and_title'; target: SemanticTarget; content: string; }
+    | { type: 'replace_section_content_only'; target: SemanticTarget; content: string; }
+    | { type: 'insert_section_and_title'; target: SemanticTarget; content: string; }
+    | { type: 'insert_section_content_only'; target: SemanticTarget; content: string; };
 
 /**
  * 位置类型联合

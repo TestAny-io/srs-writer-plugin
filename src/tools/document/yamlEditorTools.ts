@@ -31,7 +31,7 @@ export const readYAMLFilesToolDefinition = {
         properties: {
             path: {
                 type: "string",
-                description: "YAML file path relative to workspace root (must be .yaml or .yml)"
+                description: "YAML file path relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Must be .yaml or .yml file. Example: 'requirements.yaml' not 'projectName/requirements.yaml'"
             },
             includeStructure: {
                 type: "boolean",
@@ -75,7 +75,7 @@ export const executeYAMLEditsToolDefinition = {
             },
             targetFile: {
                 type: "string",
-                description: "Path to the target YAML file (relative to workspace root, must be .yaml or .yml)"
+                description: "Path to the target YAML file relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Must be .yaml or .yml file. Example: 'requirements.yaml' not 'projectName/requirements.yaml'"
             },
             edits: {
                 type: "array",

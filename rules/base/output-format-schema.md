@@ -25,7 +25,7 @@ Based on the tool definitions above, these are the most commonly used tool types
 
 - **Think**: `recordThought`
 - **File operations**: `readMarkdownFile`, `executeMarkdownEdits`, `readYAMLFile`, `executeYAMLEdits`
-- **Environment awareness**: `listAllFiles`, `listFiles` etc.
+- **Environment awareness**: `listFiles` etc.
 - **Task management**: `taskComplete` (must be used when complete)
 - **Knowledge retrieval**: `readLocalKnowledge`
 - **User interaction**: `askQuestion`
@@ -48,16 +48,31 @@ Based on the tool definitions above, these are the most commonly used tool types
 
 ## 🆕 `executeMarkdownEdits` - Section-relative line numbers usage guide
 
-### 🚨 **CRITICAL: Content Format Rule**
+### 🚨 **CRITICAL: Content Format Rules - BY OPERATION TYPE**
 
-**For `replace_lines_in_section` and `insert_lines_in_section` operations:**
+**🎯 The operation name tells you what to do with the title:**
 
-> **🚨 NEVER include section titles (###, ####, #####) in your content!**
+#### ✅ **For `*_and_title` operations** (replace_section_and_title, insert_section_and_title):
+
+> **✅ MUST include the complete section title in your content!**
+> 
+> Your content MUST start with the section title (###, ####, #####), then the content.
+> 
+> ✅ Correct: `"#### NFR-PERF-001: Title\n- Content..."`  
+> ❌ Wrong: `"- Content..."` (missing title!)
+
+#### ❌ **For `*_content_only` operations** (replace_section_content_only, insert_section_content_only):
+
+> **❌ NEVER include section titles in your content!**
 > 
 > Your content should ONLY contain the actual content lines, NOT the title line.
 > 
-> ❌ Wrong: `"##### BR-001\n- Content..."`  
-> ✅ Correct: `"- Content..."`
+> ✅ Correct: `"- Content..."`  
+> ❌ Wrong: `"#### Title\n- Content..."` (includes title!)
+
+**💡 Memory Tip**: The operation name tells you everything:
+- `*_and_title` = include title in content
+- `*_content_only` = exclude title from content
 
 ### 🎯 **Section-relative line numbers explanation**
 
@@ -71,7 +86,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
 
 - **SID based targeting** - Use `readMarkdownFile` to get the stable section identifier (e.g. `/functional-requirements`)
 - **Section-relative line numbers** - Use section-relative line numbers, more intuitive, less error-prone
-- **🎯 LOWEST LEVEL SID REQUIREMENT** - For line-based operations (`replace_lines_in_section`, `insert_lines_in_section`), you MUST use the deepest/most specific SID available
+- **🎯 LOWEST LEVEL SID REQUIREMENT** - For content-only operations (`replace_section_content_only`, `insert_section_content_only`), you MUST use the deepest/most specific SID available
 - **Validation mode** (`validateOnly: true`) - Can validate the edit operation before actual execution
 - **Priority control** (`priority`) - Multiple edit intents can be sorted by priority
 
@@ -80,20 +95,20 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
 #### ✅ Correct examples (Please note that these examples are only to help you understand how to use the tools, and do not mean that you must follow these examples to complete the task. You should use the tools flexibly according to the task requirements and the characteristics of each tool.)
 
 ```json
-// Simple section replacement
+// ✅ Example 1: Replace entire section INCLUDING title
 {
-  "type": "replace_entire_section_with_title",
+  "type": "replace_section_and_title",
   "target": {
-    "sid": "/functional-requirements" // The lowest level SID
+    "sid": "/non-functional-requirements/nfr-perf-001"
   },
-  "content": "New functional requirements content...",
-  "summary": "Update functional requirements section",
+  "content": "#### NFR-PERF-001: System Response Time\n\n- **描述**: 系统必须在500ms内响应\n- **指标**: 响应时间\n- **目标值**: ≤ 500ms",
+  "summary": "Update NFR-PERF-001 with complete title and content",
   "priority": 1
 }
 
-// ✅ Section-relative line replacement example (using LOWEST LEVEL SID)
+// ✅ Example 2: Replace section content EXCLUDING title (using LOWEST LEVEL SID)
 {
-  "type": "replace_lines_in_section", 
+  "type": "replace_section_content_only", 
   "target": {
     "sid": "/functional-requirements/user-authentication",  // ✅ LOWEST LEVEL SID - most specific
     "lineRange": {
@@ -105,9 +120,9 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
   "summary": "Replace lines 2-4 within the user-authentication subsection"
 }
 
-// ✅ Section-relative line insertion example (using LOWEST LEVEL SID)
+// ✅ Example 3: Insert content EXCLUDING title (using LOWEST LEVEL SID)
 {
-  "type": "insert_lines_in_section",
+  "type": "insert_section_content_only",
   "target": {
     "sid": "/functional-requirements/user-management/role-permissions",  // ✅ LOWEST LEVEL SID - most specific
     "lineRange": {
@@ -120,15 +135,15 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
   "priority": 1
 }
 
-// Entire section insertion example
+// ✅ Example 4: Insert entire section INCLUDING title
 {
-  "type": "insert_entire_section",
+  "type": "insert_section_and_title",
   "target": {
-    "sid": "/functional-requirements", // The lowest level SID
+    "sid": "/functional-requirements",
     "insertionPosition": "after"
   },
-  "content": "## Performance requirements\n\nSystem performance requirements...",
-  "summary": "Insert new section after functional requirements",
+  "content": "## Performance Requirements\n\n### Response Time\n\nSystem must respond within 200ms...",
+  "summary": "Insert new Performance Requirements section after functional requirements",
   "priority": 1
 }
 ```
@@ -137,19 +152,21 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
 
 1. **Get the table of contents first**: use `readMarkdownFile({ parseMode: 'toc' })` to explore the table of contents of the document
 2. **Read the target section**: use `readMarkdownFile({ parseMode: 'content', targets: [{ type: 'section', sid: '/target-section' }] })` to get the specific content
-3. **🎯 CRITICAL: Always use the LOWEST LEVEL SID for line-based operations**: For `replace_lines_in_section` and `insert_lines_in_section`, you MUST use the most specific (deepest) SID that directly contains the content you want to edit. NEVER use parent-level SIDs when child SIDs exist. This ensures precise targeting and avoids ambiguity.
-4. **🚨 CRITICAL: NEVER include section title in content**: For `replace_lines_in_section` and `insert_lines_in_section`, your content should ONLY contain the actual content lines, NOT the section title (### Title). The title is managed separately by the system.
+3. **🎯 CRITICAL: Always use the LOWEST LEVEL SID for content-only operations**: For `replace_section_content_only` and `insert_section_content_only`, you MUST use the most specific (deepest) SID that directly contains the content you want to edit. NEVER use parent-level SIDs when child SIDs exist. This ensures precise targeting and avoids ambiguity.
+4. **🚨 CRITICAL: Follow the operation naming rule for content format**: 
+   - For `*_and_title` operations: content MUST include the section title
+   - For `*_content_only` operations: content must NOT include the section title
 5. **Count the relative line number**: count the number of lines to be modified in the section content (from 1, not including the title line)
 6. **No need to calculate the absolute line number**: directly use the relative line number within the section, the system will automatically convert
 
-### 🎯 **SID Selection Rules for Line-Based Operations**
+### 🎯 **SID Selection Rules for Content-Only Operations**
 
-**For `replace_lines_in_section` and `insert_lines_in_section` operations:**
+**For `replace_section_content_only` and `insert_section_content_only` operations:**
 
 ❌ **WRONG - Using parent-level SID:**
 ```json
 {
-  "type": "replace_lines_in_section",
+  "type": "replace_section_content_only",
   "target": {
     "sid": "/functional-requirements",  // ❌ Too broad! This is a parent section
     "lineRange": { "startLine": 15, "endLine": 17 }  // ❌ Hard to count across subsections
@@ -160,7 +177,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
 ✅ **CORRECT - Using lowest-level SID:**
 ```json
 {
-  "type": "replace_lines_in_section", 
+  "type": "replace_section_content_only", 
   "target": {
     "sid": "/functional-requirements/user-authentication",  // ✅ Most specific SID
     "lineRange": { "startLine": 2, "endLine": 4 }  // ✅ Easy to count within this specific section
@@ -170,39 +187,37 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
 
 ### 🚨 **CRITICAL REMINDERS**
 
-> **When using `replace_lines_in_section` or `insert_lines_in_section`:**
+> **🎯 SID Selection Rule:**
 > 
-> 🎯 **ALWAYS** use the **DEEPEST/MOST SPECIFIC SID** available!
+> When using `*_content_only` operations, **ALWAYS** use the **DEEPEST/MOST SPECIFIC SID** available!
 > 
 > ✅ Good: `/functional-requirements/user-management/authentication`  
 > ❌ Bad: `/functional-requirements` (too broad)
 > 
 > **This is the #1 cause of line counting errors!**
 
-> **🚨 CONTENT FORMAT CRITICAL RULE:**
+> **🚨 CONTENT FORMAT CRITICAL RULE - THE OPERATION NAME TELLS YOU EVERYTHING:**
 > 
-> **NEVER include the section title in your content for `replace_lines_in_section` or `insert_lines_in_section`!**
+> **For `*_and_title` operations (replace_section_and_title, insert_section_and_title):**
+> - ✅ **MUST** include the complete section title
+> - Example: `"content": "#### My Section\n- Content line 1"`
 > 
-> ❌ **WRONG - Including title:**
-> ```
-> "content": "#### My Section\n- Content line 1\n- Content line 2"
-> ```
+> **For `*_content_only` operations (replace_section_content_only, insert_section_content_only):**
+> - ❌ **NEVER** include the section title
+> - Example: `"content": "- Content line 1"`
 > 
-> ✅ **CORRECT - Content only:**
-> ```
-> "content": "- Content line 1\n- Content line 2"
-> ```
-> 
-> **If you need to replace the title too, use `replace_entire_section_with_title` instead!**
+> **💡 Memory Tip**: The operation name is self-documenting:
+> - `*_and_title` = include title
+> - `*_content_only` = exclude title
 
 ### 🚨 **COMMON MISTAKES - Learn from these errors!**
 
-#### **❌ MISTAKE #1: Including title in content for line-based operations**
+#### **❌ MISTAKE #1: Including title in `*_content_only` operations**
 
 **Wrong example that causes duplicate titles:**
 ```json
 {
-  "type": "replace_lines_in_section",
+  "type": "replace_section_content_only",
   "target": {
     "sid": "/business-rules/br-001",
     "lineRange": { "startLine": 1, "endLine": 6 }
@@ -222,7 +237,7 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
 **✅ Correct way:**
 ```json
 {
-  "type": "replace_lines_in_section",
+  "type": "replace_section_content_only",
   "target": {
     "sid": "/business-rules/br-001",
     "lineRange": { "startLine": 1, "endLine": 6 }
@@ -232,19 +247,49 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
 }
 ```
 
-#### **❌ MISTAKE #2: Using wrong operation type**
+#### **❌ MISTAKE #2: Forgetting title in `*_and_title` operations**
 
-If you want to replace the title too, use the correct operation:
+**Wrong example that causes missing title:**
 ```json
 {
-  "type": "replace_entire_section_with_title",  // ✅ CORRECT for title + content
+  "type": "replace_section_and_title",
   "target": {
-    "sid": "/business-rules/br-001"  // No lineRange needed
+    "sid": "/non-functional-requirements/nfr-perf-001"
   },
-  "content": "##### **BR-001**\n- **规则名称**: Updated rule\n- **描述**: Updated description...",  // ✅ NOW title is OK!
-  "summary": "Replace entire BR-001 section including title"
+  "content": "- **描述**: System must respond fast\n- **指标**: Response time",  // ❌ MISSING TITLE!
+  "summary": "Update NFR-PERF-001"
 }
 ```
+**Result: Title is lost!**
+```
+(no title at all - the original title was removed but not replaced!)
+- **描述**: System must respond fast
+- **指标**: Response time
+```
+
+**✅ Correct way:**
+```json
+{
+  "type": "replace_section_and_title",
+  "target": {
+    "sid": "/non-functional-requirements/nfr-perf-001"
+  },
+  "content": "#### NFR-PERF-001: System Response Time\n\n- **描述**: System must respond fast\n- **指标**: Response time",  // ✅ INCLUDES TITLE!
+  "summary": "Replace entire NFR-PERF-001 section including title"
+}
+```
+
+#### **💡 How to choose the right operation:**
+
+**Use `replace_section_and_title`** when:
+- You want to change the title text
+- You want to replace everything including the title
+- Example: Changing "NFR-PERF-001: Old Title" to "NFR-PERF-001: New Title"
+
+**Use `replace_section_content_only`** when:
+- You only want to modify the content under the title
+- The title should remain unchanged
+- Example: Updating requirement details but keeping the same requirement ID
 
 ### **Common error types**
 
@@ -267,9 +312,13 @@ Before each interaction with the system, please check the following points in yo
 2. [ ] **Did I call the tool?** The outermost layer of the JSON is `{"tool_calls": [{"name": "...", "args": {...}}]}` structure.
 3. [ ] **Do I need to edit the document?** If I need to edit the document, did I call `executeMarkdownEdits`?
 4. [ ] **Is the target SID correct?** Is the `intents[].target.sid` exactly the same as the hierarchical structure in the document? (This is the most common reason for failure!)
-5. [ ] **🎯 Am I using the LOWEST LEVEL SID?** For `replace_lines_in_section` and `insert_lines_in_section`, did I use the deepest/most specific SID (e.g., `/functional-requirements/user-authentication` instead of `/functional-requirements`)? This is CRITICAL for accurate line counting!
-6. [ ] **🚨 Is my content format correct?** For `replace_lines_in_section` and `insert_lines_in_section`, did I EXCLUDE the section title from my content? My content should start directly with the actual content lines, NOT with "### Title" or "#### Title"!
-7. [ ] **🔄 Am I using the right operation type?** If I need to change the title too, am I using `replace_entire_section_with_title` instead of `replace_lines_in_section`?
+5. [ ] **🎯 Am I using the LOWEST LEVEL SID?** For `*_content_only` operations, did I use the deepest/most specific SID (e.g., `/functional-requirements/user-authentication` instead of `/functional-requirements`)? This is CRITICAL for accurate line counting!
+6. [ ] **🚨 Is my content format correct?** Did I follow the operation naming rule?
+   - For `*_and_title` operations: content MUST include the section title
+   - For `*_content_only` operations: content must NOT include the section title
+7. [ ] **🔄 Am I using the right operation type?** 
+   - Use `replace_section_and_title` if I need to change the title
+   - Use `replace_section_content_only` if I only want to modify content under the existing title
 8. [ ] **Did I complete my task?** If my task is completed, did I choose `HANDOFF_TO_SPECIALIST` in `nextStepType`?
 9. [ ] **Did I handle user interaction?** If I called `askQuestion`, did I check `userResponse` correctly in the next iteration?
 10. [ ] **Are there three consecutive failures in the iteration record with the same reason?** If there are, please think about the reason and try different methods to solve it.

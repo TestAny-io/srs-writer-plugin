@@ -573,6 +573,39 @@ export enum CallerType {
 }
 
 // ============================================================================
+// 🚀 v3.0 新增：混合访问控制类型系统
+// ============================================================================
+
+/**
+ * CallerName - Specialist 个体标识
+ * 
+ * 基于 SpecialistRegistry 动态获取和验证，无需手动维护枚举。
+ * 示例值: "prototype_designer", "fr_writer", "project_initializer"
+ * 
+ * @since v3.0
+ */
+export type CallerName = string;
+
+/**
+ * AccessControl - 混合访问控制类型
+ * 
+ * 支持两种访问控制方式的混合使用：
+ * - CallerType: 类型级别控制（如 CallerType.SPECIALIST_CONTENT）
+ * - CallerName: 个体级别控制（如 "prototype_designer"）
+ * 
+ * 示例：
+ * ```typescript
+ * accessibleBy: [
+ *     CallerType.SPECIALIST_PROCESS,  // 所有 process specialist
+ *     "prototype_designer"             // 特定的 content specialist
+ * ]
+ * ```
+ * 
+ * @since v3.0
+ */
+export type AccessControl = CallerType | CallerName;
+
+// ============================================================================
 // 🚀 Specialist进度回调系统 - 改善UX
 // ============================================================================
 

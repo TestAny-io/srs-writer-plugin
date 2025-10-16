@@ -13,7 +13,7 @@ describe('🎯 recordThought优化方案最终验收演示', () => {
     let thoughtRecordManager: ThoughtRecordManager;
     
     beforeEach(() => {
-        thoughtRecordManager = new ThoughtRecordManager();
+        thoughtRecordManager = ThoughtRecordManager.getInstance();
     });
 
     it('🚀 完整演示：从recordThought调用到提示词第0章注入', async () => {

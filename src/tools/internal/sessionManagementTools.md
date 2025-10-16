@@ -18,7 +18,6 @@
 - `createDirectory()` - 目录创建操作
 - `moveAndRenameFile()` - 文件移动/重命名操作
 - `listFiles()` - 目录内容列表
-- `listAllFiles()` - 所有文件列表
 
 ### **路径管理策略**
 

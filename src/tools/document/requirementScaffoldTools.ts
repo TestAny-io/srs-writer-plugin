@@ -53,12 +53,12 @@ export const requirementScaffoldToolDefinitions = [
             properties: {
                 srsFilePath: {
                     type: 'string',
-                    description: 'SRS.md文件的完整路径，例如: "./SRS.md"'
+                    description: 'SRS.md文件路径，相对于项目baseDir（或工作区根目录，如果没有活动项目）。不要在路径中包含项目名称。示例: "SRS.md" 或 "./SRS.md"'
                 },
 
                 scaffoldDir: {
                     type: 'string',
-                    description: '脚手架输出目录，回退值为temp_requirements/scaffold文件夹',
+                    description: '脚手架输出目录，相对于项目baseDir。不要在路径中包含项目名称。默认: temp_requirements/scaffold',
                     default: './temp_requirements/scaffold'
                 },
                 includeMetadata: {

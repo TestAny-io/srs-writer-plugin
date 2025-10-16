@@ -6,13 +6,17 @@ import { ToolAccessController } from './ToolAccessController';
 
 /**
  * 工具缓存管理器 - 负责工具定义的缓存和更新 + 访问控制
+ * 
+ * v3.0 更新：
+ * - 支持 specialist ID 级别的缓存
+ * - 缓存键：`${callerType}:${specialistId || 'any'}`
  */
 export class ToolCacheManager {
   private logger = Logger.getInstance();
   private accessController = new ToolAccessController();
   
-  // 🚀 更新：支持基于调用者的缓存
-  private toolsCache: Map<CallerType, { definitions: any[], jsonSchema: string }> = new Map();
+  // 🚀 v3.0: 缓存键包含 specialist ID
+  private toolsCache: Map<string, { definitions: any[], jsonSchema: string }> = new Map();
 
   constructor() {
     // 🔧 立即注册工具缓存失效监听器
@@ -52,35 +56,46 @@ export class ToolCacheManager {
     tryRegister();
   }
 
-  // 🚀 新增：跟踪已记录的缓存使用情况，避免重复日志
-  private loggedCacheUsage: Set<CallerType> = new Set();
+  // 🚀 v3.0: 跟踪已记录的缓存使用情况（缓存键为字符串）
+  private loggedCacheUsage: Set<string> = new Set();
 
   /**
-   * 🚀 获取指定调用者可访问的工具（带缓存）
+   * 🚀 v3.0: 获取指定调用者可访问的工具（带缓存，支持 specialist ID）
    */
-  public async getTools(caller: CallerType): Promise<{ definitions: any[], jsonSchema: string }> {
+  public async getTools(caller: CallerType, specialistId?: string): Promise<{ definitions: any[], jsonSchema: string }> {
+    const cacheKey = this.buildCacheKey(caller, specialistId);
+    
     // 如果缓存有效，直接返回
-    if (this.toolsCache.has(caller)) {
-      const cached = this.toolsCache.get(caller)!;
-      // 🚀 修复：只在第一次使用缓存时记录日志，避免重复打印
-      if (!this.loggedCacheUsage.has(caller)) {
-        this.logger.info(`✅ Using cached tools for ${caller} (${cached.definitions.length} tools)`);
-        this.loggedCacheUsage.add(caller);
+    if (this.toolsCache.has(cacheKey)) {
+      const cached = this.toolsCache.get(cacheKey)!;
+      // 只在第一次使用缓存时记录日志
+      if (!this.loggedCacheUsage.has(cacheKey)) {
+        const callerDesc = specialistId ? `${caller}:${specialistId}` : caller;
+        this.logger.info(`✅ Using cached tools for ${callerDesc} (${cached.definitions.length} tools)`);
+        this.loggedCacheUsage.add(cacheKey);
       }
       return cached;
     }
 
     // 如果没有缓存，则基于访问控制加载并创建缓存
-    this.logger.info(`🛠️ Loading and caching tools for ${caller}...`);
+    const callerDesc = specialistId ? `${caller}:${specialistId}` : caller;
+    this.logger.info(`🛠️ Loading and caching tools for ${callerDesc}...`);
     
-    const filteredDefinitions = this.accessController.getAvailableTools(caller);
+    const filteredDefinitions = this.accessController.getAvailableTools(caller, specialistId);
     const jsonSchema = JSON.stringify(filteredDefinitions, null, 2);
 
     const result = { definitions: filteredDefinitions, jsonSchema };
-    this.toolsCache.set(caller, result);
+    this.toolsCache.set(cacheKey, result);
 
-    this.logger.info(`✅ Cached ${filteredDefinitions.length} tools for ${caller}`);
+    this.logger.info(`✅ Cached ${filteredDefinitions.length} tools for ${callerDesc}`);
     return result;
+  }
+  
+  /**
+   * 🚀 v3.0 新增：构建缓存键
+   */
+  private buildCacheKey(caller: CallerType, specialistId?: string): string {
+    return specialistId ? `${caller}:${specialistId}` : `${caller}:any`;
   }
 
   /**
@@ -99,9 +114,12 @@ export class ToolCacheManager {
    * - accessibleBy（访问控制相关）
    * - layer, category（分类相关）
    */
-  public async getToolsForPrompt(caller: CallerType): Promise<{ definitions: any[], jsonSchema: string }> {
+  /**
+   * 🚀 v3.0: 获取用于提示词的工具定义（清理版，支持 specialist ID）
+   */
+  public async getToolsForPrompt(caller: CallerType, specialistId?: string): Promise<{ definitions: any[], jsonSchema: string }> {
     // 先获取完整的工具信息
-    const fullTools = await this.getTools(caller);
+    const fullTools = await this.getTools(caller, specialistId);
     
     // 过滤掉与输入schema无关的字段
     const cleanDefinitions = fullTools.definitions.map(def => {

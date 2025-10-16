@@ -72,10 +72,10 @@ DAR-LOG-001: 操作日志
         );
     });
 
-    describe('insert_entire_section', () => {
+    describe('insert_section_and_title', () => {
         it('应该在参照章节前插入新章节', async () => {
             const intent: SemanticEditIntent = {
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['10. 附录 (Appendix)']),
                     insertionPosition: 'before'
@@ -95,7 +95,7 @@ DAR-LOG-001: 操作日志
 
         it('应该在参照章节后插入新章节', async () => {
             const intent: SemanticEditIntent = {
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['8. 数据需求']),
                     insertionPosition: 'after'
@@ -114,7 +114,7 @@ DAR-LOG-001: 操作日志
 
         it('参照章节不存在时应该失败', async () => {
             const intent: SemanticEditIntent = {
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['不存在的章节']),
                     insertionPosition: 'before'
@@ -137,7 +137,7 @@ DAR-LOG-001: 操作日志
         it('应该正确处理多个插入操作', async () => {
             const intents: SemanticEditIntent[] = [
                 {
-                    type: 'insert_entire_section',
+                    type: 'insert_section_and_title',
                     target: {
                         sid: smartPathToSid(['8. 数据需求']),
                         insertionPosition: 'after'
@@ -147,7 +147,7 @@ DAR-LOG-001: 操作日志
                     priority: 2
                 },
                 {
-                    type: 'insert_entire_section',
+                    type: 'insert_section_and_title',
                     target: {
                         sid: smartPathToSid(['8. 数据需求']),
                         insertionPosition: 'after'

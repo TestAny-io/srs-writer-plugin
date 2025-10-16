@@ -53,7 +53,7 @@ export class PromptManager {
     this.logger.info(`🔍 [DEBUG-CONTEXT] - finalToolResultsContext: "${finalToolResultsContext}"`);
 
     // 3. 构建结构化提示词 - 明确分离系统指令和用户输入
-    const structuredPrompt = this.buildStructuredPrompt(
+    const structuredPrompt = await this.buildStructuredPrompt(
       systemInstructions,
       userInput,
       finalHistoryContext,
@@ -86,14 +86,14 @@ export class PromptManager {
    * 🚀 构建结构化提示词 - 核心方法
    * 将系统指令和用户输入明确分离，符合VSCode最佳实践
    */
-  private buildStructuredPrompt(
+  private async buildStructuredPrompt(
     systemInstructions: string,
     userInput: string,
     historyContext: string,
     toolResultsContext: string,
     toolsJsonSchema: string,
     sessionContext: SessionContext
-  ): string {
+  ): Promise<string> {
     // 替换系统指令中的占位符
     let processedSystemInstructions = systemInstructions;
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{TOOLS_JSON_SCHEMA\}\}/g, toolsJsonSchema);
@@ -103,14 +103,8 @@ export class PromptManager {
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{CONVERSATION_HISTORY\}\}/g, '[CONVERSATION_HISTORY_PLACEHOLDER]');
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{TOOL_RESULTS_CONTEXT\}\}/g, '[TOOL_RESULTS_CONTEXT_PLACEHOLDER]');
 
-    // 构建项目上下文部分
-    const projectContextSection = `
-- Project Name: ${sessionContext.projectName || 'Unknown'}
-- Base Directory: ${sessionContext.baseDir || 'Not set'}
-- Active Files: ${sessionContext.activeFiles?.length > 0 ? sessionContext.activeFiles.join(', ') : 'None'}
-- Session ID: ${sessionContext.sessionContextId}
-- SRS Version: ${sessionContext.metadata?.srsVersion || 'Unknown'}
-- Last Modified: ${sessionContext.metadata?.lastModified || 'Unknown'}`;
+    // 🚀 构建工作区上下文部分 - 简化版本
+    const workspaceContextSection = await this.buildWorkspaceContext(sessionContext);
 
     // 构建结构化提示词
     const structuredPrompt = `# SYSTEM INSTRUCTIONS
@@ -125,8 +119,8 @@ ${userInput}
 
 # CONTEXT INFORMATION
 
-## Current Project Context
-${projectContextSection}
+## Workspace Context
+${workspaceContextSection}
 
 ## Conversation History
 ${historyContext}
@@ -152,6 +146,194 @@ Your response must be valid JSON starting with '{' and ending with '}'.`;
     this.logger.info(`🔍 [DEBUG] === END buildStructuredPrompt FINAL PROMPT ===`);
 
     return structuredPrompt;
+  }
+
+  /**
+   * 🚀 构建工作区上下文信息 - 简化版本
+   */
+  private async buildWorkspaceContext(sessionContext: SessionContext): Promise<string> {
+    try {
+      // 1. 获取工作区基础信息
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        return `
+### Base Status
+- Workspace Absolute Path: No workspace
+- Session ID: ${sessionContext.sessionContextId}
+
+### Project Status
+- Exist projects: 0
+- Current Project: No workspace`;
+      }
+
+      const workspaceRoot = workspaceFolder.uri.fsPath;
+      
+      // 2. 计算项目数量（排除特定目录）
+      const existProjects = await this.countWorkspaceProjects(workspaceRoot);
+      
+      // 3. 确定当前项目状态
+      const currentProject = this.getCurrentProjectName(sessionContext);
+      
+      // 4. 确定Base Directory
+      const baseDirectory = this.getBaseDirectory(sessionContext, workspaceRoot);
+      
+      // 5. 获取项目文件列表
+      const projectFilesSection = await this.getProjectFilesSection(baseDirectory);
+      
+      return `
+### Base Status
+- Workspace Absolute Path: ${workspaceRoot}
+- Session ID: ${sessionContext.sessionContextId}
+
+### Project Status
+- Exist projects: ${existProjects}
+- Current Project: ${currentProject}
+- Project Directory (Absolute Path): ${baseDirectory}
+${projectFilesSection}`;
+      
+    } catch (error) {
+      this.logger.error('Failed to build workspace context', error as Error);
+      return `
+### Base Status
+- Workspace Absolute Path: Error getting workspace info
+- Session ID: ${sessionContext.sessionContextId}
+
+### Project Status
+- Exist projects: Unknown
+- Current Project: Error
+- Project Directory (Absolute Path): Error`;
+    }
+  }
+
+  /**
+   * 🚀 获取项目文件列表部分
+   * 复用 PromptAssemblyEngine 的 listDirectoryFiles 逻辑
+   */
+  private async getProjectFilesSection(baseDirectory: string): Promise<string> {
+    try {
+      const projectFiles = await this.listProjectFiles(baseDirectory);
+      
+      if (projectFiles.length === 0) {
+        return '\n- Project Files (Relative to baseDir): No files found';
+      }
+      
+      const filesList = projectFiles
+        .map(file => `- ${file.relativePath}${file.isDirectory ? ' (directory)' : ''}`)
+        .join('\n');
+      
+      return `
+- Project Files (Relative to baseDir):
+${filesList}`;
+    } catch (error) {
+      this.logger.warn(`Failed to list project files: ${(error as Error).message}`);
+      return '\n- Project Files (Relative to baseDir): Unable to list files';
+    }
+  }
+
+  /**
+   * 🚀 列出项目目录下的所有文件和子目录
+   * 返回相对于baseDir的路径，格式参考 PromptAssemblyEngine 的实现
+   */
+  private async listProjectFiles(baseDirectory: string): Promise<Array<{ name: string; relativePath: string; isDirectory: boolean }>> {
+    try {
+      const entries = await fs.readdir(baseDirectory, { withFileTypes: true });
+      const fileInfos: Array<{ name: string; relativePath: string; isDirectory: boolean }> = [];
+      
+      for (const entry of entries) {
+        // 跳过隐藏文件和特殊目录
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') {
+          continue;
+        }
+        
+        const fullPath = path.join(baseDirectory, entry.name);
+        const relativePath = path.relative(baseDirectory, fullPath);
+        
+        fileInfos.push({
+          name: entry.name,
+          isDirectory: entry.isDirectory(),
+          relativePath: './' + relativePath.replace(/\\/g, '/') // 统一使用正斜杠
+        });
+      }
+      
+      // 按名称排序，目录在前
+      fileInfos.sort((a, b) => {
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      return fileInfos;
+    } catch (error) {
+      this.logger.warn(`🌍 [PromptManager] Unable to read directory: ${baseDirectory}, error: ${(error as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * 🚀 计算工作区中的项目数量（排除特定目录）
+   */
+  private async countWorkspaceProjects(workspaceRoot: string): Promise<number> {
+    try {
+      const excludeDirs = [
+        /^\./,              // 所有隐藏目录 (.vscode, .git, .session-log等)
+        'transformed_doc',  // 特定目录
+        'node_modules',     // 常见构建目录
+        'dist',
+        'build',
+        'coverage',
+        'out'
+      ];
+
+      const workspaceUri = vscode.Uri.file(workspaceRoot);
+      const entries = await vscode.workspace.fs.readDirectory(workspaceUri);
+      
+      let projectCount = 0;
+      for (const [name, type] of entries) {
+        // 只计算目录
+        if (type === vscode.FileType.Directory) {
+          // 检查是否应该排除
+          const shouldExclude = excludeDirs.some(pattern => {
+            if (pattern instanceof RegExp) {
+              return pattern.test(name);
+            }
+            return name === pattern;
+          });
+          
+          if (!shouldExclude) {
+            projectCount++;
+          }
+        }
+      }
+      
+      return projectCount;
+    } catch (error) {
+      this.logger.warn(`Failed to count workspace projects: ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
+  /**
+   * 🚀 获取当前项目名称
+   */
+  private getCurrentProjectName(sessionContext: SessionContext): string {
+    // sessionContext.projectName 可能的值：null 或 具体的项目名
+    if (!sessionContext.projectName || sessionContext.projectName === null) {
+      return 'No active project';
+    }
+    return sessionContext.projectName;
+  }
+
+  /**
+   * 🚀 获取Base Directory
+   */
+  private getBaseDirectory(sessionContext: SessionContext, workspaceRoot: string): string {
+    // 根据我们之前的修复，baseDir应该总是有值
+    if (sessionContext.baseDir) {
+      return sessionContext.baseDir;
+    }
+    
+    // Fallback到工作区根目录
+    return workspaceRoot;
   }
 
   /**

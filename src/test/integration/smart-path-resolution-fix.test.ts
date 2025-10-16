@@ -139,10 +139,11 @@ describe('Smart Path Resolution Fix Tests', () => {
 
             expect(result.success).toBe(true);
             expect(result.files).toHaveLength(3);
+            // 🚀 更新：新格式包含 path 字段（完整相对路径）
             expect(result.files).toEqual([
-                { name: 'file1.txt', type: 'file' },
-                { name: 'subdir', type: 'directory' },
-                { name: 'file2.json', type: 'file' }
+                { name: 'file1.txt', path: 'file1.txt', type: 'file' },
+                { name: 'file2.json', path: 'file2.json', type: 'file' },
+                { name: 'subdir', path: 'subdir', type: 'directory' }
             ]);
         });
 

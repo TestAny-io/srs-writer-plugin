@@ -83,7 +83,7 @@ describe('Path-Based Semantic Editing Tests', () => {
     describe('新的路径数组schema测试', () => {
         test('应该支持替换整个section使用路径数组', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_entire_section_with_title',
+                type: 'replace_section_and_title',
                 target: {
                     sid: smartPathToSid(['**US-INFO-001**'])
                 },
@@ -109,7 +109,7 @@ describe('Path-Based Semantic Editing Tests', () => {
 
         test('应该支持替换section内特定内容', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_lines_in_section',
+                type: 'replace_section_content_only',
                 target: {
                     sid: smartPathToSid(['**UC-INFO-001**']),
                     lineRange: { startLine: 1, endLine: 1 }
@@ -127,7 +127,7 @@ describe('Path-Based Semantic Editing Tests', () => {
 
         test('应该支持插入操作使用路径数组', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['用户故事']),
                     insertionPosition: 'after'
@@ -154,7 +154,7 @@ describe('Path-Based Semantic Editing Tests', () => {
             // 测试能够区分第4章用例视图中的UC-INFO-001和第5章功能需求中的UC-INFO-001
             const intents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_lines_in_section',
+                    type: 'replace_section_content_only',
                     target: {
                         sid: smartPathToSid(['**UC-INFO-001**']), // 第4章中的list item
                         lineRange: { startLine: 1, endLine: 1 }
@@ -164,7 +164,7 @@ describe('Path-Based Semantic Editing Tests', () => {
                     priority: 2
                 },
                 {
-                    type: 'replace_lines_in_section',
+                    type: 'replace_section_content_only',
                     target: {
                         sid: smartPathToSid(['UC-INFO-001 查看预警详情']), // 第5章中的heading
                         lineRange: { startLine: 1, endLine: 1 }
@@ -186,7 +186,7 @@ describe('Path-Based Semantic Editing Tests', () => {
     describe('路径验证和错误处理', () => {
         test('应该拒绝空路径数组', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_entire_section_with_title',
+                type: 'replace_section_and_title',
                 target: {
                     sid: smartPathToSid([]) // 空路径数组
                 },
@@ -204,7 +204,7 @@ describe('Path-Based Semantic Editing Tests', () => {
 
         test('应该处理不存在的路径', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_entire_section_with_title',
+                type: 'replace_section_and_title',
                 target: {
                     sid: smartPathToSid(['不存在的章节', '子章节'])
                 },
@@ -222,7 +222,7 @@ describe('Path-Based Semantic Editing Tests', () => {
 
         test('应该验证必需字段', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_lines_in_section',
+                type: 'replace_section_content_only',
                 target: {
                     sid: smartPathToSid(['**US-INFO-001**'])
                     // 缺少 targetContent 字段
@@ -240,7 +240,7 @@ describe('Path-Based Semantic Editing Tests', () => {
 
         test('应该处理插入操作缺少位置参数', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['用户故事'])
                     // 缺少 insertionPosition 字段
@@ -264,7 +264,7 @@ describe('Path-Based Semantic Editing Tests', () => {
             // 创建多个编辑操作
             for (let i = 1; i <= 10; i++) {
                 intents.push({
-                    type: 'replace_lines_in_section',
+                    type: 'replace_section_content_only',
                     target: {
                         sid: smartPathToSid(['**US-ALERT-001**']),
                         lineRange: { startLine: 1, endLine: 1 }
@@ -286,21 +286,21 @@ describe('Path-Based Semantic Editing Tests', () => {
         test('应该正确处理优先级排序', async () => {
             const intents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_lines_in_section',
+                    type: 'replace_section_content_only',
                     target: { sid: smartPathToSid(['**US-ALERT-001**']), lineRange: { startLine: 1, endLine: 1 } },
                     content: '高优先级',
                     reason: '高优先级操作',
                     priority: 10
                 },
                 {
-                    type: 'replace_lines_in_section',
+                    type: 'replace_section_content_only',
                     target: { sid: smartPathToSid(['**US-INFO-001**']), lineRange: { startLine: 1, endLine: 1 } },
                     content: '低优先级',
                     reason: '低优先级操作',
                     priority: 1
                 },
                 {
-                    type: 'replace_lines_in_section',
+                    type: 'replace_section_content_only',
                     target: { sid: smartPathToSid(['**UC-ALERT-001**']), lineRange: { startLine: 1, endLine: 1 } },
                     content: '中优先级',
                     reason: '中优先级操作',
@@ -323,7 +323,7 @@ describe('Path-Based Semantic Editing Tests', () => {
     describe('向后兼容性测试', () => {
         test('应该拒绝旧的sectionName格式', async () => {
             const badIntent = {
-                type: 'replace_entire_section_with_title',
+                type: 'replace_section_and_title',
                 target: {
                     sectionName: '**US-INFO-001**', // 旧格式
                     startFromAnchor: '**US-INFO-001**' // 旧格式

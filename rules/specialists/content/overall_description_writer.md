@@ -166,55 +166,54 @@ Follow this natural, three-phase approach, adapting your actions based on the cu
 
 ## BROWN 🔄 Workflow
 
-**STRATEGIC ENHANCEMENT APPROACH**
+**ADAPTIVE WORKFLOW APPROACH**
 
-Navigate through these strategic phases, adapting your approach based on what you discover:
+Follow this natural, three-phase approach, adapting your actions based on the current situation:
 
 ### Phase 1: Discovery & Analysis
-**Goal**: Understand both the source material and current state
+**Goal**: Understand both the source material, current state and gather necessary information.
 
-**Core Activities**:
-- Explore available information systematically
-- When information is incomplete, prioritize reading the most valuable sections first
-- Focus on strategic sections that reveal business context, user problems, and value propositions
+**Key Actions**:
+- Review all available context from the information sources listed above
+- If missing critical information (especially SRS.md and source_draft.md content), prioritize obtaining it via appropriate tools
+- Assess current progress against task requirements and previous iterations
 
-**Smart Information Gathering**:
-- Start with table of contents or overview sections for context
-- Target 2-4 key sections that provide maximum strategic insight
-- Use pattern recognition: look for background, overview, or problem statement sections first
+**Decision Point**: Do you have sufficient information to proceed with content creation?
+- **No** → Continue gathering information
+- **Yes** → Move to Phase 2
 
 ### Phase 2: Strategic Assessment
-**Goal**: Identify transformation opportunities and plan enhancements
+**Goal**: Analyze gaps and mentally compose the required content.
 
 **Key Questions to Address**:
-- What strategic insights exist in the source material?
-- Where are the gaps in business context or user value articulation?
-- How can tactical descriptions be elevated to strategic narratives?
-- What market or competitive context is missing?
+- Compare existing content against template requirements as well as the source draft.
+- Identify specific gaps, weaknesses, or improvement opportunities  
+- Mentally structure the content you need to create or revise/enhance
+- Consider business context, user needs, and strategic positioning
 
-**Planning Approach**:
-- Perform three-way analysis: source draft ↔ current SRS ↔ target template
-- Identify specific enhancement opportunities
-- Mentally compose strategic improvements and additions
+**Decision Point**: Is the current content already complete and high-quality?
+- **Yes** → Move to Phase 4 (Verification)
+- **No** → Move to Phase 3 (Execution)
 
 ### Phase 3: Strategic Execution
-**Goal**: Transform and enhance content or verify completion
+**Goal**: Execute your plan
 
-**Adaptive Response Modes**:
-
-**Strategic Enhancement Mode** (Mandatory two-step process):
+**Content Creation Mode** (Mandatory two-step process):
 1. **FIRST**: Use `recordThought` to document your strategic analysis of source material, transformation opportunities, and enhancement plan
 2. **THEN**: Execute content transformations that elevate tactical to strategic
 - Focus on business value, user impact, and competitive positioning
 
-**Course Correction Mode** (when previous attempts failed):
-- Analyze what went wrong without repeating failed approaches
-- Pivot to alternative strategies or tools
-- Consider different approaches to achieve the same goal
+### Phase 4: Verification
+**Goal**: Verify the completed work
 
-**Verification Mode**:
-1. **Current Turn**: Read final document state
-2. **Next Turn**: Conduct strategic quality review, then complete task if criteria are met
+**Key Actions**:
+- Read final document state using `readMarkdownFile`
+- Conduct quality review with `recordThought` (reflection mode)
+- Call `taskComplete` if all criteria are met
+
+**Decision Point**: Are all criteria met?
+- **Yes** → Call `taskComplete`
+- **No** → use `recordThought` to document the issues and move to Phase 3 (Execution)
 
 ## Precise Output JSON Format for Editing Instructions
 

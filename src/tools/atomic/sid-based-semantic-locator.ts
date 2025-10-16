@@ -186,7 +186,7 @@ export class SidBasedSemanticLocator {
         if (endLine === undefined) {
             return {
                 found: false,
-                error: `endLine is required for replace_lines_in_section operations to avoid ambiguity. Please specify both startLine and endLine.`,
+                error: `endLine is required for replace_section_content_only operations to avoid ambiguity. Please specify both startLine and endLine.`,
                 suggestions: {
                     hint: `Use: { "startLine": ${startLine}, "endLine": ${startLine} } to replace a single line, or specify the actual endLine number for multi-line replacement`,
                     correctedLineRange: { startLine, endLine: startLine }
@@ -254,7 +254,7 @@ export class SidBasedSemanticLocator {
      * 🚀 替换整个章节（包括标题）
      */
     private replaceEntireSection(section: SectionNode): LocationResult {
-        // 🚀 关键修改：replace_entire_section_with_title 应该包括标题行
+        // 🚀 关键修改：replace_section_and_title 应该包括标题行
         // section.startLine 是内容开始行，我们需要包括标题行
         const titleLine = section.startLine - 1; // 标题行的绝对行号（0-based）
         
@@ -278,12 +278,12 @@ export class SidBasedSemanticLocator {
      */
     private handleInsertionOperation(section: SectionNode, target: SemanticTarget, operationType: string): LocationResult {
         // 🔄 根据操作类型验证必需字段
-        if (operationType === 'insert_entire_section') {
-            // insert_entire_section: 必须有 insertionPosition，忽略 lineRange
+        if (operationType === 'insert_section_and_title') {
+            // insert_section_and_title: 必须有 insertionPosition，忽略 lineRange
             if (!target.insertionPosition) {
                 return {
                     found: false,
-                    error: "insertionPosition ('before' or 'after') is required for insert_entire_section operations",
+                    error: "insertionPosition ('before' or 'after') is required for insert_section_and_title operations",
                     suggestions: {
                         hint: "Use 'before' to insert before the reference section, or 'after' to insert after it",
                         availablePositions: ['before', 'after']
@@ -295,9 +295,9 @@ export class SidBasedSemanticLocator {
             if (!['before', 'after'].includes(target.insertionPosition)) {
                 return {
                     found: false,
-                    error: `Invalid insertionPosition '${target.insertionPosition}'. Only 'before' and 'after' are supported for insert_entire_section.`,
+                    error: `Invalid insertionPosition '${target.insertionPosition}'. Only 'before' and 'after' are supported for insert_section_and_title.`,
                     suggestions: {
-                        hint: "Use 'before' or 'after' for insert_entire_section operations",
+                        hint: "Use 'before' or 'after' for insert_section_and_title operations",
                         availablePositions: ['before', 'after']
                     }
                 };
@@ -322,12 +322,12 @@ export class SidBasedSemanticLocator {
                 }
             };
 
-        } else if (operationType === 'insert_lines_in_section') {
-            // insert_lines_in_section: 必须有 lineRange，忽略 insertionPosition
+        } else if (operationType === 'insert_section_content_only') {
+            // insert_section_content_only: 必须有 lineRange，忽略 insertionPosition
             if (!target.lineRange) {
                 return {
                     found: false,
-                    error: "lineRange is required for insert_lines_in_section operations",
+                    error: "lineRange is required for insert_section_content_only operations",
                     suggestions: {
                         hint: "Specify the exact section-relative line number where you want to insert content using lineRange: { startLine: N, endLine: N }",
                         sectionSummary: {
@@ -380,8 +380,8 @@ export class SidBasedSemanticLocator {
                 found: false,
                 error: `Unknown insertion operation type: ${operationType}`,
                 suggestions: {
-                    hint: "Supported insertion types: 'insert_entire_section', 'insert_lines_in_section'",
-                    availableTypes: ['insert_entire_section', 'insert_lines_in_section']
+                    hint: "Supported insertion types: 'insert_section_and_title', 'insert_section_content_only'",
+                    availableTypes: ['insert_section_and_title', 'insert_section_content_only']
                 }
             };
         }

@@ -156,7 +156,7 @@ export async function executeSemanticEdits(
  */
 export const executeMarkdownEditsToolDefinition = {
     name: "executeMarkdownEdits",
-    description: "🔄 Semantic Edit Tool - lineRange uses section-relative line numbers (1-based). Field usage rules: replace_entire_section_with_title requires sid; replace_lines_in_section and insert_lines_in_section require sid+lineRange; insert_entire_section requires sid+insertionPosition",
+    description: "🔄 Semantic Edit Tool - lineRange uses section-relative line numbers (1-based). Field usage rules: replace_section_and_title requires sid; replace_section_content_only and insert_section_content_only require sid+lineRange; insert_section_and_title requires sid+insertionPosition. 🎯 Naming convention: *_and_title operations MUST include title in content; *_content_only operations must NOT include title",
     parameters: {
         type: "object",
         properties: {
@@ -169,19 +169,19 @@ export const executeMarkdownEditsToolDefinition = {
                         type: {
                             type: "string",
                             enum: [
-                                "replace_entire_section_with_title",
-                                "replace_lines_in_section",
-                                "insert_entire_section",
-                                "insert_lines_in_section"
+                                "replace_section_and_title",
+                                "replace_section_content_only",
+                                "insert_section_and_title",
+                                "insert_section_content_only"
                             ],
-                            description: "Edit Operation Type: replace_entire_section_with_title(Replace entire section), replace_lines_in_section(Replace specific lines in section), insert_entire_section(Insert entire section), insert_lines_in_section(Insert content in section)"
+                            description: "Edit Operation Type: replace_section_and_title(Replace entire section INCLUDING title - content MUST contain title), replace_section_content_only(Replace specific lines in section EXCLUDING title - content must NOT contain title), insert_section_and_title(Insert entire section including title), insert_section_content_only(Insert content in section excluding title)"
                         },
                         target: {
                             type: "object",
                             properties: {
                                 sid: {
                                     type: "string",
-                                    description: "🎯 Section SID - Must be obtained by calling readMarkdownFile tool first. 🚨 CRITICAL: For replace_lines_in_section and insert_lines_in_section, use the LOWEST LEVEL SID (most specific/deepest SID that directly contains your target content)."
+                                    description: "🎯 Section SID - Must be obtained by calling readMarkdownFile tool first. 🚨 CRITICAL: For replace_section_content_only and insert_section_content_only, use the LOWEST LEVEL SID (most specific/deepest SID that directly contains your target content)."
                                 },
                                 lineRange: {
                                     type: "object",
@@ -196,12 +196,12 @@ export const executeMarkdownEditsToolDefinition = {
                                         }
                                     },
                                     required: ["startLine", "endLine"],
-                                    description: "🔄 Required for: replace_lines_in_section, insert_lines_in_section. Use section-relative line numbers (1-based). Line 1 = first content line after section title."
+                                    description: "🔄 Required for: replace_section_content_only, insert_section_content_only. Use section-relative line numbers (1-based). Line 1 = first content line after section title."
                                 },
                                 insertionPosition: {
                                     type: "string",
                                     enum: ["before", "after"],
-                                    description: "🔄 Required for: insert_entire_section. Only 'before' and 'after' are supported"
+                                    description: "🔄 Required for: insert_section_and_title. Only 'before' and 'after' are supported"
                                 },
                                 siblingIndex: {
                                     type: "number",
@@ -214,11 +214,11 @@ export const executeMarkdownEditsToolDefinition = {
                                 }
                             },
                             required: ["sid"],
-                            description: "🔄 Target location information. Field requirements by operation type: replace_entire_section_with_title(sid only), replace_lines_in_section(sid+lineRange), insert_entire_section(sid+insertionPosition), insert_lines_in_section(sid+lineRange)"
+                            description: "🔄 Target location information. Field requirements by operation type: replace_section_and_title(sid only), replace_section_content_only(sid+lineRange), insert_section_and_title(sid+insertionPosition), insert_section_content_only(sid+lineRange)"
                         },
                         content: {
                             type: "string",
-                            description: "Content to insert or replace. 🚨 CRITICAL: For replace_lines_in_section and insert_lines_in_section, do NOT include the section title (e.g., ### Title). Only provide the actual content lines. If you need to replace the title too, use replace_entire_section_with_title instead."
+                            description: "Content to insert or replace. 🚨 CRITICAL CONTENT RULES: (1) For *_and_title operations (replace_section_and_title, insert_section_and_title), you MUST include the complete section title (e.g., '#### Title\\n- content'). (2) For *_content_only operations (replace_section_content_only, insert_section_content_only), you must NOT include the section title - only provide actual content lines (e.g., '- content'). The operation name tells you: *_and_title = include title; *_content_only = exclude title."
                         },
                         summary: {
                             type: "string",
@@ -238,7 +238,7 @@ export const executeMarkdownEditsToolDefinition = {
             },
             targetFile: {
                 type: "string",
-                description: "Target Markdown file path"
+                description: "Target Markdown file path relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Example: 'SRS.md' not 'projectName/SRS.md'"
             }
         },
         required: ["intents", "targetFile"]

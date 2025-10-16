@@ -278,13 +278,13 @@ export class SmartIntentExecutor {
     private updateLineOffsets(intent: SemanticEditIntent, lineOffsets: Map<string, number>): void {
         const currentOffset = lineOffsets.get(intent.target.sid) || 0;
         
-        if (intent.type === 'insert_lines_in_section' || intent.type === 'insert_entire_section') {
+        if (intent.type === 'insert_section_content_only' || intent.type === 'insert_section_and_title') {
             // 插入操作增加行数
             const insertedLines = intent.content.split('\n').length;
             lineOffsets.set(intent.target.sid, currentOffset + insertedLines);
             
             logger.debug(`📈 Updated line offset for sid=${intent.target.sid}: +${insertedLines} (total: ${currentOffset + insertedLines})`);
-        } else if (intent.type === 'replace_lines_in_section') {
+        } else if (intent.type === 'replace_section_content_only') {
             // 替换操作可能改变行数
             const newLines = intent.content.split('\n').length;
             const oldLines = intent.target.lineRange ? 
@@ -315,22 +315,34 @@ export class SmartIntentExecutor {
             throw new Error(location.error || 'Target not found');
         }
         
+        // 🔧 关键修复：处理内容换行符
+        let contentToApply = intent.content;
+        
+        // 确保内容末尾有换行符（除非内容为空）
+        // 这个逻辑对所有编辑类型都适用，确保不会丢失换行符
+        if (contentToApply.length > 0 && !contentToApply.endsWith('\n')) {
+            logger.debug(`🔄 Adding newline to content (${intent.type}): "${contentToApply.substring(0, 50)}..."`);
+            contentToApply += '\n';
+        }
+        
         // 根据意图类型执行不同的编辑操作
         switch (intent.type) {
-            case 'replace_entire_section_with_title':
-            case 'replace_lines_in_section':
+            case 'replace_section_and_title':
+            case 'replace_section_content_only':
                 if (!location.range) {
                     throw new Error('Replace operation requires range, but none found');
                 }
-                this.workspaceEdit.replace(this.targetFileUri, location.range, intent.content);
+                logger.debug(`📝 Replacing with ${contentToApply.split('\n').length - 1} lines (including newline)`);
+                this.workspaceEdit.replace(this.targetFileUri, location.range, contentToApply);
                 break;
                 
-            case 'insert_entire_section':
-            case 'insert_lines_in_section':
+            case 'insert_section_and_title':
+            case 'insert_section_content_only':
                 if (!location.insertionPoint) {
                     throw new Error('Insert operation requires insertion point, but none found');
                 }
-                this.workspaceEdit.insert(this.targetFileUri, location.insertionPoint, intent.content);
+                logger.debug(`📝 Inserting ${contentToApply.split('\n').length - 1} lines (including newline)`);
+                this.workspaceEdit.insert(this.targetFileUri, location.insertionPoint, contentToApply);
                 break;
                 
             default:

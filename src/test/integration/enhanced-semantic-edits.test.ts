@@ -84,7 +84,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
     describe('siblingIndex 定位功能', () => {
         it('应该支持在指定兄弟节点之前插入', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'after', // insert_entire_section 需要 insertionPosition
@@ -106,7 +106,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
 
         it('应该支持在指定兄弟节点之后插入', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'after', // insert_entire_section 需要 insertionPosition
@@ -127,7 +127,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
 
         it('应该正确处理 siblingIndex 超出范围的情况', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'after', // insert_entire_section 需要 insertionPosition
@@ -151,7 +151,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
     describe('validateOnly 模式', () => {
         it('应该验证成功的编辑而不实际执行', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'after'
@@ -175,7 +175,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
 
         it('应该验证失败的编辑', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['不存在的章节']),
                     insertionPosition: 'after'
@@ -198,7 +198,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
         it('应该同时处理验证和实际编辑意图', async () => {
             const intents: SemanticEditIntent[] = [
                 {
-                    type: 'insert_entire_section',
+                    type: 'insert_section_and_title',
                     target: {
                         sid: smartPathToSid(['概述']),
                         insertionPosition: 'after'
@@ -209,7 +209,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
                     validateOnly: true
                 },
                 {
-                    type: 'insert_entire_section',
+                    type: 'insert_section_and_title',
                     target: {
                         sid: smartPathToSid(['技术规范']),
                         insertionPosition: 'after'
@@ -235,7 +235,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
     describe('复合功能测试', () => {
         it('应该支持带 siblingIndex 的验证模式', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['功能需求']),
                     insertionPosition: 'after', // insert_entire_section 需要 insertionPosition
@@ -260,7 +260,7 @@ describe('Enhanced Semantic Edits - Phase 2', () => {
     describe('向后兼容性', () => {
         it('应该保持现有功能不变', async () => {
             const intents: SemanticEditIntent[] = [{
-                type: 'replace_lines_in_section',
+                type: 'replace_section_content_only',
                 target: {
                     sid: smartPathToSid(['概述']),
                     lineRange: { startLine: 1, endLine: 1 }

@@ -1737,7 +1737,9 @@ export class SessionManager implements ISessionManager {
         const newSession: SessionContext = {
             sessionContextId: crypto.randomUUID(),
             projectName: projectName || null,
-            baseDir: projectName ? path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', projectName) : null,
+            baseDir: projectName 
+                ? path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', projectName)
+                : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
             activeFiles: [],
             gitBranch: currentGitBranch,
             metadata: {

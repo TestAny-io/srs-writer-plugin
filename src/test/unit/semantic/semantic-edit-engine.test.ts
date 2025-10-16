@@ -28,7 +28,7 @@ describe('SemanticEditEngine - Error Handling', () => {
     describe('incorrect tool usage validation', () => {
         test('should reject replace_lines_in_section with only startFromAnchor', async () => {
             const intent: SemanticEditIntent = {
-                type: 'replace_lines_in_section',
+                type: 'replace_section_content_only',
                 target: {
                     sid: smartPathToSid(['功能需求'])
                     // 缺少 targetContent - 这应该导致验证失败
@@ -48,7 +48,7 @@ describe('SemanticEditEngine - Error Handling', () => {
 
         test('should successfully handle replace_lines_in_section with both startFromAnchor and targetContent', async () => {
             const intent: SemanticEditIntent = {
-                type: 'replace_lines_in_section',
+                type: 'replace_section_content_only',
                 target: {
                     sid: smartPathToSid(['功能需求']),
                     lineRange: { startLine: 1, endLine: 1 }

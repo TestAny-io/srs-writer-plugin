@@ -184,10 +184,10 @@ function isSemanticEditInstruction(instruction: any): boolean {
     }
     
     const semanticTypes = [
-        'replace_entire_section_with_title',
-        'replace_lines_in_section',
-        'insert_entire_section',
-        'insert_lines_in_section'
+        'replace_section_and_title',
+        'replace_section_content_only',
+        'insert_section_and_title',
+        'insert_section_content_only'
     ];
     
     // 基本字段验证
@@ -197,8 +197,8 @@ function isSemanticEditInstruction(instruction: any): boolean {
                           instruction.target.path.length > 0;
     const hasValidContent = typeof instruction.content === 'string';
     
-    // 条件验证：replace_lines_in_section 需要 targetContent
-    if (instruction.type === 'replace_lines_in_section') {
+    // 条件验证：replace_section_content_only 需要 targetContent
+    if (instruction.type === 'replace_section_content_only') {
         return hasValidType && hasValidTarget && hasValidContent && 
                instruction.target.targetContent && 
                typeof instruction.target.targetContent === 'string';

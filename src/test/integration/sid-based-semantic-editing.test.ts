@@ -114,7 +114,7 @@ describe('🆕 基于SID的语义编辑系统', () => {
                 sid: '/first-chapter/project-background'
             };
             
-            const result = locator.findTarget(target, 'replace_entire_section_with_title');
+            const result = locator.findTarget(target, 'replace_section_and_title');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('replace');
@@ -132,7 +132,7 @@ describe('🆕 基于SID的语义编辑系统', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('replace');
@@ -146,7 +146,7 @@ describe('🆕 基于SID的语义编辑系统', () => {
                 sid: '/non-existent-section'
             };
             
-            const result = locator.findTarget(target, 'replace_entire_section_with_title');
+            const result = locator.findTarget(target, 'replace_section_and_title');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('not found');
@@ -164,7 +164,7 @@ describe('🆕 基于SID的语义编辑系统', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('out of range');
@@ -187,7 +187,7 @@ describe('🆕 基于SID的语义编辑系统', () => {
         test('应该自动解析文档并处理sid不存在的情况', async () => {
             const intents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_entire_section_with_title',
+                    type: 'replace_section_and_title',
                     target: { sid: '/test-section' },  // 这个SID在mock文档中不存在
                     content: 'New content',
                     reason: 'Test',
@@ -208,7 +208,7 @@ describe('🆕 基于SID的语义编辑系统', () => {
         test('应该验证所有intents都有sid', async () => {
             const intents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_entire_section_with_title',
+                    type: 'replace_section_and_title',
                     target: { sid: '' }, // 空的sid
                     content: 'New content',
                     reason: 'Test',
@@ -256,7 +256,7 @@ describe('🆕 基于SID的语义编辑系统', () => {
 
             const intents: SemanticEditIntent[] = [
                 {
-                    type: 'replace_entire_section_with_title',
+                    type: 'replace_section_and_title',
                     target: { sid: '/-1' },  // 使用实际生成的SID
                     content: '## 更新的第一节\n新的内容',
                     reason: '更新内容',

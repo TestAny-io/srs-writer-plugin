@@ -61,7 +61,7 @@ export class SpecialistExecutor {
     private currentContextForStep?: any;   // 🚀 新增：保存当前执行的上下文，用于获取 planId
     private historyManager = new TokenAwareHistoryManager(); // 🚀 新增：Token感知历史管理器
     private sessionLogService = new SessionLogService(); // 🚀 新增：统一会话日志记录服务
-    private thoughtRecordManager = new ThoughtRecordManager(); // 🚀 新增：思考记录管理器
+    private thoughtRecordManager = ThoughtRecordManager.getInstance(); // 🚀 v2.0 (2025-10-08): 使用单例，确保恢复时状态保持
     
     constructor() {
         this.logger.info('🚀 SpecialistExecutor v3.0 initialized - dynamic specialist registry architecture');
@@ -157,8 +157,13 @@ export class SpecialistExecutor {
         this.currentSpecialistId = specialistId;
         this.currentContextForStep = contextForThisStep;  // 🚀 新增：保存上下文
 
-        // 🚀 新增：专家开始执行时清空思考记录
-        this.thoughtRecordManager.clearThoughts(specialistId);
+        // 🚀 修复：只有在非恢复模式下才清空思考记录，保持工作记忆连续性
+        if (!isResuming) {
+            this.thoughtRecordManager.clearThoughts(specialistId);
+            this.logger.info(`🧹 [ThoughtRecordManager] 清空specialist ${specialistId}的思考记录`);
+        } else {
+            this.logger.info(`🔄 [ThoughtRecordManager] 恢复模式：保留specialist ${specialistId}的${this.thoughtRecordManager.getThoughtCount(specialistId)}条思考记录`);
+        }
 
         // 🚀 新增：通知specialist开始工作
         progressCallback?.onSpecialistStart?.(specialistId);
@@ -267,7 +272,8 @@ export class SpecialistExecutor {
                 
                 // 2. 获取可用工具
                 const callerType = this.getSpecialistCallerType(specialistId);
-                const toolsInfo = await this.toolCacheManager.getTools(callerType);
+                // 🚀 v3.0: 传入 specialistId 以支持个体级别访问控制
+                const toolsInfo = await this.toolCacheManager.getTools(callerType, specialistId);
                 const toolsForVSCode = this.convertToolsToVSCodeFormat(toolsInfo.definitions);
                 
                 // 🔍 [DEBUG] 详细记录可用工具信息
@@ -501,16 +507,17 @@ export class SpecialistExecutor {
                         internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsSummary}`);
                     }
                     
-                    // 🚀 修复：成功处理AI响应后才增加迭代次数
+                    this.logger.info(`✅ [${specialistId}] 迭代 ${iteration} 记录了 ${toolResults.length} 个工具执行结果`);
+                    this.logger.info(`🔧 [DEBUG] [${specialistId}] 迭代 ${iteration} 工具执行结果:\n${resultsSummary}`);
+                    
+                    // 🚀 CRITICAL FIX (2025-10-08): 在任何return之前递增iteration
+                    // 原因：每完成一次"组装提示词→AI响应→执行工具"就是一次完整的循环
+                    // AI是无状态的，每次都需要重新组装提示词，所以每次调用都应该算一轮
+                    // askQuestion、taskComplete等都不应该被特殊对待
                     iteration++;
                     
                     // 🚀 新增：成功执行工具后重置重试计数器
                     retryCount = 0;
-                    
-                    this.logger.info(`✅ [${specialistId}] 迭代 ${iteration - 1} 记录了 ${toolResults.length} 个工具执行结果`);
-                    
-                    // 🔍 [DEBUG] 记录完整工具结果到日志（用于调试）
-                    this.logger.info(`🔧 [DEBUG] [${specialistId}] 迭代 ${iteration - 1} 工具执行结果:\n${resultsSummary}`);
                 }
             }
 
@@ -584,7 +591,8 @@ export class SpecialistExecutor {
             // 2. 获取可用工具定义 (方案一：为TOOLS_JSON_SCHEMA模板变量准备数据)
             const callerType = this.getSpecialistCallerType(specialistId);
             // 🚀 使用清理版本的工具列表，过滤掉与输入schema无关的字段以减少token消耗
-            const toolsInfo = await this.toolCacheManager.getToolsForPrompt(callerType);
+            // 🚀 v3.0: 传入 specialistId 以支持个体级别访问控制
+            const toolsInfo = await this.toolCacheManager.getToolsForPrompt(callerType, specialistId);
             this.logger.info(`🛠️ [DEBUG] Retrieved ${toolsInfo.definitions.length} cleaned tool definitions for specialist context`);
             this.logger.info(`🔍 [DEBUG] Tools JSON schema length for specialist: ${toolsInfo.jsonSchema.length}`);
             
@@ -1200,10 +1208,13 @@ ${context.dependentResults?.length > 0
                 const callerType = this.currentSpecialistId 
                     ? this.getSpecialistCallerType(this.currentSpecialistId)
                     : CallerType.SPECIALIST_CONTENT; // 默认为content类型
+                // 🚀 v3.0: 传入 specialistId 以支持个体级别访问控制
                 const executionResult = await this.toolExecutor.executeTool(
                     toolCall.name, 
                     toolCall.args,
-                    callerType  // 动态确定调用者类型
+                    callerType,  // 动态确定调用者类型
+                    undefined,   // selectedModel（在 specialist 内部不需要）
+                    this.currentSpecialistId  // 🚀 v3.0: 传入 specialistId
                 );
                 
                 // 🚀 新增：检查recordThought调用并记录到思考管理器
@@ -1524,10 +1535,10 @@ SUGGESTED ACTIONS:
 
         // 必须有type字段且值在支持的语义编辑类型中
         const semanticTypes = [
-            'replace_entire_section_with_title',
-            'replace_lines_in_section',
-            'insert_entire_section',
-            'insert_lines_in_section'
+            'replace_section_and_title',
+            'replace_section_content_only',
+            'insert_section_and_title',
+            'insert_section_content_only'
         ];
 
         // 基本字段验证
@@ -1536,8 +1547,8 @@ SUGGESTED ACTIONS:
                               Array.isArray(instruction.target.path) &&
                               instruction.target.path.length > 0;
 
-        // 条件验证：replace_lines_in_section 需要 targetContent
-        if (instruction.type === 'replace_lines_in_section') {
+        // 条件验证：replace_section_content_only 需要 targetContent
+        if (instruction.type === 'replace_section_content_only') {
             return hasValidType && hasValidTarget && 
                    instruction.target.targetContent && 
                    typeof instruction.target.targetContent === 'string';
@@ -1583,15 +1594,15 @@ SUGGESTED ACTIONS:
         }
 
         // 验证type值
-        const validTypes = ['replace_entire_section_with_title', 'replace_lines_in_section', 'insert_entire_section', 'insert_lines_in_section'];
+        const validTypes = ['replace_section_and_title', 'replace_section_content_only', 'insert_section_and_title', 'insert_section_content_only'];
         if (instruction.type && !validTypes.includes(instruction.type)) {
             errors.push(`Invalid type: ${instruction.type}. Valid types are: ${validTypes.join(', ')}`);
         }
 
-        // 条件验证：replace_lines_in_section 必须有 targetContent
-        if (instruction.type === 'replace_lines_in_section') {
+        // 条件验证：replace_section_content_only 必须有 targetContent
+        if (instruction.type === 'replace_section_content_only') {
             if (!instruction.target || !instruction.target.targetContent) {
-                errors.push('replace_lines_in_section operation requires target.targetContent field');
+                errors.push('replace_section_content_only operation requires target.targetContent field');
             }
         }
 

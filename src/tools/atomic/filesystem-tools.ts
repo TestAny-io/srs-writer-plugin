@@ -94,7 +94,7 @@ export const readTextFileToolDefinition = {
         properties: {
             path: {
                 type: "string",
-                description: "File path relative to workspace root"
+                description: "File path relative to project baseDir (or workspace root if no project is active). Do not include project name in path."
             },
             encoding: {
                 type: "string",
@@ -217,7 +217,7 @@ export const writeFileToolDefinition = {
         properties: {
             path: {
                 type: "string",
-                description: "File path relative to workspace root"
+                description: "File path relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Example: 'SRS.md' not 'projectName/SRS.md'"
             },
             content: {
                 type: "string",
@@ -364,7 +364,7 @@ export const createDirectoryToolDefinition = {
         properties: {
             path: {
                 type: "string",
-                description: "Directory path relative to workspace root"
+                description: "Directory path. For project directories (isProjectDirectory=true): relative to workspace root. For regular directories: relative to project baseDir. Do not include project name for regular directories."
             },
             isProjectDirectory: {
                 type: "boolean",
@@ -380,8 +380,9 @@ export const createDirectoryToolDefinition = {
     // 🚀 访问控制：创建目录是重要操作，orchestrator不应直接使用
     accessibleBy: [
         // CallerType.SPECIALIST_CONTENT,            // 内容专家需要创建项目结构
-        CallerType.SPECIALIST_PROCESS,             // 流程专家需要创建项目结构
-        CallerType.INTERNAL                       // 内部工具（如createNewProjectFolder）
+        //CallerType.SPECIALIST_PROCESS,             // 流程专家需要创建项目结构
+        CallerType.INTERNAL,                       // 内部工具（如createNewProjectFolder）
+        "project_initializer"                      // 仅Project_initializer需要创建项目结构
     ]
 };
 
@@ -475,337 +476,420 @@ export async function createDirectory(args: {
 }
 
 /**
- * 列出目录内容
+ * 🚀 统一的目录列表工具：支持单层列表和递归搜索
+ * 重构说明：合并了原 listFiles 和 listAllFiles 的功能
  */
 export const listFilesToolDefinition = {
     name: "listFiles",
-    description: "List all files and directories in a specific directory",
+    description: "List files and directories in a specified directory with optional recursive search and filtering. Returns complete relative paths for easy use.",
     parameters: {
         type: "object",
         properties: {
             path: {
                 type: "string",
-                description: "Directory path relative to workspace root (use '.' for workspace root)"
-            }
-        },
-        required: ["path"]
-    },
-    // 🚀 访问控制：列出文件是安全查询操作
-    accessibleBy: [
-        // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // "项目里有什么文件？"现在归入知识问答模式
-        CallerType.SPECIALIST_PROCESS,                    // 流程专家探索项目结构
-        CallerType.SPECIALIST_CONTENT,            // 内容专家需要了解文件结构
-        CallerType.DOCUMENT                       // 文档层需要了解文件结构
-    ]
-};
-
-export async function listFiles(args: { path: string }): Promise<{ 
-    success: boolean; 
-    files?: Array<{ name: string; type: 'file' | 'directory' }>; 
-    error?: string 
-}> {
-    try {
-        let dirUri: vscode.Uri;
-        
-        // 🚀 智能路径检测（方案一）
-        if (args.path === '.') {
-            // 特殊情况：当前工作区根目录
-            const workspaceFolder = getCurrentWorkspaceFolder();
-            if (!workspaceFolder) {
-                return { success: false, error: 'No workspace folder is open' };
-            }
-            dirUri = workspaceFolder.uri;
-            logger.info(`🔗 列出工作区根目录: ${workspaceFolder.uri.fsPath}`);
-        } else if (path.isAbsolute(args.path)) {
-            // 绝对路径：直接使用
-            dirUri = vscode.Uri.file(args.path);
-            logger.info(`🔗 检测到绝对路径: ${args.path}`);
-        } else {
-            // 相对路径：使用公共路径解析工具
-            const resolvedPath = await resolveWorkspacePath(args.path, {
-                contextName: '目录',
-                checkExistence: true
-            });
-            dirUri = vscode.Uri.file(resolvedPath);
-            logger.info(`🔗 相对路径解析: ${args.path} -> ${resolvedPath}`);
-        }
-            
-        const entries = await vscode.workspace.fs.readDirectory(dirUri);
-        const files = entries.map(([name, type]) => ({
-            name,
-            type: type === vscode.FileType.Directory ? 'directory' as const : 'file' as const
-        }));
-        
-        logger.info(`✅ Listed ${files.length} items in: ${args.path}`);
-        return { success: true, files };
-    } catch (error) {
-        const errorMsg = `Failed to list files in ${args.path}: ${(error as Error).message}`;
-        logger.error(errorMsg);
-        return { success: false, error: errorMsg };
-    }
-}
-
-/**
- * Recursively list all files and directories
- */
-export const listAllFilesToolDefinition = {
-    name: "listAllFiles",
-    description: "Recursively list all non-hidden files and directories from workspace root with optional keyword search (automatically excludes all hidden directories starting with '.')",
-    parameters: {
-        type: "object",
-        properties: {
+                description: "Directory path relative to project baseDir (or workspace root if no project is active). Use '.' for project root. Do not include project name in path. Default: '.'",
+                default: "."
+            },
+            recursive: {
+                type: "boolean",
+                description: "Whether to recursively list subdirectories (default: false)",
+                default: false
+            },
             maxDepth: {
                 type: "number",
-                description: "Maximum recursion depth to prevent excessively deep directory structures, defaults to 10 levels",
+                description: "Maximum recursion depth when recursive=true (default: 10)",
                 default: 10
             },
             maxItems: {
                 type: "number",
-                description: "Maximum number of items to prevent excessively long output, defaults to 1000",
+                description: "Maximum number of items to return (default: 1000)",
                 default: 1000
             },
             excludePatterns: {
                 type: "array",
                 items: { type: "string" },
-                description: "Array of directory/file patterns to exclude, defaults to common non-source directories",
+                description: "Patterns to exclude (default: ['node_modules', 'coverage', 'dist', 'build'])",
                 default: ["node_modules", "coverage", "dist", "build"]
-            },
-            dirsOnly: {
-                type: "boolean",
-                description: "Whether to return only directory structure (excluding files), defaults to false",
-                default: false
             },
             searchKeywords: {
                 type: "array",
                 items: { type: "string" },
-                description: "Keywords to search in file/directory names. Only items containing any of these keywords will be returned. Case insensitive search."
+                description: "Keywords to search in file/directory names (case insensitive)"
+            },
+            dirsOnly: {
+                type: "boolean",
+                description: "Return only directories (default: false)",
+                default: false
+            },
+            filesOnly: {
+                type: "boolean",
+                description: "Return only files (default: false)",
+                default: false
             }
         }
     },
-    // 🚀 智能分类属性
-    interactionType: 'autonomous',
-    riskLevel: 'low',
-    requiresConfirmation: false,
-    // 🚀 Access control: Consistent with listFiles, safe query operation
+    // 🚀 访问控制：列出文件是安全查询操作
     accessibleBy: [
-        // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // Key tool for AI project structure exploration
-        CallerType.SPECIALIST_CONTENT,            // 内容专家探索项目结构
-        CallerType.SPECIALIST_PROCESS,             // 流程专家探索项目结构
-        CallerType.DOCUMENT                       // Document layer needs to understand file structure
+        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // "项目里有什么文件？"现在归入知识问答模式
+        CallerType.SPECIALIST_PROCESS,           // 流程专家探索项目结构
+        CallerType.SPECIALIST_CONTENT,           // 内容专家需要了解文件结构
+        CallerType.DOCUMENT                      // 文档层需要了解文件结构
     ]
 };
 
-export async function listAllFiles(args: {
+/**
+ * 🚀 统一的目录列表函数
+ * 支持单层列表（默认）和递归列表（可选）
+ * 始终返回完整的相对路径，方便 AI 直接使用
+ */
+export async function listFiles(args: { 
+    path?: string;
+    recursive?: boolean;
     maxDepth?: number;
     maxItems?: number;
     excludePatterns?: string[];
-    dirsOnly?: boolean;
     searchKeywords?: string[];
-}): Promise<{
-    success: boolean;
-    structure?: {
-        paths: string[];
-        totalCount: number;
-        truncated: boolean;
-        depth: number;
-    };
-    error?: string;
+    dirsOnly?: boolean;
+    filesOnly?: boolean;
+}): Promise<{ 
+    success: boolean; 
+    files?: Array<{ 
+        name: string;           // 文件/目录名
+        path: string;           // 完整相对路径（相对于工作区根目录）
+        type: 'file' | 'directory' 
+    }>; 
+    totalCount?: number;        // 返回的项目总数
+    truncated?: boolean;        // 是否因超过 maxItems 而被截断
+    scannedDepth?: number;      // 实际扫描的最大深度（仅 recursive=true 时）
+    error?: string 
 }> {
     try {
-        // 🔍 [DEBUG] 添加详细调试信息
-        logger.info(`🔍 [listAllFiles DEBUG] === 开始执行 listAllFiles ===`);
-        logger.info(`🔍 [listAllFiles DEBUG] 参数: ${JSON.stringify(args)}`);
-        
-        const workspaceFolder = getCurrentWorkspaceFolder();
-        logger.info(`🔍 [listAllFiles DEBUG] getCurrentWorkspaceFolder() 返回: ${workspaceFolder ? workspaceFolder.uri.fsPath : 'undefined'}`);
-        
-        if (!workspaceFolder) {
-            logger.error(`🔍 [listAllFiles DEBUG] 错误: 没有工作区文件夹打开`);
-            return { success: false, error: 'No workspace folder is open' };
-        }
-        
-        // 🚀 新增：显示搜索关键词信息
-        if (args.searchKeywords && args.searchKeywords.length > 0) {
-            logger.info(`🔍 [listAllFiles DEBUG] 🔎 搜索关键词: [${args.searchKeywords.join(', ')}]`);
-            logger.info(`🔍 [listAllFiles DEBUG] 🔎 关键词匹配模式: 精确匹配 + 包含匹配 + 文件名基础匹配`);
-        } else {
-            logger.info(`🔍 [listAllFiles DEBUG] 🔎 无关键词限制，返回所有文件`);
-        }
-
+        // 1. 参数初始化
         const {
+            path: dirPath = ".",
+            recursive = false,
             maxDepth = 10,
             maxItems = 1000,
             excludePatterns = ["node_modules", "coverage", "dist", "build"],
+            searchKeywords,
             dirsOnly = false,
-            searchKeywords
+            filesOnly = false
         } = args;
 
-        // 🚀 固定从workspace根目录开始扫描
-        const startPath = '.';
+        logger.info(`📂 listFiles: path="${dirPath}", recursive=${recursive}, maxDepth=${maxDepth}`);
 
-        const results: string[] = [];
-        let totalCount = 0;
-        let maxDepthReached = 0;
+        // 2. 路径解析
+        const workspaceFolder = getCurrentWorkspaceFolder();
+        if (!workspaceFolder) {
+            return { success: false, error: 'No workspace folder is open' };
+        }
 
-        // Helper function: Check if a file/directory should be excluded
-        function shouldExclude(name: string, patterns: string[]): boolean {
-            return patterns.some(pattern => {
-                if (pattern.includes('*')) {
-                    // Simple wildcard matching
-                    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
-                    return regex.test(name);
-                }
-                return name === pattern;
+        let dirUri: vscode.Uri;
+        let normalizedBasePath: string; // 规范化的基础路径（用于构建完整路径）
+
+        if (dirPath === '.') {
+            // 特殊情况：工作区根目录
+            dirUri = workspaceFolder.uri;
+            normalizedBasePath = "";
+            logger.info(`🔗 使用工作区根目录: ${workspaceFolder.uri.fsPath}`);
+        } else if (path.isAbsolute(dirPath)) {
+            // 绝对路径：直接使用
+            dirUri = vscode.Uri.file(dirPath);
+            // 计算相对于工作区根目录的相对路径
+            normalizedBasePath = path.relative(workspaceFolder.uri.fsPath, dirPath);
+            logger.info(`🔗 绝对路径: ${dirPath}, 相对路径: ${normalizedBasePath}`);
+        } else {
+            // 相对路径：使用公共路径解析工具
+            const resolvedPath = await resolveWorkspacePath(dirPath, {
+                contextName: '目录',
+                checkExistence: true
+            });
+            dirUri = vscode.Uri.file(resolvedPath);
+            normalizedBasePath = dirPath;
+            logger.info(`🔗 相对路径解析: ${dirPath} -> ${resolvedPath}`);
+        }
+
+        // 3. 分支处理：非递归 vs 递归
+        if (!recursive) {
+            // 非递归模式：列出单层目录
+            return await listSingleLevel(dirUri, normalizedBasePath, {
+                maxItems,
+                excludePatterns,
+                searchKeywords,
+                dirsOnly,
+                filesOnly
+            });
+        } else {
+            // 递归模式：遍历子目录
+            return await listRecursively(workspaceFolder, normalizedBasePath, {
+                maxDepth,
+                maxItems,
+                excludePatterns,
+                searchKeywords,
+                dirsOnly,
+                filesOnly
             });
         }
-
-        // Helper function: Check if a file/directory matches search keywords
-        function matchesSearchKeywords(name: string, keywords?: string[]): boolean {
-            if (!keywords || keywords.length === 0) return true;
-            
-            const targetName = name.toLowerCase(); // Case insensitive search
-            const searchTerms = keywords.map(k => k.toLowerCase());
-            
-            // 🚀 改进匹配逻辑：支持精确匹配和包含匹配
-            return searchTerms.some(keyword => {
-                // 精确匹配（完整文件名）
-                if (targetName === keyword) {
-                    return true;
-                }
-                // 包含匹配（关键词在文件名中）
-                if (targetName.includes(keyword)) {
-                    return true;
-                }
-                // 如果关键词包含扩展名，尝试匹配文件名部分
-                if (keyword.includes('.')) {
-                    const keywordBase = keyword.split('.')[0];
-                    if (targetName.includes(keywordBase)) {
-                        return true;
-                    }
-                }
-                return false;
-            });
-        }
-
-        // Recursively traverse directory
-        async function traverseDirectory(relativePath: string, currentDepth: number): Promise<void> {
-            logger.info(`🔍 [listAllFiles DEBUG] 📁 遍历目录: "${relativePath}" (深度: ${currentDepth})`);
-            
-            if (currentDepth > maxDepth || totalCount >= maxItems) {
-                logger.info(`🔍 [listAllFiles DEBUG] ⏹️ 停止遍历: 深度=${currentDepth}, 最大深度=${maxDepth}, 计数=${totalCount}, 最大项目=${maxItems}`);
-                return;
-            }
-
-            maxDepthReached = Math.max(maxDepthReached, currentDepth);
-
-            try {
-                const dirUri = relativePath === '.'
-                    ? workspaceFolder!.uri
-                    : vscode.Uri.joinPath(workspaceFolder!.uri, relativePath);
-
-                logger.info(`🔍 [listAllFiles DEBUG] 📍 目录URI: ${dirUri.toString()}`);
-                
-                const entries = await vscode.workspace.fs.readDirectory(dirUri);
-                logger.info(`🔍 [listAllFiles DEBUG] 📋 找到 ${entries.length} 个条目`);
-
-                for (const [name, type] of entries) {
-                    const isDirectory = type === vscode.FileType.Directory;
-                    logger.info(`🔍 [listAllFiles DEBUG]   🔍 检查: "${name}" (${isDirectory ? '目录' : '文件'})`);
-                    
-                    // Skip hidden files and excluded patterns
-                    if (name.startsWith('.')) {
-                        logger.info(`🔍 [listAllFiles DEBUG]     ⏭️ 跳过隐藏文件: ${name}`);
-                        continue;
-                    }
-                    
-                    if (shouldExclude(name, excludePatterns)) {
-                        logger.info(`🔍 [listAllFiles DEBUG]     ⏭️ 被排除模式忽略: ${name}`);
-                        continue;
-                    }
-
-                    // 🚀 修复关键词匹配逻辑：区分文件和目录的处理
-                    const matchesKeywords = matchesSearchKeywords(name, searchKeywords);
-                    logger.info(`🔍 [listAllFiles DEBUG]     🔎 关键词匹配: ${name} -> ${matchesKeywords}`);
-                    
-                    if (totalCount >= maxItems) {
-                        logger.info(`🔍 [listAllFiles DEBUG]     ⏹️ 达到最大项目数限制: ${maxItems}`);
-                        break;
-                    }
-
-                    const fullPath = relativePath === '.' ? name : `${relativePath}/${name}`;
-
-                    // 🚀 修复：对文件和目录采用不同的关键词匹配策略
-                    if (isDirectory) {
-                        // 目录：总是递归进入，不管目录名是否匹配关键词
-                        logger.info(`🔍 [listAllFiles DEBUG]     📁 目录始终递归搜索: ${fullPath}`);
-                        
-                        // 如果目录名匹配关键词且允许目录，则添加到结果
-                        if (matchesKeywords && dirsOnly) {
-                            results.push(fullPath);
-                            totalCount++;
-                            logger.info(`🔍 [listAllFiles DEBUG]     ✅ 添加匹配目录到结果: "${fullPath}" (总计: ${totalCount})`);
-                        }
-                        
-                        // 递归进入子目录搜索文件
-                        await traverseDirectory(fullPath, currentDepth + 1);
-                        
-                    } else {
-                        // 文件：只有匹配关键词才添加到结果
-                        if (matchesKeywords) {
-                            results.push(fullPath);
-                            totalCount++;
-                            logger.info(`🔍 [listAllFiles DEBUG]     ✅ 添加匹配文件到结果: "${fullPath}" (总计: ${totalCount})`);
-                        } else {
-                            logger.info(`🔍 [listAllFiles DEBUG]     ⏭️ 文件不匹配关键词，跳过: ${name}`);
-                        }
-                    }
-                }
-            } catch (error) {
-                // Ignore inaccessible directories, log warning but continue processing
-                logger.warn(`🔍 [listAllFiles DEBUG] ❌ 遍历目录出错: ${relativePath} - ${(error as Error).message}`);
-                logger.warn(`🔍 [listAllFiles DEBUG] 错误详情: ${JSON.stringify(error)}`);
-            }
-        }
-
-        await traverseDirectory(startPath, 0);
-
-        const searchInfo = searchKeywords && searchKeywords.length > 0 
-            ? ` with keywords: [${searchKeywords.join(', ')}]` 
-            : '';
-            
-        logger.info(`🔍 [listAllFiles DEBUG] === 遍历完成 ===`);
-        logger.info(`🔍 [listAllFiles DEBUG] 找到文件数: ${results.length}`);
-        logger.info(`🔍 [listAllFiles DEBUG] 最大深度: ${maxDepthReached}`);
-        if (results.length > 0) {
-            logger.info(`🔍 [listAllFiles DEBUG] 匹配文件列表: ${results.slice(0, 10).join(', ')}${results.length > 10 ? `... (共${results.length}个)` : ''}`);
-        }
-        
-        logger.info(`✅ Listed ${results.length} items recursively from: ${startPath} (depth: ${maxDepthReached})${searchInfo}`);
-
-        const finalResult = {
-            success: true,
-            structure: {
-                paths: results.sort(), // Sort alphabetically for easy viewing
-                totalCount: results.length,
-                truncated: totalCount >= maxItems,
-                depth: maxDepthReached
-            }
-        };
-        
-        logger.info(`🔍 [listAllFiles DEBUG] === 最终返回结果 ===`);
-        logger.info(`🔍 [listAllFiles DEBUG] ${JSON.stringify(finalResult, null, 2)}`);
-        
-        return finalResult;
-
     } catch (error) {
-        const errorMsg = `Failed to list all files from workspace root: ${(error as Error).message}`;
-        logger.error(`🔍 [listAllFiles DEBUG] ❌ 顶层错误: ${errorMsg}`);
-        logger.error(`🔍 [listAllFiles DEBUG] 错误对象: ${JSON.stringify(error)}`);
-        logger.error(`🔍 [listAllFiles DEBUG] 错误堆栈: ${(error as Error).stack}`);
+        const errorMsg = `Failed to list files: ${(error as Error).message}`;
+        logger.error(errorMsg, error as Error);
         return { success: false, error: errorMsg };
     }
+}
+
+/**
+ * 🔧 内部函数：列出单层目录内容
+ */
+async function listSingleLevel(
+    dirUri: vscode.Uri,
+    basePath: string,
+    options: {
+        maxItems: number;
+        excludePatterns: string[];
+        searchKeywords?: string[];
+        dirsOnly: boolean;
+        filesOnly: boolean;
+    }
+): Promise<{
+    success: boolean;
+    files?: Array<{ name: string; path: string; type: 'file' | 'directory' }>;
+    totalCount?: number;
+    truncated?: boolean;
+    error?: string;
+}> {
+    try {
+        const entries = await vscode.workspace.fs.readDirectory(dirUri);
+        const results: Array<{ name: string; path: string; type: 'file' | 'directory' }> = [];
+
+        for (const [name, type] of entries) {
+            // 跳过隐藏文件
+            if (name.startsWith('.')) {
+                continue;
+            }
+
+            // 检查排除模式
+            if (shouldExclude(name, options.excludePatterns)) {
+                continue;
+            }
+
+            const isDirectory = type === vscode.FileType.Directory;
+            const itemType: 'file' | 'directory' = isDirectory ? 'directory' : 'file';
+
+            // 检查类型过滤
+            if (!shouldIncludeByType(itemType, options.dirsOnly, options.filesOnly)) {
+                continue;
+            }
+
+            // 检查关键词匹配
+            if (!matchesSearchKeywords(name, options.searchKeywords)) {
+                continue;
+            }
+
+            // 构建完整相对路径
+            const fullPath = basePath ? `${basePath}/${name}` : name;
+
+            results.push({
+                name,
+                path: fullPath,
+                type: itemType
+            });
+
+            // 检查数量限制
+            if (results.length >= options.maxItems) {
+                break;
+            }
+        }
+
+        logger.info(`✅ Listed ${results.length} items in single level: ${basePath || '.'}`);
+        
+        return {
+            success: true,
+            files: results.sort((a, b) => a.path.localeCompare(b.path)),
+            totalCount: results.length,
+            truncated: results.length >= options.maxItems
+        };
+    } catch (error) {
+        throw error;
+    }
+}
+
+/**
+ * 🔧 内部函数：递归列出目录内容
+ */
+async function listRecursively(
+    workspaceFolder: vscode.WorkspaceFolder,
+    basePath: string,
+    options: {
+        maxDepth: number;
+        maxItems: number;
+        excludePatterns: string[];
+        searchKeywords?: string[];
+        dirsOnly: boolean;
+        filesOnly: boolean;
+    }
+): Promise<{
+    success: boolean;
+    files?: Array<{ name: string; path: string; type: 'file' | 'directory' }>;
+    totalCount?: number;
+    truncated?: boolean;
+    scannedDepth?: number;
+    error?: string;
+}> {
+    const results: Array<{ name: string; path: string; type: 'file' | 'directory' }> = [];
+    let totalCount = 0;
+    let maxDepthReached = 0;
+
+    async function traverseDirectory(relativePath: string, currentDepth: number): Promise<void> {
+        if (currentDepth > options.maxDepth || totalCount >= options.maxItems) {
+            return;
+        }
+
+        maxDepthReached = Math.max(maxDepthReached, currentDepth);
+
+        try {
+            const dirUri = relativePath === '' || relativePath === '.'
+                ? workspaceFolder.uri
+                : vscode.Uri.joinPath(workspaceFolder.uri, relativePath);
+
+            const entries = await vscode.workspace.fs.readDirectory(dirUri);
+
+            for (const [name, type] of entries) {
+                const isDirectory = type === vscode.FileType.Directory;
+
+                // 跳过隐藏文件
+                if (name.startsWith('.')) {
+                    continue;
+                }
+
+                // 检查排除模式
+                if (shouldExclude(name, options.excludePatterns)) {
+                    continue;
+                }
+
+                // 检查数量限制
+                if (totalCount >= options.maxItems) {
+                    break;
+                }
+
+                // 构建完整路径
+                const fullPath = relativePath === '' || relativePath === '.' 
+                    ? name 
+                    : `${relativePath}/${name}`;
+
+                const itemType: 'file' | 'directory' = isDirectory ? 'directory' : 'file';
+
+                // 对于目录：总是递归进入（即使目录名不匹配关键词）
+                if (isDirectory) {
+                    // 如果目录名匹配且需要目录，则添加到结果
+                    if (matchesSearchKeywords(name, options.searchKeywords) && 
+                        shouldIncludeByType('directory', options.dirsOnly, options.filesOnly)) {
+                        results.push({
+                            name,
+                            path: fullPath,
+                            type: 'directory'
+                        });
+                        totalCount++;
+                    }
+
+                    // 递归进入子目录
+                    await traverseDirectory(fullPath, currentDepth + 1);
+                } else {
+                    // 文件：只有匹配关键词且类型符合才添加
+                    if (matchesSearchKeywords(name, options.searchKeywords) &&
+                        shouldIncludeByType('file', options.dirsOnly, options.filesOnly)) {
+                        results.push({
+                            name,
+                            path: fullPath,
+                            type: 'file'
+                        });
+                        totalCount++;
+                    }
+                }
+            }
+        } catch (error) {
+            // 忽略无法访问的目录，记录警告但继续处理
+            logger.warn(`Failed to access directory: ${relativePath} - ${(error as Error).message}`);
+        }
+    }
+
+    // 从指定的基础路径开始遍历
+    await traverseDirectory(basePath, 0);
+
+    const searchInfo = options.searchKeywords && options.searchKeywords.length > 0
+        ? ` with keywords: [${options.searchKeywords.join(', ')}]`
+        : '';
+
+    logger.info(`✅ Listed ${results.length} items recursively from: ${basePath || '.'} (depth: ${maxDepthReached})${searchInfo}`);
+
+    return {
+        success: true,
+        files: results.sort((a, b) => a.path.localeCompare(b.path)),
+        totalCount: results.length,
+        truncated: totalCount >= options.maxItems,
+        scannedDepth: maxDepthReached
+    };
+}
+
+/**
+ * 🔧 辅助函数：检查是否应该排除
+ */
+function shouldExclude(name: string, patterns: string[]): boolean {
+    return patterns.some(pattern => {
+        if (pattern.includes('*')) {
+            // 简单的通配符匹配
+            const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+            return regex.test(name);
+        }
+        return name === pattern;
+    });
+}
+
+/**
+ * 🔧 辅助函数：检查是否匹配搜索关键词
+ */
+function matchesSearchKeywords(name: string, keywords?: string[]): boolean {
+    if (!keywords || keywords.length === 0) {
+        return true;
+    }
+
+    const targetName = name.toLowerCase();
+    const searchTerms = keywords.map(k => k.toLowerCase());
+
+    return searchTerms.some(keyword => {
+        // 精确匹配
+        if (targetName === keyword) {
+            return true;
+        }
+        // 包含匹配
+        if (targetName.includes(keyword)) {
+            return true;
+        }
+        // 如果关键词包含扩展名，尝试匹配文件名部分
+        if (keyword.includes('.')) {
+            const keywordBase = keyword.split('.')[0];
+            if (targetName.includes(keywordBase)) {
+                return true;
+            }
+        }
+        return false;
+    });
+}
+
+/**
+ * 🔧 辅助函数：检查是否应该根据类型包含
+ */
+function shouldIncludeByType(
+    type: 'file' | 'directory',
+    dirsOnly: boolean,
+    filesOnly: boolean
+): boolean {
+    if (dirsOnly && type !== 'directory') {
+        return false;
+    }
+    if (filesOnly && type !== 'file') {
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -880,7 +964,7 @@ export const moveAndRenameFileToolDefinition = {
     requiresConfirmation: true,
     // 🚀 访问控制：重命名/移动是有风险的操作，orchestrator不应直接使用
     accessibleBy: [
-        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
+        // CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
         // CallerType.SPECIALIST_CONTENT,            // 内容专家可能需要重构文件结构
         // CallerType.SPECIALIST_PROCESS,             // 流程专家可能需要重构文件结构
         CallerType.INTERNAL                       // 内部工具（如项目重构）
@@ -940,7 +1024,8 @@ export const copyAndRenameFileToolDefinition = {
     // 🚀 访问控制：与moveAndRenameFile保持完全一致
     accessibleBy: [
         // CallerType.SPECIALIST_CONTENT,            // 内容专家可能需要复制文件模板
-        CallerType.SPECIALIST_PROCESS,             // 流程专家可能需要复制文件模板
+        // CallerType.SPECIALIST_PROCESS,             // 流程专家可能需要复制文件模板
+        "project_initializer",                      // 仅Project_initializer可能需要复制文件
         CallerType.INTERNAL                       // 内部工具（如项目模板复制）
     ]
 };
@@ -1051,7 +1136,7 @@ export const filesystemToolDefinitions = [
     appendTextToFileToolDefinition,
     createDirectoryToolDefinition,
     listFilesToolDefinition,
-    listAllFilesToolDefinition,
+    // listAllFilesToolDefinition, // 🚀 已废弃：功能已合并到 listFiles
     deleteFileToolDefinition,
     moveAndRenameFileToolDefinition,
     copyAndRenameFileToolDefinition
@@ -1063,7 +1148,7 @@ export const filesystemToolImplementations = {
     appendTextToFile,
     createDirectory,
     listFiles,
-    listAllFiles,
+    // listAllFiles, // 🚀 已废弃：功能已合并到 listFiles
     deleteFile,
     moveAndRenameFile,
     copyAndRenameFile,

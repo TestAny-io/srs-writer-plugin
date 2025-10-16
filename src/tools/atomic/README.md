@@ -54,8 +54,7 @@ src/tools/atomic/
 - `writeFile` - 写入文件内容  
 - `appendTextToFile` - 追加文本到文件
 - `createDirectory` - 创建目录（含智能项目检测）
-- `listFiles` - 列出目录内容
-- `listAllFiles` - 列出所有文件
+- `listFiles` - 列出目录文件（🚀 重构：支持单层/递归，返回完整相对路径）
 - `deleteFile` - 删除文件/目录
 - `moveAndRenameFile` - 移动和重命名文件
 - `copyAndRenameFile` - 复制和重命名文件

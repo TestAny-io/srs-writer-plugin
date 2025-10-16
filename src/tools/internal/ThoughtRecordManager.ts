@@ -5,14 +5,37 @@
  * 1. 按specialist分组存储思考记录
  * 2. 提供格式化输出用于注入提示词第0章
  * 3. 管理思考记录的生命周期（specialist开始时清空）
+ * 
+ * 🚀 v2.0 (2025-10-08): 改为单例模式
+ * - 原因：每次specialist恢复执行时会创建新的SpecialistExecutor实例
+ * - 如果ThoughtRecordManager是实例变量，思考记录会丢失
+ * - 改为单例确保思考记录在多次恢复中保持（符合"持续累积"的设计意图）
  */
 
 import { Logger } from '../../utils/logger';
 import { ThoughtRecord, ThinkingType } from './recordThoughtTools';
 
 export class ThoughtRecordManager {
-    private logger = Logger.getInstance();
+    private static instance: ThoughtRecordManager;  // 🚀 单例实例
+    private logger: Logger;
     private thoughtsBySpecialist: Map<string, ThoughtRecord[]> = new Map();
+    
+    /**
+     * 私有构造函数 - 防止外部直接new
+     */
+    private constructor() {
+        this.logger = Logger.getInstance();
+    }
+    
+    /**
+     * 🚀 获取单例实例
+     */
+    public static getInstance(): ThoughtRecordManager {
+        if (!ThoughtRecordManager.instance) {
+            ThoughtRecordManager.instance = new ThoughtRecordManager();
+        }
+        return ThoughtRecordManager.instance;
+    }
     
     /**
      * 记录思考内容 - 按specialist分组存储

@@ -332,7 +332,7 @@ export const readMarkdownFileToolDefinition = {
         properties: {
             path: {
                 type: "string",
-                description: "File path relative to baseDir root. Must not contain '..' to prevent directory traversal attacks."
+                description: "File path relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Must not contain '..' to prevent directory traversal attacks. Example: 'SRS.md' not 'projectName/SRS.md'"
             },
             parseMode: {
                 type: "string",

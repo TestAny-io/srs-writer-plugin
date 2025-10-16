@@ -15,7 +15,7 @@ describe('ThoughtRecordManager', () => {
     let thoughtRecordManager: ThoughtRecordManager;
     
     beforeEach(() => {
-        thoughtRecordManager = new ThoughtRecordManager();
+        thoughtRecordManager = ThoughtRecordManager.getInstance();
     });
 
     describe('基础功能测试', () => {

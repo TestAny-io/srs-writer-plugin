@@ -246,10 +246,16 @@ export {
 
 export {
     // 智能编辑操作
-    findAndReplace, findInFile, replaceInSelection,
+    findAndReplace, replaceInSelection,
+    
+    // 🚀 多文件搜索操作 (替换原有findInFile)
+    findInFiles,
     
     // 智能编辑工具定义
-    findAndReplaceToolDefinition, findInFileToolDefinition, replaceInSelectionToolDefinition
+    findAndReplaceToolDefinition, replaceInSelectionToolDefinition,
+    
+    // 🚀 多文件搜索工具定义 (替换原有findInFile)
+    findInFilesToolDefinition
 } from './smart-edit-tools';
 
 export {
@@ -270,21 +276,13 @@ export {
     finalAnswerToolDefinition
 } from './output-tools';
 
-// Internet Search 相关导出已暂时禁用 - 保留代码但不注册，避免Language Model Tools API依赖
-// export {
-//     // 互联网内容检索
-//     internetSearch,
-//     
-//     // 知识工具定义
-//     internetSearchToolDefinition, 
-// } from './knowledge-tools-backup';
-
 export {
     // 知识检索
-    readLocalKnowledge, enterpriseRAGCall, customRAGRetrieval,
+    readLocalKnowledge, internetSearch, enterpriseRAGCall, customRAGRetrieval,
 
     // 知识工具定义
-    readLocalKnowledgeToolDefinition, enterpriseRAGCallToolDefinition, customRAGRetrievalToolDefinition,
+    readLocalKnowledgeToolDefinition, internetSearchToolDefinition, 
+    enterpriseRAGCallToolDefinition, customRAGRetrievalToolDefinition,
 
 } from './knowledge-tools-backup';
 

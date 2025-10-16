@@ -16,7 +16,7 @@ describe('recordThought优化方案集成测试', () => {
     let thoughtRecordManager: ThoughtRecordManager;
     
     beforeEach(() => {
-        thoughtRecordManager = new ThoughtRecordManager();
+        thoughtRecordManager = ThoughtRecordManager.getInstance();
     });
 
     describe('ThoughtRecordManager与recordThought工具集成', () => {

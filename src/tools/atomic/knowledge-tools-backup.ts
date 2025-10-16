@@ -487,10 +487,11 @@ export const internetSearchToolDefinition = {
     interactionType: 'autonomous',
     riskLevel: 'low',
     requiresConfirmation: false,
-    // 🚀 访问控制：互联网搜索允许两种模式使用
+    // 🚫 工具已禁用 - 避免Language Model Tools API依赖
+    // 重新启用方法：取消注释下面的 accessibleBy 配置
     accessibleBy: [
-        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // "什么是最新的软件工程趋势？" - 知识问答模式
-        CallerType.ORCHESTRATOR_TOOL_EXECUTION   // "搜索最新的TypeScript版本信息" - 工具执行模式
+        // CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // "什么是最新的软件工程趋势？" - 知识问答模式
+        // CallerType.ORCHESTRATOR_TOOL_EXECUTION   // "搜索最新的TypeScript版本信息" - 工具执行模式
     ]
 };
 
@@ -1350,14 +1351,14 @@ export class CustomRAGRetrievalTool implements vscode.LanguageModelTool<CustomRA
 
 export const knowledgeToolDefinitions = [
     readLocalKnowledgeToolDefinition,
-    // internetSearchToolDefinition,  // 暂时禁用 - 保留代码但不注册，避免Language Model Tools API依赖
+    internetSearchToolDefinition,  // 通过 accessibleBy: [] 禁用
     enterpriseRAGCallToolDefinition,
     customRAGRetrievalToolDefinition
 ];
 
 export const knowledgeToolImplementations = {
     readLocalKnowledge,
-    // internetSearch,  // 暂时禁用 - 保留代码但不注册，避免Language Model Tools API依赖
+    internetSearch,  // 通过 accessibleBy: [] 禁用
     enterpriseRAGCall,
     customRAGRetrieval
 }; 

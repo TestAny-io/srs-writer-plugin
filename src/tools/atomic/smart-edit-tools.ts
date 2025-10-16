@@ -11,14 +11,13 @@ async function replaceText(args: { text: string; startLine: number; endLine: num
             return { success: false, error: 'No active text editor' };
         }
 
-        const startPos = new vscode.Position(args.startLine - 1, 0); // 转为 0-based
-        const endPos = new vscode.Position(args.endLine, 0); // endLine 的下一行开头
-        const range = new vscode.Range(startPos, endPos);
+        const document = activeEditor.document;
+        const range = new vscode.Range(args.startLine, 0, args.endLine + 1, 0);
         
         await activeEditor.edit(editBuilder => {
-            editBuilder.replace(range, args.text);
+            editBuilder.replace(range, args.text + '\n');
         });
-        
+
         return { success: true };
     } catch (error) {
         return { success: false, error: (error as Error).message };
@@ -33,39 +32,25 @@ async function getUserSelection(): Promise<{
 }> {
     try {
         const activeEditor = vscode.window.activeTextEditor;
-        if (!activeEditor) {
-            return { success: false, error: 'No active text editor' };
+        if (!activeEditor || !activeEditor.selection || activeEditor.selection.isEmpty) {
+            return { success: false, error: 'No text selected' };
         }
 
         const selection = activeEditor.selection;
         const text = activeEditor.document.getText(selection);
-        const range = {
-            startLine: selection.start.line + 1, // 转为 1-based
-            endLine: selection.end.line + 1
+
+        return {
+            success: true,
+            text,
+            range: {
+                startLine: selection.start.line,
+                endLine: selection.end.line
+            }
         };
-        
-        return { success: true, text, range };
     } catch (error) {
         return { success: false, error: (error as Error).message };
     }
 }
-
-/**
- * 智能编辑工具 - 提供基于模式匹配的查找和替换功能
- * 
- * 🚀 核心价值：填补"智能查找要修改的行"的能力空白
- * 
- * 包含功能：
- * - 基于正则表达式的内容查找
- * - 智能行号定位
- * - 模式匹配替换
- * - 基于editor-tools.ts的稳定实现
- * 
- * 🔧 实现策略：
- * - 使用getActiveDocumentContent()获取文档内容
- * - 使用replaceText()执行直接编辑
- * - 避免复杂预览，提供快速可靠的编辑体验
- */
 
 const logger = Logger.getInstance();
 
@@ -75,11 +60,11 @@ const logger = Logger.getInstance();
 
 /**
  * 🚀 智能查找替换工具：根据内容模式查找并替换
- * 解决了"AI需要先找到要改的地方"的问题
+ * 用于针对性的内容修改场景
  */
 export const findAndReplaceToolDefinition = {
     name: "findAndReplace",
-    description: "Find content by pattern/text and replace it with new content (intelligent line detection)",
+    description: "Find and replace text in the current file with advanced pattern matching",
     parameters: {
         type: "object",
         properties: {
@@ -89,11 +74,11 @@ export const findAndReplaceToolDefinition = {
             },
             searchPattern: {
                 type: "string",
-                description: "Text or regex pattern to search for"
+                description: "Text or regex pattern to find"
             },
             replacement: {
                 type: "string",
-                description: "New text to replace with"
+                description: "Replacement text (supports regex capture groups like $1, $2)"
             },
             isRegex: {
                 type: "boolean",
@@ -107,12 +92,12 @@ export const findAndReplaceToolDefinition = {
             },
             replaceAll: {
                 type: "boolean",
-                description: "Whether to replace all occurrences (false = replaces only first match)",
-                default: false
+                description: "Replace all occurrences (true) or just first (false)",
+                default: true
             },
             summary: {
                 type: "string",
-                description: "Description of what this change does"
+                description: "Brief summary describing the purpose of this find and replace operation"
             }
         },
         required: ["searchPattern", "replacement", "summary"]
@@ -121,10 +106,9 @@ export const findAndReplaceToolDefinition = {
     interactionType: 'autonomous',
     riskLevel: 'medium',
     requiresConfirmation: false,
-    // 🚀 访问控制：智能查找替换是强大的编辑操作，orchestrator不应直接使用
+    // 🚀 访问控制：文本替换涉及编辑操作
     accessibleBy: [
-        CallerType.DOCUMENT                       // 文档层的智能编辑
-        // 注意：移除了CallerType.SPECIALIST，specialist应使用语义编辑等高层工具
+        CallerType.DOCUMENT
     ]
 };
 
@@ -183,93 +167,73 @@ export async function findAndReplace(args: {
         // 3. 创建搜索正则表达式
         const isRegex = args.isRegex || false;
         const matchCase = args.matchCase || false;
+        const replaceAll = args.replaceAll !== false; // 默认为true
         
         let searchRegex: RegExp;
         try {
             if (isRegex) {
-                const flags = matchCase ? 'g' : 'gi';
+                const flags = replaceAll ? (matchCase ? 'g' : 'gi') : (matchCase ? '' : 'i');
                 searchRegex = new RegExp(args.searchPattern, flags);
             } else {
-                // 转义特殊字符
                 const escapedPattern = args.searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const flags = matchCase ? 'g' : 'gi';
+                const flags = replaceAll ? (matchCase ? 'g' : 'gi') : (matchCase ? '' : 'i');
                 searchRegex = new RegExp(escapedPattern, flags);
             }
         } catch (error) {
             return { success: false, error: `Invalid regex pattern: ${(error as Error).message}` };
         }
 
-        // 4. 搜索匹配项
-        const lines = contentResult.content.split('\n');
-        const replacements: Array<{
-            line: number;
-            originalText: string;
-            newText: string;
-        }> = [];
-
-        const replaceAll = args.replaceAll || false;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const lineNumber = i + 1;
-            
-            // 重置正则表达式状态
-            searchRegex.lastIndex = 0;
-            
-            if (searchRegex.test(line)) {
-                // 创建新的正则表达式用于替换（避免全局状态问题）
-                const replaceRegex = new RegExp(searchRegex.source, matchCase ? '' : 'i');
-                const newLine = line.replace(replaceRegex, args.replacement);
-                
-                replacements.push({
-                    line: lineNumber,
-                    originalText: line,
-                    newText: newLine
-                });
-
-                // 如果不是替换全部，只处理第一个匹配
-                if (!replaceAll) {
-                    break;
-                }
-            }
-        }
-
-        if (replacements.length === 0) {
-            return { 
-                success: true, 
-                matchesFound: 0,
-                applied: false,
-                replacements: [],
-                error: 'No matches found for the search pattern'
-            };
-        }
-
-        logger.info(`🔍 Found ${replacements.length} matches for pattern: "${args.searchPattern}"`);
-
-        // 5. 应用更改（直接编辑，从后往前替换避免行号变化）
-        replacements.reverse(); // 从最后一行开始替换
+        // 4. 执行替换
+        const originalContent = contentResult.content;
+        const newContent = originalContent.replace(searchRegex, args.replacement);
         
-        for (const repl of replacements) {
-            const replaceResult = await replaceText({
-                text: repl.newText + '\n',
-                startLine: repl.line,
-                endLine: repl.line
-            });
-            
-            if (!replaceResult.success) {
-                return { 
-                    success: false, 
-                    error: `Failed to replace text at line ${repl.line}: ${replaceResult.error}` 
-                };
+        // 检查是否有替换发生
+        if (originalContent === newContent) {
+            return { success: true, matchesFound: 0, applied: false };
+        }
+
+        // 5. 应用更改
+        const fullRange = new vscode.Range(
+            document.positionAt(0),
+            document.positionAt(originalContent.length)
+        );
+
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            return { success: false, error: 'No active editor to apply changes' };
+        }
+
+        await activeEditor.edit(editBuilder => {
+            editBuilder.replace(fullRange, newContent);
+        });
+
+        // 6. 分析替换结果
+        const originalLines = originalContent.split('\n');
+        const newLines = newContent.split('\n');
+        const replacements: Array<{ line: number; originalText: string; newText: string }> = [];
+
+        // 简单的逐行比较
+        const minLines = Math.min(originalLines.length, newLines.length);
+        for (let i = 0; i < minLines; i++) {
+            if (originalLines[i] !== newLines[i]) {
+                replacements.push({
+                    line: i + 1,
+                    originalText: originalLines[i],
+                    newText: newLines[i]
+                });
             }
         }
 
-        logger.info(`✅ Applied ${replacements.length} replacements: ${args.summary}`);
+        // 计算匹配数
+        const matchCount = (originalContent.match(searchRegex) || []).length;
+
+        logger.info(`🔄 Find and replace completed: ${matchCount} matches found, ${replacements.length} lines changed`);
+
         return {
             success: true,
-            matchesFound: replacements.length,
+            matchesFound: matchCount,
             applied: true,
-            replacements: replacements.reverse() // 恢复原来的顺序
+            replacements
         };
 
     } catch (error) {
@@ -279,178 +243,124 @@ export async function findAndReplace(args: {
     }
 }
 
+// ============================================================================
+// 🚀 FindInFiles工具 - 多文件搜索功能 (替换原有findInFile)
+// ============================================================================
+
 /**
- * 🎯 智能搜索工具：查找内容并返回行号信息
- * 用于"只查找不替换"的场景
+ * FindInFiles工具实现
  */
-export const findInFileToolDefinition = {
-    name: "findInFile",
-    description: "Search for text/pattern in a file and return line numbers and context",
-    parameters: {
-        type: "object",
-        properties: {
-            path: {
-                type: "string",
-                description: "File path relative to workspace root (optional, uses active editor if not provided)"
-            },
-            searchPattern: {
-                type: "string",
-                description: "Text or regex pattern to search for"
-            },
-            isRegex: {
-                type: "boolean",
-                description: "Whether searchPattern is a regular expression",
-                default: false
-            },
-            matchCase: {
-                type: "boolean",
-                description: "Whether to match case",
-                default: false
-            },
-            contextLines: {
-                type: "number",
-                description: "Number of context lines to show around each match",
-                default: 2
-            },
-            maxResults: {
-                type: "number",
-                description: "Maximum number of matches to return",
-                default: 10
-            }
-        },
-        required: ["searchPattern"]
+import { FindInFilesEngine } from './findInFiles/FindInFilesEngine';
+import { FindInFilesArgs, FindInFilesResult } from './findInFiles/types';
+
+/**
+ * 🚀 多文件搜索工具定义 (替换原有findInFile工具)
+ */
+export const findInFilesToolDefinition = {
+  name: "findInFiles",
+  description: `Powerful multi-file search tool inspired by Cursor's grep functionality.
+
+Core capabilities:
+- Multi-file search across project baseDir
+- Regex pattern matching with JavaScript RegExp engine  
+- Flexible file filtering (glob patterns and file types)
+- Multiple output formats (content/files/count)
+- Context-aware result presentation
+
+Examples:
+- Basic search: findInFiles({pattern: "TODO"})                    // Search entire baseDir
+- Directory search: findInFiles({pattern: "function", path: "src/"})  // Search specific directory  
+- Type filtering: findInFiles({pattern: "class", type: "ts"})     // Only TypeScript files
+- Glob filtering: findInFiles({pattern: "import", glob: "**/*.js"})   // Advanced pattern matching
+- Regex search: findInFiles({pattern: "function\\\\s+\\\\w+", regex: true})  // Regex patterns`,
+  
+  parameters: {
+    type: "object",
+    properties: {
+      // === 核心参数 ===
+      pattern: { 
+        type: "string", 
+        description: "Text or regex pattern to search for" 
+      },
+      regex: { 
+        type: "boolean", 
+        default: false,
+        description: "Use regular expression matching" 
+      },
+      caseSensitive: { 
+        type: "boolean", 
+        default: false,
+        description: "Case sensitive search" 
+      },
+      
+      // === 搜索范围控制 ===
+      path: { 
+        type: "string", 
+        description: "File or directory path (relative to baseDir). If not provided, searches entire baseDir." 
+      },
+      glob: { 
+        type: "string", 
+        description: "File pattern (e.g. '*.ts', '**/*.md', '*.{js,ts}')" 
+      },
+      type: { 
+        type: "string", 
+        enum: ["js", "ts", "md", "yaml", "json", "html", "css"],
+        description: "File type for filtering. Automatically converted to glob pattern." 
+      },
+      
+      // === 输出控制 ===
+      outputMode: {
+        type: "string",
+        enum: ["content", "files", "count"],
+        default: "content", 
+        description: "Output format: content (detailed matches), files (paths only), count (statistics)"
+      },
+      context: { 
+        type: "number", 
+        default: 5,
+        minimum: 0,
+        maximum: 20,
+        description: "Number of context lines before/after each match" 
+      },
+      limit: { 
+        type: "number", 
+        default: 100,
+        minimum: 1,
+        maximum: 1000,
+        description: "Maximum number of matches to return" 
+      }
     },
-    // 🚀 智能分类属性
-    interactionType: 'autonomous',
-    riskLevel: 'low',
-    requiresConfirmation: false,
-    // 🚀 访问控制：查找是安全的操作，但orchestrator不应直接使用
-    accessibleBy: [
-        CallerType.DOCUMENT
-        // 注意：移除了CallerType.SPECIALIST，specialist应使用高层抽象工具
-    ]
+    required: ["pattern"],
+    additionalProperties: false
+  },
+  
+  // 访问控制
+  accessibleBy: [
+    CallerType.ORCHESTRATOR_TOOL_EXECUTION,
+    CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
+    CallerType.SPECIALIST_CONTENT
+  ],
+  
+  // 工具分类
+  interactionType: 'autonomous' as const,
+  riskLevel: 'low' as const,
+  requiresConfirmation: false
 };
 
-export async function findInFile(args: {
-    path?: string;
-    searchPattern: string;
-    isRegex?: boolean;
-    matchCase?: boolean;
-    contextLines?: number;
-    maxResults?: number;
-}): Promise<{ 
-    success: boolean; 
-    matches?: Array<{
-        line: number;
-        text: string;
-        context: {
-            before: string[];
-            after: string[];
-        };
-    }>;
-    totalMatches?: number;
-    error?: string;
-}> {
-    try {
-        // 1. 确定目标文件并获取内容
-        if (args.path) {
-            const workspaceFolder = getCurrentWorkspaceFolder();
-            if (!workspaceFolder) {
-                return { success: false, error: 'No workspace folder is open' };
-            }
-            const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, args.path);
-            const document = await vscode.workspace.openTextDocument(fileUri);
-            await vscode.window.showTextDocument(document);
-        } else {
-            const activeEditor = vscode.window.activeTextEditor;
-            if (!activeEditor) {
-                return { success: false, error: 'No file path provided and no active editor' };
-            }
-        }
-
-        // 2. 获取文档内容
-        const contentResult = await getActiveDocumentContent();
-        if (!contentResult.success || !contentResult.content) {
-            return { success: false, error: contentResult.error || 'Failed to get document content' };
-        }
-
-        // 3. 设置搜索参数
-        const isRegex = args.isRegex || false;
-        const matchCase = args.matchCase || false;
-        const contextLines = args.contextLines || 2;
-        const maxResults = args.maxResults || 10;
-
-        // 4. 创建搜索正则表达式
-        let searchRegex: RegExp;
-        try {
-            if (isRegex) {
-                const flags = matchCase ? 'g' : 'gi';
-                searchRegex = new RegExp(args.searchPattern, flags);
-            } else {
-                const escapedPattern = args.searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const flags = matchCase ? 'g' : 'gi';
-                searchRegex = new RegExp(escapedPattern, flags);
-            }
-        } catch (error) {
-            return { success: false, error: `Invalid regex pattern: ${(error as Error).message}` };
-        }
-
-        // 5. 搜索匹配项
-        const lines = contentResult.content.split('\n');
-        const matches: Array<{
-            line: number;
-            text: string;
-            context: {
-                before: string[];
-                after: string[];
-            };
-        }> = [];
-
-        let totalMatches = 0;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            
-            // 重置正则表达式状态
-            searchRegex.lastIndex = 0;
-            
-            if (searchRegex.test(line)) {
-                totalMatches++;
-                
-                if (matches.length < maxResults) {
-                    // 获取上下文
-                    const before = lines.slice(Math.max(0, i - contextLines), i);
-                    const after = lines.slice(i + 1, Math.min(lines.length, i + 1 + contextLines));
-
-                    matches.push({
-                        line: i + 1, // 转为1-based
-                        text: line,
-                        context: {
-                            before,
-                            after
-                        }
-                    });
-                }
-            }
-        }
-
-        logger.info(`🔍 Found ${totalMatches} matches for pattern: "${args.searchPattern}"`);
-
-        return {
-            success: true,
-            matches,
-            totalMatches
-        };
-
-    } catch (error) {
-        const errorMsg = `Failed to search in file: ${(error as Error).message}`;
-        logger.error(errorMsg);
-        return { success: false, error: errorMsg };
-    }
+/**
+ * 🚀 多文件搜索工具实现 (替换原有findInFile工具)
+ */
+export async function findInFiles(args: FindInFilesArgs): Promise<FindInFilesResult> {
+  const engine = new FindInFilesEngine();
+  return await engine.search(args);
 }
 
+// ============================================================================
+// 原有工具保持不变
+// ============================================================================
+
 /**
- * 🎯 选中区域替换工具：在用户选中的文本中进行查找替换
+ * 🎯 选中区域替换工具：在用户选中的文件中进行查找替换
  * 用于精确的局部编辑场景
  */
 export const replaceInSelectionToolDefinition = {
@@ -461,11 +371,11 @@ export const replaceInSelectionToolDefinition = {
         properties: {
             searchPattern: {
                 type: "string",
-                description: "Text or regex pattern to search for"
+                description: "Text or regex pattern to find within selection"
             },
             replacement: {
                 type: "string",
-                description: "New text to replace with"
+                description: "Replacement text"
             },
             isRegex: {
                 type: "boolean",
@@ -479,7 +389,7 @@ export const replaceInSelectionToolDefinition = {
             },
             replaceAll: {
                 type: "boolean",
-                description: "Whether to replace all occurrences in selection",
+                description: "Replace all occurrences in selection (true) or just first (false)",
                 default: true
             }
         },
@@ -541,39 +451,30 @@ export async function replaceInSelection(args: {
         // 3. 执行替换
         const newText = originalText.replace(searchRegex, args.replacement);
         
-        // 计算替换次数
-        let replacedCount = 0;
-        if (newText !== originalText) {
-            // 简单的计算方法：通过匹配次数
-            const matches = originalText.match(searchRegex);
-            replacedCount = matches ? matches.length : 0;
+        // 检查是否有替换发生
+        if (originalText === newText) {
+            return { success: true, replacedCount: 0, originalSelection: originalText, newSelection: newText };
         }
 
-        if (replacedCount === 0) {
-            return {
-                success: true,
-                replacedCount: 0,
-                originalSelection: originalText,
-                newSelection: originalText,
-                error: 'No matches found in the selected text'
-            };
+        // 4. 应用更改到选区
+        const replacedCount = (originalText.match(searchRegex) || []).length;
+        
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            return { success: false, error: 'No active editor' };
         }
 
-        // 4. 应用替换
-        const replaceResult = await replaceText({
-            text: newText,
-            startLine: range.startLine,
-            endLine: range.endLine
+        const selectionRange = new vscode.Range(
+            new vscode.Position(range.startLine, 0),
+            new vscode.Position(range.endLine + 1, 0)
+        );
+
+        await activeEditor.edit(editBuilder => {
+            editBuilder.replace(selectionRange, newText);
         });
 
-        if (!replaceResult.success) {
-            return { 
-                success: false, 
-                error: `Failed to replace text in selection: ${replaceResult.error}` 
-            };
-        }
+        logger.info(`🔄 Selection replace completed: ${replacedCount} replacements made`);
 
-        logger.info(`✅ Replaced ${replacedCount} occurrences in selection`);
         return {
             success: true,
             replacedCount,
@@ -597,10 +498,7 @@ export async function replaceInSelection(args: {
  */
 function getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-        return undefined;
-    }
-    return workspaceFolders[0];
+    return workspaceFolders && workspaceFolders.length > 0 ? workspaceFolders[0] : undefined;
 }
 
 // ============================================================================
@@ -609,13 +507,13 @@ function getCurrentWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
 
 export const smartEditToolDefinitions = [
     findAndReplaceToolDefinition,
-    findInFileToolDefinition,
+    findInFilesToolDefinition,  // 🚀 替换原有findInFile工具
     replaceInSelectionToolDefinition
 ];
 
 export const smartEditToolImplementations = {
     findAndReplace,
-    findInFile,
+    findInFiles,  // 🚀 替换原有findInFile工具实现
     replaceInSelection
 };
 
@@ -624,9 +522,14 @@ export const smartEditToolImplementations = {
 // ============================================================================
 
 export const smartEditToolsCategory = {
-    name: 'Smart Editing',
-    description: 'Intelligent find and replace tools based on stable editor operations',
+    name: 'Smart Editing & Search',
+    description: 'Intelligent find, replace, and multi-file search tools based on stable editor operations',
     icon: '🔍',
     priority: 90,
-    layer: 'atomic'
-}; 
+    layer: 'atomic',
+    tools: [
+        'findAndReplace',
+        'findInFiles',    // 🚀 替换原有findInFile工具
+        'replaceInSelection'
+    ]
+};

@@ -83,7 +83,7 @@ describe('SID + lineRange 精确定位验证', () => {
         const result = locator.findTarget({
             sid: '/functional-requirements/user-management',
             lineRange: { startLine: 2, endLine: 4 }
-        }, 'replace_lines_in_section');
+        }, 'replace_section_content_only');
 
         expect(result.found).toBe(true);
         expect(result.operationType).toBe('replace');
@@ -105,7 +105,7 @@ describe('SID + lineRange 精确定位验证', () => {
         const result = locator.findTarget({
             sid: '/introduction',
             lineRange: { startLine: 2, endLine: 2 }
-        }, 'replace_lines_in_section');
+        }, 'replace_section_content_only');
 
         expect(result.found).toBe(true);
         expect(result.range).toBeDefined();
@@ -123,7 +123,7 @@ describe('SID + lineRange 精确定位验证', () => {
         const result = locator.findTarget({
             sid: '/introduction',
             lineRange: { startLine: 5, endLine: 5 }  // 超出章节范围（引言只有4行内容）
-        }, 'replace_lines_in_section');
+        }, 'replace_section_content_only');
 
         expect(result.found).toBe(false);
         expect(result.error).toContain('Section-relative line 5 out of range');
@@ -153,7 +153,7 @@ describe('SID + lineRange 精确定位验证', () => {
         const result = locator.findTarget({
             sid: '/functional-requirements',
             lineRange: { startLine: 5, endLine: 5 } // insert_lines_in_section 只需要 lineRange
-        }, 'insert_lines_in_section');
+        }, 'insert_section_content_only');
 
         expect(result.found).toBe(true);
         expect(result.operationType).toBe('insert');
@@ -190,7 +190,7 @@ describe('SID + lineRange 精确定位验证', () => {
         const result = locator.findTarget({
             sid: '/introduction',
             lineRange: { startLine: 2, endLine: 1 }  // endLine < startLine（都在有效范围内）
-        }, 'replace_lines_in_section');
+        }, 'replace_section_content_only');
 
         expect(result.found).toBe(false);
         expect(result.error).toContain('Invalid section-relative line range'); // 检查 endLine < startLine 的错误

@@ -1,0 +1,85 @@
+{
+  "projectName": "unnamed",
+  "generatedAt": "2025-10-14T07:22:20.882Z",
+  "summary": {
+    "totalChecks": 4,
+    "totalFiles": 2,
+    "filesWithIssues": 3,
+    "totalErrors": 1,
+    "totalWarnings": 2
+  },
+  "checks": [
+    {
+      "checkType": "id-consistency",
+      "toolName": "traceability-completion-tool",
+      "timestamp": "2025-10-14T07:22:20.877Z",
+      "summary": {
+        "errors": 1,
+        "warnings": 0,
+        "srsIdsCount": 25,
+        "yamlIdsCount": 24,
+        "missingInYaml": 0,
+        "missingInSrs": 1,
+        "consistent": false,
+        "executionTime": "50ms"
+      },
+      "issues": [
+        {
+          "file": "SRS.md",
+          "severity": "error",
+          "message": "ID FR-001 exists in requirements.yaml but missing in SRS.md"
+        }
+      ]
+    },
+    {
+      "checkType": "traceability-completeness",
+      "toolName": "traceability-completion-tool",
+      "timestamp": "2025-10-14T07:22:20.878Z",
+      "summary": {
+        "errors": 0,
+        "warnings": 1,
+        "entitiesProcessed": 25,
+        "derivedFrAdded": 3,
+        "adcRelatedAdded": 2,
+        "techSpecRelatedAdded": 4,
+        "danglingReferencesFound": 1,
+        "executionTime": "150ms"
+      },
+      "issues": [
+        {
+          "file": "requirements.yaml",
+          "severity": "warning",
+          "message": "Dangling reference found: NFR-999 (referenced but not defined)"
+        }
+      ]
+    },
+    {
+      "checkType": "markdown-syntax",
+      "toolName": "syntax-checker",
+      "timestamp": "2025-10-14T07:22:20.880Z",
+      "summary": {
+        "errors": 0,
+        "warnings": 1,
+        "filesChecked": 2
+      },
+      "issues": [
+        {
+          "file": "SRS.md",
+          "line": 45,
+          "severity": "warning",
+          "message": "Line too long (125 > 120 characters)",
+          "rule": "MD013"
+        }
+      ]
+    },
+    {
+      "checkType": "test-check",
+      "toolName": "test-tool",
+      "timestamp": "2025-10-14T07:22:20.882Z",
+      "summary": {
+        "errors": 0,
+        "warnings": 0
+      }
+    }
+  ]
+}

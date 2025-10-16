@@ -43,7 +43,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
                 sid: '/用户旅程-user-journeys',
                 lineRange: { startLine: 10, endLine: 10 } // 使用文档范围内的行号
                 // 注意：没有 insertionPosition 字段
-            }, 'insert_lines_in_section');
+            }, 'insert_section_content_only');
 
             // 修复后应该成功，因为insert_lines_in_section只需要lineRange
             expect(result.found).toBe(true);
@@ -57,7 +57,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
             const result = locator.findTarget({
                 sid: '/用户旅程-user-journeys',
                 lineRange: { startLine: 10, endLine: 10 }
-            }, 'insert_lines_in_section');
+            }, 'insert_section_content_only');
 
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('insert');
@@ -68,7 +68,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
             const result = locator.findTarget({
                 sid: '/用户旅程-user-journeys'
                 // 注意：没有提供任何定位信息
-            }, 'insert_lines_in_section');
+            }, 'insert_section_content_only');
 
             expect(result.found).toBe(false);
             expect(result.error).toContain('lineRange is required for insert_lines_in_section operations');
@@ -79,7 +79,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
                 sid: '/用户旅程-user-journeys',
                 lineRange: { startLine: 10, endLine: 10 },
                 insertionPosition: 'after' as any // 这个会被忽略
-            }, 'insert_lines_in_section');
+            }, 'insert_section_content_only');
 
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('insert');
@@ -92,7 +92,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
             const result = locator.findTarget({
                 sid: '/用户旅程-user-journeys',
                 insertionPosition: 'after'
-            }, 'insert_entire_section');
+            }, 'insert_section_and_title');
 
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('insert');
@@ -102,7 +102,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
         it('应该失败 - 不提供 insertionPosition', () => {
             const result = locator.findTarget({
                 sid: '/用户旅程-user-journeys'
-            }, 'insert_entire_section');
+            }, 'insert_section_and_title');
 
             expect(result.found).toBe(false);
             expect(result.error).toContain('insertionPosition');
@@ -112,7 +112,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
             const result = locator.findTarget({
                 sid: '/用户旅程-user-journeys',
                 insertionPosition: 'inside' as any // 已经不再支持
-            }, 'insert_entire_section');
+            }, 'insert_section_and_title');
 
             expect(result.found).toBe(false);
             expect(result.error).toContain('Only \'before\' and \'after\' are supported');
@@ -123,7 +123,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
         it('insert_lines_in_section 的错误消息应该有用', () => {
             const result = locator.findTarget({
                 sid: '/用户旅程-user-journeys'
-            }, 'insert_lines_in_section');
+            }, 'insert_section_content_only');
 
             expect(result.found).toBe(false);
             expect(result.error).toBe('lineRange is required for insert_lines_in_section operations');
@@ -133,7 +133,7 @@ describe('insert_lines_in_section 字段依赖修复验证', () => {
         it('insert_entire_section 的错误消息应该有用', () => {
             const result = locator.findTarget({
                 sid: '/用户旅程-user-journeys'
-            }, 'insert_entire_section');
+            }, 'insert_section_and_title');
 
             expect(result.found).toBe(false);
             expect(result.error).toBe('insertionPosition (\'before\' or \'after\') is required for insert_entire_section operations');

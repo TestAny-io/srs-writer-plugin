@@ -982,7 +982,7 @@ export class PlanExecutor {
                     ],
                     availableActions: [
                         "readFile - 查看当前文件内容",
-                        "findInFile - 搜索文件中的特定内容",
+                        "findInFiles - 强大的多文件搜索功能",
                         "taskComplete - 完成本轮工作并决定是否继续"
                     ]
                 }
@@ -1123,9 +1123,10 @@ export class PlanExecutor {
                 const contentLength = typeof content === 'string' ? content.length : 0;
                 return `读取文件成功 (${contentLength}字符)`;
                 
-            case 'findInFile':
+            case 'findInFiles':
                 const matches = toolResult.result?.matches || [];
-                return `文件搜索成功 (找到${matches.length}个匹配)`;
+                const totalCount = toolResult.result?.totalMatches || matches.length;
+                return `搜索成功 (找到${totalCount}个匹配，涉及${matches.length}个位置)`;
                 
             case 'taskComplete':
                 const editCount = toolResult.result?.edit_instructions?.length || 0;

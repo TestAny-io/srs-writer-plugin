@@ -95,7 +95,7 @@ function testLineRangeLocator() {
     const result1 = locator.findTarget({
         sid: '/functional-requirements/user-management',
         lineRange: { startLine: 2, endLine: 4 }
-    }, 'replace_lines_in_section');
+    }, 'replace_section_content_only');
 
     console.log('Result1:', {
         found: result1.found,
@@ -108,7 +108,7 @@ function testLineRangeLocator() {
     const result2 = locator.findTarget({
         sid: '/introduction',
         lineRange: { startLine: 2, endLine: 2 }
-    }, 'replace_lines_in_section');
+    }, 'replace_section_content_only');
 
     console.log('Result2:', {
         found: result2.found,
@@ -121,7 +121,7 @@ function testLineRangeLocator() {
     const result3 = locator.findTarget({
         sid: '/introduction',
         lineRange: { startLine: 10, endLine: 10 }  // 超出范围
-    }, 'replace_lines_in_section');
+    }, 'replace_section_content_only');
 
     console.log('Result3:', {
         found: result3.found,
@@ -146,7 +146,7 @@ function testLineRangeLocator() {
         sid: '/functional-requirements',
         // insertionPosition 已移除，insert_lines_in_section 使用 lineRange
         lineRange: { startLine: 5, endLine: 5 }
-    }, 'insert_lines_in_section');
+    }, 'insert_section_content_only');
 
     console.log('Result5:', {
         found: result5.found,

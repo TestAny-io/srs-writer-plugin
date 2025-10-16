@@ -165,7 +165,7 @@ describe('recordThought优化用户验收测试', () => {
             const otherHistory = [
                 'readFile: ✅ 成功 - 读取现有SRS文档 (2,340字符)',
                 planningFormatted,
-                'findInFile: ✅ 成功 - 搜索性能相关需求 (找到3个匹配)',
+                'findInFiles: ✅ 成功 - 搜索性能相关需求 (找到3个匹配)',
                 analysisFormatted,
                 'executeSemanticEdits: ✅ 成功 - 应用5个编辑操作 (1,250ms)',
                 synthesisFormatted,
@@ -202,7 +202,7 @@ describe('recordThought优化用户验收测试', () => {
 
             const otherHistoryFiltered = [
                 'readFile: ✅ 成功 - 读取现有SRS文档 (2,340字符)',
-                'findInFile: ✅ 成功 - 搜索性能相关需求 (找到3个匹配)',
+                'findInFiles: ✅ 成功 - 搜索性能相关需求 (找到3个匹配)',
                 'executeSemanticEdits: ✅ 成功 - 应用5个编辑操作 (1,250ms)',
                 'readFile: ✅ 成功 - 验证更新后的内容 (3,890字符)'
             ];

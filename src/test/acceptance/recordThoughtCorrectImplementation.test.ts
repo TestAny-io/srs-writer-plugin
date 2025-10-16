@@ -274,7 +274,7 @@ executeMarkdownEdits: ❌ 失败 - cannot open file:///Users/kailaichen/Download
 📋 Next Steps: wireframe → prototype → test
 ⏰ 9/24/2025, 9:30:00 AM
 executeMarkdownEdits: ✅ 成功 - 应用3个编辑操作 (200ms)
-findInFile: ✅ 成功 - 找到5个匹配项`
+findInFiles: ✅ 成功 - 找到5个匹配项`
             ];
 
             const result = acceptanceTest.simulatePromptAssembly(mixedHistory);
@@ -294,7 +294,7 @@ findInFile: ✅ 成功 - 找到5个匹配项`
             expect(result.previousThoughtsSection).toContain('**Context**: Strategic planning');
 
             expect(result.actionHistorySection).toContain('executeMarkdownEdits: ✅ 成功');
-            expect(result.actionHistorySection).toContain('findInFile: ✅ 成功');
+            expect(result.actionHistorySection).toContain('findInFiles: ✅ 成功');
             expect(result.actionHistorySection).not.toContain('💭 【');
 
             console.log('\n🎉 分离效果完美：思考记录和执行历史完全分离！');
@@ -322,7 +322,7 @@ executeMarkdownEdits: ✅ 成功 - 应用12个编辑操作 (1,200ms)`,
 🧠 Core Thinking: progress: 60% complete; quality: Exceeds expectations; blockers: None; team_morale: High; next_focus: User acceptance testing
 📋 Next Steps: prepare_uat → conduct_testing → gather_feedback → iterate
 ⏰ 9/24/2025, 12:00:00 PM
-findInFile: ✅ 成功 - 搜索关键词 (找到25个匹配)
+findInFiles: ✅ 成功 - 搜索关键词 (找到25个匹配)
 taskComplete: ✅ 成功 - 任务阶段完成`
             ];
 

@@ -219,7 +219,7 @@ Your core responsibilities are:
         <Mode id="KNOWLEDGE_QA">
             <Triggers>
                 <Condition>Request is a direct question, a greeting, or a clarification.</Condition>
-                <Condition>Task can be completed with a single, simple tool call (e.g., `readMarkdownFile`, `listAllFiles`).</Condition>
+                <Condition>Task can be completed with a single, simple tool call (e.g., `readMarkdownFile`, `listFiles`).</Condition>
                 <Condition>Task is to gather more information from the user due to general vagueness.</Condition>
             </Triggers>
             <Output_Schema>

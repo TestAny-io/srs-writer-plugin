@@ -106,7 +106,7 @@ ${Array(50).fill('测试计划相关的内容。').join('\n')}
         
         const intents: SemanticEditIntent[] = [
             {
-                type: 'replace_entire_section_with_title',
+                type: 'replace_section_and_title',
                 target: {
                     sid: '/functional-requirements/user-management'
                 },
@@ -144,7 +144,7 @@ ${Array(50).fill('测试计划相关的内容。').join('\n')}
         
         const intents: SemanticEditIntent[] = [
             {
-                type: 'replace_lines_in_section',
+                type: 'replace_section_content_only',
                 target: {
                     sid: '/introduction/project-background',
                     lineRange: { startLine: 1, endLine: 3 }
@@ -154,7 +154,7 @@ ${Array(50).fill('测试计划相关的内容。').join('\n')}
                 priority: 3
             },
             {
-                type: 'insert_lines_in_section',
+                type: 'insert_section_content_only',
                 target: {
                     sid: '/functional-requirements',
                     lineRange: { startLine: 30, endLine: 30 } // 在功能需求章节的第30行插入
@@ -164,7 +164,7 @@ ${Array(50).fill('测试计划相关的内容。').join('\n')}
                 priority: 2
             },
             {
-                type: 'replace_entire_section_with_title',
+                type: 'replace_section_and_title',
                 target: {
                     sid: '/non-functional-requirements/performance-requirements'
                 },
@@ -205,7 +205,7 @@ ${Array(50).fill('测试计划相关的内容。').join('\n')}
     test('应该展示缓存机制的性能优势', async () => {
         const intents: SemanticEditIntent[] = [
             {
-                type: 'replace_lines_in_section',
+                type: 'replace_section_content_only',
                 target: {
                     sid: '/technical-specifications/architecture-design',
                     lineRange: { startLine: 1, endLine: 1 }
@@ -253,7 +253,7 @@ ${Array(50).fill('测试计划相关的内容。').join('\n')}
 
         const intents: SemanticEditIntent[] = [
             {
-                type: 'replace_entire_section_with_title',
+                type: 'replace_section_and_title',
                 target: {
                     sid: '/test-plan'
                 },

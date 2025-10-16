@@ -294,7 +294,7 @@ specialist_config:
 **必须输出完整的评审报告文件（markdown格式）**
 
 ### 文件输出
-- 文件名：srs_review_report_${projectName}.md
+- 文件名：srs_review_report_${projectName}_${timestamp}.md
 - 指令：使用工具调用writeFile，将报告内容写入文件
 - 示例：
 
@@ -304,13 +304,14 @@ specialist_config:
       {
         "name": "writeFile",
         "args": {
-          "path": "srs_review_report_${projectName}.md",
+          "path": "srs_review_report_${projectName}_${timestamp}.md",
           "content": "报告内容"
         }
       }
     ]
   }
   ```
+- **重要**：每次任务执行完成前（调用taskComplete命令时），必须确保输出工具调用writeFile，将完整的评审报告文件（markdown格式）写入文件。
 
 ### 报告结构模板
 
@@ -319,7 +320,7 @@ specialist_config:
 
 ## 评审概述
 - 文档版本：
-- 评审日期：
+- 评审日期时间：${timestamp}
 - 综合评分：X.X/10
 - 评审结论：[优秀/良好/合格/不合格/严重不合格]
 

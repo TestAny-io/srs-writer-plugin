@@ -145,7 +145,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('replace');
@@ -165,7 +165,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(true);
             expect(result.context?.relativeToAbsolute?.sectionRelativeStart).toBe(2);
@@ -184,7 +184,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('Section-relative line 10 out of range');
@@ -201,7 +201,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('Invalid section-relative line range: 5-3');
@@ -218,7 +218,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'insert_lines_in_section');
+            const result = locator.findTarget(target, 'insert_section_content_only');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('insert');
@@ -236,7 +236,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'insert_lines_in_section');
+            const result = locator.findTarget(target, 'insert_section_content_only');
             
             expect(result.found).toBe(true);
             expect(result.context?.sectionRelativeInsertLine).toBe(4);
@@ -253,7 +253,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'insert_lines_in_section');
+            const result = locator.findTarget(target, 'insert_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('Section-relative insert line 6 out of range');
@@ -271,7 +271,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.suggestions?.sectionPreview).toContain('1: 用户管理功能包括：');
@@ -290,7 +290,7 @@ describe('相对行号功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('Section with sid \'/non-existent-section\' not found');
@@ -306,7 +306,7 @@ describe('相对行号功能验证', () => {
                 }
             } as any;
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('endLine is required');

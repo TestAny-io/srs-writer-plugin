@@ -298,17 +298,37 @@ export class SRSAgentEngine implements ISessionObserver {
         if (this.state.resumeContext.planExecutorState) {
           this.stream.markdown(`🔄 **正在恢复PlanExecutor执行状态...**\n\n`);
           
-          const resumeSuccess = await this.resumePlanExecutorWithUserResponse(response);
+          const resumeResult = await this.resumePlanExecutorWithUserResponse(response);
           
-          // 🚀 修复：specialist恢复后不再手动清除pendingInteraction
-          // 如果specialist需要新的用户交互，会通过askQuestion工具重新设置pendingInteraction
-          if (resumeSuccess) {
-            this.logger.info(`✅ Specialist恢复成功，直接结束处理`);
-            return; // 🚀 直接返回，specialist已经在正确的执行路径上
+          // 🚀 v2.0 (2025-10-08): 使用明确的intent处理，消除boolean歧义
+          // 
+          // 改进说明：
+          // - 之前使用boolean返回值，无法区分"继续执行"和"需要用户交互"两种true语义
+          // - 现在使用intent明确表达三种状态，清晰无歧义
+          // - 同时修复了L1447的状态覆盖问题，保留planExecutorState
+          this.logger.info(`🔍 [RESUME_RESULT] Specialist恢复结果intent: ${resumeResult.intent}`);
+          
+          if (resumeResult.intent === 'user_interaction_required') {
+            // Specialist需要新的用户交互
+            this.logger.info(`💬 Specialist恢复后需要新的用户交互，保持等待状态`);
+            this.logger.info(`💬 等待用户回答: "${resumeResult.result?.question || '新问题'}"`);
+            this.logger.info(`🔍 [RESUME_STATE] resumeContext.planExecutorState preserved: ${!!this.state.resumeContext?.planExecutorState}`);
+            // state已在resumePlanExecutorWithUserResponse中正确设置
+            // 包括：state.stage = 'awaiting_user', state.pendingInteraction, state.resumeContext（保留了planExecutorState）
+            return; // 保持awaiting_user状态，等待下一次用户回复
+            
+          } else if (resumeResult.intent === 'specialist_continued') {
+            // Specialist成功完成或继续执行
+            this.logger.info(`✅ Specialist恢复成功，继续执行`);
+            // specialist已通过resumePlanExecutorLoop继续执行或完成
+            return; // 正常结束handleUserResponse
+            
+          } else if (resumeResult.intent === 'specialist_failed') {
+            // Specialist恢复执行失败，需要重新规划
+            this.logger.warn(`⚠️ Specialist恢复失败，错误: ${resumeResult.result?.error || '未知错误'}`);
+            this.logger.warn(`⚠️ 将重新规划任务`);
+            // 不return，继续执行到下面的重新规划逻辑
           }
-          
-          // 🚀 如果specialist恢复失败，继续到下面的重新规划逻辑
-          this.logger.warn(`⚠️ Specialist恢复失败，将重新规划任务`);
           
         } else {
           // 🚀 兼容性：处理旧格式的resumeContext
@@ -576,6 +596,7 @@ export class SRSAgentEngine implements ISessionObserver {
           this.state.resumeContext = executionResult.result?.resumeContext;
           
           this.stream.markdown(`💬 **${executionResult.result?.question}**\n\n`);
+          this.stream.markdown(`⏸️ **等待您的回复...**\n\n`);  // 🚀 修复3：添加明确的等待提示
           await this.recordExecution('user_interaction', `向用户提问: ${executionResult.result?.question}`, true);
           return;
         } else {
@@ -949,7 +970,7 @@ export class SRSAgentEngine implements ISessionObserver {
       case 'askQuestion':
         return `等待用户输入：${result.question || result.chatQuestion || ''}`;
 
-      case 'listAllFiles':
+      case 'listFiles':
         return `发现${result.structure?.totalCount || 0}个文件`;
 
       case 'createDirectory':
@@ -1310,9 +1331,25 @@ export class SRSAgentEngine implements ISessionObserver {
 
   /**
    * 🚀 新增：使用用户回复恢复PlanExecutor执行状态
-   * @returns {boolean} 是否成功恢复执行（true=specialist继续执行，false=需要重新规划）
+   * 
+   * @param userResponse 用户的回复内容
+   * @returns 明确的恢复结果，包含intent和相关数据
+   * 
+   * 🔄 v2.0 (2025-10-08): 改用intent机制替代boolean，消除语义歧义
+   * 返回值结构：
+   * - intent: 'specialist_continued' | 'user_interaction_required' | 'specialist_failed'
+   * - result: 相关数据
+   * - metadata: 调试信息
    */
-  private async resumePlanExecutorWithUserResponse(userResponse: string): Promise<boolean> {
+  private async resumePlanExecutorWithUserResponse(userResponse: string): Promise<{
+    intent: 'specialist_continued' | 'user_interaction_required' | 'specialist_failed';
+    result?: any;
+    metadata?: {
+      specialistId?: string;
+      iteration?: number;
+      needsUserInteraction?: boolean;
+    };
+  }> {
     const resumeContext = this.state.resumeContext!;
     const planExecutorState = resumeContext.planExecutorState;
     
@@ -1357,7 +1394,17 @@ export class SRSAgentEngine implements ISessionObserver {
         // 无论specialist返回什么nextStepType，都让PlanExecutor来决定是否继续执行剩余步骤
         // 这修复了specialist的TASK_FINISHED错误终止多步骤计划的critical bug
         await this.resumePlanExecutorLoop(planExecutorState, continuedResult, userResponse);
-        return true; // ✅ PlanExecutor继续执行，specialist恢复成功
+        
+        // 🚀 v2.0 (2025-10-08): 返回明确的intent
+        return {
+          intent: 'specialist_continued',
+          result: continuedResult,
+          metadata: {
+            specialistId: planExecutorState.specialistLoopState.specialistId,
+            iteration: planExecutorState.specialistLoopState.currentIteration,
+            needsUserInteraction: false
+          }
+        };
         
       } else if ('needsChatInteraction' in continuedResult && continuedResult.needsChatInteraction) {
         // 🚀 处理specialist需要进一步用户交互的情况
@@ -1370,22 +1417,75 @@ export class SRSAgentEngine implements ISessionObserver {
           message: continuedResult.question || '需要您的确认',
           options: []
         };
-        this.state.resumeContext = continuedResult.resumeContext;
+        
+        // 🚀 CRITICAL FIX (2025-10-08): 保留planExecutorState，不要直接覆盖
+        // 
+        // 问题：specialist返回的resumeContext不包含planExecutorState
+        // 如果直接覆盖，会丢失第一次恢复时保存的完整PlanExecutor上下文
+        // 导致第二次恢复时无法识别为新格式，走到旧格式分支
+        // 
+        // 解决：合并对象，但强制保留planExecutorState
+        this.logger.info(`🔍 [RESUME_STATE] 合并resumeContext，保留planExecutorState`);
+        this.logger.info(`🔍 [RESUME_STATE] 当前planExecutorState存在: ${!!this.state.resumeContext?.planExecutorState}`);
+        
+        this.state.resumeContext = {
+          ...this.state.resumeContext!,  // 保留原有的完整上下文（非空断言，前面已检查）
+          ...continuedResult.resumeContext,  // 合并specialist的新状态
+          // 🚀 强制保留关键字段，确保不被覆盖
+          planExecutorState: this.state.resumeContext!.planExecutorState,
+          // 更新askQuestionContext记录新的问题
+          askQuestionContext: {
+            toolCall: { name: 'askQuestion', args: {} },
+            question: continuedResult.question,
+            originalResult: continuedResult,
+            timestamp: Date.now()
+          }
+        };
+        
+        this.logger.info(`🔍 [RESUME_STATE] 合并后planExecutorState存在: ${!!this.state.resumeContext?.planExecutorState}`);
         
         this.stream.markdown(`💬 **${continuedResult.question}**\n\n`);
-        return true; // ✅ 等待进一步用户输入，specialist恢复成功
+        this.stream.markdown(`⏸️ **等待您的回复...**\n\n`);  // 🚀 修复3：添加明确的等待提示
+        
+        // 🚀 v2.0 (2025-10-08): 返回明确的intent
+        return {
+          intent: 'user_interaction_required',
+          result: {
+            question: continuedResult.question,
+            resumeContext: this.state.resumeContext
+          },
+          metadata: {
+            specialistId: planExecutorState.specialistLoopState.specialistId,
+            iteration: planExecutorState.specialistLoopState.currentIteration,
+            needsUserInteraction: true
+          }
+        };
         
       } else {
         const errorMsg = ('error' in continuedResult) ? continuedResult.error : '执行失败';
         this.stream.markdown(`❌ **Specialist执行失败**: ${errorMsg}\n\n`);
         await this.recordExecution('result', `Specialist恢复执行失败: ${errorMsg}`, false);
-        return false; // ❌ Specialist执行失败，需要重新规划
+        
+        // 🚀 v2.0 (2025-10-08): 返回明确的intent
+        return {
+          intent: 'specialist_failed',
+          result: {
+            error: errorMsg
+          }
+        };
       }
       
     } catch (error) {
       this.logger.error(`❌ Specialist恢复执行异常: ${(error as Error).message}`);
       this.stream.markdown(`❌ **恢复执行异常**: ${(error as Error).message}\n\n`);
-      return false; // ❌ 恢复执行异常，需要重新规划
+      
+      // 🚀 v2.0 (2025-10-08): 返回明确的intent
+      return {
+        intent: 'specialist_failed',
+        result: {
+          error: (error as Error).message
+        }
+      };
     }
   }
 

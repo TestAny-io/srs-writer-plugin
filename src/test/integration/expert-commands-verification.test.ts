@@ -177,7 +177,7 @@ describe('Expert Commands Verification', () => {
     describe('原始专家指令问题验证', () => {
         it('专家G的原始指令应该失败（5.5章节已存在）', async () => {
             const originalExpertG: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['5 相关页面及规则说明', '5.4 非长险规则配置']),
                     insertionPosition: 'after'
@@ -198,7 +198,7 @@ describe('Expert Commands Verification', () => {
 
         it('专家O的原始指令应该成功（路径模糊匹配）', async () => {
             const originalExpertO: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['相关页面及规则说明', '非长险规则配置']),
                     insertionPosition: 'after' // insert_entire_section 只支持 'before' 和 'after'
@@ -241,7 +241,7 @@ describe('Expert Commands Verification', () => {
 
             // 修复版：插入到适当位置，避免编号冲突
             const fixedExpertG: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['5 相关页面及规则说明']),
                     insertionPosition: 'after', // insert_entire_section 只支持 'before' 和 'after'
@@ -264,7 +264,7 @@ describe('Expert Commands Verification', () => {
         it('专家O修复版：使用siblingIndex精确定位', async () => {
             // 修复版：使用siblingIndex精确插入到5.4.2之后
             const fixedExpertO: SemanticEditIntent[] = [{
-                type: 'insert_entire_section',
+                type: 'insert_section_and_title',
                 target: {
                     sid: smartPathToSid(['5 相关页面及规则说明', '5.4 非长险规则配置']),
                     insertionPosition: 'after', // insert_entire_section 只支持 'before' 和 'after'
@@ -287,7 +287,7 @@ describe('Expert Commands Verification', () => {
         it('应该能同时处理多个修复指令', async () => {
             const combinedFixedIntents: SemanticEditIntent[] = [
                 {
-                    type: 'insert_entire_section',
+                    type: 'insert_section_and_title',
                     target: {
                         sid: smartPathToSid(['5 相关页面及规则说明']),
                         insertionPosition: 'after', // insert_entire_section 只支持 'before' 和 'after'
@@ -299,7 +299,7 @@ describe('Expert Commands Verification', () => {
                     priority: 1
                 },
                 {
-                    type: 'insert_entire_section',
+                    type: 'insert_section_and_title',
                     target: {
                         sid: smartPathToSid(['5 相关页面及规则说明', '5.4 非长险规则配置']),
                         insertionPosition: 'after', // insert_entire_section 只支持 'before' 和 'after'

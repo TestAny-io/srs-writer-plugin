@@ -35,7 +35,7 @@ export const syntaxCheckerToolDefinition = {
           properties: {
             path: {
               type: "string",
-              description: "File path to check (relative to project root)"
+              description: "File path to check, relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Example: 'SRS.md' not 'projectName/SRS.md'"
             }
           },
           required: ["path"],
@@ -51,8 +51,9 @@ export const syntaxCheckerToolDefinition = {
   // 访问控制（复用现有模式）
   accessibleBy: [
     // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-    CallerType.SPECIALIST_PROCESS,
-    // CallerType.SPECIALIST_CONTENT
+    // CallerType.SPECIALIST_PROCESS,
+    // CallerType.SPECIALIST_CONTENT,
+    "document_formatter"
   ],
   
   // 工具分类

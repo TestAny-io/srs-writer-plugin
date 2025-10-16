@@ -275,7 +275,7 @@ describe('层级SID功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('replace');
@@ -293,7 +293,7 @@ describe('层级SID功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('replace');
@@ -311,7 +311,7 @@ describe('层级SID功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'insert_lines_in_section');
+            const result = locator.findTarget(target, 'insert_section_content_only');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('insert');
@@ -329,7 +329,7 @@ describe('层级SID功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('not found');
@@ -350,7 +350,7 @@ describe('层级SID功能验证', () => {
                 }
             };
             
-            const result = locator.findTarget(target, 'replace_lines_in_section');
+            const result = locator.findTarget(target, 'replace_section_content_only');
             
             expect(result.found).toBe(false);
             expect(result.error).toContain('must start with');
@@ -406,7 +406,7 @@ describe('层级SID功能验证', () => {
                 sid: '/functional-requirements/data-management'
             };
             
-            const result = locator.findTarget(target, 'replace_entire_section_with_title');
+            const result = locator.findTarget(target, 'replace_section_and_title');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('replace');
@@ -420,7 +420,7 @@ describe('层级SID功能验证', () => {
                 insertionPosition: 'after' as const
             };
             
-            const result = locator.findTarget(target, 'insert_entire_section');
+            const result = locator.findTarget(target, 'insert_section_and_title');
             
             expect(result.found).toBe(true);
             expect(result.operationType).toBe('insert');

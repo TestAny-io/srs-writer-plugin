@@ -33,12 +33,12 @@ export const traceabilityCompletionToolDefinition = {
       },
       targetFile: {
         type: "string", 
-        description: "Target requirements.yaml file name (relative to the project root directory, the tool automatically gets baseDir, e.g., 'requirements.yaml')",
+        description: "Target requirements.yaml file path relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Example: 'requirements.yaml' not 'projectName/requirements.yaml'",
         default: "requirements.yaml"
       },
       srsFile: {
         type: "string",
-        description: "SRS.md file path (used for ID consistency verification, relative to the project root directory, e.g., 'SRS.md')",
+        description: "SRS.md file path relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Example: 'SRS.md' not 'projectName/SRS.md'",
         default: "SRS.md"
       }
     },
@@ -50,7 +50,8 @@ export const traceabilityCompletionToolDefinition = {
       accessibleBy: [
         // CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
         // CallerType.SPECIALIST_CONTENT, 
-        CallerType.SPECIALIST_PROCESS
+        // CallerType.SPECIALIST_PROCESS,
+        "document_formatter"
       ],
   
   // 🚀 Reuse: Intelligent classification attributes

@@ -95,7 +95,7 @@ export const openAndShowFileToolDefinition = {
     // 🚀 访问控制：文件打开操作，只允许orchestrator使用
     accessibleBy: [
         // CallerType.ORCHESTRATOR_TOOL_EXECUTION,
-        CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
+        // CallerType.ORCHESTRATOR_KNOWLEDGE_QA,
         CallerType.DOCUMENT
     ]
 };
