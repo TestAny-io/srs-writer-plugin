@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.5.5-dev.12",
+  "version": "0.5.5-dev.24",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -62,121 +62,6 @@
             "description": "Start a fresh conversation session"
           }
         ]
-      }
-    ],
-    "languageModelTools": [
-      {
-        "name": "internet_search",
-        "displayName": "Internet Search",
-        "toolReferenceName": "internetSearch",
-        "canBeReferencedInPrompt": true,
-        "modelDescription": "Search the internet for current information using available search providers. Returns structured results with titles, URLs, snippets, and sources.",
-        "userDescription": "Use this tool to search the web for real-time information, news, technical documentation, and general knowledge.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {
-              "type": "string",
-              "description": "Search query for internet search"
-            },
-            "maxResults": {
-              "type": "integer",
-              "description": "Maximum number of search results (default: 5)",
-              "default": 5
-            },
-            "searchType": {
-              "type": "string",
-              "enum": [
-                "general",
-                "technical",
-                "documentation"
-              ],
-              "description": "Type of search to perform (default: general)",
-              "default": "general"
-            }
-          },
-          "required": [
-            "query"
-          ]
-        }
-      },
-      {
-        "name": "custom_rag_retrieval",
-        "displayName": "Knowledge Retrieval",
-        "toolReferenceName": "customRAGRetrieval",
-        "canBeReferencedInPrompt": true,
-        "modelDescription": "Retrieve information from enterprise/custom RAG knowledge base system for domain-specific queries.",
-        "userDescription": "Search internal knowledge bases and enterprise documentation systems.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {
-              "type": "string",
-              "description": "Search query for knowledge retrieval"
-            },
-            "domain": {
-              "type": "string",
-              "description": "Business domain context (e.g., 'financial_services', 'healthcare', 'e-commerce')"
-            },
-            "maxResults": {
-              "type": "integer",
-              "description": "Maximum number of results to return (default: 5)",
-              "default": 5
-            }
-          },
-          "required": [
-            "query"
-          ]
-        }
-      },
-      {
-        "name": "read_local_knowledge",
-        "displayName": "Local Knowledge Search",
-        "toolReferenceName": "readLocalKnowledge",
-        "canBeReferencedInPrompt": true,
-        "modelDescription": "Search and read local knowledge files from templates/ and knowledge/ directories in the workspace.",
-        "userDescription": "Find relevant templates, examples, and documentation from your local project files.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "query": {
-              "type": "string",
-              "description": "Search query to find relevant knowledge files"
-            },
-            "searchPaths": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "Paths to search in (default: ['templates/', 'knowledge/'])",
-              "default": [
-                "templates/",
-                "knowledge/"
-              ]
-            },
-            "fileExtensions": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "File extensions to include (default: ['.md', '.yml', '.yaml', '.json'])",
-              "default": [
-                ".md",
-                ".yml",
-                ".yaml",
-                ".json"
-              ]
-            },
-            "maxResults": {
-              "type": "integer",
-              "description": "Maximum number of files to return (default: 10)",
-              "default": 10
-            }
-          },
-          "required": [
-            "query"
-          ]
-        }
       }
     ],
     "commands": [
@@ -241,6 +126,30 @@
           "type": "boolean",
           "default": true,
           "description": "启用AI智能工具代理（新架构）"
+        },
+        "srs-writer.internetSearch.tavilyApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Tavily Search API密钥",
+          "markdownDescription": "Tavily AI Search API密钥（推荐国际用户使用）。\n\n**获取方式**：\n1. 访问 https://tavily.com\n2. 注册账号并获取免费API密钥\n3. 将密钥填写到此处\n\n**注意**: 配置后立即生效，无需重启。"
+        },
+        "srs-writer.internetSearch.bingApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Bing Search API密钥（需要Azure账号）",
+          "markdownDescription": "Microsoft Bing Search API密钥（Azure Cognitive Services）。\n\n**获取方式**：\n1. 访问 https://azure.microsoft.com/services/cognitive-services/bing-web-search-api/\n2. 创建Azure账号并订阅Bing Search API\n3. 获取订阅密钥（Subscription Key）\n4. 将密钥填写到此处\n\n**注意**: 需要有效的Azure订阅。"
+        },
+        "srs-writer.internetSearch.baiduApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "百度搜索API密钥（API Key）",
+          "markdownDescription": "百度AI搜索服务API密钥（推荐中国大陆用户使用）。\n\n**获取方式**：\n1. 访问 https://ai.baidu.com/ai-doc/SEARCH/\n2. 注册百度账号并创建应用\n3. 获取API Key和Secret Key\n4. 将API Key填写到此处，Secret Key填写到下方配置项\n\n**注意**: 需要同时配置API Key和Secret Key才能使用。"
+        },
+        "srs-writer.internetSearch.baiduSecretKey": {
+          "type": "string",
+          "default": "",
+          "description": "百度搜索API密钥（Secret Key）",
+          "markdownDescription": "百度AI搜索服务Secret Key。\n\n**安全提示**：\n- 此为敏感信息，请妥善保管\n- 不要在公开场所分享此密钥\n- 需要与API Key配合使用"
         },
         "srs-writer.knowledge.localPaths": {
           "type": "array",

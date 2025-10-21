@@ -24,7 +24,8 @@ export class PromptManager {
     sessionContext: SessionContext,
     historyContext: string,
     toolResultsContext: string,
-    getTools: (caller?: any) => Promise<{ definitions: any[], jsonSchema: string }>
+    getTools: (caller?: any) => Promise<{ definitions: any[], jsonSchema: string }>,
+    iterationCount: number  // 🔧 新增参数
   ): Promise<string> {
     // 1. 读取 orchestrator.md 模板文件作为系统指令
     const templatePath = await this.resolveTemplatePath('orchestrator.md');
@@ -42,15 +43,20 @@ export class PromptManager {
 
     // 🔍 [DEBUG-CONTEXT] === PromptManager Context Check ===
     this.logger.info(`🔍 [DEBUG-CONTEXT] PromptManager received:`);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] - iterationCount: ${iterationCount}`);
     this.logger.info(`🔍 [DEBUG-CONTEXT] - historyContext: ${historyContext ? `"${historyContext.substring(0, 100)}..."` : 'NULL/EMPTY'}`);
     this.logger.info(`🔍 [DEBUG-CONTEXT] - toolResultsContext: ${toolResultsContext ? `"${toolResultsContext.substring(0, 100)}..."` : 'NULL/EMPTY'}`);
-    
+
     const finalHistoryContext = historyContext || 'No actions have been taken yet.';
     const finalToolResultsContext = toolResultsContext || 'No tool results available.';
-    
+
     this.logger.info(`🔍 [DEBUG-CONTEXT] Final contexts that will be used:`);
     this.logger.info(`🔍 [DEBUG-CONTEXT] - finalHistoryContext: "${finalHistoryContext}"`);
     this.logger.info(`🔍 [DEBUG-CONTEXT] - finalToolResultsContext: "${finalToolResultsContext}"`);
+
+    // 🔧 修复：判断是否为首次迭代
+    const isFirstIteration = iterationCount === 0;
+    this.logger.info(`🔧 [FIX] isFirstIteration: ${isFirstIteration}`);
 
     // 3. 构建结构化提示词 - 明确分离系统指令和用户输入
     const structuredPrompt = await this.buildStructuredPrompt(
@@ -59,7 +65,8 @@ export class PromptManager {
       finalHistoryContext,
       finalToolResultsContext,
       toolsJsonSchema,
-      sessionContext
+      sessionContext,
+      isFirstIteration  // 🔧 传递参数
     );
 
     // 🐛 DEBUG: 记录结构化提示词的构建过程
@@ -69,11 +76,11 @@ export class PromptManager {
     this.logger.info(`🔍 [DEBUG] - History context length: ${historyContext?.length || 0}`);
     this.logger.info(`🔍 [DEBUG] - Tool results context length: ${toolResultsContext?.length || 0}`);
     this.logger.info(`🔍 [DEBUG] - Tools JSON schema length: ${toolsJsonSchema.length}`);
-    
+
     // 🐛 DEBUG: 预览最终结构化提示词
     const promptPreview = structuredPrompt.substring(0, 500);
     // this.logger.info(`🔍 [DEBUG] Final structured prompt preview (first 500 chars): "${promptPreview}..."`);
-    
+
     // 🔍 [DEBUG] 输出完整的最终提示词
     // this.logger.info(`🔍 [DEBUG] === COMPLETE FINAL PROMPT ===`);
     // this.logger.info(`🔍 [DEBUG] Complete structured prompt:\n${structuredPrompt}`);
@@ -85,6 +92,8 @@ export class PromptManager {
   /**
    * 🚀 构建结构化提示词 - 核心方法
    * 将系统指令和用户输入明确分离，符合VSCode最佳实践
+   *
+   * 🔧 修复：区分首次请求和持续任务，避免"幽灵任务"问题
    */
   private async buildStructuredPrompt(
     systemInstructions: string,
@@ -92,12 +101,13 @@ export class PromptManager {
     historyContext: string,
     toolResultsContext: string,
     toolsJsonSchema: string,
-    sessionContext: SessionContext
+    sessionContext: SessionContext,
+    isFirstIteration: boolean  // 🔧 新增参数
   ): Promise<string> {
     // 替换系统指令中的占位符
     let processedSystemInstructions = systemInstructions;
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{TOOLS_JSON_SCHEMA\}\}/g, toolsJsonSchema);
-    
+
     // 清理系统指令中的用户输入占位符（这些将在用户部分单独处理）
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{USER_INPUT\}\}/g, '[USER_INPUT_PLACEHOLDER]');
     processedSystemInstructions = processedSystemInstructions.replace(/\{\{CONVERSATION_HISTORY\}\}/g, '[CONVERSATION_HISTORY_PLACEHOLDER]');
@@ -106,16 +116,46 @@ export class PromptManager {
     // 🚀 构建工作区上下文部分 - 简化版本
     const workspaceContextSection = await this.buildWorkspaceContext(sessionContext);
 
+    // 🔧 修复：根据是否首次迭代，构建不同的请求section
+    let requestSection: string;
+    let finalInstructionText: string;
+
+    if (isFirstIteration) {
+      // 第一次迭代：这是新的用户请求
+      requestSection = `# USER REQUEST
+
+The user has just submitted a NEW request that you need to analyze and process:
+
+${userInput}`;
+
+      finalInstructionText = `Based on the SYSTEM INSTRUCTIONS above, analyze the USER REQUEST and generate a valid JSON response following the AIPlan interface. Remember to:
+1. This is a NEW user request - analyze it carefully and determine the appropriate response_mode
+2. Select the appropriate response_mode based on the user's request
+3. Generate well-structured JSON output`;
+
+    } else {
+      // 后续迭代：这是正在进行的任务
+      requestSection = `# ONGOING TASK
+
+You are currently working on the following task:
+
+${userInput}
+
+**Important Context**: This task was initially requested in Turn 1 of the conversation history below. You are now in a subsequent iteration, continuing to work on this task based on your previous actions and their results.`;
+
+      finalInstructionText = `Based on the SYSTEM INSTRUCTIONS above, continue working on the ONGOING TASK and generate a valid JSON response following the AIPlan interface. Remember to:
+1. You are CONTINUING work on an existing task - review the conversation history to understand what you've already done
+2. Build upon your previous actions and their results
+3. Select the appropriate response_mode for the next step
+4. Generate well-structured JSON output`;
+    }
+
     // 构建结构化提示词
     const structuredPrompt = `# SYSTEM INSTRUCTIONS
 
 ${processedSystemInstructions}
 
-# USER REQUEST
-
-The user's actual request that you need to analyze and process:
-
-${userInput}
+${requestSection}
 
 # CONTEXT INFORMATION
 
@@ -133,10 +173,7 @@ ${toolsJsonSchema}
 
 # FINAL INSTRUCTION
 
-Based on the SYSTEM INSTRUCTIONS above, analyze the USER REQUEST and generate a valid JSON response following the AIPlan interface. Remember to:
-1. Clearly distinguish between system instructions (which you must follow) and user request (which you must process)
-2. Select the appropriate response_mode based on the user's request
-3. Generate well-structured JSON output
+${finalInstructionText}
 
 Your response must be valid JSON starting with '{' and ending with '}'.`;
 

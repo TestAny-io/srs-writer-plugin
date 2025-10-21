@@ -238,40 +238,46 @@ export class Orchestrator {
 
   /**
    * 🚀 生成统一的AI执行计划（v4.0版本：支持PLAN_EXECUTION模式）
+   * 🔧 修复：添加iterationCount参数，区分首次请求和持续任务
    */
   public async generateUnifiedPlan(
     userInput: string,
     sessionContext: SessionContext,
     selectedModel: vscode.LanguageModelChat,
     historyContext?: string,
-    toolResultsContext?: string
+    toolResultsContext?: string,
+    iterationCount?: number  // 🔧 新增参数
   ): Promise<AIPlan> {
     return await this.planGenerator.generateUnifiedPlan(
       userInput,
       sessionContext,
       selectedModel,
-      (userInput: string, sessionContext: SessionContext, historyContext: string, toolResultsContext: string) => 
-        this.buildAdaptiveToolPlanningPrompt(userInput, sessionContext, historyContext, toolResultsContext),
+      (userInput: string, sessionContext: SessionContext, historyContext: string, toolResultsContext: string, iterationCount: number) =>
+        this.buildAdaptiveToolPlanningPrompt(userInput, sessionContext, historyContext, toolResultsContext, iterationCount),
       historyContext,
-      toolResultsContext
+      toolResultsContext,
+      iterationCount || 0  // 🔧 传递参数，默认为0
     );
   }
 
   /**
    * 🚀 构建自适应工具规划提示词
+   * 🔧 修复：添加iterationCount参数
    */
   public async buildAdaptiveToolPlanningPrompt(
     userInput: string,
     sessionContext: SessionContext,
     historyContext: string,
-    toolResultsContext: string
+    toolResultsContext: string,
+    iterationCount: number  // 🔧 新增参数
   ): Promise<string> {
     return await this.promptManager.buildAdaptiveToolPlanningPrompt(
       userInput,
       sessionContext,
       historyContext,
       toolResultsContext,
-      this.toolCacheManager.getTools.bind(this.toolCacheManager)
+      this.toolCacheManager.getTools.bind(this.toolCacheManager),
+      iterationCount  // 🔧 传递参数
     );
   }
 

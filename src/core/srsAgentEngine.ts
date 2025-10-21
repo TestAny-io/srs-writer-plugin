@@ -623,9 +623,27 @@ export class SRSAgentEngine implements ISessionObserver {
       this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否有direct_response: ${!!plan.direct_response}`);
       this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否有tool_calls: ${!!(plan.tool_calls && plan.tool_calls.length > 0)}`);
       
-      // 🚀 修复：KNOWLEDGE_QA现在支持工具调用
-      if (plan.direct_response) {
-        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 准备显示direct_response:`);
+      // 🚀 修复：优先级调整 - 先检查是否有工具调用，支持"先回复+再搜索"的交互模式
+      if (plan.tool_calls && plan.tool_calls.length > 0) {
+        // 情况1: 有工具调用（可能同时有 direct_response）
+        if (plan.direct_response) {
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 有tool_calls和direct_response，先显示回复再执行工具`);
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response长度: ${plan.direct_response.length}`);
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response前100字符: ${plan.direct_response.substring(0, 100)}`);
+          
+          // 先显示初步回复
+          this.stream.markdown(`💬 **AI回复**: ${plan.direct_response}\n\n`);
+          this.stream.markdown(`🔍 正在搜索更多信息...\n\n`);
+          
+          await this.recordExecution('result', plan.direct_response, true);
+        } else {
+          this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 只有tool_calls没有direct_response，继续执行工具`);
+        }
+        // ⚠️ 关键：不要return，让代码继续到第658行的工具执行部分
+        
+      } else if (plan.direct_response) {
+        // 情况2: 只有 direct_response，没有工具调用
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 只有direct_response没有tool_calls，显示后完成`);
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response长度: ${plan.direct_response.length}`);
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response前100字符: ${plan.direct_response.substring(0, 100)}`);
         
@@ -635,7 +653,7 @@ export class SRSAgentEngine implements ISessionObserver {
                                plan.thought?.includes('Error');
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否为错误响应: ${isErrorResponse}`);
         
-        // 有直接回复，显示并完成
+        // 显示回复并完成任务
         this.stream.markdown(`💬 **AI回复**: ${plan.direct_response}\n\n`);
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 已调用stream.markdown显示响应`);
         
@@ -643,13 +661,10 @@ export class SRSAgentEngine implements ISessionObserver {
         this.state.stage = 'completed';
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 设置state.stage为completed，准备返回`);
         return;
-      } else if (plan.tool_calls && plan.tool_calls.length > 0) {
-        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 没有direct_response但有tool_calls，继续执行工具`);
-        // 没有直接回复但有工具调用，继续执行工具（如知识检索）
-        // 不要return，让代码继续到工具执行部分
+        
       } else {
+        // 情况3: 既没有 direct_response 也没有 tool_calls
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 既没有direct_response也没有tool_calls，任务完成`);
-        // 既没有回复也没有工具调用，任务完成
         this.state.stage = 'completed';
         return;
       }
@@ -812,13 +827,15 @@ export class SRSAgentEngine implements ISessionObserver {
       this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - currentTask长度: ${this.state.currentTask.length}`);
       this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - historyContext长度: ${historyContext.length}`);
       this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - toolResultsContext长度: ${toolResultsContext.length}`);
-      
+      this.logger.info(`🔧 [FIX] - iterationCount: ${this.state.iterationCount}`);
+
       const plan = await this.orchestrator.generateUnifiedPlan(
         this.state.currentTask,
         await this.getCurrentSessionContext(),
         this.selectedModel,
         historyContext, // 🚀 历史上下文
-        toolResultsContext // 🚀 工具结果上下文
+        toolResultsContext, // 🚀 工具结果上下文
+        this.state.iterationCount  // 🔧 传递迭代计数
       );
       
       this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] orchestrator.generateUnifiedPlan返回成功`);

@@ -251,7 +251,8 @@ describe('Workspace Context Builder', () => {
                 mockSessionContext,
                 'test history',
                 'test tool results',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert

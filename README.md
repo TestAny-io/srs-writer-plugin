@@ -96,7 +96,7 @@ SRS Writer is an intelligent VSCode extension that transforms natural language c
 
 🟡 Atomic Layer - Core Operations
 ├── File Operations: readFile, writeFile, createFile, appendTextToFile
-├── Directory Management: createDirectory, listAllFiles
+├── Directory Management: createDirectory, listFiles (support single-level/recursive)
 ├── Editor Integration: openAndShowFile, executeMarkdownEdits, executeYAMLEdits
 ├── User Interaction: askQuestion, confirmAction, suggestNextAction
 └── Smart Editing: semantic locators, unified edit execution

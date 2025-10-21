@@ -121,7 +121,8 @@ describe('Workspace Context Integration Tests', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert
@@ -156,7 +157,8 @@ describe('Workspace Context Integration Tests', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert
@@ -188,7 +190,8 @@ describe('Workspace Context Integration Tests', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert
@@ -212,7 +215,8 @@ describe('Workspace Context Integration Tests', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert
@@ -264,7 +268,8 @@ describe('Workspace Context Integration Tests', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert
@@ -295,7 +300,8 @@ describe('Workspace Context Integration Tests', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert
@@ -325,7 +331,8 @@ describe('Workspace Context Integration Tests', () => {
                 sessionContext,
                 'Test history',
                 'Test tool results',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert - 验证markdown结构
@@ -360,7 +367,8 @@ describe('Workspace Context Integration Tests', () => {
                 sessionContext,
                 'Previous conversation about testing',
                 'Tool executed successfully',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert - 验证所有部分都存在

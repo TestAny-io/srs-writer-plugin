@@ -12,8 +12,9 @@ export class PlanGenerator {
 
   /**
    * 🚀 生成统一的AI执行计划（v4.0版本：支持结构化prompt和智能分诊）
-   * 
+   *
    * 重构说明：使用结构化prompt，明确分离系统指令和用户输入
+   * 🔧 修复：添加iterationCount参数，区分首次请求和持续任务
    */
   public async generateUnifiedPlan(
     userInput: string,
@@ -23,10 +24,12 @@ export class PlanGenerator {
       userInput: string,
       sessionContext: SessionContext,
       historyContext: string,
-      toolResultsContext: string
+      toolResultsContext: string,
+      iterationCount: number  // 🔧 新增参数
     ) => Promise<string>,
     historyContext?: string,
-    toolResultsContext?: string
+    toolResultsContext?: string,
+    iterationCount?: number  // 🔧 新增参数
   ): Promise<AIPlan> {
     try {
       // 构建结构化提示词 - 系统指令和用户输入已经分离
@@ -34,7 +37,8 @@ export class PlanGenerator {
         userInput,
         sessionContext,
         historyContext || '',
-        toolResultsContext || ''
+        toolResultsContext || '',
+        iterationCount || 0  // 🔧 传递参数
       );
 
       // 🔍 [DEBUG] 输出即将发送给AI模型的完整提示词

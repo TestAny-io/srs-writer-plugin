@@ -48,13 +48,17 @@ import {
     outputToolImplementations
 } from './output-tools';
 
-// 知识工具
+// 知识工具（旧版 - 仅保留非internetSearch的工具）
 import {
     knowledgeToolDefinitions,
     knowledgeToolImplementations
 } from './knowledge-tools-backup';
 
-
+// 🚀 Internet Search 工具（新实现）
+import {
+    internetSearchToolDefinitions,
+    internetSearchToolImplementations
+} from './internet-search';
 
 // 智能编辑工具
 import {
@@ -80,6 +84,7 @@ const logger = Logger.getInstance();
 export const atomicToolDefinitions = [
     ...filesystemToolDefinitions,
     ...knowledgeToolDefinitions,
+    ...internetSearchToolDefinitions,  // 🚀 新的 internetSearch 实现
     ...editorToolDefinitions,
     ...smartEditToolDefinitions,
     ...interactionToolDefinitions,
@@ -92,6 +97,7 @@ export const atomicToolDefinitions = [
 export const atomicToolImplementations = {
     ...filesystemToolImplementations,
     ...knowledgeToolImplementations,
+    ...internetSearchToolImplementations,  // 🚀 新的 internetSearch 实现
     ...editorToolImplementations,
     ...smartEditToolImplementations,
     ...interactionToolImplementations,
@@ -277,14 +283,20 @@ export {
 } from './output-tools';
 
 export {
-    // 知识检索
-    readLocalKnowledge, internetSearch, enterpriseRAGCall, customRAGRetrieval,
+    // 知识检索（除internetSearch外，它现在从internet-search导出）
+    readLocalKnowledge, enterpriseRAGCall, customRAGRetrieval,
 
-    // 知识工具定义
-    readLocalKnowledgeToolDefinition, internetSearchToolDefinition, 
+    // 知识工具定义（除internetSearchToolDefinition外，它现在从internet-search导出）
+    readLocalKnowledgeToolDefinition,
     enterpriseRAGCallToolDefinition, customRAGRetrievalToolDefinition,
 
 } from './knowledge-tools-backup';
+
+// 🚀 新的 Internet Search 工具导出
+export {
+    internetSearch,
+    internetSearchToolDefinition
+} from './internet-search';
 
 // 🚀 Phase 1新增：编辑执行工具
 export {

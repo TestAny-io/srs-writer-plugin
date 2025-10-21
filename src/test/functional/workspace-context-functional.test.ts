@@ -86,7 +86,8 @@ describe('Workspace Context Functional Verification', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert - 验证新格式存在且正确
@@ -148,7 +149,8 @@ describe('Workspace Context Functional Verification', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert
@@ -203,7 +205,8 @@ describe('Workspace Context Functional Verification', () => {
                 sessionContext,
                 '',
                 '',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert
@@ -249,7 +252,8 @@ describe('Workspace Context Functional Verification', () => {
                 sessionContext,
                 'Test conversation history',
                 'Test tool results',
-                mockGetTools
+                mockGetTools,
+      0
             );
 
             // Assert - 验证完整的提示词结构

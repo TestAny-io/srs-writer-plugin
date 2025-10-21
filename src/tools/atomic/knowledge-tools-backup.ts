@@ -460,9 +460,21 @@ export async function readLocalKnowledge(args: {
 // ============================================================================
 
 /**
- * 互联网搜索工具 (通过VSCode Copilot或其他搜索服务)
+ * @deprecated 此实现已废弃
+ *
+ * 旧版本的 internetSearch 工具（依赖实验性 Language Model Tools API）。
+ *
+ * **已由新实现取代**：
+ * - 新位置：/src/tools/atomic/internet-search/
+ * - 新实现：支持 MCP、Direct API、Baidu Search
+ * - 无需依赖实验性 API
+ * - 支持优雅降级
+ *
+ * 此文件保留用于参考和回退，不应在新代码中使用。
+ *
+ * ⚠️ 不再导出 - 避免与新实现冲突
  */
-export const internetSearchToolDefinition = {
+const _deprecatedInternetSearchToolDefinition = {
     name: "internetSearch",
     description: "Search the internet using available search providers (VSCode Copilot, etc.)",
     parameters: {
@@ -495,7 +507,14 @@ export const internetSearchToolDefinition = {
     ]
 };
 
-export async function internetSearch(args: {
+/**
+ * @deprecated 此函数已废弃
+ *
+ * 请使用新的实现: /src/tools/atomic/internet-search/index.ts
+ *
+ * ⚠️ 不再导出 - 避免与新实现冲突
+ */
+async function _deprecatedInternetSearch(args: {
     query: string;
     maxResults?: number;
     searchType?: 'general' | 'technical' | 'documentation';
@@ -1243,18 +1262,20 @@ interface CustomRAGInput {
 // LocalKnowledgeInput接口已移除 - readLocalKnowledge工具不再需要Language Model Tool包装类
 
 /**
- * Internet Search Tool Implementation
+ * Internet Search Tool Implementation (DEPRECATED)
  * 包装 internetSearch 函数为 VSCode LanguageModelTool
+ *
+ * @deprecated 此类已废弃，不再导出以避免与新实现冲突
  */
-export class InternetSearchTool implements vscode.LanguageModelTool<InternetSearchInput> {
+class _DeprecatedInternetSearchTool implements vscode.LanguageModelTool<InternetSearchInput> {
     async invoke(
         options: vscode.LanguageModelToolInvocationOptions<InternetSearchInput>,
         token: vscode.CancellationToken
     ): Promise<vscode.LanguageModelToolResult> {
         try {
             logger.info(`🔧 InternetSearchTool.invoke called with query: "${options.input.query}"`);
-            
-            const result = await internetSearch({
+
+            const result = await _deprecatedInternetSearch({
                 query: options.input.query,
                 maxResults: options.input.maxResults || 5,
                 searchType: options.input.searchType || 'general',
@@ -1264,8 +1285,8 @@ export class InternetSearchTool implements vscode.LanguageModelTool<InternetSear
             if (result.success && result.results) {
                 // 格式化搜索结果为markdown
                 let content = `## 搜索结果：${options.input.query}\n\n`;
-                
-                result.results.forEach((item, index) => {
+
+                result.results.forEach((item: any, index: number) => {
                     content += `### ${index + 1}. [${item.title}](${item.url})\n`;
                     content += `${item.snippet}\n`;
                     content += `*来源: ${item.source}*\n\n`;
@@ -1351,14 +1372,14 @@ export class CustomRAGRetrievalTool implements vscode.LanguageModelTool<CustomRA
 
 export const knowledgeToolDefinitions = [
     readLocalKnowledgeToolDefinition,
-    internetSearchToolDefinition,  // 通过 accessibleBy: [] 禁用
+    // internetSearchToolDefinition,  // 🚀 已移至 /src/tools/atomic/internet-search/
     enterpriseRAGCallToolDefinition,
     customRAGRetrievalToolDefinition
 ];
 
 export const knowledgeToolImplementations = {
     readLocalKnowledge,
-    internetSearch,  // 通过 accessibleBy: [] 禁用
+    // internetSearch,  // 🚀 已移至 /src/tools/atomic/internet-search/
     enterpriseRAGCall,
     customRAGRetrieval
 }; 

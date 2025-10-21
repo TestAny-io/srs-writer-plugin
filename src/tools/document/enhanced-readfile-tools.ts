@@ -445,7 +445,12 @@ class PathValidator {
             // 1. 规范化路径
             const normalizedPath = path.normalize(inputPath);
             
-            // 2. 检查是否包含 '..'
+            // 1.5. 如果是绝对路径，直接返回（与 resolveWorkspacePath 保持一致）
+            if (path.isAbsolute(normalizedPath)) {
+                return {valid: true, resolvedPath: normalizedPath};
+            }
+            
+            // 2. 检查是否包含 '..' (防止目录遍历)
             if (normalizedPath.includes('..')) {
                 return {
                     valid: false,
@@ -453,18 +458,8 @@ class PathValidator {
                 };
             }
             
-            // 3. 构建完整路径
+            // 3. 构建完整路径并返回
             const resolvedPath = path.resolve(baseDir, normalizedPath);
-            
-            // 4. 确保解析后的路径仍在baseDir内
-            const relativePath = path.relative(baseDir, resolvedPath);
-            if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-                return {
-                    valid: false,
-                    error: "Resolved path must stay within baseDir boundary"
-                };
-            }
-            
             return {valid: true, resolvedPath};
         } catch (error) {
             return {
