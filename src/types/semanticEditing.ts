@@ -19,16 +19,19 @@ import * as vscode from 'vscode';
 
 /**
  * 语义编辑意图类型枚举
- * 
+ *
  * 🎯 命名规则：
  * - *_and_title: 操作包含标题（content 必须包含完整标题）
  * - *_content_only: 操作仅针对内容（content 不应包含标题）
+ * - delete_*: 删除操作（content 字段被忽略）
  */
-export type SemanticEditType = 
+export type SemanticEditType =
     | 'replace_section_and_title'      // 替换整个章节(包括标题) - content MUST include title
     | 'replace_section_content_only'   // 替换章节内特定内容(不含标题) - content must NOT include title
     | 'insert_section_and_title'       // 插入整个章节(包括标题) - content MUST include title
-    | 'insert_section_content_only';   // 插入内容到章节内(不含标题) - content must NOT include title
+    | 'insert_section_content_only'    // 插入内容到章节内(不含标题) - content must NOT include title
+    | 'delete_section_and_title'       // 🆕 删除整个章节(包括标题和所有子章节) - content is ignored
+    | 'delete_section_content_only';   // 🆕 删除章节内容(保留标题) - content is ignored
 
 /**
  * 插入位置枚举 - 🔄 简化：只用于 insert_section_and_title
@@ -92,6 +95,9 @@ export interface SemanticEditResult {
         timestamp: string;                  // 时间戳
         astNodeCount?: number;              // AST节点数量
         documentLength?: number;            // 文档长度
+        conflictingSid?: string;            // 🆕 冲突的 SID（批次冲突检测）
+        operations?: string[];              // 🆕 冲突操作列表（批次冲突检测）
+        rule?: string;                      // 🆕 冲突规则标识（批次冲突检测）
     };
 }
 
@@ -361,13 +367,15 @@ export interface DocumentAnalysisOptions {
 
 /**
  * 语义编辑操作联合类型 - 完整版本
- * 支持四种核心操作类型
+ * 支持六种核心操作类型（包括删除操作）
  */
-export type SemanticEditOperation = 
+export type SemanticEditOperation =
     | { type: 'replace_section_and_title'; target: SemanticTarget; content: string; }
     | { type: 'replace_section_content_only'; target: SemanticTarget; content: string; }
     | { type: 'insert_section_and_title'; target: SemanticTarget; content: string; }
-    | { type: 'insert_section_content_only'; target: SemanticTarget; content: string; };
+    | { type: 'insert_section_content_only'; target: SemanticTarget; content: string; }
+    | { type: 'delete_section_and_title'; target: SemanticTarget; content: string; }       // 🆕 content is ignored
+    | { type: 'delete_section_content_only'; target: SemanticTarget; content: string; };   // 🆕 content is ignored
 
 /**
  * 位置类型联合

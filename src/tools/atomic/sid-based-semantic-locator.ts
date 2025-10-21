@@ -131,9 +131,16 @@ export class SidBasedSemanticLocator {
                 return errorResult;
             }
 
-            // 处理插入操作
+            // 🆕 处理删除操作
             let result: LocationResult;
-            if (operationType?.startsWith('insert_')) {
+            if (operationType === 'delete_section_and_title') {
+                result = this.replaceEntireSection(section);
+            }
+            else if (operationType === 'delete_section_content_only') {
+                result = this.handleDeleteContentOnly(section);
+            }
+            // 处理插入操作
+            else if (operationType?.startsWith('insert_')) {
                 result = this.handleInsertionOperation(section, target, operationType);
             }
             // 处理替换操作
@@ -257,7 +264,7 @@ export class SidBasedSemanticLocator {
         // 🚀 关键修改：replace_section_and_title 应该包括标题行
         // section.startLine 是内容开始行，我们需要包括标题行
         const titleLine = section.startLine - 1; // 标题行的绝对行号（0-based）
-        
+
         return {
             found: true,
             operationType: 'replace',
@@ -269,6 +276,38 @@ export class SidBasedSemanticLocator {
                 sectionTitle: section.title,
                 targetLines: this.getLines(titleLine, section.endLine), // 包括标题和内容
                 includesTitle: true  // 标记包含标题
+            }
+        };
+    }
+
+    /**
+     * 🆕 删除章节内容（保留标题）
+     */
+    private handleDeleteContentOnly(section: SectionNode): LocationResult {
+        // 如果章节没有内容，返回错误
+        if (section.content.length === 0) {
+            return {
+                found: false,
+                error: `Section "${section.title}" has no content to delete (title-only section)`,
+                suggestions: {
+                    hint: 'Use delete_section_and_title to delete the entire section including the title'
+                }
+            };
+        }
+
+        // section.startLine 是内容开始行（标题后第一行）
+        // section.endLine 是内容结束行
+        return {
+            found: true,
+            operationType: 'replace',
+            range: new vscode.Range(
+                new vscode.Position(section.startLine, 0),        // 从内容第一行开始
+                new vscode.Position(section.endLine, this.getLineLength(section.endLine)) // 到内容结束
+            ),
+            context: {
+                sectionTitle: section.title,
+                targetLines: this.getLines(section.startLine, section.endLine), // 只包括内容
+                includesTitle: false  // 不包含标题
             }
         };
     }

@@ -277,24 +277,29 @@ export class SmartIntentExecutor {
      */
     private updateLineOffsets(intent: SemanticEditIntent, lineOffsets: Map<string, number>): void {
         const currentOffset = lineOffsets.get(intent.target.sid) || 0;
-        
+
         if (intent.type === 'insert_section_content_only' || intent.type === 'insert_section_and_title') {
             // 插入操作增加行数
             const insertedLines = intent.content.split('\n').length;
             lineOffsets.set(intent.target.sid, currentOffset + insertedLines);
-            
+
             logger.debug(`📈 Updated line offset for sid=${intent.target.sid}: +${insertedLines} (total: ${currentOffset + insertedLines})`);
         } else if (intent.type === 'replace_section_content_only') {
             // 替换操作可能改变行数
             const newLines = intent.content.split('\n').length;
-            const oldLines = intent.target.lineRange ? 
+            const oldLines = intent.target.lineRange ?
                 (intent.target.lineRange.endLine || intent.target.lineRange.startLine) - intent.target.lineRange.startLine + 1 : 1;
             const lineChange = newLines - oldLines;
-            
+
             if (lineChange !== 0) {
                 lineOffsets.set(intent.target.sid, currentOffset + lineChange);
                 logger.debug(`📊 Updated line offset for sid=${intent.target.sid}: ${lineChange > 0 ? '+' : ''}${lineChange} (total: ${currentOffset + lineChange})`);
             }
+        } else if (intent.type === 'delete_section_and_title' || intent.type === 'delete_section_content_only') {
+            // 🆕 删除操作减少行数
+            // Note: This is a simplified implementation. In practice, we would need to get the actual
+            // deleted line count from the location result. For now, we'll skip offset tracking for deletes.
+            logger.debug(`🗑️ Delete operation detected for sid=${intent.target.sid}, offset tracking skipped (handled by locator)`);
         }
     }
 
@@ -310,21 +315,27 @@ export class SmartIntentExecutor {
 
         // 使用定位器找到目标位置
         const location = this.locator.findTarget(intent.target, intent.type);
-        
+
         if (!location.found) {
             throw new Error(location.error || 'Target not found');
         }
-        
-        // 🔧 关键修复：处理内容换行符
+
+        // 🆕 IMPORTANT: Skip content processing for delete operations
+        // 现有实现在 switch 前对所有 intent.content 进行换行补充等处理
+        // delete_* 操作不需要 content，应跳过这些逻辑
+        const isDeleteOperation = intent.type.startsWith('delete_');
         let contentToApply = intent.content;
-        
-        // 确保内容末尾有换行符（除非内容为空）
-        // 这个逻辑对所有编辑类型都适用，确保不会丢失换行符
-        if (contentToApply.length > 0 && !contentToApply.endsWith('\n')) {
-            logger.debug(`🔄 Adding newline to content (${intent.type}): "${contentToApply.substring(0, 50)}..."`);
-            contentToApply += '\n';
+
+        if (!isDeleteOperation) {
+            // 🔧 关键修复：处理内容换行符（仅对非 delete 操作执行内容处理）
+            // 确保内容末尾有换行符（除非内容为空）
+            // 这个逻辑对所有编辑类型都适用，确保不会丢失换行符
+            if (contentToApply.length > 0 && !contentToApply.endsWith('\n')) {
+                logger.debug(`🔄 Adding newline to content (${intent.type}): "${contentToApply.substring(0, 50)}..."`);
+                contentToApply += '\n';
+            }
         }
-        
+
         // 根据意图类型执行不同的编辑操作
         switch (intent.type) {
             case 'replace_section_and_title':
@@ -344,11 +355,54 @@ export class SmartIntentExecutor {
                 logger.debug(`📝 Inserting ${contentToApply.split('\n').length - 1} lines (including newline)`);
                 this.workspaceEdit.insert(this.targetFileUri, location.insertionPoint, contentToApply);
                 break;
-                
+
+            // 🆕 新增删除操作处理
+            case 'delete_section_and_title':
+                return await this.handleDeleteSectionAndTitle(intent, location);
+
+            case 'delete_section_content_only':
+                return await this.handleDeleteSectionContentOnly(intent, location);
+
             default:
                 throw new Error(`Unknown intent type: ${intent.type}`);
         }
-        
+
+        return true;
+    }
+
+    /**
+     * 🆕 处理删除整个章节（包括标题和所有子章节）
+     */
+    private async handleDeleteSectionAndTitle(
+        intent: SemanticEditIntent,
+        location: any
+    ): Promise<boolean> {
+        if (!location.range) {
+            throw new Error('Delete operation requires range, but none found');
+        }
+
+        logger.debug(`🗑️ Deleting entire section including title: ${intent.target.sid}`);
+        logger.debug(`🗑️ Range: ${location.range.start.line}:${location.range.start.character} to ${location.range.end.line}:${location.range.end.character}`);
+
+        this.workspaceEdit.delete(this.targetFileUri, location.range);
+        return true;
+    }
+
+    /**
+     * 🆕 处理删除章节内容（保留标题）
+     */
+    private async handleDeleteSectionContentOnly(
+        intent: SemanticEditIntent,
+        location: any
+    ): Promise<boolean> {
+        if (!location.range) {
+            throw new Error('Delete operation requires range, but none found');
+        }
+
+        logger.debug(`🗑️ Deleting section content only (preserving title): ${intent.target.sid}`);
+        logger.debug(`🗑️ Range: ${location.range.start.line}:${location.range.start.character} to ${location.range.end.line}:${location.range.end.character}`);
+
+        this.workspaceEdit.delete(this.targetFileUri, location.range);
         return true;
     }
 

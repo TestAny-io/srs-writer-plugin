@@ -79,7 +79,35 @@ class SelfContainedSemanticEditor {
                     startTime
                 );
             }
-            
+
+            // 3.5. 🆕 批次冲突检测
+            logger.debug(`🔍 检测批次冲突...`);
+            const conflict = this.detectBatchConflicts(intents);
+            if (conflict.hasConflict) {
+                logger.error(`❌ Batch conflict: ${conflict.error}`);
+                return {
+                    success: false,
+                    totalIntents: intents.length,
+                    successfulIntents: 0,
+                    appliedIntents: [],
+                    failedIntents: intents.map(intent => ({
+                        originalIntent: intent,
+                        error: conflict.error!,
+                        suggestion: `Split into two tool calls: 1) Delete section ${conflict.conflictingSid}, 2) In next call, insert/replace content.`,
+                        canRetry: false
+                    })),
+                    warnings: [],
+                    metadata: {
+                        executionTime: Date.now() - startTime,
+                        timestamp: new Date().toISOString(),
+                        documentLength: markdownContent.split('\n').length,
+                        conflictingSid: conflict.conflictingSid,
+                        operations: conflict.operations,
+                        rule: conflict.rule  // 🆕 冲突规则标识
+                    }
+                };
+            }
+
             // 4. 执行编辑操作
             logger.debug(`⚡ 开始执行语义编辑...`);
             const executor = new SmartIntentExecutor(markdownContent, tocData, targetFileUri);
@@ -100,8 +128,8 @@ class SelfContainedSemanticEditor {
      * 创建错误结果
      */
     private createErrorResult(
-        intents: SemanticEditIntent[], 
-        errorMessage: string, 
+        intents: SemanticEditIntent[],
+        errorMessage: string,
         startTime: number
     ): SemanticEditResult {
             return {
@@ -122,6 +150,47 @@ class SelfContainedSemanticEditor {
                 documentLength: 0
             }
         };
+    }
+
+    /**
+     * 🆕 检测同批次中对同一 SID 的删除+修改冲突（类内方法）
+     */
+    private detectBatchConflicts(intents: SemanticEditIntent[]): {
+        hasConflict: boolean;
+        error?: string;
+        conflictingSid?: string;
+        operations?: string[];
+        rule?: string;  // 🆕 冲突规则标识（便于统计和可观测性）
+    } {
+        // 1. 按 SID 分组
+        const sidGroups = new Map<string, SemanticEditIntent[]>();
+        for (const intent of intents) {
+            const sid = intent.target.sid;
+            if (!sidGroups.has(sid)) {
+                sidGroups.set(sid, []);
+            }
+            sidGroups.get(sid)!.push(intent);
+        }
+
+        // 2. 检查每个 SID 组
+        for (const [sid, sameIdIntents] of sidGroups) {
+            const hasDelete = sameIdIntents.some(i => i.type.startsWith('delete_'));
+            const hasModify = sameIdIntents.some(i =>
+                i.type.startsWith('insert_') || i.type.startsWith('replace_')
+            );
+
+            if (hasDelete && hasModify) {
+                return {
+                    hasConflict: true,
+                    error: `Batch conflict detected: Cannot delete and modify the same section (sid="${sid}") in a single batch.`,
+                    conflictingSid: sid,
+                    operations: sameIdIntents.map(i => i.type),
+                    rule: 'DELETE_THEN_MODIFY_SAME_SID'  // 🆕 冲突规则标识
+                };
+            }
+        }
+
+        return { hasConflict: false };
     }
 }
 
@@ -172,9 +241,11 @@ export const executeMarkdownEditsToolDefinition = {
                                 "replace_section_and_title",
                                 "replace_section_content_only",
                                 "insert_section_and_title",
-                                "insert_section_content_only"
+                                "insert_section_content_only",
+                                "delete_section_and_title",
+                                "delete_section_content_only"
                             ],
-                            description: "Edit Operation Type: replace_section_and_title(Replace entire section INCLUDING title - content MUST contain title), replace_section_content_only(Replace specific lines in section EXCLUDING title - content must NOT contain title), insert_section_and_title(Insert entire section including title), insert_section_content_only(Insert content in section excluding title)"
+                            description: "Edit Operation Type: replace_section_and_title(Replace entire section INCLUDING title - content MUST contain title), replace_section_content_only(Replace specific lines in section EXCLUDING title - content must NOT contain title), insert_section_and_title(Insert entire section including title), insert_section_content_only(Insert content in section excluding title), delete_section_and_title(Delete entire section including title and all subsections - content is ignored), delete_section_content_only(Delete section content but preserve title - content is ignored)"
                         },
                         target: {
                             type: "object",
@@ -214,11 +285,11 @@ export const executeMarkdownEditsToolDefinition = {
                                 }
                             },
                             required: ["sid"],
-                            description: "🔄 Target location information. Field requirements by operation type: replace_section_and_title(sid only), replace_section_content_only(sid+lineRange), insert_section_and_title(sid+insertionPosition), insert_section_content_only(sid+lineRange)"
+                            description: "🔄 Target location information. Field requirements by operation type: replace_section_and_title(sid only), replace_section_content_only(sid+lineRange), insert_section_and_title(sid+insertionPosition), insert_section_content_only(sid+lineRange), delete_section_and_title(sid only), delete_section_content_only(sid only)"
                         },
                         content: {
                             type: "string",
-                            description: "Content to insert or replace. 🚨 CRITICAL CONTENT RULES: (1) For *_and_title operations (replace_section_and_title, insert_section_and_title), you MUST include the complete section title (e.g., '#### Title\\n- content'). (2) For *_content_only operations (replace_section_content_only, insert_section_content_only), you must NOT include the section title - only provide actual content lines (e.g., '- content'). The operation name tells you: *_and_title = include title; *_content_only = exclude title."
+                            description: "Content to insert or replace. 🚨 CRITICAL CONTENT RULES: (1) For *_and_title operations (replace_section_and_title, insert_section_and_title), you MUST include the complete section title (e.g., '#### Title\\n- content'). (2) For *_content_only operations (replace_section_content_only, insert_section_content_only), you must NOT include the section title - only provide actual content lines (e.g., '- content'). (3) For delete_* operations (delete_section_and_title, delete_section_content_only), this field is IGNORED - you can provide an empty string. The operation name tells you: *_and_title = include title; *_content_only = exclude title."
                         },
                         summary: {
                             type: "string",
