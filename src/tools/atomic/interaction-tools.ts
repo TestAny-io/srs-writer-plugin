@@ -111,7 +111,10 @@ export const askQuestionToolDefinition = {
         CallerType.SPECIALIST_PROCESS               // 流程specialist需要确认流程参数
     ],
     // 🚀 智能分类属性
-    interactionType: 'interactive',
+    // 修复：从 'interactive' 改为 'autonomous'
+    // 原因：askQuestion 工具会立即执行并通过返回值信号 (needsChatInteraction) 触发交互，
+    // 而不是需要延迟执行。这符合 autonomous 工具的行为模式。
+    interactionType: 'autonomous',
     riskLevel: 'low',
     requiresConfirmation: false
 };

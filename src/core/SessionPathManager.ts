@@ -82,13 +82,21 @@ export class SessionPathManager {
 
     /**
      * 项目名安全处理 - 确保文件名安全
+     * 
+     * MVP策略：保留中文和其他Unicode字符，只过滤文件系统明确禁止的字符
+     * - 支持中文项目名（如"智能食谱"）
+     * - 使用 NFC 正规化确保跨平台一致性（macOS/Windows）
+     * - 只替换文件系统禁止字符：\ / : * ? " < > | null
      */
     private sanitizeProjectName(projectName: string): string {
-        return projectName
-            .replace(/[^a-zA-Z0-9_-]/g, '_')  // 替换特殊字符为下划线
-            .replace(/_{2,}/g, '_')           // 合并多个连续下划线
-            .toLowerCase()                    // 转为小写
-            .substring(0, 30);               // 限制长度，避免路径过长
+        // 1. Unicode正规化 - 避免macOS(NFD)和Windows(NFC)的编码差异
+        const normalized = projectName.normalize('NFC');
+        
+        // 2. 只过滤文件系统明确禁止的字符
+        return normalized
+            .trim()
+            .replace(/[\\/:"*?<>|\x00]/g, '_')  // Windows/macOS/Linux禁止字符
+            .substring(0, 50);                  // 限制长度（中文字符占3字节）
     }
 
     /**

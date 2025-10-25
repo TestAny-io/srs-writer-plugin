@@ -152,16 +152,26 @@ export class UserInteractionHandler {
     recordExecution('user_interaction', `用户输入: ${response}`, true);
     
     if (interaction.toolCall) {
-        // 将用户输入添加到工具参数中
-        const updatedArgs = {
-            ...interaction.toolCall.args,
-            userInput: response.trim()
-        };
-        
-        await handleAutonomousTool({
-            name: interaction.toolCall.name,
-            args: updatedArgs
-        });
+        // 🚀 修复：检查工具是否已经执行过
+        // 如果 originalResult 存在，说明工具已执行（如 askQuestion），用户回答已被记录，不应重复执行
+        // 如果 originalResult 不存在，说明工具被暂存但未执行（如传统 interactive 工具），应该执行
+        if (interaction.originalResult) {
+            this.logger.info(`🔍 Tool ${interaction.toolCall.name} already executed, skipping re-execution`);
+            // 用户的回答已通过 recordExecution 记录到执行历史中
+            // 后续的 generatePlan 会从执行历史中获取这个回答
+        } else {
+            this.logger.info(`🔍 Tool ${interaction.toolCall.name} not yet executed, executing now with user input`);
+            // 将用户输入添加到工具参数中
+            const updatedArgs = {
+                ...interaction.toolCall.args,
+                userInput: response.trim()
+            };
+            
+            await handleAutonomousTool({
+                name: interaction.toolCall.name,
+                args: updatedArgs
+            });
+        }
     }
     return { shouldReturnToWaiting: false };
   }

@@ -143,36 +143,13 @@ export class SessionManager implements ISessionManager {
 
     /**
      * 获取当前会话（v3.0异步版本）
+     * 🚀 v6.0修复：移除过期检查逻辑
+     * 原因：在持久化架构下，session保存在磁盘，不需要强制过期
+     * - 内存只有一个currentSession引用，不存在资源泄漏
+     * - 用户应该可以随时切换回任何老项目
+     * - 强制过期破坏用户体验和审计追踪完整性
      */
     public async getCurrentSession(): Promise<SessionContext | null> {
-        // 🕵️ 添加getCurrentSession的调用追踪
-        const stack = new Error().stack;
-        // this.logger.debug('🔍 [GET SESSION] getCurrentSession() called');
-        
-        if (this.currentSession === null) {
-            // this.logger.warn('🚨 [GET SESSION] Returning NULL! Call stack:');
-            // this.logger.warn(stack || 'No stack trace available');
-            // this.logger.warn('🚨 [GET SESSION] currentSession is null - this may cause context loss!');
-            return null;
-        }
-        
-        // 🔍 [DEBUG-SESSION-SYNC] 记录SessionManager中的session状态
-        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === SessionManager.getCurrentSession ===`);
-        //this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] SessionManager sessionId: ${this.currentSession.sessionContextId}`);
-        //this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] SessionManager lastModified: ${this.currentSession.metadata.lastModified}`);
-        //this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] SessionManager projectName: ${this.currentSession.projectName}`);
-        
-        // 🚀 修复：在实际使用时检查过期，而不是在autoInitialize时
-        const isExpired = await this.isSessionExpired();
-        if (isExpired) {
-            // this.logger.warn('🚨 [GET SESSION] Current session is expired, clearing it now');
-            // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] *** CLEARING EXPIRED SESSION ***`);
-            // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] This will cause NEW session creation on next request!`);
-            await this.clearSession();
-            return null;
-        }
-        
-        // this.logger.debug(`🔍 [GET SESSION] Returning session: ${this.currentSession.projectName} (${this.currentSession.sessionContextId})`);
         return this.currentSession;
     }
 
@@ -927,46 +904,6 @@ export class SessionManager implements ISessionManager {
 
     // 🚀 阶段3重构：废弃 deleteSessionFile() 方法
     // 根据重构设计，不再删除会话文件，所有会话文件都保留用于后续访问
-
-    /**
-     * 🚀 v5.0修复：检查会话是否过期 - 基于最后活跃时间而非创建时间
-     */
-    public async isSessionExpired(maxAgeHours: number = 24): Promise<boolean> {
-        // this.logger.warn('🔍 [EXPIRY CHECK] Starting session expiry check...');
-        
-        if (!this.currentSession) {
-            // this.logger.warn('🔍 [EXPIRY CHECK] No current session, returning false');
-            return false;
-        }
-
-        // this.logger.warn(`🔍 [EXPIRY CHECK] Current session exists: ${this.currentSession.projectName} (${this.currentSession.sessionContextId})`);
-        // this.logger.warn(`🔍 [EXPIRY CHECK] Max age hours: ${maxAgeHours}`);
-
-        // ✅ 修复：使用lastModified（最后活跃时间）而不是created（创建时间）
-        const lastModifiedStr = this.currentSession.metadata.lastModified;
-        // this.logger.warn(`🔍 [EXPIRY CHECK] Last modified string: ${lastModifiedStr}`);
-        
-        const lastActivity = new Date(lastModifiedStr).getTime();
-        const currentTime = Date.now();
-        const inactivityPeriod = currentTime - lastActivity;
-        const maxInactivityMs = maxAgeHours * 60 * 60 * 1000;
-        
-        // 🐛 修复日志：记录过期检查的详细信息
-        const hoursInactive = Math.round(inactivityPeriod / (1000 * 60 * 60) * 10) / 10;
-        
-        // 🔍 [DEBUG-SESSION-SYNC] 详细的过期检查日志
-        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] === SESSION EXPIRY CHECK ===`);
-        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Last activity: ${new Date(lastActivity).toISOString()}`);
-        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Current time: ${new Date(currentTime).toISOString()}`);
-        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Inactivity period: ${inactivityPeriod}ms (${hoursInactive} hours)`);
-        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Max allowed inactivity: ${maxInactivityMs}ms (${maxAgeHours} hours)`);
-        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] Time since last activity: ${hoursInactive}h vs limit: ${maxAgeHours}h`);
-        
-        const isExpired = inactivityPeriod > maxInactivityMs;
-        // this.logger.warn(`🔍 [DEBUG-SESSION-SYNC] *** SESSION EXPIRED: ${isExpired} ***`);
-        
-        return isExpired;
-    }
 
     /**
      * 🚀 智能会话初始化 - 支持基于Git分支的状态恢复
