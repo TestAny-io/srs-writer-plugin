@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.5] - 2025-10-25
+
+### Added
+
+- **MCP (Model Context Protocol) Integration**: Full MCP client support for extensible tool ecosystem
+    - **MCP Client**: Core client implementation for connecting to MCP servers
+    - **MCP Registry**: Centralized registry for managing MCP server connections and tool registrations
+    - **MCP Tool Invoker**: Unified interface for invoking MCP-provided tools
+    - **Type Safety**: Complete TypeScript type definitions for MCP protocol
+    - **Error Handling**: Robust error handling and connection management
+
+- **Internet Search Tool Refactor**: Complete redesign with multi-provider and multi-strategy architecture
+    - **Multiple Strategies**:
+        - Direct API Strategy: Direct integration with search provider APIs
+        - Guidance Strategy: AI-guided search with intelligent query refinement
+        - MCP Strategy: Delegated search through MCP protocol
+    - **Multiple Providers**:
+        - Tavily AI Search (recommended for international users)
+        - Bing Search (Azure Cognitive Services)
+        - Baidu Search (recommended for Chinese users)
+    - **Search Cache**: Intelligent caching mechanism to reduce API calls and improve performance
+    - **Configuration Management**: Centralized API key and provider configuration
+    - **Comprehensive Testing**: Unit tests and integration tests for all strategies and providers
+
+- **findInFiles Tool**: New powerful file search capability across workspace
+    - **Pattern Matching**: Support for regex and plain text search patterns
+    - **File Scanning**: Efficient workspace file scanning with configurable filters
+    - **Result Formatting**: Structured search results with file paths, line numbers, and context
+    - **Error Handling**: Graceful error handling with detailed error messages
+    - **Modular Architecture**: Clean separation of concerns (Scanner, Matcher, Formatter, Engine)
+
+- **Text File Editor Tools**: New direct text file editing capabilities
+    - Complements existing semantic editing tools with traditional line-based editing
+    - Support for reading, writing, and modifying plain text files
+    - Enhanced error handling and validation
+
+### Enhanced
+
+- **Semantic Edit Engine**: Major capability expansion
+    - **Delete Operations**: New delete operation type for `executeMarkdownEdits` tool
+    - **Section Deletion**: Support for deleting entire sections or content within sections
+    - **Smart Deletion**: Intelligent handling of section boundaries and nested content
+    - **Validation Enhancement**: Improved validation for delete operations with clear error messages
+
+- **Orchestrator**: Significant refactor and enhancement
+    - Improved prompt management and assembly
+    - Enhanced tool access control mechanisms
+    - Better workspace context integration
+    - Optimized plan generation and execution logic
+
 ## [0.5.2] - 2025-09-12
 
 ### Added
