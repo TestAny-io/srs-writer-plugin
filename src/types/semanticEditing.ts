@@ -41,24 +41,39 @@ export type InsertionPosition =
     | 'after';    // 在参照章节之后插入
 
 /**
- * 语义目标定位接口 - 🔄 简化字段依赖关系
+ * 语义目标定位接口 - 🆕 支持内容匹配定位
+ * 
+ * 三种定位方式（互斥）：
+ * 1. contentMatch (推荐) - 基于内容匹配定位
+ * 2. lineRange (备选) - 基于行号定位
+ * 3. insertionPosition (章节级) - 用于整章节插入
  * 
  * 字段使用规则：
  * - replace_section_and_title: 只需 sid
- * - replace_section_content_only: sid + lineRange (必需)
- * - insert_section_and_title: sid + insertionPosition (必需)
- * - insert_section_content_only: sid + lineRange (必需)
+ * - replace_section_content_only: sid + (contentMatch OR lineRange)
+ * - insert_section_and_title: sid + insertionPosition
+ * - insert_section_content_only: sid + (contentMatch OR lineRange)
+ * - delete_section_and_title: 只需 sid
+ * - delete_section_content_only: sid + contentMatch (⚠️ BREAKING CHANGE)
  */
 export interface SemanticTarget {
     sid: string;                            // Section ID，来自 readMarkdownFile（必需）
     
-    // 🔄 条件必需：用于行级别操作
+    // 🌟 方式1：内容匹配定位（推荐）
+    contentMatch?: {
+        matchContent: string;               // 要匹配的内容（支持多行，用\n分隔）
+        contextBefore?: string;             // 可选：前置上下文（用于消歧义）
+        contextAfter?: string;              // 可选：后置上下文（用于消歧义）
+        position?: 'before' | 'after' | 'replace'; // 相对位置：replace(默认), before, after
+    };
+    
+    // 🔄 方式2：行号定位（备选，用于边界场景）
     lineRange?: {
         startLine: number;                  // 目标起始行号（章节内相对行号，1-based，Line 1 = 章节标题后第一行内容）
         endLine: number;                    // 目标结束行号（章节内相对行号，1-based，必需避免歧义）
     };
     
-    // 🔄 条件必需：用于整章节插入
+    // 🔄 方式3：章节级插入位置（用于 insert_section_and_title）
     insertionPosition?: InsertionPosition;  // 插入位置：'before' | 'after'
     
     // 🔄 高级定位（可选）
@@ -212,7 +227,9 @@ export interface LocationResult {
             totalLines?: number;
             totalContentLines?: number;  // 章节内容行数（不包括标题）
             availableRange?: string;
+            sectionPreview?: string;     // 🆕 章节内容预览（用于调试）
         };
+        example?: string;                // 🆕 示例代码（用于错误提示）
         // 🔄 新增字段：字段验证建议
         availablePositions?: string[];  // 可用的插入位置
         availableTypes?: string[];      // 可用的操作类型

@@ -13,6 +13,7 @@
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
 import { SemanticTarget, LocationResult, LineInfo, SidBasedEditError } from '../../types/semanticEditing';
+import { ContentMatcher } from '../document/ContentMatcher';
 
 const logger = Logger.getInstance();
 
@@ -66,6 +67,7 @@ interface SectionNode {
 export class SidBasedSemanticLocator {
     private sidToNodeMap: Map<string, SectionNode> = new Map();
     private markdownLines: string[] = [];
+    private contentMatcher: ContentMatcher;  // 🆕 内容匹配器
     
     // 🆕 Phase 2: 性能优化 - 缓存机制
     private locationCache: Map<string, LocationResult> = new Map();
@@ -75,6 +77,7 @@ export class SidBasedSemanticLocator {
         const startTime = Date.now();
         
         this.markdownLines = markdownContent.split('\n');
+        this.contentMatcher = new ContentMatcher();  // 🆕 初始化内容匹配器
         this.buildSidMapping(tocData);
         
         const initTime = Date.now() - startTime;
@@ -137,17 +140,57 @@ export class SidBasedSemanticLocator {
                 result = this.replaceEntireSection(section);
             }
             else if (operationType === 'delete_section_content_only') {
-                result = this.handleDeleteContentOnly(section);
+                // ⚠️ BREAKING CHANGE: 现在需要 contentMatch 来指定删除什么
+                if (target.contentMatch) {
+                    result = this.findByContentMatch(section, target.contentMatch, operationType);
+                } else {
+                    // 为了向后兼容，如果没有 contentMatch，返回错误提示
+                    return {
+                        found: false,
+                        error: '⚠️ BREAKING CHANGE: delete_section_content_only now requires contentMatch to specify what to delete. To clear entire section, use replace_section_and_title with title-only content.',
+                        suggestions: {
+                            hint: 'Use target.contentMatch to specify the content to delete'
+                        }
+                    };
+                }
+            }
+            // 🌟 优先使用内容匹配（如果提供）
+            else if (target.contentMatch) {
+                result = this.findByContentMatch(section, target.contentMatch, operationType);
             }
             // 处理插入操作
             else if (operationType?.startsWith('insert_')) {
                 result = this.handleInsertionOperation(section, target, operationType);
             }
-            // 处理替换操作
+            // 处理基于行号的替换操作
             else if (target.lineRange) {
                 result = this.findByLineRange(section, target.lineRange);
             }
-            // 替换整个章节
+            // 🔧 BUG FIX: replace_section_content_only 和 insert_section_content_only 必须提供定位信息
+            else if (operationType === 'replace_section_content_only' || operationType === 'insert_section_content_only') {
+                return {
+                    found: false,
+                    error: `${operationType} requires positioning information: provide contentMatch (recommended) or lineRange`,
+                    suggestions: {
+                        hint: 'Add target.contentMatch to use content matching (recommended), or target.lineRange to use line numbers',
+                        example: `{
+  "target": {
+    "sid": "${target.sid}",
+    "contentMatch": {
+      "matchContent": "Content you want to ${operationType === 'replace_section_content_only' ? 'replace' : 'insert near'}"
+    }
+  }
+}`,
+                        sectionSummary: {
+                            title: section.title,
+                            totalContentLines: section.content.length,
+                            availableRange: `1-${section.content.length}`,
+                            sectionPreview: this.generateSectionPreview(section)
+                        }
+                    }
+                };
+            }
+            // 替换整个章节（仅用于 replace_section_and_title）
             else {
                 result = this.replaceEntireSection(section);
             }
@@ -167,22 +210,213 @@ export class SidBasedSemanticLocator {
     }
 
     /**
-     * 🆕 Phase 2: 生成缓存键
+     * 🆕 Phase 2: 生成缓存键（支持 contentMatch）
      */
     private createCacheKey(target: SemanticTarget, operationType?: string): string {
         const parts = [target.sid];
+        
+        if (target.contentMatch) {
+            // 为内容匹配创建缓存键（使用内容哈希）
+            const contentHash = this.hashString(target.contentMatch.matchContent);
+            parts.push(`CM:${contentHash}`);
+            if (target.contentMatch.contextBefore) {
+                parts.push(`CB:${this.hashString(target.contentMatch.contextBefore)}`);
+            }
+            if (target.contentMatch.contextAfter) {
+                parts.push(`CA:${this.hashString(target.contentMatch.contextAfter)}`);
+            }
+            if (target.contentMatch.position) {
+                parts.push(`P:${target.contentMatch.position}`);
+            }
+        }
+        
         if (target.lineRange) {
             parts.push(`L${target.lineRange.startLine}-${target.lineRange.endLine || target.lineRange.startLine}`);
         }
+        
         if (target.insertionPosition) {
             parts.push(`pos:${target.insertionPosition}`);
         }
+        
         if (operationType) {
             parts.push(`op:${operationType}`);
         }
+        
         return parts.join('|');
     }
+    
+    /**
+     * 简单字符串哈希（用于缓存键生成）
+     */
+    private hashString(str: string): string {
+        let hash = 0;
+        for (let i = 0; i < Math.min(str.length, 50); i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0; // Convert to 32bit integer
+        }
+        return Math.abs(hash).toString(36).substring(0, 6);
+    }
 
+    /**
+     * 🌟 基于内容匹配的精确定位（推荐方式）
+     * 
+     * 使用 ContentMatcher 在章节内容中查找匹配位置
+     * 支持多行匹配和上下文消歧义
+     */
+    private findByContentMatch(
+        section: SectionNode,
+        contentMatch: NonNullable<SemanticTarget['contentMatch']>,
+        operationType?: string
+    ): LocationResult {
+        logger.info(`🌟 [ContentMatch] Locating by content in section: ${section.sid}`);
+        logger.debug(`🌟 [ContentMatch] matchContent length: ${contentMatch.matchContent.length}, hasContextBefore: ${!!contentMatch.contextBefore}, hasContextAfter: ${!!contentMatch.contextAfter}`);
+        
+        // 获取章节内容（不包括标题行）
+        const sectionContent = section.content.join('\n');
+        
+        // 使用 ContentMatcher 查找位置
+        const matchPosition = this.contentMatcher.findTarget(
+            sectionContent,
+            contentMatch.matchContent,
+            contentMatch.contextBefore,
+            contentMatch.contextAfter
+        );
+        
+        if (!matchPosition) {
+            // 查找失败，生成增强的错误信息
+            const notFoundError = this.contentMatcher.generateNotFoundError(
+                sectionContent,
+                contentMatch.matchContent,
+                section.title
+            );
+            
+            logger.warn(`🌟 [ContentMatch] Match not found: ${notFoundError.error}`);
+            
+            return {
+                found: false,
+                error: notFoundError.error,
+                suggestions: {
+                    hint: notFoundError.hint,
+                    sectionPreview: notFoundError.sectionPreview,
+                    sectionSummary: {
+                        title: notFoundError.sectionInfo.sectionTitle,
+                        totalLines: notFoundError.sectionInfo.totalLines,
+                        totalContentLines: section.content.length,
+                        availableRange: `1-${section.content.length}`
+                    }
+                }
+            };
+        }
+        
+        logger.info(`🌟 [ContentMatch] ✅ Match found at line ${matchPosition.lineNumber} (section-relative)`);
+        
+        // 转换为文档绝对位置
+        // matchPosition.lineNumber 是章节内容的相对行号（1-based）
+        // section.startLine 是章节内容第一行的绝对行号（0-based）
+        const sectionRelativeLineNumber = matchPosition.lineNumber;
+        const documentAbsoluteStartLine = section.startLine + (sectionRelativeLineNumber - 1);
+        
+        // 根据 position 参数确定操作类型
+        const position = contentMatch.position || 'replace';
+        
+        // 计算匹配内容占用的行数
+        const matchedLines = contentMatch.matchContent.split('\n').length;
+        const documentAbsoluteEndLine = documentAbsoluteStartLine + matchedLines - 1;
+        
+        if (position === 'replace' || operationType === 'delete_section_content_only') {
+            const isDeleteOperation = operationType === 'delete_section_content_only';
+            
+            // 🔍 智能检测：matchContent 是否占据完整行（基于实际匹配位置，不依赖AI输入）
+            let isFullLineMatch = false;
+            if (isDeleteOperation) {
+                // 找到匹配内容所在行的起始位置
+                const lineStartIndex = matchPosition.startIndex === 0 
+                    ? 0 
+                    : sectionContent.lastIndexOf('\n', matchPosition.startIndex - 1) + 1;
+                
+                // 找到匹配内容所在行的结束位置
+                const lineEndIndexInSection = sectionContent.indexOf('\n', matchPosition.startIndex);
+                const lineEnd = lineEndIndexInSection === -1 ? sectionContent.length : lineEndIndexInSection;
+                
+                // 🔧 关键修复：检查match之前的内容是否只有空白字符（缩进）
+                // 这样可以正确识别带缩进的列表项为"完整行"
+                const precedingContent = sectionContent.substring(lineStartIndex, matchPosition.startIndex);
+                const isPrecedingOnlyWhitespace = /^\s*$/.test(precedingContent);
+                
+                // 完整行判断：前面只有空格 && 到达行尾
+                isFullLineMatch = isPrecedingOnlyWhitespace && (matchPosition.endIndex === lineEnd);
+                
+                logger.debug(`🔍 [DeleteCheck] Analyzing full-line match:`);
+                logger.debug(`  - matchStart=${matchPosition.startIndex}, lineStart=${lineStartIndex}`);
+                logger.debug(`  - precedingContent="${precedingContent}" (length=${precedingContent.length}), isPrecedingOnlyWhitespace=${isPrecedingOnlyWhitespace}`);
+                logger.debug(`  - matchEnd=${matchPosition.endIndex}, lineEnd=${lineEnd}, atLineEnd=${matchPosition.endIndex === lineEnd}`);
+                logger.debug(`  - isFullLineMatch=${isFullLineMatch}`);
+            }
+            
+            // 检查是否为文档最后一行
+            const isLastLine = documentAbsoluteEndLine >= this.markdownLines.length - 1;
+            
+            // 对于delete操作：如果是完整行匹配且不是最后一行，需要包含换行符
+            const shouldIncludeNewline = isDeleteOperation && isFullLineMatch && !isLastLine;
+            
+            const rangeEnd = shouldIncludeNewline
+                ? new vscode.Position(documentAbsoluteEndLine + 1, 0)  // 包含换行符，扩展到下一行开头
+                : new vscode.Position(documentAbsoluteEndLine, this.getLineLength(documentAbsoluteEndLine));  // 不含换行符，到行尾
+            
+            logger.debug(`🔍 [DeleteCheck] Range decision:`);
+            logger.debug(`  - isLastLine=${isLastLine}`);
+            logger.debug(`  - shouldIncludeNewline=${shouldIncludeNewline}`);
+            logger.debug(`  - rangeEnd=Position(${rangeEnd.line}, ${rangeEnd.character})`);
+            
+            // 替换或删除匹配的内容
+            return {
+                found: true,
+                operationType: 'replace',
+                range: new vscode.Range(
+                    new vscode.Position(documentAbsoluteStartLine, 0),
+                    rangeEnd
+                ),
+                context: {
+                    sectionTitle: section.title,
+                    targetLines: this.getLines(documentAbsoluteStartLine, documentAbsoluteEndLine),
+                    relativeToAbsolute: {
+                        sectionRelativeStart: sectionRelativeLineNumber,
+                        sectionRelativeEnd: sectionRelativeLineNumber + matchedLines - 1,
+                        documentAbsoluteStart: documentAbsoluteStartLine + 1,
+                        documentAbsoluteEnd: documentAbsoluteEndLine + 1
+                    }
+                }
+            };
+        } else if (position === 'before') {
+            // 在匹配内容之前插入
+            return {
+                found: true,
+                operationType: 'insert',
+                insertionPoint: new vscode.Position(documentAbsoluteStartLine, 0),
+                context: {
+                    sectionTitle: section.title,
+                    sectionRelativeInsertLine: sectionRelativeLineNumber,
+                    documentAbsoluteInsertLine: documentAbsoluteStartLine + 1
+                }
+            };
+        } else if (position === 'after') {
+            // 在匹配内容之后插入
+            const insertLine = documentAbsoluteEndLine + 1;
+            return {
+                found: true,
+                operationType: 'insert',
+                insertionPoint: new vscode.Position(insertLine, 0),
+                context: {
+                    sectionTitle: section.title,
+                    sectionRelativeInsertLine: sectionRelativeLineNumber + matchedLines,
+                    documentAbsoluteInsertLine: insertLine + 1
+                }
+            };
+        }
+        
+        throw new Error(`Unknown content match position: ${position}`);
+    }
+    
     /**
      * 🚀 基于相对行号的精确定位 - 将章节内相对行号转换为文档绝对行号
      */
@@ -282,6 +516,9 @@ export class SidBasedSemanticLocator {
 
     /**
      * 🆕 删除章节内容（保留标题）
+     * 
+     * ⚠️ 注意：这个方法已废弃，现在 delete_section_content_only 需要 contentMatch
+     * 保留此方法仅用于兼容性，实际不应该被调用
      */
     private handleDeleteContentOnly(section: SectionNode): LocationResult {
         // 如果章节没有内容，返回错误
@@ -295,14 +532,24 @@ export class SidBasedSemanticLocator {
             };
         }
 
-        // section.startLine 是内容开始行（标题后第一行）
-        // section.endLine 是内容结束行
+        // 🔧 BUG FIX: 删除操作需要包含换行符，避免留下空行
+        const isLastLine = section.endLine >= this.markdownLines.length - 1;
+        
+        const rangeEnd = isLastLine
+            ? new vscode.Position(section.endLine, this.getLineLength(section.endLine))  // 最后一行：到行尾
+            : new vscode.Position(section.endLine + 1, 0);  // 非最后一行：包含换行符
+        
+        logger.debug(`🔍 [DeleteContentOnly] Deleting section content with newline handling:`);
+        logger.debug(`  - contentLines: ${section.startLine} to ${section.endLine}`);
+        logger.debug(`  - isLastLine=${isLastLine}`);
+        logger.debug(`  - rangeEnd=Position(${rangeEnd.line}, ${rangeEnd.character})`);
+
         return {
             found: true,
             operationType: 'replace',
             range: new vscode.Range(
                 new vscode.Position(section.startLine, 0),        // 从内容第一行开始
-                new vscode.Position(section.endLine, this.getLineLength(section.endLine)) // 到内容结束
+                rangeEnd  // 智能处理换行符
             ),
             context: {
                 sectionTitle: section.title,
@@ -362,25 +609,42 @@ export class SidBasedSemanticLocator {
             };
 
         } else if (operationType === 'insert_section_content_only') {
-            // insert_section_content_only: 必须有 lineRange，忽略 insertionPosition
-            if (!target.lineRange) {
+            // 🔧 BUG FIX: insert_section_content_only 必须有 contentMatch 或 lineRange
+            if (!target.contentMatch && !target.lineRange) {
                 return {
                     found: false,
-                    error: "lineRange is required for insert_section_content_only operations",
+                    error: "insert_section_content_only requires positioning information: provide contentMatch (recommended) or lineRange",
                     suggestions: {
-                        hint: "Specify the exact section-relative line number where you want to insert content using lineRange: { startLine: N, endLine: N }",
+                        hint: "Add target.contentMatch to use content matching, or target.lineRange to use line numbers",
+                        example: `{
+  "target": {
+    "sid": "${target.sid}",
+    "contentMatch": {
+      "matchContent": "Content to insert near",
+      "position": "after"
+    }
+  }
+}`,
                         sectionSummary: {
                             title: section.title,
                             totalContentLines: section.content.length,
-                            availableRange: `1-${section.content.length + 1}`
-                        },
-                        sectionPreview: this.generateSectionPreview(section)
+                            availableRange: `1-${section.content.length + 1}`,
+                            sectionPreview: this.generateSectionPreview(section)
+                        }
                     }
                 };
             }
-
+            
+            // 如果提供了 contentMatch，使用内容匹配
+            if (target.contentMatch) {
+                // Content matching已经在前面处理（第158行），这里不应该到达
+                // 但为了防御性编程，还是调用一次
+                return this.findByContentMatch(section, target.contentMatch, operationType);
+            }
+            
+            // 否则使用 lineRange（已经验证过存在）
             // 🚀 使用相对行号进行插入
-            const { startLine } = target.lineRange;
+            const { startLine } = target.lineRange!;  // Non-null assertion: 已在上面验证过
             const sectionContentLines = section.content.length;
 
             // 插入位置可以是 1 到 sectionContentLines + 1（在最后插入）

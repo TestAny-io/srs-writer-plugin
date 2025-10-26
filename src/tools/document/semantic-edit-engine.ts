@@ -225,7 +225,7 @@ export async function executeSemanticEdits(
  */
 export const executeMarkdownEditsToolDefinition = {
     name: "executeMarkdownEdits",
-    description: "🔄 Semantic Edit Tool - lineRange uses section-relative line numbers (1-based). Field usage rules: replace_section_and_title requires sid; replace_section_content_only and insert_section_content_only require sid+lineRange; insert_section_and_title requires sid+insertionPosition. 🎯 Naming convention: *_and_title operations MUST include title in content; *_content_only operations must NOT include title",
+    description: "🔄 Semantic Edit Tool with Content Matching Support. Two positioning methods: (1) Content Matching (RECOMMENDED) - use contentMatch to locate by actual content; (2) Line Numbers (FALLBACK) - use lineRange for edge cases. 🚨 CRITICAL FIELD REQUIREMENTS: replace_section_and_title(sid ONLY), replace_section_content_only(sid + contentMatch OR lineRange - MUST provide one), insert_section_and_title(sid + insertionPosition), insert_section_content_only(sid + contentMatch OR lineRange - MUST provide one), delete_section_and_title(sid ONLY), delete_section_content_only(sid + contentMatch - MUST provide). Providing ONLY sid for *_content_only operations will cause ERROR. 🎯 Naming convention: *_and_title = include title; *_content_only = exclude title",
     parameters: {
         type: "object",
         properties: {
@@ -245,7 +245,7 @@ export const executeMarkdownEditsToolDefinition = {
                                 "delete_section_and_title",
                                 "delete_section_content_only"
                             ],
-                            description: "Edit Operation Type: replace_section_and_title(Replace entire section INCLUDING title - content MUST contain title), replace_section_content_only(Replace specific lines in section EXCLUDING title - content must NOT contain title), insert_section_and_title(Insert entire section including title), insert_section_content_only(Insert content in section excluding title), delete_section_and_title(Delete entire section including title and all subsections - content is ignored), delete_section_content_only(Delete section content but preserve title - content is ignored)"
+                            description: "Edit Operation Type: replace_section_and_title(Replace entire section INCLUDING title - content MUST contain title), replace_section_content_only(Replace specific content in section EXCLUDING title - use contentMatch or lineRange), insert_section_and_title(Insert entire section including title), insert_section_content_only(Insert content in section excluding title - use contentMatch or lineRange), delete_section_and_title(Delete entire section including title and all subsections), delete_section_content_only(⚠️ BREAKING CHANGE: Delete MATCHED content only, preserve title - requires contentMatch to specify what to delete)"
                         },
                         target: {
                             type: "object",
@@ -253,6 +253,30 @@ export const executeMarkdownEditsToolDefinition = {
                                 sid: {
                                     type: "string",
                                     description: "🎯 Section SID - Must be obtained by calling readMarkdownFile tool first. 🚨 CRITICAL: For replace_section_content_only and insert_section_content_only, use the LOWEST LEVEL SID (most specific/deepest SID that directly contains your target content)."
+                                },
+                                contentMatch: {
+                                    type: "object",
+                                    properties: {
+                                        matchContent: {
+                                            type: "string",
+                                            description: "Content to match for positioning (RECOMMENDED). Must match exactly including whitespace. Example: '    - System supports photo-based input'. Supports multi-line content with \\n characters."
+                                        },
+                                        contextBefore: {
+                                            type: "string",
+                                            description: "Optional content immediately before matchContent for disambiguation. Example: '- **Description**:'"
+                                        },
+                                        contextAfter: {
+                                            type: "string",
+                                            description: "Optional content immediately after matchContent for disambiguation. Example: '- **Source Story**:'"
+                                        },
+                                        position: {
+                                            type: "string",
+                                            enum: ["before", "after", "replace"],
+                                            description: "Position relative to matched content: 'replace' (default for replace operations), 'before' (for insert before), 'after' (for insert after)"
+                                        }
+                                    },
+                                    required: ["matchContent"],
+                                    description: "🌟 Content Matching (RECOMMENDED) - Locate target by actual content. More robust than line numbers. Use contextBefore/After if match is not unique."
                                 },
                                 lineRange: {
                                     type: "object",
@@ -267,7 +291,7 @@ export const executeMarkdownEditsToolDefinition = {
                                         }
                                     },
                                     required: ["startLine", "endLine"],
-                                    description: "🔄 Required for: replace_section_content_only, insert_section_content_only. Use section-relative line numbers (1-based). Line 1 = first content line after section title."
+                                    description: "🔄 Line Numbers (FALLBACK) - Only use when content matching is not feasible (e.g., empty lines). Use section-relative line numbers (1-based)."
                                 },
                                 insertionPosition: {
                                     type: "string",
@@ -285,7 +309,7 @@ export const executeMarkdownEditsToolDefinition = {
                                 }
                             },
                             required: ["sid"],
-                            description: "🔄 Target location information. Field requirements by operation type: replace_section_and_title(sid only), replace_section_content_only(sid+lineRange), insert_section_and_title(sid+insertionPosition), insert_section_content_only(sid+lineRange), delete_section_and_title(sid only), delete_section_content_only(sid only)"
+                            description: "🔄 Target location. Use ONE positioning method: (1) contentMatch (recommended), (2) lineRange (fallback), (3) insertionPosition (for insert_section_and_title). 🚨 CRITICAL: replace_section_content_only and insert_section_content_only MUST provide either contentMatch OR lineRange - providing only sid will result in error."
                         },
                         content: {
                             type: "string",
