@@ -594,9 +594,10 @@ ${context.structuredContext?.currentStep ? JSON.stringify(context.structuredCont
 \`\`\`
 
 ## Iterative History
-\`\`\`json
-${context.structuredContext?.internalHistory ? JSON.stringify(context.structuredContext.internalHistory, null, 2) : 'No iterative history available'}
-\`\`\`
+
+${context.structuredContext?.internalHistory && Array.isArray(context.structuredContext.internalHistory) && context.structuredContext.internalHistory.length > 0
+  ? context.structuredContext.internalHistory.join('\n\n')
+  : 'No iterative history available'}
 
 **# 7. GUIDELINES AND SAMPLE OF TOOLS USING**
 

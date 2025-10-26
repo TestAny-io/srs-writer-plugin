@@ -63,6 +63,12 @@ export class SpecialistExecutor {
     private sessionLogService = new SessionLogService(); // 🚀 新增：统一会话日志记录服务
     private thoughtRecordManager = ThoughtRecordManager.getInstance(); // 🚀 v2.0 (2025-10-08): 使用单例，确保恢复时状态保持
     
+    /**
+     * 🚀 v3.0 (2025-10-26): 配置开关 - 是否启用新的Markdown格式
+     * 设为 false 可以快速回滚到旧的JSON格式
+     */
+    private readonly USE_MARKDOWN_FORMAT = true;
+    
     constructor() {
         this.logger.info('🚀 SpecialistExecutor v3.0 initialized - dynamic specialist registry architecture');
         
@@ -1067,6 +1073,263 @@ ${context.dependentResults?.length > 0
         return null; // 未找到平衡的JSON
     }
 
+    // ============================================================================
+    // 🚀 v3.0 (2025-10-26): Iterative History Format Optimization
+    // JSON → Markdown 转换系统
+    // ============================================================================
+
+    /**
+     * 🚀 核心方法：JSON递归转换为Markdown unordered list
+     * 
+     * @param obj - JSON对象或值
+     * @param indent - 缩进级别
+     * @param parentKey - 父级key名称（用于智能生成数组标签）
+     * @param visited - 循环引用检测集合
+     * @param maxDepth - 最大递归深度（防止栈溢出）
+     */
+    private jsonToMarkdownList(
+        obj: any,
+        indent: number,
+        parentKey?: string,
+        visited: Set<any> = new Set(),
+        maxDepth: number = 15
+    ): string {
+        // 🚀 性能监控：只在顶层调用时记录
+        const startTime = indent === 1 ? Date.now() : 0;
+
+        const indentStr = '  '.repeat(indent);
+        let output = '';
+
+        // 🚀 安全保护1：深度限制
+        if (indent > maxDepth) {
+            this.logger.warn(`⚠️ jsonToMarkdownList: 超过最大深度 ${maxDepth}`);
+            return `${indentStr}- [Max depth exceeded]\n`;
+        }
+
+        if (obj === null || obj === undefined) {
+            return `${indentStr}- null\n`;
+        }
+
+        if (typeof obj === 'string') {
+            // 处理换行符（真实的\n，不是字面\\n）
+            if (obj.includes('\n')) {
+                const lines = obj.split('\n');
+                output += `${indentStr}- ${lines[0]}\n`;
+                for (let i = 1; i < lines.length; i++) {
+                    output += `${indentStr}  ${lines[i]}\n`;
+                }
+                return output;
+            }
+            return `${indentStr}- ${obj}\n`;
+        }
+
+        if (typeof obj === 'number' || typeof obj === 'boolean') {
+            return `${indentStr}- ${obj}\n`;
+        }
+
+        if (Array.isArray(obj)) {
+            // 🚀 安全保护2：数组大小限制
+            const MAX_ARRAY_ITEMS = 100;
+            const itemsToShow = Math.min(obj.length, MAX_ARRAY_ITEMS);
+
+            for (let index = 0; index < itemsToShow; index++) {
+                const item = obj[index];
+                const label = this.getArrayItemLabel(parentKey || 'items', index);
+
+                if (typeof item === 'object' && item !== null) {
+                    output += `${indentStr}- ${label}:\n`;
+                    output += this.jsonToMarkdownList(item, indent + 1, undefined, visited, maxDepth);
+                } else {
+                    output += `${indentStr}- ${label}: ${item}\n`;
+                }
+            }
+
+            // 如果数组被截断，添加说明
+            if (obj.length > MAX_ARRAY_ITEMS) {
+                output += `${indentStr}- [... ${obj.length - MAX_ARRAY_ITEMS} more items]\n`;
+                this.logger.warn(`⚠️ jsonToMarkdownList: 数组包含${obj.length}个元素，只显示前${MAX_ARRAY_ITEMS}个`);
+            }
+
+            return output;
+        }
+
+        if (typeof obj === 'object') {
+            // 🚀 安全保护3：循环引用检测
+            if (visited.has(obj)) {
+                this.logger.warn('⚠️ jsonToMarkdownList: 检测到循环引用');
+                return `${indentStr}- [Circular Reference]\n`;
+            }
+            visited.add(obj);
+
+            for (const [key, value] of Object.entries(obj)) {
+                if (value === null || value === undefined) {
+                    output += `${indentStr}- ${key}: null\n`;
+                } else if (Array.isArray(value)) {
+                    output += `${indentStr}- ${key}:\n`;
+                    output += this.jsonToMarkdownList(value, indent + 1, key, visited, maxDepth);
+                } else if (typeof value === 'object') {
+                    output += `${indentStr}- ${key}:\n`;
+                    output += this.jsonToMarkdownList(value, indent + 1, undefined, visited, maxDepth);
+                } else if (typeof value === 'string' && value.includes('\n')) {
+                    const lines = value.split('\n');
+                    output += `${indentStr}- ${key}: ${lines[0]}\n`;
+                    for (let i = 1; i < lines.length; i++) {
+                        output += `${indentStr}  ${lines[i]}\n`;
+                    }
+                } else {
+                    output += `${indentStr}- ${key}: ${value}\n`;
+                }
+            }
+
+            // 🚀 性能监控（只在顶层调用时记录）
+            if (startTime > 0) {
+                const elapsed = Date.now() - startTime;
+                if (elapsed > 100) {
+                    this.logger.warn(`⚠️ jsonToMarkdownList 耗时 ${elapsed}ms, 深度: ${indent}`);
+                }
+            }
+
+            return output;
+        }
+
+        return `${indentStr}- ${String(obj)}\n`;
+    }
+
+    /**
+     * 生成数组元素标签
+     * 
+     * 策略：根据父级key名称智能选择标签格式
+     * - intents数组 → "intent #1", "intent #2"
+     * - results数组 → "result #1", "result #2"
+     * - targets数组 → "target #1", "target #2"
+     * - 其他数组 → "[0]", "[1]" (数组索引风格，避免混淆)
+     */
+    private getArrayItemLabel(parentKey: string, index: number): string {
+        // 基于父级key推断数组内容类型
+        const singularMap: { [key: string]: string } = {
+            'intents': 'intent',
+            'results': 'result',
+            'targets': 'target',
+            'edits': 'edit',
+            'warnings': 'warning',
+            'errors': 'error',
+            'failedIntents': 'failed intent',
+            'appliedIntents': 'applied intent',
+            // 🚀 架构师建议：添加更多常见类型
+            'items': 'item',
+            'values': 'value',
+            'entries': 'entry',
+            'sections': 'section',
+            'files': 'file'
+        };
+
+        const singular = singularMap[parentKey];
+        if (singular) {
+            return `${singular} #${index + 1}`;
+        }
+
+        // 默认使用数组索引风格
+        return `[${index}]`;
+    }
+
+    /**
+     * 将工具调用格式化为Markdown
+     */
+    private formatToolCallAsMarkdown(toolName: string, args: any, showFullDetails: boolean): string {
+        let output = `${toolName}:\n`;
+
+        if (showFullDetails) {
+            // 最新迭代：显示完整参数
+            output += this.jsonToMarkdownList(args, 1);
+        } else {
+            // 非最新迭代：显示摘要
+            output += this.summarizeArgs(toolName, args);
+        }
+
+        return output;
+    }
+
+    /**
+     * 为非最新迭代生成参数摘要
+     * 
+     * @param indent - 缩进级别（与jsonToMarkdownList保持一致）
+     */
+    private summarizeArgs(toolName: string, args: any, indent: number = 1): string {
+        const indentStr = '  '.repeat(indent);
+
+        switch (toolName) {
+            case 'executeMarkdownEdits':
+                const intentCount = args.intents?.length || 0;
+                const targetFile = args.targetFile || 'unknown';
+                return `${indentStr}- intents: ${intentCount} item(s)\n${indentStr}- targetFile: ${targetFile}\n`;
+
+            case 'readMarkdownFile':
+                const targetCount = args.targets?.length || 0;
+                return `${indentStr}- path: ${args.path}\n${indentStr}- targets: ${targetCount} item(s)\n`;
+
+            default:
+                // 其他工具：简化显示顶层字段
+                return this.jsonToMarkdownList(args, indent);
+        }
+    }
+
+    /**
+     * 将工具结果格式化为Markdown
+     */
+    private formatToolResultAsMarkdown(toolName: string, result: any, showFullDetails: boolean): string {
+        let output = `${toolName}:\n`;
+
+        const resultData = result.result;
+
+        if (showFullDetails) {
+            // 最新迭代：显示完整结果
+            output += this.jsonToMarkdownList(resultData, 1);
+        } else {
+            // 非最新迭代：显示摘要
+            output += this.summarizeResult(toolName, result);
+        }
+
+        return output;
+    }
+
+    /**
+     * 为非最新迭代生成结果摘要
+     * 
+     * @param indent - 缩进级别（与jsonToMarkdownList保持一致）
+     */
+    private summarizeResult(toolName: string, result: any, indent: number = 1): string {
+        const indentStr = '  '.repeat(indent);
+        const success = result.success;
+        const resultData = result.result;
+
+        switch (toolName) {
+            case 'executeMarkdownEdits':
+                if (!success) {
+                    const errorMsg = resultData?.failedIntents?.[0]?.error || result.error || 'unknown error';
+                    const failedCount = resultData?.failedIntents?.length || 0;
+                    return `${indentStr}- success: false\n${indentStr}- failedIntents: ${failedCount} item(s)\n${indentStr}- firstError: ${errorMsg}\n`;
+                }
+                const appliedCount = resultData?.appliedIntents?.length || 0;
+                return `${indentStr}- success: true\n${indentStr}- appliedIntents: ${appliedCount} item(s)\n`;
+
+            case 'readMarkdownFile':
+                if (!success) {
+                    return `${indentStr}- success: false\n${indentStr}- error: ${resultData?.error || result.error}\n`;
+                }
+                const resultsCount = resultData?.results?.length || 0;
+                return `${indentStr}- success: true\n${indentStr}- results: ${resultsCount} item(s)\n`;
+
+            default:
+                // 其他工具：显示success和完整结果
+                return `${indentStr}- success: ${success}\n` +
+                    (resultData ? this.jsonToMarkdownList(resultData, indent) : '');
+        }
+    }
+
+    // ============================================================================
+    // End of Iterative History Format Optimization
+    // ============================================================================
+
     /**
      * 🚀 智能工具调用摘要 - 专门处理臃肿工具的简化显示
      * @param toolCall 工具调用对象
@@ -1080,29 +1343,35 @@ ${context.dependentResults?.length > 0
             return ''; // 返回空字符串，不在AI计划中显示
         }
         
-        // 🚀 新增：如果是最新一轮迭代，对executeMarkdownEdits和executeYAMLEdits显示完整内容
-        if (isLatestIteration && (name === 'executeMarkdownEdits' || name === 'executeYAMLEdits')) {
-            return `${name}: ${JSON.stringify(args)}`;
+        // 🚨 回滚开关：可快速切换回旧逻辑
+        if (!this.USE_MARKDOWN_FORMAT) {
+            // 旧逻辑（v1.0）
+            if (isLatestIteration && (name === 'executeMarkdownEdits' || name === 'executeYAMLEdits')) {
+                return `${name}: ${JSON.stringify(args)}`;
+            }
+            
+            // 其他工具的旧逻辑
+            switch (name) {
+                case 'executeMarkdownEdits':
+                    const description = args.description || '未提供描述';
+                    const intentCount = args.intents?.length || 0;
+                    const targetFile = args.targetFile?.split('/').pop() || '未知文件';
+                    return `${name}: ${description} (${intentCount}个编辑操作 -> ${targetFile})`;
+                    
+                case 'executeYAMLEdits':
+                    const yamlDesc = args.description || '未提供描述';
+                    const editCount = args.edits?.length || 0;
+                    const yamlFile = args.targetFile?.split('/').pop() || '未知文件';
+                    return `${name}: ${yamlDesc} (${editCount}个编辑操作 -> ${yamlFile})`;
+                    
+                default:
+                    // 其他工具保持原有的完整格式
+                    return `${name}: ${JSON.stringify(args)}`;
+            }
         }
         
-        // 对于需要简化的工具，使用 description
-        switch (name) {
-            case 'executeMarkdownEdits':
-                const description = args.description || '未提供描述';
-                const intentCount = args.intents?.length || 0;
-                const targetFile = args.targetFile?.split('/').pop() || '未知文件';
-                return `${name}: ${description} (${intentCount}个编辑操作 -> ${targetFile})`;
-                
-            case 'executeYAMLEdits':
-                const yamlDesc = args.description || '未提供描述';
-                const editCount = args.edits?.length || 0;
-                const yamlFile = args.targetFile?.split('/').pop() || '未知文件';
-                return `${name}: ${yamlDesc} (${editCount}个编辑操作 -> ${yamlFile})`;
-                
-            default:
-                // 其他工具保持原有的完整格式
-                return `${name}: ${JSON.stringify(args)}`;
-        }
+        // 🚀 新逻辑（v3.0）：使用Markdown格式
+        return this.formatToolCallAsMarkdown(name, args, isLatestIteration);
     }
 
     /**
@@ -1114,47 +1383,53 @@ ${context.dependentResults?.length > 0
     private summarizeToolResult(result: any, isLatestIteration: boolean = false): string {
         const { toolName, success } = result;
         
-        // 🚀 新增：如果是最新一轮迭代，对executeMarkdownEdits和executeYAMLEdits显示完整内容
-        if (isLatestIteration && (toolName === 'executeMarkdownEdits' || toolName === 'executeYAMLEdits')) {
-            return `工具: ${toolName}, 成功: ${success}, 结果: ${JSON.stringify(result.result)}`;
+        // 🚨 回滚开关：可快速切换回旧逻辑
+        if (!this.USE_MARKDOWN_FORMAT) {
+            // 旧逻辑（v1.0）
+            if (isLatestIteration && (toolName === 'executeMarkdownEdits' || toolName === 'executeYAMLEdits')) {
+                return `工具: ${toolName}, 成功: ${success}, 结果: ${JSON.stringify(result.result)}`;
+            }
+            
+            // 只对这两个臃肿工具进行简化显示
+            switch (toolName) {
+                case 'executeMarkdownEdits':
+                    if (!success) {
+                        // 🔧 智能错误信息提取：从failedIntents中获取具体错误
+                        let errorMessage = result.error || '未知错误';
+                        if (result.result?.failedIntents?.length > 0) {
+                            errorMessage = result.result.failedIntents[0].error || errorMessage;
+                        }
+                        return `${toolName}: ❌ 失败 - ${errorMessage}`;
+                    }
+                    const appliedCount = result.result?.appliedIntents?.length || 0;
+                    const metadata = result.result?.metadata;
+                    const execTime = metadata?.executionTime || 0;
+                    return `${toolName}: ✅ 成功 - 应用${appliedCount}个编辑操作 (${execTime}ms)`;
+                    
+                case 'executeYAMLEdits':
+                    if (!success) {
+                        return `${toolName}: ❌ 失败 - ${result.error || '未知错误'}`;
+                    }
+                    const yamlAppliedCount = result.result?.appliedEdits?.length || 0;
+                    return `${toolName}: ✅ 成功 - 应用${yamlAppliedCount}个YAML编辑操作`;
+                    
+                default:
+                    // 🚀 第一层防护：检查单个工具结果的token长度
+                    const originalResult = `工具: ${toolName}, 成功: ${success}, 结果: ${JSON.stringify(result.result)}`;
+                    const resultTokens = this.estimateTokens(originalResult);
+                    const immediateTokenLimit = this.getImmediateTokenLimit();
+                    
+                    if (resultTokens > immediateTokenLimit) {
+                        this.logger.warn(`⚠️ [第一层防护] 工具 ${toolName} 结果过大: ${resultTokens}/${immediateTokenLimit} tokens，已简化显示`);
+                        return `工具: ${toolName}, 成功: ${success}, 结果: Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`;
+                    }
+                    
+                    return originalResult;
+            }
         }
         
-        // 只对这两个臃肿工具进行简化显示
-        switch (toolName) {
-            case 'executeMarkdownEdits':
-                if (!success) {
-                    // 🔧 智能错误信息提取：从failedIntents中获取具体错误
-                    let errorMessage = result.error || '未知错误';
-                    if (result.result?.failedIntents?.length > 0) {
-                        errorMessage = result.result.failedIntents[0].error || errorMessage;
-                    }
-                    return `${toolName}: ❌ 失败 - ${errorMessage}`;
-                }
-                const appliedCount = result.result?.appliedIntents?.length || 0;
-                const metadata = result.result?.metadata;
-                const execTime = metadata?.executionTime || 0;
-                return `${toolName}: ✅ 成功 - 应用${appliedCount}个编辑操作 (${execTime}ms)`;
-                
-            case 'executeYAMLEdits':
-                if (!success) {
-                    return `${toolName}: ❌ 失败 - ${result.error || '未知错误'}`;
-                }
-                const yamlAppliedCount = result.result?.appliedEdits?.length || 0;
-                return `${toolName}: ✅ 成功 - 应用${yamlAppliedCount}个YAML编辑操作`;
-                
-            default:
-                // 🚀 第一层防护：检查单个工具结果的token长度
-                const originalResult = `工具: ${toolName}, 成功: ${success}, 结果: ${JSON.stringify(result.result)}`;
-                const resultTokens = this.estimateTokens(originalResult);
-                const immediateTokenLimit = this.getImmediateTokenLimit();
-                
-                if (resultTokens > immediateTokenLimit) {
-                    this.logger.warn(`⚠️ [第一层防护] 工具 ${toolName} 结果过大: ${resultTokens}/${immediateTokenLimit} tokens，已简化显示`);
-                    return `工具: ${toolName}, 成功: ${success}, 结果: Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`;
-                }
-                
-                return originalResult;
-        }
+        // 🚀 新逻辑（v3.0）：使用Markdown格式
+        return this.formatToolResultAsMarkdown(toolName, result, isLatestIteration);
     }
 
 

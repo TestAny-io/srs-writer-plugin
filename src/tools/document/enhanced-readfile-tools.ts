@@ -644,20 +644,31 @@ export class StructureAnalyzer {
         }
 
         // 1. 基本清理
-        let slug = title.trim();
+        let slug = title.trim().toLowerCase();
         
-        // 2. 转换为小写并处理特殊字符
+        // 2. 🔧 Bug Fix: 使用白名单模式处理字符，确保与SID验证器契约一致
+        // 只保留：字母(a-z)、数字(0-9)、中文(CJK统一表意文字)、日文平假名/片假名、韩文、连字符、下划线
+        // 这确保生成的SID能通过 sid-based-semantic-locator.ts 中的验证
         slug = slug
-            .toLowerCase()
             .replace(/\s+/g, '-')           // 空格转为连字符
-            .replace(/[，。！？；：""''（）【】《》]/g, '-')  // 中文标点转为连字符
-            .replace(/[,\.!\?;:"'()\[\]<>]/g, '-')  // 英文标点转为连字符
+            // 白名单：保留安全字符，移除所有其他字符（包括 &, @, #, $, %, *, +, =, |, ~ 等）
+            .replace(/[^a-z0-9\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\-_]/g, '-')
             .replace(/-+/g, '-')            // 多个连字符合并为一个
             .replace(/^-+|-+$/g, '');       // 去除首尾连字符
 
-        // 3. 如果处理后为空（纯标点），使用github-slugger的fallback
-        if (!slug) {
-            return this.slugger.slug(title) || 'untitled';
+        // 3. 改进的fallback处理（处理纯特殊字符标题）
+        if (!slug || slug.length === 0) {
+            // 3.1 尝试提取任何字母数字字符
+            const sanitized = title.replace(/[^a-zA-Z0-9]/g, '');
+            if (sanitized && sanitized.length > 0) {
+                slug = this.slugger.slug(sanitized);
+            }
+            
+            // 3.2 如果仍然无法生成有效slug，使用稳定哈希作为fallback
+            if (!slug || slug.length === 0) {
+                const hash = HashGenerator.generateStableHash(title);
+                slug = `section-${hash}`;
+            }
         }
 
         // 4. 确保不以数字开头（如果是，添加前缀）
