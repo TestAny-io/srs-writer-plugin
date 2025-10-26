@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.6] - 2025-10-26
+
+### Fixed
+
+- **Critical**: Fixed title deletion bug in `replace_section_content_only` operations
+- **Critical**: Fixed blank line bug in delete operations
+- **Enhancement**: SID generation stability improvements
+    - Fixed special characters handling in SID generation
+    - Enhanced SID generation contract with better Unicode support
+    - Improved consistency across multiple document parses
+
+### Enhanced
+
+- **Content Matching System**: New intelligent content matching module
+    - Advanced fuzzy matching with configurable similarity thresholds
+    - Multi-line content matching with precise position detection
+    - Smart whitespace handling for indented content
+
+- **Iterative History Format**: Optimized specialist execution history
+    - More compact and readable iteration logs
+    - Better performance for long-running specialist executions
+    - Enhanced debugging information
+
 ## [0.5.5] - 2025-10-25
 
 ### Added
