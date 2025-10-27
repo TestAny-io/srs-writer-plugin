@@ -36,12 +36,18 @@ export class ContextManager {
       
       if (step.type === 'tool_call' && step.result) {
         try {
+          // 🚀 获取iteration作为Turn编号
+          const turnNumber = step.iteration || 1;
+          
           // 🚀 Phase 2新增：语义编辑结果的特殊处理
           const formattedResult = this.formatToolResultForContext(step.toolName || 'unknown', step.result);
-          toolResultItems.push(`### Result of \`${step.toolName || 'unknown'}\`:\n${formattedResult}`);
+          
+          // 🚀 改进：在标题中加入Turn编号，方便AI关联到Conversation History
+          toolResultItems.push(`### Turn ${turnNumber} - Result of \`${step.toolName || 'unknown'}\`:\n${formattedResult}`);
         } catch (jsonError) {
           // JSON序列化失败时的后备处理
-          toolResultItems.push(`### Result of \`${step.toolName}\`:\n[Result could not be serialized]`);
+          const turnNumber = step.iteration || 1;
+          toolResultItems.push(`### Turn ${turnNumber} - Result of \`${step.toolName}\`:\n[Result could not be serialized]`);
         }
       }
     });
@@ -83,12 +89,12 @@ export class ContextManager {
   ): ExecutionStep[] {
     this.logger.info(`🔍 [FILTER] Starting tool results filtering: maxTurns=${maxTurns}, maxResults=${maxResults}`);
     
-    // 1. 找到所有Turn边界标记的位置
+    // 1. 找到所有Task边界标记的位置
     const turnBoundaries: number[] = [];
     executionHistory.forEach((step, index) => {
       if (step.type === 'result' && step.content && step.content.includes('--- 新任务开始:')) {
         turnBoundaries.push(index);
-        this.logger.info(`🔍 [FILTER] Found turn boundary at index ${index}: "${step.content.substring(0, 50)}..."`);
+        this.logger.info(`🔍 [FILTER] Found task boundary at index ${index}: "${step.content.substring(0, 50)}..."`);
       }
     });
     

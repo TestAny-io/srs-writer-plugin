@@ -195,8 +195,8 @@ export interface ExecutionStep {
  * 交互请求接口 - 用户交互管理
  */
 export interface InteractionRequest {
-  type: 'confirmation' | 'choice' | 'input';
-  message: string;
+  type: 'confirmation' | 'choice' | 'input' | 'continue_conversation';  // 🚀 新增：continue_conversation 类型
+  message: string | null;  // 🚀 修改：允许 null（continue_conversation 不需要消息提示）
   options?: string[];
   timeout?: number;
   toolCall?: { name: string; args: any };

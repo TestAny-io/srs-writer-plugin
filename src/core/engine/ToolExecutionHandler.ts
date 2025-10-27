@@ -192,7 +192,11 @@ export class ToolExecutionHandler {
     
     // 流式显示交互请求
     stream.markdown(`✋ **需要您的输入**\n\n`);
-    stream.markdown(`${interaction.message}\n\n`);
+    
+    // 🚀 新增：Null 安全检查
+    if (interaction.message) {
+      stream.markdown(`${interaction.message}\n\n`);
+    }
     
     if (interaction.options) {
       interaction.options.forEach((option, index) => {
@@ -200,7 +204,9 @@ export class ToolExecutionHandler {
       });
     }
     
-    recordExecution('user_interaction', `等待用户输入: ${interaction.message}`);
+    // 🚀 修复：记录时也要处理 null
+    const messageForLog = interaction.message || '(无消息提示)';
+    recordExecution('user_interaction', `等待用户输入: ${messageForLog}`);
   }
 
   /**
