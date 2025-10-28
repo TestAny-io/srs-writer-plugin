@@ -7,15 +7,33 @@
 import { SRSAgentEngine } from '../../core/srsAgentEngine';
 import { AIResponseMode } from '../../types';
 import * as vscode from 'vscode';
+import { SessionManager } from '../../core/session-manager';
+
+// 🚀 Mock SessionManager
+jest.mock('../../core/session-manager');
 
 describe('对话流程集成测试', () => {
   let engine: SRSAgentEngine;
   let mockStream: any;
   let mockModel: any;
+  let mockSessionManager: any;
   let planSequence: any[];
   let planIndex: number;
 
   beforeEach(() => {
+    // Mock SessionManager
+    mockSessionManager = {
+      subscribe: jest.fn(),
+      unsubscribe: jest.fn(),
+      getSessionContext: jest.fn().mockReturnValue({
+        sessionContextId: 'test-session',
+        projectName: 'test-project',
+        baseDir: '/test/base'
+      })
+    };
+
+    (SessionManager.getInstance as jest.Mock).mockReturnValue(mockSessionManager);
+
     // Mock ChatResponseStream
     mockStream = {
       markdown: jest.fn(),
@@ -112,8 +130,8 @@ describe('对话流程集成测试', () => {
       expect(mockExecuteTool).toHaveBeenCalledWith(
         'finalAnswer',
         expect.objectContaining({ summary: '完成简单问答对话' }),
-        expect.anything(),
-        expect.anything()
+        undefined,  // sessionContext 参数
+        expect.anything()  // model 参数
       );
     });
 
@@ -212,9 +230,9 @@ describe('对话流程集成测试', () => {
       // 验证：工具被执行
       expect(mockExecuteTool).toHaveBeenCalledWith(
         'internetSearch',
-        expect.anything(),
-        expect.anything(),
-        expect.anything()
+        expect.anything(),  // args
+        undefined,  // sessionContext 参数
+        expect.anything()  // model 参数
       );
 
       // 第2轮的对话应该能继续

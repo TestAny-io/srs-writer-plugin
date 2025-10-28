@@ -357,7 +357,27 @@ export class SRSAgentEngine implements ISessionObserver {
       // ####################################################################
       
       this.logger.info(`💬 Processing standard user interaction of type: ${interaction.type}`);
-      
+
+      // 🚀 修复：处理 continue_conversation 类型（对话继续）
+      if (interaction.type === 'continue_conversation') {
+        this.logger.info(`💬 Continue conversation: updating currentTask and continuing execution`);
+
+        // 更新 currentTask 为用户的新输入
+        this.state.currentTask = response;
+
+        // 重置迭代计数（新的 Turn）
+        this.state.iterationCount = 0;
+
+        // 清除 pendingInteraction（已在L290清除，这里确保）
+        this.state.pendingInteraction = undefined;
+
+        // 继续执行循环
+        this.state.stage = 'executing';
+        await this._runExecutionLoop();
+        this.displayExecutionSummary();
+        return;
+      }
+
       let handlerResult: { shouldReturnToWaiting: boolean };
 
       switch (interaction.type) {
@@ -368,10 +388,10 @@ export class SRSAgentEngine implements ISessionObserver {
             this.stream,
             this.recordExecution.bind(this),
             // 关键：将 this.handleAutonomousTool 作为一个回调函数传递进去
-            this.handleAutonomousTool.bind(this) 
+            this.handleAutonomousTool.bind(this)
           );
           break;
-        
+
         case 'choice':
           handlerResult = await this.userInteractionHandler.handleChoiceResponse(
             response,
@@ -643,30 +663,58 @@ export class SRSAgentEngine implements ISessionObserver {
         
       } else if (plan.direct_response) {
         // 情况2: 只有 direct_response，没有工具调用
-        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 只有direct_response没有tool_calls，显示后完成`);
+        // 🚀 修复：direct_response表示AI回复用户，设置continue_conversation等待用户继续对话
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 只有direct_response没有tool_calls，显示后等待用户继续对话`);
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response长度: ${plan.direct_response.length}`);
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - direct_response前100字符: ${plan.direct_response.substring(0, 100)}`);
-        
-        // 检查是否是错误响应
-        const isErrorResponse = plan.direct_response.includes('❌') || 
-                               plan.direct_response.includes('错误') ||
-                               plan.thought?.includes('Error');
-        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] - 是否为错误响应: ${isErrorResponse}`);
-        
-        // 显示回复并完成任务
+
+        // 显示回复
         this.stream.markdown(`💬 **AI回复**: ${plan.direct_response}\n\n`);
         this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 已调用stream.markdown显示响应`);
-        
+
         await this.recordExecution('result', plan.direct_response, true);
-        this.state.stage = 'completed';
-        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 设置state.stage为completed，准备返回`);
+
+        // 🚀 修复：设置 awaiting_user + continue_conversation
+        this.state.stage = 'awaiting_user';
+        this.state.pendingInteraction = {
+          type: 'continue_conversation',
+          message: null  // continue_conversation 不需要消息提示
+        };
+        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 设置stage=awaiting_user, type=continue_conversation`);
         return;
         
       } else {
-        // 情况3: 既没有 direct_response 也没有 tool_calls
-        this.logger.info(`🚨 [TOKEN_LIMIT_DEBUG] 既没有direct_response也没有tool_calls，任务完成`);
-        this.state.stage = 'completed';
-        return;
+        // 情况3: 既没有 direct_response 也没有 tool_calls（异常情况）
+        // 🚀 修改：检测连续空响应，避免死循环
+        this.logger.warn(`⚠️ [KNOWLEDGE_QA] Orchestrator返回空plan（既无response也无tools）`);
+
+        // 统计最近的空响应次数
+        const recentSteps = this.state.executionHistory.slice(-5);
+        const emptyPlanCount = recentSteps.filter(step =>
+          step.content && step.content.includes('Orchestrator返回空plan')
+        ).length;
+
+        this.logger.warn(`⚠️ [KNOWLEDGE_QA] 最近5步中有${emptyPlanCount}次空响应`);
+
+        if (emptyPlanCount >= 2) {
+          // 连续多次空响应，这是异常情况
+          this.stream.markdown(`❌ **AI 无法继续处理此任务**\n\n`);
+          this.stream.markdown(`系统检测到AI连续返回空响应，可能是以下原因：\n`);
+          this.stream.markdown(`- 任务超出AI能力范围\n`);
+          this.stream.markdown(`- 缺少必要的上下文信息\n`);
+          this.stream.markdown(`- 系统内部错误\n\n`);
+          this.stream.markdown(`请尝试重新描述您的需求，或者联系技术支持。\n\n`);
+
+          await this.recordExecution('result', `Orchestrator连续${emptyPlanCount}次返回空plan，任务终止`, false);
+          this.state.stage = 'error';
+          return;
+        }
+
+        // 首次或少量空响应，记录并继续循环
+        await this.recordExecution('thought', 'Orchestrator返回空plan，继续迭代', false);
+        this.logger.info(`🚨 [KNOWLEDGE_QA] 继续循环，期待下一轮有有效响应`);
+        // 不设置completed，让循环继续
+        return; // 🚀 修复：防止落入line 804的awaiting_user设置
       }
     }
     
@@ -755,10 +803,15 @@ export class SRSAgentEngine implements ISessionObserver {
         return;
       }
     } else {
-      // 🔍 DEBUG: 记录没有工具调用的情况
-      this.logger.info(`🔍 [DEBUG] 没有工具调用，任务可能已完成`);
-      // 没有工具调用，任务可能完成
-      this.state.stage = 'completed';
+      // 🔍 TOOL_EXECUTION模式下没有工具调用
+      // 🚀 修复：AI没有调用工具，设置continue_conversation等待用户继续对话
+      this.logger.info(`🔍 [DEBUG] TOOL_EXECUTION模式下没有工具调用，设置continue_conversation`);
+      this.state.stage = 'awaiting_user';
+      this.state.pendingInteraction = {
+        type: 'continue_conversation',
+        message: null
+      };
+      return;
     }
   }
 

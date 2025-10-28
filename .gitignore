@@ -63,6 +63,7 @@ code-parking-lot/
 docs/
 design/
 implementation-and-refactor/
+reports/
 
 # 开发工具 - 仅用于本地开发，不同步到远程
 dev-tools/

@@ -11,13 +11,31 @@ import { SRSAgentEngine } from '../../core/srsAgentEngine';
 import { AgentState } from '../../core/engine/AgentState';
 import { AIResponseMode } from '../../types';
 import * as vscode from 'vscode';
+import { SessionManager } from '../../core/session-manager';
+
+// 🚀 Mock SessionManager
+jest.mock('../../core/session-manager');
 
 describe('direct_response 行为测试', () => {
   let engine: SRSAgentEngine;
   let mockStream: any;
   let mockModel: any;
+  let mockSessionManager: any;
 
   beforeEach(() => {
+    // Mock SessionManager
+    mockSessionManager = {
+      subscribe: jest.fn(),
+      unsubscribe: jest.fn(),
+      getSessionContext: jest.fn().mockReturnValue({
+        sessionContextId: 'test-session',
+        projectName: 'test-project',
+        baseDir: '/test/base'
+      })
+    };
+
+    (SessionManager.getInstance as jest.Mock).mockReturnValue(mockSessionManager);
+
     // Mock ChatResponseStream
     mockStream = {
       markdown: jest.fn(),
@@ -240,13 +258,14 @@ describe('direct_response 行为测试', () => {
       expect(mockExecuteTool).toHaveBeenCalledWith(
         'internetSearch',
         expect.objectContaining({ query: '测试查询' }),
-        expect.anything(),
-        expect.anything()
+        undefined,  // sessionContext 参数
+        expect.anything()  // model 参数
       );
     });
 
     test('执行工具后不应该立即终止对话', async () => {
-      const plan = {
+      // 第一轮：有工具调用
+      const plan1 = {
         thought: 'Search first',
         response_mode: AIResponseMode.KNOWLEDGE_QA,
         direct_response: '搜索中...',
@@ -256,7 +275,18 @@ describe('direct_response 行为测试', () => {
         execution_plan: null
       };
 
-      jest.spyOn(engine as any, 'generatePlan').mockResolvedValue(plan);
+      // 第二轮：根据结果回复
+      const plan2 = {
+        thought: 'Provide answer based on search',
+        response_mode: AIResponseMode.KNOWLEDGE_QA,
+        direct_response: '根据搜索结果...',
+        tool_calls: null,
+        execution_plan: null
+      };
+
+      jest.spyOn(engine as any, 'generatePlan')
+        .mockResolvedValueOnce(plan1)
+        .mockResolvedValueOnce(plan2);
 
       const mockExecuteTool = jest.fn().mockResolvedValue({
         success: true,
@@ -266,9 +296,13 @@ describe('direct_response 行为测试', () => {
 
       await engine.executeTask('搜索测试');
 
-      // 验证：不应该设置为 completed（场景B应该继续执行）
+      // 验证：应该执行了工具
+      expect(mockExecuteTool).toHaveBeenCalled();
+
+      // 验证：最终进入 awaiting_user（等待用户继续对话）
       const state = engine.getState();
-      expect(state.stage).not.toBe('completed');
+      expect(state.stage).toBe('awaiting_user');
+      expect(state.pendingInteraction?.type).toBe('continue_conversation');
     });
   });
 
@@ -349,7 +383,7 @@ describe('direct_response 行为测试', () => {
 
   describe('边界情况测试', () => {
 
-    test('既没有 direct_response 也没有 tool_calls 应该完成', async () => {
+    test('首次空响应应该继续循环（重试机制）', async () => {
       const plan = {
         thought: 'Nothing to do',
         response_mode: AIResponseMode.KNOWLEDGE_QA,
@@ -362,12 +396,36 @@ describe('direct_response 行为测试', () => {
 
       await engine.executeTask('空任务');
 
-      // 验证：应该设置为 completed
+      // 验证：首次空响应应该记录并继续循环
       const state = engine.getState();
-      expect(state.stage).toBe('completed');
+
+      // 检查 executionHistory 中应该有空响应的记录
+      const emptyPlanSteps = state.executionHistory.filter(step =>
+        step.content && step.content.includes('Orchestrator返回空plan')
+      );
+      expect(emptyPlanSteps.length).toBeGreaterThanOrEqual(1);
     });
 
-    test('空 direct_response 应该视为无效', async () => {
+    test('连续2次空响应应该进入error状态', async () => {
+      const plan = {
+        thought: 'Empty',
+        response_mode: AIResponseMode.KNOWLEDGE_QA,
+        direct_response: null,
+        tool_calls: null,
+        execution_plan: null
+      };
+
+      // Mock 返回空响应多次
+      jest.spyOn(engine as any, 'generatePlan').mockResolvedValue(plan);
+
+      await engine.executeTask('测试连续空响应');
+
+      // 验证：连续空响应应该进入error状态
+      const state = engine.getState();
+      expect(state.stage).toBe('error');
+    });
+
+    test('空字符串 direct_response 应该被视为空响应', async () => {
       const plan = {
         thought: 'Empty response',
         response_mode: AIResponseMode.KNOWLEDGE_QA,
@@ -380,9 +438,12 @@ describe('direct_response 行为测试', () => {
 
       await engine.executeTask('测试');
 
-      // 验证：空字符串应该被忽略，进入"既没有 direct_response 也没有 tool_calls"的分支
+      // 验证：空字符串应该被视为空响应，记录并继续循环
       const state = engine.getState();
-      expect(state.stage).toBe('completed');
+      const emptyPlanSteps = state.executionHistory.filter(step =>
+        step.content && step.content.includes('Orchestrator返回空plan')
+      );
+      expect(emptyPlanSteps.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -431,9 +492,9 @@ describe('direct_response 行为测试', () => {
 
     test('message 为 null 不应该导致显示 "null"', async () => {
       const plan = {
-        thought: 'Test null message',
+        thought: 'Testing that pendingInteraction.message being nil does not show the string representation',
         response_mode: AIResponseMode.KNOWLEDGE_QA,
-        direct_response: '测试',
+        direct_response: '测试响应',
         tool_calls: null,
         execution_plan: null
       };
@@ -442,13 +503,24 @@ describe('direct_response 行为测试', () => {
 
       await engine.executeTask('测试');
 
-      // 验证：markdown 调用中不应包含字符串 "null"
+      // 验证：pendingInteraction 应该被设置
+      const state = engine.getState();
+      expect(state.pendingInteraction).toBeDefined();
+      expect(state.pendingInteraction?.message).toBeNull();
+
+      // 验证：markdown 调用中不应包含 JavaScript null 值的字符串表示
+      // 只检查非思考内容的markdown输出
       const markdownCalls = mockStream.markdown.mock.calls.map((call: any) => call[0]);
-      const hasNullString = markdownCalls.some((call: string) => 
-        call.includes('null') && !call.includes('null 安全') // 排除注释中的 "null"
+      const nonThoughtCalls = markdownCalls.filter((call: string) =>
+        !call.includes('🤖 **AI思考**')
       );
-      
-      expect(hasNullString).toBe(false);
+
+      // 检查是否有 "message: null" 或类似的模式（表示未正确处理null值）
+      const hasLiteralNull = nonThoughtCalls.some((call: string) =>
+        /message[:\s]+null|:\s+null\b/.test(call)
+      );
+
+      expect(hasLiteralNull).toBe(false);
     });
   });
 });

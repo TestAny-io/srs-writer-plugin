@@ -1,6 +1,6 @@
 {
   "projectName": "unnamed",
-  "generatedAt": "2025-10-26T11:52:21.836Z",
+  "generatedAt": "2025-10-28T08:39:51.097Z",
   "summary": {
     "totalChecks": 2,
     "totalFiles": 0,
@@ -12,31 +12,31 @@
     {
       "checkType": "id-consistency",
       "toolName": "traceability-completion-tool",
-      "timestamp": "2025-10-26T11:52:21.835Z",
+      "timestamp": "2025-10-28T08:39:51.096Z",
       "summary": {
         "errors": 0,
         "warnings": 0,
-        "srsIdsCount": 12,
-        "yamlIdsCount": 12,
+        "srsIdsCount": 0,
+        "yamlIdsCount": 1,
         "missingInYaml": 0,
         "missingInSrs": 0,
-        "consistent": true,
-        "executionTime": "0.9946250000002692ms"
+        "consistent": false,
+        "executionTime": "0.17141700000047422ms"
       }
     },
     {
       "checkType": "traceability-completeness",
       "toolName": "traceability-completion-tool",
-      "timestamp": "2025-10-26T11:52:21.836Z",
+      "timestamp": "2025-10-28T08:39:51.097Z",
       "summary": {
         "errors": 0,
         "warnings": 0,
-        "entitiesProcessed": 12,
-        "derivedFrAdded": 2,
+        "entitiesProcessed": 1,
+        "derivedFrAdded": 0,
         "adcRelatedAdded": 0,
-        "techSpecRelatedAdded": 2,
+        "techSpecRelatedAdded": 0,
         "danglingReferencesFound": 0,
-        "executionTime": "10ms"
+        "executionTime": "7ms"
       }
     }
   ]

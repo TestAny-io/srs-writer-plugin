@@ -44,6 +44,9 @@ module.exports = {
     '^github-slugger$': '<rootDir>/src/test/__mocks__/github-slugger.ts',
     '^minisearch$': '<rootDir>/src/test/__mocks__/minisearch.ts',
     '^lru-cache$': '<rootDir>/src/test/__mocks__/lru-cache.ts',
+    // 🚀 修复：支持所有 markdownlint 导入路径
+    '^markdownlint/sync$': '<rootDir>/src/test/__mocks__/markdownlint.ts',
+    '^markdownlint/(.*)$': '<rootDir>/src/test/__mocks__/markdownlint.ts',
     '^markdownlint$': '<rootDir>/src/test/__mocks__/markdownlint.ts'
   },
   
