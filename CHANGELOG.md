@@ -5,50 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.7] - 2025-10-28
 
 ### Fixed
 
-#### direct_response Semantic Correction (Major Architecture Fix)
-
-**Problem**: The `direct_response` field was incorrectly terminating conversations, contradicting its intended purpose.
-
-**Root Cause**:
-- `direct_response` (without tools) was setting `state.stage = 'completed'`, forcing conversation termination
-- This made `direct_response` functionally identical to `finalAnswer` tool, causing semantic confusion
-- AI was forced to use `askQuestion` tool for simple replies to maintain conversation flow (architecture pollution)
-
-**Fix**:
-- Modified `direct_response` handling to set `state.stage = 'awaiting_user'` instead of `'completed'`
-- Introduced new `InteractionRequest.type = 'continue_conversation'` to mark conversation continuation
-- Added `handleUserResponse()` logic to handle continuation seamlessly
-
-**Impact**:
-- ✅ Simple AI replies no longer terminate conversations
-- ✅ Clear separation: `direct_response` = reply (continue), `finalAnswer` = completion (terminate)
-- ✅ Reduced unnecessary tool calls (60-70% of simple reply scenarios)
-- ✅ Improved code maintainability and semantic clarity
-
-**Files Modified**:
-- `src/core/engine/AgentState.ts`: Extended `InteractionRequest` type definition
-- `src/core/srsAgentEngine.ts`: Fixed direct_response handling + added continue_conversation support
-- `src/core/engine/ToolExecutionHandler.ts`: Added null safety for `message` field
-
-**Files Cleaned**:
-- Removed ~34 `TOKEN_LIMIT_DEBUG` logs from:
-  - `src/core/srsAgentEngine.ts`
-  - `src/core/orchestrator.ts`
-  - `src/core/orchestrator/PlanGenerator.ts`
-
-**Tests Added**:
-- `src/test/unit/direct-response-behavior.test.ts`: Unit tests for all scenarios
-- `src/test/integration/conversation-flow.test.ts`: Integration tests for multi-turn conversations
-
-**Documentation**:
-- `design/direct-response-vs-finalanswer-investigation.md`: Investigation report
-- `design/direct-response-refactor-design.md`: Complete refactoring design
-
-**References**: See investigation report in `design/` directory for detailed analysis
+- **Critical**: Fixed Turn 1 content missing in orchestrator's context
+    - First turn conversation content is now properly recorded and included in context
+    - Ensures orchestrator has complete conversation history from the start
+- **Critical**: Fixed turn numbering inconsistency between conversation history and tool call history
+    - Synchronized turn numbers across all history tracking components
+    - Improved context coherence and debugging capability
+- **Enhancement**: Removed unnecessary truncation in orchestrator's context
+    - Optimized context management for better information retention
+    - Improved orchestrator decision-making with fuller context
+- **Enhancement**: Fixed direct_response behavior
+    - Corrected response handling logic for direct orchestrator responses
+    - Improved conversation flow consistency
+- **Enhancement**: Added Turn information to tool execution history in orchestrator context
+    - Enhanced traceability of tool executions across conversation turns
+    - Better correlation between user requests and tool invocations
 
 ## [0.5.6] - 2025-10-26
 
