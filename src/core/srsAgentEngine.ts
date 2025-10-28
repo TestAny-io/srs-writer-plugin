@@ -219,14 +219,11 @@ export class SRSAgentEngine implements ISessionObserver {
     // 🔍 [DEBUG-CONTEXT] === NEW TASK STARTING ===
     this.logger.info(`🔍 [DEBUG-CONTEXT] executeTask called with: "${userInput}"`);
     this.logger.info(`🔍 [DEBUG-CONTEXT] Current executionHistory.length BEFORE separator: ${this.state.executionHistory.length}`);
-    
-    // 🚀 关键修改：保留执行历史，添加任务分隔符
-    if (this.state.executionHistory.length > 0) {
-      await this.recordExecution('result', `--- 新任务开始: ${userInput} ---`, true);
-      this.logger.info(`🔍 [DEBUG-CONTEXT] Task separator added. New executionHistory.length: ${this.state.executionHistory.length}`);
-    } else {
-      this.logger.warn(`🔍 [DEBUG-CONTEXT] ⚠️ No previous execution history found. Starting fresh.`);
-    }
+
+    // 🚀 修复：第一轮也记录用户输入，确保所有对话都有完整的Turn记录
+    // 之前的bug：第一轮时由于executionHistory为空，不记录用户输入，导致第一轮对话完全丢失
+    await this.recordExecution('result', `--- 新任务开始: ${userInput} ---`, true);
+    this.logger.info(`🔍 [DEBUG-CONTEXT] Task separator added. New executionHistory.length: ${this.state.executionHistory.length}`);
     
     // 限制历史记录大小，避免内存无限增长
     if (this.state.executionHistory.length > 100) {
