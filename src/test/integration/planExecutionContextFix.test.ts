@@ -33,7 +33,7 @@ describe('PLAN_EXECUTION Context Fix', () => {
           timestamp: Date.now(),
           toolName: 'planExecutor',
           success: false,
-          iteration: 2,
+          iteration: 1,
           result: {
             // 🚀 模拟完整的planExecutionContext
             originalExecutionPlan: {
@@ -194,7 +194,7 @@ describe('PLAN_EXECUTION Context Fix', () => {
           timestamp: Date.now() - 60000,
           toolName: 'executeMarkdownEdits',
           success: true,
-          iteration: 2,
+          iteration: 1,
           duration: 442
         },
         {
@@ -203,7 +203,7 @@ describe('PLAN_EXECUTION Context Fix', () => {
           timestamp: Date.now() - 30000,
           toolName: 'planExecutor',
           success: false,
-          iteration: 3,
+          iteration: 1,
           result: {
             originalExecutionPlan: {
               planId: 'srs-blackpink-fansite-001',
@@ -229,7 +229,7 @@ describe('PLAN_EXECUTION Context Fix', () => {
           content: '--- 新任务开始: 上次任务没执行完，请继续 ---',
           timestamp: Date.now(),
           success: true,
-          iteration: 4
+          iteration: 2
         }
       ];
 
@@ -284,7 +284,7 @@ export function demoContextFix() {
       timestamp: Date.now(),
       toolName: 'planExecutor',
       success: false,
-      iteration: 2,
+      iteration: 1,
       result: {
         originalExecutionPlan: {
           planId: 'srs-blackpink-fansite-001',

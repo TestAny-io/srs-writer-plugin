@@ -125,13 +125,62 @@ export class ContextManager {
   }
 
   /**
+   * 🚀 新增：计算当前Turn编号
+   *
+   * 说明：通过统计Turn创建标记的数量来确定当前Turn编号
+   * Turn创建标记包括：
+   * 1. type === 'result' && content.includes('--- 新任务开始:')
+   * 2. type === 'user_interaction' (用户继续对话)
+   *
+   * 这确保了 ExecutionStep.iteration 字段存储的是对话Turn编号，而不是引擎迭代次数
+   *
+   * @param executionHistory - 已有的执行历史
+   * @param currentType - 当前正在记录的step的类型
+   * @param currentContent - 当前正在记录的step的内容
+   * @returns Turn编号（从1开始）
+   */
+  private getCurrentTurnNumber(
+    executionHistory: ExecutionStep[],
+    currentType: ExecutionStep['type'],
+    currentContent: string
+  ): number {
+    // 统计已有历史中的Turn创建标记数量
+    // 包括：1) "--- 新任务开始:" 标记  2) user_interaction 类型
+    const turnCount = executionHistory.filter(step => {
+      // 情况1: executeTask() 创建的任务开始标记
+      if (step.type === 'result' && step.content && step.content.includes('--- 新任务开始:')) {
+        return true;
+      }
+      // 情况2: handleUserResponse() 创建的用户交互
+      if (step.type === 'user_interaction') {
+        return true;
+      }
+      return false;
+    }).length;
+
+    // 检查当前正在记录的step本身是否会创建新Turn
+    const isNewTurnMarker =
+      (currentType === 'result' && currentContent && currentContent.includes('--- 新任务开始:')) ||
+      (currentType === 'user_interaction');
+
+    if (isNewTurnMarker) {
+      // 当前step开启新的Turn，Turn编号 = 已有Turn数 + 1
+      return turnCount + 1;
+    } else {
+      // 当前step属于现有Turn
+      // 如果已有Turn标记，属于最新的Turn；否则属于Turn 1
+      return turnCount > 0 ? turnCount : 1;
+    }
+  }
+
+  /**
    * 记录执行历史 🚀 Code Review完整优化版本
    */
   public recordExecution(
     executionHistory: ExecutionStep[],
     iterationCount: number,
-    type: ExecutionStep['type'], 
-    content: string, 
+    type: ExecutionStep['type'],
+    content: string,
     success?: boolean,
     toolName?: string,
     result?: any,
@@ -149,7 +198,10 @@ export class ContextManager {
       toolName,
       result,
       args,
-      iteration: iterationCount + 1,
+      // 🚀 修复Turn编号不一致问题：使用getCurrentTurnNumber()计算真实的Turn编号
+      // 之前：iteration: iterationCount + 1 (错误：使用引擎迭代次数)
+      // 现在：iteration: this.getCurrentTurnNumber(executionHistory, type, content) (正确：使用对话Turn编号)
+      iteration: this.getCurrentTurnNumber(executionHistory, type, content),
       // 🚀 Code Review新增字段
       duration,
       errorCode,
