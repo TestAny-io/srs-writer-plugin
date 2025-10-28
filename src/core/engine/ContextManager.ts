@@ -430,7 +430,8 @@ export class ContextManager {
       switch (step.type) {
         case 'thought':
           // 🚀 修复：无论是否有currentTurn都要保存思考
-          const thoughtContent = step.content.length > 300 ? step.content.substring(0, 300) + '...' : step.content;
+          // 🎯 完整保留思考内容，不进行truncate（方案1：信息完整性 > Token节省）
+          const thoughtContent = step.content;
           if (currentTurn) {
             currentTurn.thought = thoughtContent;
           } else {
@@ -477,7 +478,8 @@ export class ContextManager {
           }
           // 🚀 正确识别：AI的直接回复（不包含"新任务开始"标记）
           else if (step.content && !step.content.includes('--- 新任务开始:')) {
-            const responseContent = step.content.length > 200 ? step.content.substring(0, 200) + '...' : step.content;
+            // 🎯 完整保留响应内容，不进行truncate（方案1：信息完整性 > Token节省）
+            const responseContent = step.content;
             // 🚀 修复：无论是否有currentTurn都要保存回复
             if (currentTurn) {
               currentTurn.response = responseContent;
