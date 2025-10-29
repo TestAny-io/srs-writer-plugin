@@ -551,7 +551,7 @@ ${context.resumeGuidance.continueInstructions?.join('\n') || 'Continue based on 
 
 **Previous Question Asked**: ${context.resumeGuidance.userQuestion || 'No previous question recorded'}
 
-**Resume Context**: You were waiting for user input and now the user has responded. Please continue your work based on their response.` : ''}` : 'No user response provided - this is the initial execution.'}
+**Resume Context**: You were waiting for user input and now the user has responded. Please continue your work based on their response.` : ''}` : 'No user response were required in last turn.'}
 
 **# 4. TABLE OF CONTENTS OF CURRENT SRS (SRS.md)**
 

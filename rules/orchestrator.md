@@ -173,6 +173,14 @@ Analyze the density of domain-specific terminology:
 
 This dimension can be used to adjust the depth of Gate 2.B (domain validation).
 
+**Dimension 5: Prototype Design Scenario**
+
+Scan the user's input for prototype design-related keywords:
+
+- **Prototype indicators**: "原型", "prototype", "设计稿", "设计图", "UI", "UX", "设计", "草图", "sketch", "design"
+- **Prototype scenario detected**: ✅
+- If the user mentioned a prototype design scenario, include the `prototype_designer` specialist in the execution plan
+
 ##### Action Decision Matrix
 
 Based on the completeness score across all dimensions, choose ONE of the three cases:
@@ -183,6 +191,7 @@ Based on the completeness score across all dimensions, choose ONE of the three c
 - All 4 core requirements: ✅ (at least 3 out of 4 clearly provided)
 - Methodology: ✅ EXPLICIT or ⚠️ INFERRED
 - Draft path (if applicable): ✅ PROVIDED or N/A
+- Prototype design scenario: ✅ PROVIDED or N/A
 
 **Decision Logic**:
 The user has already provided all necessary information. Asking questions would be redundant and frustrating. Proceed directly to research phase.
@@ -229,6 +238,7 @@ The user has already provided all necessary information. Asking questions would 
 - Missing 1-2 items from core requirements
 - OR methodology is ❌ MISSING
 - OR (draft scenario AND path is ❌ MISSING)
+- OR (prototype design scenario is ❌ MISSING)
 
 **Decision Logic**:
 The user has provided most information. Only ask for what's specifically missing to minimize back-and-forth.
@@ -286,6 +296,7 @@ The user has provided most information. Only ask for what's specifically missing
 **Criteria**:
 - Missing 3-4 core requirements
 - OR (missing 2+ core requirements AND methodology is ❌ MISSING)
+- OR (prototype design scenario is ❌ MISSING)
 
 **Decision Logic**:
 The user's input is too vague or incomplete. Use the structured template to efficiently gather all necessary information at once.
@@ -324,7 +335,12 @@ The user's input is too vague or incomplete. Use the structured template to effi
 【如果检测到用户提到draft文件，添加第6问】
 **📄 草稿文档（如适用）：**
 
-6. **文件路径：** 如果您已有草稿文档，请提供文件路径，例如 `/Users/yourname/Documents/draft.md` 或 `./docs/draft.docx`
+6. **文件路径：** 如果您已有草稿文档，请提供文件路径，例如 `/Users/yourname/Documents/draft.md` 或 `./docs/draft.docx`。
+
+【如果检测到用户提到prototype设计，添加第7问】
+**📄 原型设计（如适用）：**
+
+7. **原型设计文件：** 如果您已有原型设计规则或需求文件（例如html文件或css文件），请提供文件路径，例如 `/Users/yourname/Documents/prototype.html` 或 `./docs/prototype.css`。
 
 期待您的回答！
 ```
@@ -332,7 +348,8 @@ The user's input is too vague or incomplete. Use the structured template to effi
 **Important Notes**:
 1. This is the FULL template used only when information is severely lacking
 2. The 6th question (draft path) is **conditional** - only include if draft scenario was detected
-3. After user answers, you MUST proceed to Case A logic (all information collected)
+3. The 7th question (prototype design file) is **conditional** - only include if prototype design scenario was detected
+4. After user answers, you MUST proceed to Case A logic (all information collected)
 
 ##### ⚠️ IMPORTANT QUALITY GUARDRAIL
 
@@ -342,6 +359,7 @@ Regardless of which case is triggered, after this gate (and any follow-up user r
 - ✅ All 4 Key Information items clearly understood
 - ✅ Methodology choice confirmed (Agile or Traditional)
 - ✅ Draft path obtained (if draft scenario)
+- ✅ Prototype design file obtained (if prototype design scenario)
 
 If you realize later that some information is still ambiguous or missing, you MUST ask follow-up questions. **The goal of this optimization is NOT to skip information gathering, but to avoid asking questions whose answers are already in the user's input.**
 
@@ -767,13 +785,13 @@ When you DECIDE to 'PLAN', follow these steps EXACTLY:
 ```typescript
 const agileSpecialists = [
   'project_initializer', 'overall_description_writer', 
-  'user_journey_writer', 'user_story_writer', 
+  'user_journey_writer', 'user_story_writer', 'prototype_designer',
   'fr_writer', 'nfr_writer', 'summary_writer', 'document_formatter'
 ];
 
 const traditionalSpecialists = [
   'project_initializer', 'overall_description_writer',
-  'biz_req_and_rule_writer', 'use_case_writer',
+  'biz_req_and_rule_writer', 'use_case_writer', 'prototype_designer',
   'fr_writer', 'nfr_writer', 'ifr_and_dar_writer', 
   'adc_writer', 'summary_writer', 'document_formatter'
 ];
@@ -1328,6 +1346,16 @@ Turn 6: Now ready to generate plan
       },
       {
         "step": 10,
+        "description": "Design the prototype based on the user's requirements and the prototype design file.",
+        "specialist": "prototype_designer",
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "output_chapter_titles": ["10. Prototype Design"],
+        "relevant_context": "The prototype design must be based on the user's requirements and the prototype design file.",
+        "language": "zh",
+        "workflow_mode": "greenfield"
+      },
+      {
+        "step": 11,
         "description": "Perform final document formatting to ensure all requirements are properly linked and traceable between SRS.md and requirements.yaml, as well as check the document syntax and format.",
         "specialist": "document_formatter",
         "context_dependencies": [],
@@ -1337,7 +1365,7 @@ Turn 6: Now ready to generate plan
         "workflow_mode": "greenfield"
       },
       {
-        "step": 11,
+        "step": 12,
         "description": "Conduct comprehensive SRS review to verify completeness, consistency, and quality before delivery.",
         "specialist": "srs_reviewer",
         "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
