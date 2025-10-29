@@ -186,6 +186,91 @@ describe('Specialist提示词重构测试', () => {
     });
   });
 
+  describe('第三阶段：合并Current Step到CURRENT TASK', () => {
+    test('CURRENT TASK应该显示完整的currentStep JSON', () => {
+      const context: SpecialistContext = {
+        specialist_type: 'content',
+        TOOLS_JSON_SCHEMA: '{"tools": []}',
+        SRS_TOC: '# TOC',
+        projectMetadata: { baseDir: '/test' },
+        structuredContext: {
+          internalHistory: [],
+          currentStep: {
+            phase: 'planning',
+            userRequirements: 'Test requirements',
+            specialist: 'content',
+            iterationCount: 1
+          }
+        }
+      };
+
+      const prompt = (promptAssemblyEngine as any).mergeTemplates(
+        [],
+        context,
+        {},
+        [],
+        []
+      );
+
+      // 验证CURRENT TASK章节显示完整的currentStep JSON
+      expect(prompt).toContain('**# 2. CURRENT TASK**');
+      expect(prompt).toContain('"phase": "planning"');
+      expect(prompt).toContain('"userRequirements": "Test requirements"');
+      expect(prompt).toContain('"specialist": "content"');
+    });
+
+    test('DYNAMIC CONTEXT不应该包含Current Step子章节', () => {
+      const context: SpecialistContext = {
+        specialist_type: 'content',
+        TOOLS_JSON_SCHEMA: '{"tools": []}',
+        projectMetadata: { baseDir: '/test' },
+        structuredContext: {
+          internalHistory: [],
+          currentStep: { phase: 'execution' }
+        }
+      };
+
+      const prompt = (promptAssemblyEngine as any).mergeTemplates(
+        [],
+        context,
+        {},
+        [],
+        []
+      );
+
+      // 验证DYNAMIC CONTEXT中不再有Current Step章节
+      const dynamicContextMatch = prompt.match(/\*\*# 5\. DYNAMIC CONTEXT\*\*([\s\S]*?)\*\*# 6\. GUIDELINES/);
+      expect(dynamicContextMatch).toBeTruthy();
+
+      if (dynamicContextMatch) {
+        const dynamicContextContent = dynamicContextMatch[1];
+        expect(dynamicContextContent).not.toContain('## Current Step');
+      }
+    });
+
+    test('currentStep为空时应该显示默认消息', () => {
+      const context: SpecialistContext = {
+        specialist_type: 'content',
+        TOOLS_JSON_SCHEMA: '{"tools": []}',
+        projectMetadata: { baseDir: '/test' },
+        structuredContext: {
+          internalHistory: []
+        }
+      };
+
+      const prompt = (promptAssemblyEngine as any).mergeTemplates(
+        [],
+        context,
+        {},
+        [],
+        []
+      );
+
+      expect(prompt).toContain('**# 2. CURRENT TASK**');
+      expect(prompt).toContain('No current step available');
+    });
+  });
+
   describe('集成测试：完整提示词生成', () => {
     test('使用迭代历史的完整提示词应该格式正确', async () => {
       const context: SpecialistContext = {

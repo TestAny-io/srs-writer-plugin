@@ -261,23 +261,6 @@ export class SpecialistExecutor {
                 // 1. 加载专家提示词 (🚀 新增：传递迭代信息)
                 const prompt = await this.loadSpecialistPrompt(specialistId, contextForThisStep, internalHistory, iteration, MAX_INTERNAL_ITERATIONS);
                 
-                // 🔍 [DEBUG] 详细记录提示词内容
-                // this.logger.info(`🔍 [PROMPT_DEBUG] === 完整提示词内容 for ${specialistId} ===`);
-                // this.logger.info(`🔍 [PROMPT_DEBUG] 提示词长度: ${prompt.length} 字符`);
-                // this.logger.info(`🔍 [PROMPT_DEBUG] 前500字符:\n${prompt.substring(0, 500)}`);
-                // this.logger.info(`🔍 [PROMPT_DEBUG] 后500字符:\n${prompt.substring(Math.max(0, prompt.length - 500))}`);
-                
-                // 检查关键词是否存在
-                const hasToolCallsInstruction = prompt.includes('tool_calls');
-                const hasJsonFormat = prompt.includes('json') || prompt.includes('JSON');
-                const hasWorkflowSteps = prompt.includes('createNewProjectFolder') || prompt.includes('writeFile');
-                
-                // this.logger.info(`🔍 [PROMPT_DEBUG] 关键词检查:`);
-                // this.logger.info(`🔍 [PROMPT_DEBUG] - 包含 'tool_calls': ${hasToolCallsInstruction}`);
-                // this.logger.info(`🔍 [PROMPT_DEBUG] - 包含 JSON 格式: ${hasJsonFormat}`);
-                // this.logger.info(`🔍 [PROMPT_DEBUG] - 包含工作流程步骤: ${hasWorkflowSteps}`);
-                // this.logger.info(`🔍 [PROMPT_DEBUG] ==========================================`);
-                
                 // 2. 获取可用工具
                 const callerType = this.getSpecialistCallerType(specialistId);
                 // 🚀 v3.0: 传入 specialistId 以支持个体级别访问控制
@@ -291,18 +274,6 @@ export class SpecialistExecutor {
                 const toolNames = toolsForVSCode.map(tool => tool.name);
                 this.logger.info(`🔍 [TOOLS_DEBUG] 工具列表: ${toolNames.join(', ')}`);
                 
-                // 检查关键工具是否可用
-                const hasCreateNewProject = toolNames.includes('createNewProjectFolder');
-                const hasWriteFile = toolNames.includes('writeFile');
-                const hasCreateDirectory = toolNames.includes('createDirectory');
-                const hasTaskComplete = toolNames.includes('taskComplete');
-                
-                // this.logger.info(`🔍 [TOOLS_DEBUG] 关键工具检查:`);
-                // this.logger.info(`🔍 [TOOLS_DEBUG] - createNewProjectFolder: ${hasCreateNewProject}`);
-                // this.logger.info(`🔍 [TOOLS_DEBUG] - writeFile: ${hasWriteFile}`);
-                // this.logger.info(`🔍 [TOOLS_DEBUG] - createDirectory: ${hasCreateDirectory}`);
-                // this.logger.info(`🔍 [TOOLS_DEBUG] - taskComplete: ${hasTaskComplete}`);
-                // this.logger.info(`🔍 [TOOLS_DEBUG] ==========================================`);
                 
                 // 3. 调用AI (with network error retry mechanism)
                 const messages = [vscode.LanguageModelChatMessage.User(prompt)];
@@ -2143,7 +2114,6 @@ SUGGESTED ACTIONS:
                 for await (const fragment of response.text) {
                     fragmentCount++;
                     result += fragment;
-                    // this.logger.info(`🔍 [DEBUG] Received fragment ${fragmentCount}, length: ${fragment.length}, total length so far: ${result.length}`);
                 }
                 
                 this.logger.info(`🔍 [DEBUG] Completed processing AI response. Total fragments: ${fragmentCount}, final length: ${result.length}`);

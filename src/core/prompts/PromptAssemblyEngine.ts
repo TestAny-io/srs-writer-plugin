@@ -220,23 +220,25 @@ export class PromptAssemblyEngine {
       const assembledPrompt = this.mergeTemplates(allTemplates, context, enhancedConfig, baseTemplates, contentTemplates, environmentContext);
       
       // 5. 验证组装结果
-      //this.logger.info(`📄 [PromptAssembly] 步骤5: 验证组装结果`);
+      this.logger.info(`📄 [PromptAssembly] 步骤5: 验证组装结果`);
       await this.validateAssembledPrompt(assembledPrompt);
       
-      // 🚀 v4.0: 验证结构化格式
+      // 🚀 v5.0: 验证结构化格式（10部分结构）
       this.logger.debug(`🎯 [PromptAssembly] 提示词结构验证:`);
       this.logger.debug(`🎯 [PromptAssembly] - Table of Contents: ${assembledPrompt.includes('Table of Contents:') ? '✅' : '❌'}`);
       this.logger.debug(`🎯 [PromptAssembly] - 1. SPECIALIST INSTRUCTIONS: ${assembledPrompt.includes('**# 1. SPECIALIST INSTRUCTIONS**') ? '✅' : '❌'}`);
       this.logger.debug(`🎯 [PromptAssembly] - 2. CURRENT TASK: ${assembledPrompt.includes('**# 2. CURRENT TASK**') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - 4. TABLE OF CONTENTS OF CURRENT SRS: ${assembledPrompt.includes('**# 4. TABLE OF CONTENTS OF CURRENT SRS**') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - 5. TEMPLATE FOR YOUR CHAPTERS: ${assembledPrompt.includes('**# 5. TEMPLATE FOR YOUR CHAPTERS**') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - 6. DYNAMIC CONTEXT: ${assembledPrompt.includes('**# 6. DYNAMIC CONTEXT**') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - 7. GUIDELINES AND SAMPLE OF TOOLS USING: ${assembledPrompt.includes('**# 7. GUIDELINES AND SAMPLE OF TOOLS USING**') ? '✅' : '❌'}`);
-      this.logger.debug(`🎯 [PromptAssembly] - 8. YOUR TOOLS LIST: ${assembledPrompt.includes('**# 8. YOUR TOOLS LIST**') ? '✅' : '❌'}`);
-      this.logger.info(`🎯 [PromptAssembly] - 9. FINAL INSTRUCTION: ${assembledPrompt.includes('**# 9. FINAL INSTRUCTION**') ? '✅' : '❌'}`);
-      
-      // 🚀 v4.0: 记录重构完成
-      this.logger.info(`🎯 [PromptAssembly] === v4.0 组装完成 ${specialistType.name} (9部分结构化User消息格式，含SRS目录) ===`);
+      this.logger.debug(`🎯 [PromptAssembly] - 3. LATEST RESPONSE FROM USER: ${assembledPrompt.includes('**# 3. LATEST RESPONSE FROM USER**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 4. YOUR PREVIOUS THOUGHTS: ${assembledPrompt.includes('**# 4. YOUR PREVIOUS THOUGHTS**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 5. DYNAMIC CONTEXT: ${assembledPrompt.includes('**# 5. DYNAMIC CONTEXT**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 6. GUIDELINES AND SAMPLE OF TOOLS USING: ${assembledPrompt.includes('**# 6. GUIDELINES AND SAMPLE OF TOOLS USING**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 7. YOUR TOOLS LIST: ${assembledPrompt.includes('**# 7. YOUR TOOLS LIST**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 8. TEMPLATE FOR YOUR CHAPTERS: ${assembledPrompt.includes('**# 8. TEMPLATE FOR YOUR CHAPTERS**') ? '✅' : '❌'}`);
+      this.logger.debug(`🎯 [PromptAssembly] - 9. TABLE OF CONTENTS OF CURRENT SRS: ${assembledPrompt.includes('**# 9. TABLE OF CONTENTS OF CURRENT SRS**') ? '✅' : '❌'}`);
+      this.logger.info(`🎯 [PromptAssembly] - 10. FINAL INSTRUCTION: ${assembledPrompt.includes('**# 10. FINAL INSTRUCTION**') ? '✅' : '❌'}`);
+
+      // 🚀 v5.0: 记录重构完成
+      this.logger.info(`🎯 [PromptAssembly] === v5.0 组装完成 ${specialistType.name} (10部分结构化User消息格式，已优化顺序和内容) ===`);
       this.logger.info(`🎯 [PromptAssembly] 最终提示词统计:`);
       this.logger.info(`🎯 [PromptAssembly] - 总长度: ${assembledPrompt.length} 字符`);
       this.logger.info(`🎯 [PromptAssembly] - 估算token数量: ${Math.ceil(assembledPrompt.length / 4)} tokens`);
@@ -533,10 +535,8 @@ ${processedContentTemplates.join('\n\n---\n\n')}
 
 **# 2. CURRENT TASK**
 
-The specific task you need to complete:
-
-\`\`\`text
-${context.userRequirements || 'No specific task provided'}
+\`\`\`json
+${context.structuredContext?.currentStep ? JSON.stringify(context.structuredContext.currentStep, null, 2) : 'No current step available'}
 \`\`\`
 
 **# 3. LATEST RESPONSE FROM USER**
@@ -581,11 +581,6 @@ ${environmentContext.projectFiles.length > 0 ?
   '- No files found in project directory'
 }` : 'Environment context not available'}
 
-## Current Step
-\`\`\`json
-${context.structuredContext?.currentStep ? JSON.stringify(context.structuredContext.currentStep, null, 2) : 'No current step available'}
-\`\`\`
-
 ## Iterative History
 
 ${context.structuredContext?.internalHistory && Array.isArray(context.structuredContext.internalHistory) && context.structuredContext.internalHistory.length > 0
@@ -616,16 +611,6 @@ Based on all the instructions and context above, generate a valid JSON object th
 
 **CRITICAL: Your entire response MUST be a single JSON object, starting with \`{\` and ending with \`}\`. Do not include any introductory text, explanations, or conversational filler.**`;
 
-    // this.logger.info(`✅ [PromptAssembly] v4.0 结构化模板合并完成，最终长度: ${structuredPrompt.length} 字符`);
-    // this.logger.debug(`🔍 [PromptAssembly] v4.0 8部分结构验证:`);
-    // this.logger.debug(`🔍 [PromptAssembly] - SPECIALIST INSTRUCTIONS: ${structuredPrompt.includes('# SPECIALIST INSTRUCTIONS') ? '✅' : '❌'}`);
-    // this.logger.debug(`🔍 [PromptAssembly] - CURRENT TASK: ${structuredPrompt.includes('# CURRENT TASK') ? '✅' : '❌'}`);
-    // this.logger.debug(`🔍 [PromptAssembly] - TEMPLATE FOR YOUR CHAPTERS: ${structuredPrompt.includes('# TEMPLATE FOR YOUR CHAPTERS') ? '✅' : '❌'}`);
-    // this.logger.debug(`🔍 [PromptAssembly] - CONTEXT INFORMATION: ${structuredPrompt.includes('# CONTEXT INFORMATION') ? '✅' : '❌'}`);
-    // this.logger.debug(`🔍 [PromptAssembly] - YOUR TOOLS LIST: ${structuredPrompt.includes('# YOUR TOOLS LIST') ? '✅' : '❌'}`);
-    // this.logger.debug(`🔍 [PromptAssembly] - GUIDELINES AND SAMPLE OF TOOLS USING: ${structuredPrompt.includes('# GUIDELINES AND SAMPLE OF TOOLS USING') ? '✅' : '❌'}`);
-    // this.logger.debug(`🔍 [PromptAssembly] - FINAL INSTRUCTION: ${structuredPrompt.includes('# FINAL INSTRUCTION') ? '✅' : '❌'}`);
-    
     return structuredPrompt;
   }
 
