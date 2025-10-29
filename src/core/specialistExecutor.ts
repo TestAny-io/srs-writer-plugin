@@ -220,9 +220,11 @@ export class SpecialistExecutor {
                 
                 // 如果有之前的工具结果，也要添加到历史中
                 if (resumeState.toolResults) {
-                    const previousToolResultsText = resumeState.toolResults.map((result: any) => 
-                        `工具: ${result.toolName}, 成功: ${result.success}, 结果: ${JSON.stringify(result.result)}`
-                    ).join('\n');
+                    const previousToolResultsText = resumeState.toolResults.map((result: any) => {
+                        // 🚀 v5.0: 使用markdown格式化方法，而不是直接JSON.stringify
+                        const formattedResult = this.summarizeToolResult(result, false);
+                        return `工具: ${result.toolName}\n${formattedResult}`;
+                    }).join('\n\n');
                     internalHistory.push(`迭代 ${iteration} - 之前的工具结果:\n${previousToolResultsText}`);
                 }
             }

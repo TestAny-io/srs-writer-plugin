@@ -491,16 +491,17 @@ export class PromptAssemblyEngine {
     const finalSpecialistType = configSpecialistName || contextSpecialistType || fallbackSpecialistType;
     const roleDefinition = config?.role_definition || `${finalSpecialistType} specialist`;
     
-    // 🚀 v4.0新结构实现：9部分提示词架构
+    // 🚀 v5.0新结构实现：10部分提示词架构（优化顺序以提高AI友好性）
     // 1. SPECIALIST INSTRUCTIONS (content/process模板)
     // 2. CURRENT TASK (用户输入)
     // 3. LATEST RESPONSE FROM USER (用户最新响应)
-    // 4. TABLE OF CONTENTS OF CURRENT SRS (当前SRS文档目录结构)
-    // 5. TEMPLATE FOR YOUR CHAPTERS (你所负责的章节模版)
-    // 6. DYNAMIC CONTEXT (动态上下文信息)
-    // 7. GUIDELINES AND SAMPLE OF TOOLS USING (基础指导原则和工具使用示例)
-    // 8. YOUR TOOLS LIST (可用工具的JSON Schema)
-    // 9. FINAL INSTRUCTION (最终执行指令)
+    // 4. YOUR PREVIOUS THOUGHTS (思考记录，工作记忆)
+    // 5. DYNAMIC CONTEXT (动态上下文信息：迭代进度、项目元数据、环境、历史)
+    // 6. GUIDELINES AND SAMPLE OF TOOLS USING (基础指导原则和工具使用示例)
+    // 7. YOUR TOOLS LIST (可用工具的JSON Schema)
+    // 8. TEMPLATE FOR YOUR CHAPTERS (你所负责的章节模版)
+    // 9. TABLE OF CONTENTS OF CURRENT SRS (当前SRS文档目录结构)
+    // 10. FINAL INSTRUCTION (最终执行指令)
     
     // 🚀 新增：收集所有template变量用于TEMPLATE FOR YOUR CHAPTERS部分
     const templateVariables = Object.keys(context)
@@ -515,20 +516,16 @@ export class PromptAssemblyEngine {
 
 Table of Contents:
 
-0. YOUR PREVIOUS THOUGHTS
 1. SPECIALIST INSTRUCTIONS
 2. CURRENT TASK
 3. LATEST RESPONSE FROM USER
-4. TABLE OF CONTENTS OF CURRENT SRS (SRS.md)
-5. TEMPLATE FOR YOUR CHAPTERS
-6. DYNAMIC CONTEXT
-7. GUIDELINES AND SAMPLE OF TOOLS USING
-8. YOUR TOOLS LIST
-9. FINAL INSTRUCTION
-
-**# 0. YOUR PREVIOUS THOUGHTS**
-
-${previousThoughts}
+4. YOUR PREVIOUS THOUGHTS
+5. DYNAMIC CONTEXT
+6. GUIDELINES AND SAMPLE OF TOOLS USING
+7. YOUR TOOLS LIST
+8. TEMPLATE FOR YOUR CHAPTERS
+9. TABLE OF CONTENTS OF CURRENT SRS (SRS.md)
+10. FINAL INSTRUCTION
 
 **# 1. SPECIALIST INSTRUCTIONS**
 
@@ -546,22 +543,18 @@ ${context.userRequirements || 'No specific task provided'}
 
 ${context.userResponse ? `**User's latest response**: ${context.userResponse}
 
-${context.resumeGuidance ? `**Resume Instructions**: 
+${context.resumeGuidance ? `**Resume Instructions**:
 ${context.resumeGuidance.continueInstructions?.join('\n') || 'Continue based on user response'}
 
 **Previous Question Asked**: ${context.resumeGuidance.userQuestion || 'No previous question recorded'}
 
 **Resume Context**: You were waiting for user input and now the user has responded. Please continue your work based on their response.` : ''}` : 'No user response were required in last turn.'}
 
-**# 4. TABLE OF CONTENTS OF CURRENT SRS (SRS.md)**
+**# 4. YOUR PREVIOUS THOUGHTS**
 
-${context.SRS_TOC || context.CURRENT_SRS_TOC || 'No SRS document structure available - you may be working on a new document or the SRS file could not be located.'}
+${previousThoughts}
 
-**# 5. TEMPLATE FOR YOUR CHAPTERS**
-
-${templateVariables || 'No chapter templates provided for this specialist'}
-
-**# 6. DYNAMIC CONTEXT**
+**# 5. DYNAMIC CONTEXT**
 
 ${context.iterationInfo ? `## 🎯 Resource Budget & Strategy
 **Iteration Progress**: You are on iteration **${context.iterationInfo.currentIteration}/${context.iterationInfo.maxIterations}** (${context.iterationInfo.remainingIterations} attempts remaining)
@@ -596,20 +589,28 @@ ${context.structuredContext?.currentStep ? JSON.stringify(context.structuredCont
 ## Iterative History
 
 ${context.structuredContext?.internalHistory && Array.isArray(context.structuredContext.internalHistory) && context.structuredContext.internalHistory.length > 0
-  ? context.structuredContext.internalHistory.join('\n\n')
+  ? this.formatIterativeHistory(context.structuredContext.internalHistory)
   : 'No iterative history available'}
 
-**# 7. GUIDELINES AND SAMPLE OF TOOLS USING**
+**# 6. GUIDELINES AND SAMPLE OF TOOLS USING**
 
 ${processedBaseTemplates.join('\n\n---\n\n')}
 
-**# 8. YOUR TOOLS LIST**
+**# 7. YOUR TOOLS LIST**
 
 \`\`\`json
 ${context.TOOLS_JSON_SCHEMA || 'No tools available'}
 \`\`\`
 
-**# 9. FINAL INSTRUCTION**
+**# 8. TEMPLATE FOR YOUR CHAPTERS**
+
+${templateVariables || 'No chapter templates provided for this specialist'}
+
+**# 9. TABLE OF CONTENTS OF CURRENT SRS (SRS.md)**
+
+${context.SRS_TOC || context.CURRENT_SRS_TOC || 'No SRS document structure available - you may be working on a new document or the SRS file could not be located.'}
+
+**# 10. FINAL INSTRUCTION**
 
 Based on all the instructions and context above, generate a valid JSON object that adheres to the required schema.
 
@@ -626,6 +627,79 @@ Based on all the instructions and context above, generate a valid JSON object th
     // this.logger.debug(`🔍 [PromptAssembly] - FINAL INSTRUCTION: ${structuredPrompt.includes('# FINAL INSTRUCTION') ? '✅' : '❌'}`);
     
     return structuredPrompt;
+  }
+
+  /**
+   * 🚀 v5.0: 格式化迭代历史，使其更具可读性
+   * 将internalHistory数组组织为按迭代分组的结构化格式
+   */
+  private formatIterativeHistory(internalHistory: string[]): string {
+    if (!internalHistory || internalHistory.length === 0) {
+      return 'No iterative history available';
+    }
+
+    // 按迭代编号分组历史记录
+    const iterationGroups: Map<number, { plan?: string; results?: string; userReply?: string; previousResults?: string }> = new Map();
+
+    for (const entry of internalHistory) {
+      // 匹配两种格式：
+      // 1. "迭代 X - 类型: 内容"（用户回复）
+      // 2. "迭代 X - 类型:\n内容"（AI计划、工具结果等）
+      const iterationMatchWithColon = entry.match(/^迭代\s+(\d+)\s+-\s+(.+?):\s+(.*)$/s);
+
+      if (iterationMatchWithColon) {
+        const iterationNum = parseInt(iterationMatchWithColon[1], 10);
+        const entryType = iterationMatchWithColon[2].trim();
+        const content = iterationMatchWithColon[3];
+
+        if (!iterationGroups.has(iterationNum)) {
+          iterationGroups.set(iterationNum, {});
+        }
+        const group = iterationGroups.get(iterationNum)!;
+
+        // 注意：需要先检查"之前的工具结果"，因为它也包含"工具结果"
+        if (entryType.includes('之前的工具结果')) {
+          group.previousResults = content;
+        } else if (entryType.includes('AI计划')) {
+          group.plan = content;
+        } else if (entryType.includes('工具结果')) {
+          group.results = content;
+        } else if (entryType.includes('用户回复')) {
+          group.userReply = content;
+        }
+      }
+    }
+
+    // 格式化输出
+    const formattedIterations: string[] = [];
+    const sortedIterations = Array.from(iterationGroups.keys()).sort((a, b) => a - b);
+
+    for (const iterationNum of sortedIterations) {
+      const group = iterationGroups.get(iterationNum)!;
+      const parts: string[] = [];
+
+      parts.push(`### Iteration ${iterationNum}:\n`);
+
+      if (group.userReply) {
+        parts.push(`**User Reply**: ${group.userReply}\n`);
+      }
+
+      if (group.previousResults) {
+        parts.push(`**Previous Tool Results**:\n${group.previousResults}\n`);
+      }
+
+      if (group.plan) {
+        parts.push(`**AI Plan**:\n${group.plan}\n`);
+      }
+
+      if (group.results) {
+        parts.push(`**Tool Results**:\n${group.results}`);
+      }
+
+      formattedIterations.push(parts.join('\n'));
+    }
+
+    return formattedIterations.join('\n\n---\n\n');
   }
 
   /**
