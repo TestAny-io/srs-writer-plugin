@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-10-29
+
+### Added
+
+- **New Specialist**: Prototype Designer (MVP)
+    - Added new content specialist for rapid prototype design.
+    - This specialist is responsible for creating a prototype from scratch based on user requirements.
+    - It will add a new chapter to the SRS document called "Prototype Design".
+    - It will generate prototype files in the prototype directory including index.html, theme.css, interactions.js.
+
+### Enhanced
+
+- **Context Window Optimization**: Significantly reduced context window usage
+    - Optimized output format for 4 edit tools to reduce token consumption
+    - Improved specialist prompt assembly engine efficiency
+    - Added comprehensive tests for specialist prompt refactoring
+- **Specialist Context Structure**: Improved organization and format
+    - Reorganized specialist context sections for better clarity
+    - Removed redundant sub-sections in context
+    - Refined format for better readability and LLM comprehension
+
 ## [0.5.7] - 2025-10-28
 
 ### Fixed
