@@ -78,7 +78,36 @@ function calculateEdit(
 ): CalculatedEdit {
     // Normalize line endings to LF
     const normalizedContent = currentContent.replace(/\r\n/g, '\n');
-    
+
+    // 🚀 Special handling for empty oldString
+    // This is a common use case: inserting content into an empty file
+    if (oldString === '') {
+        if (normalizedContent === '') {
+            // Empty file - insert new content
+            if (expectedReplacements !== 1) {
+                return {
+                    currentContent: normalizedContent,
+                    newContent: normalizedContent,
+                    occurrences: 1,
+                    error: `Expected ${expectedReplacements} replacement(s) but found 1 occurrence(s) in empty file. Use expectedReplacements: 1 for inserting content into empty file.`
+                };
+            }
+            return {
+                currentContent: normalizedContent,
+                newContent: newString,
+                occurrences: 1
+            };
+        } else {
+            // Non-empty file - cannot use empty oldString
+            return {
+                currentContent: normalizedContent,
+                newContent: normalizedContent,
+                occurrences: 0,
+                error: `Cannot use empty oldString to replace content in non-empty file (file has ${normalizedContent.length} characters). Please provide specific text to replace, or use writeFile tool to overwrite the entire file.`
+            };
+        }
+    }
+
     // Count occurrences using exact string matching
     const regex = new RegExp(escapeRegExp(oldString), 'g');
     const matches = normalizedContent.match(regex);

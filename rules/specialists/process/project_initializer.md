@@ -67,7 +67,8 @@ specialist_config:
 2. 生成基础SRS文档框架
 3. 创建空白requirements.yaml
 4. 建立prototype目录
-5. 标记任务完成
+5. 在prototype目录下创建index.html, theme.css, interactions.js文件
+6. 标记任务完成
 
 ## 🔧 输出格式要求
 
@@ -103,6 +104,27 @@ specialist_config:
       "name": "createDirectory",
       "args": {
         "path": "prototype"
+      }
+    },
+    {
+      "name": "writeFile", 
+      "args": {
+        "path": "prototype/index.html",
+        "content": null
+      }
+    },
+    {
+      "name": "writeFile", 
+      "args": {
+        "path": "prototype/theme.css",
+        "content": null
+      }
+    },
+    {
+      "name": "writeFile", 
+      "args": {
+        "path": "prototype/interactions.js",
+        "content": null
       }
     },
     {
@@ -174,6 +196,27 @@ specialist_config:
       "name": "createDirectory",
       "args": {
         "path": "prototype"
+      }
+    },
+    {
+      "name": "writeFile", 
+      "args": {
+        "path": "prototype/index.html",
+        "content": null
+      }
+    },
+    {
+      "name": "writeFile", 
+      "args": {
+        "path": "prototype/theme.css",
+        "content": null
+      }
+    },
+    {
+      "name": "writeFile", 
+      "args": {
+        "path": "prototype/interactions.js",
+        "content": null
       }
     },
     {
@@ -294,6 +337,9 @@ _metadata:
 - [x] SRS.md 基础框架已创建
 - [x] requirements.yaml 空白文件已创建
 - [x] prototype/ 目录已创建
+- [x] prototype/index.html 空白文件已创建
+- [x] prototype/theme.css 空白文件已创建
+- [x] prototype/interactions.js 空白文件已创建
 - [x] taskComplete 工具被调用，标记任务完成
 
 ## 🚨 重要约束

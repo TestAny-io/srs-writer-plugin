@@ -235,7 +235,6 @@ export const writeFileToolDefinition = {
         // CallerType.SPECIALIST_CONTENT,            // 内容专家可以创建文档
         CallerType.SPECIALIST_PROCESS,             // 流程专家可以创建配置文件
         CallerType.DOCUMENT,                       // 文档层的核心功能
-        "prototype_designer"                       // 原型设计师可以创建原型文件
     ]
 };
 

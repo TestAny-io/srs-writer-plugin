@@ -441,4 +441,95 @@ describe('executeTextFileEdits Unit Tests', () => {
             expect(result.details[0].replacements).toBe(1);
         });
     });
+
+    describe('Empty oldString handling (Bug fix)', () => {
+        test('should insert content into empty file with empty oldString', async () => {
+            const mockFilePath = '/test/workspace/new-file.js';
+            const originalContent = ''; // Empty file
+
+            mockResolveWorkspacePath.mockResolvedValue(mockFilePath);
+            mockExistsSync.mockReturnValue(true);
+            mockReadFileSync.mockReturnValue(originalContent);
+            mockWriteFileSync.mockImplementation(() => {});
+
+            const newContent = '// New file content\nconsole.log("Hello");';
+            const args: ExecuteTextFileEditsArgs = {
+                summary: 'Insert into empty file',
+                targetFile: 'new-file.js',
+                edits: [{
+                    oldString: '',
+                    newString: newContent,
+                    expectedReplacements: 1,
+                    reason: 'Insert content into empty file'
+                }]
+            };
+
+            const result = await executeTextFileEdits(args);
+
+            expect(result.success).toBe(true);
+            expect(result.appliedEdits).toBe(1);
+            expect(result.details[0].success).toBe(true);
+            expect(mockWriteFileSync).toHaveBeenCalled();
+            const writtenContent = mockWriteFileSync.mock.calls[0][1] as string;
+            expect(writtenContent).toBe(newContent);
+        });
+
+        test('should reject empty oldString with non-empty file', async () => {
+            const mockFilePath = '/test/workspace/existing.js';
+            const originalContent = 'console.log("Existing content");';
+
+            mockResolveWorkspacePath.mockResolvedValue(mockFilePath);
+            mockExistsSync.mockReturnValue(true);
+            mockReadFileSync.mockReturnValue(originalContent);
+            mockWriteFileSync.mockImplementation(() => {});
+
+            const args: ExecuteTextFileEditsArgs = {
+                summary: 'Try to use empty oldString on non-empty file',
+                targetFile: 'existing.js',
+                edits: [{
+                    oldString: '',
+                    newString: 'new content',
+                    expectedReplacements: 1,
+                    reason: 'Invalid operation'
+                }]
+            };
+
+            const result = await executeTextFileEdits(args);
+
+            expect(result.success).toBe(false);
+            expect(result.appliedEdits).toBe(0);
+            expect(result.details[0].success).toBe(false);
+            expect(result.details[0].error).toContain('Cannot use empty oldString to replace content in non-empty file');
+            expect(mockWriteFileSync).not.toHaveBeenCalled();
+        });
+
+        test('should reject wrong expectedReplacements for empty file', async () => {
+            const mockFilePath = '/test/workspace/empty.js';
+            const originalContent = '';
+
+            mockResolveWorkspacePath.mockResolvedValue(mockFilePath);
+            mockExistsSync.mockReturnValue(true);
+            mockReadFileSync.mockReturnValue(originalContent);
+            mockWriteFileSync.mockImplementation(() => {});
+
+            const args: ExecuteTextFileEditsArgs = {
+                summary: 'Wrong expectedReplacements',
+                targetFile: 'empty.js',
+                edits: [{
+                    oldString: '',
+                    newString: 'content',
+                    expectedReplacements: 2, // Wrong! Empty file has only 1 "occurrence"
+                    reason: 'Invalid operation'
+                }]
+            };
+
+            const result = await executeTextFileEdits(args);
+
+            expect(result.success).toBe(false);
+            expect(result.appliedEdits).toBe(0);
+            expect(result.details[0].success).toBe(false);
+            expect(result.details[0].error).toContain('Expected 2 replacement(s) but found 1 occurrence(s) in empty file');
+            expect(mockWriteFileSync).not.toHaveBeenCalled();
+        });
+    });
 });
