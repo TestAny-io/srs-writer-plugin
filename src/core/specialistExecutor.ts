@@ -468,19 +468,33 @@ export class SpecialistExecutor {
 
                     // 🚀 将工具执行结果添加到历史记录，支持specialist的循环迭代 - 使用智能摘要
                     // 🚀 关键修改：过滤掉recordThought工具调用和结果，避免重复显示
-                    // 🚀 新增：当前迭代总是最新的，显示完整的executeMarkdownEdits和executeYAMLEdits内容
-                    const isLatestIteration = true; // 选项A：当前正在执行的迭代就是最新的
-                    
+                    // 🚀 v5.0: 拆分参数 - AI Plan保持完整，Tool Results简化显示
+                    const showFullPlan = true;      // AI Plan显示完整内容（包括intents的完整内容）
+                    const showFullResults = false;  // Tool Results简化显示（只显示摘要信息）
+
                     const planSummary = aiPlan?.tool_calls
-                        ?.map((call: any) => this.summarizeToolCall(call, isLatestIteration))
+                        ?.map((call: any) => this.summarizeToolCall(call, showFullPlan))
                         .filter((summary: string) => summary.trim()) // 过滤空摘要
                         .join('\n') || '无工具调用';
-                    
+
                     const resultsSummary = toolResults
                         .filter(result => result.toolName !== 'recordThought') // 🚀 过滤掉recordThought
-                        .map(result => this.summarizeToolResult(result, isLatestIteration))
+                        .map(result => this.summarizeToolResult(result, showFullResults))
                         .join('\n');
-                    
+
+                    // 🚀 v5.0: 如果该iteration有recordThought调用，添加thought摘要
+                    const recordThoughtResult = toolResults.find(result => result.toolName === 'recordThought');
+                    if (recordThoughtResult && recordThoughtResult.success) {
+                        const thoughtRecord = recordThoughtResult.result?.thoughtRecord;
+                        if (thoughtRecord) {
+                            const thinkingType = thoughtRecord.thinkingType || 'UNKNOWN';
+                            const context = thoughtRecord.context || 'No context provided';
+                            // 生成一行摘要：💭 **Thought**: [类型] 一句话摘要
+                            const thoughtSummary = `💭 **Thought**: [${thinkingType.toUpperCase()}] ${context}`;
+                            internalHistory.push(`迭代 ${iteration} - Thought摘要: ${thoughtSummary}`);
+                        }
+                    }
+
                     internalHistory.push(`迭代 ${iteration} - AI计划:\n${planSummary}`);
                     if (resultsSummary.trim()) { // 只有非空结果才添加
                         internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsSummary}`);
@@ -1248,18 +1262,31 @@ ${context.dependentResults?.length > 0
 
     /**
      * 将工具结果格式化为Markdown
+     *
+     * 🚀 v5.0 设计原则：
+     * - 默认显示完整内容（specialist需要看到工具的返回结果来做决策）
+     * - 只对大返回量的write/edit工具简化显示（避免context浪费）
+     * - 读取类工具（readMarkdownFile、readYAMLFiles等）必须显示完整内容
      */
     private formatToolResultAsMarkdown(toolName: string, result: any, showFullDetails: boolean): string {
         let output = `${toolName}:\n`;
 
         const resultData = result.result;
 
-        if (showFullDetails) {
-            // 最新迭代：显示完整结果
-            output += this.jsonToMarkdownList(resultData, 1);
-        } else {
-            // 非最新迭代：显示摘要
+        // 定义需要简化的大返回量工具（只有这4个工具会简化显示）
+        const toolsToSimplify = [
+            'executeMarkdownEdits',
+            'executeYAMLEdits',
+            'executeTextFileEdits',
+            'findAndReplace'
+        ];
+
+        if (toolsToSimplify.includes(toolName) && !showFullDetails) {
+            // 大返回量工具：简化显示（只显示摘要信息）
             output += this.summarizeResult(toolName, result);
+        } else {
+            // 其他所有工具（包括readMarkdownFile、readYAMLFiles、writeFile等）：显示完整结果
+            output += this.jsonToMarkdownList(resultData, 1);
         }
 
         return output;
@@ -1280,20 +1307,140 @@ ${context.dependentResults?.length > 0
                 if (!success) {
                     const errorMsg = resultData?.failedIntents?.[0]?.error || result.error || 'unknown error';
                     const failedCount = resultData?.failedIntents?.length || 0;
-                    return `${indentStr}- success: false\n${indentStr}- failedIntents: ${failedCount} item(s)\n${indentStr}- firstError: ${errorMsg}\n`;
-                }
-                const appliedCount = resultData?.appliedIntents?.length || 0;
-                return `${indentStr}- success: true\n${indentStr}- appliedIntents: ${appliedCount} item(s)\n`;
+                    const executionTime = resultData?.metadata?.executionTime || 0;
+                    let summary = `${indentStr}- success: false\n${indentStr}- failedIntents: ${failedCount} intent(s)\n`;
+                    summary += `${indentStr}- error: ${errorMsg}\n`;
 
-            case 'readMarkdownFile':
-                if (!success) {
-                    return `${indentStr}- success: false\n${indentStr}- error: ${resultData?.error || result.error}\n`;
+                    // 如果有建议，显示建议
+                    if (resultData?.failedIntents?.[0]?.suggestion) {
+                        summary += `${indentStr}- suggestion: ${resultData.failedIntents[0].suggestion}\n`;
+                    }
+
+                    summary += `${indentStr}- executionTime: ${executionTime}ms\n`;
+                    return summary;
                 }
-                const resultsCount = resultData?.results?.length || 0;
-                return `${indentStr}- success: true\n${indentStr}- results: ${resultsCount} item(s)\n`;
+
+                // 成功情况：显示简化摘要
+                const appliedCount = resultData?.appliedIntents?.length || 0;
+                const executionTime = resultData?.metadata?.executionTime || 0;
+                let summary = `${indentStr}- success: true\n${indentStr}- appliedIntents: ${appliedCount} intent(s)\n`;
+
+                // 尝试获取操作的目标信息
+                if (resultData?.appliedIntents?.[0]) {
+                    const firstIntent = resultData.appliedIntents[0];
+                    const originalIntent = firstIntent.originalIntent || firstIntent;
+
+                    // 显示目标章节
+                    if (originalIntent.target?.sid) {
+                        summary += `${indentStr}- targetSection: ${originalIntent.target.sid}\n`;
+                    }
+
+                    // 显示操作类型和受影响的行数（如果能推断）
+                    if (originalIntent.type) {
+                        const insertedLines = originalIntent.content ? originalIntent.content.split('\n').length : 0;
+                        if (insertedLines > 0) {
+                            summary += `${indentStr}- insertedLines: ${insertedLines}\n`;
+                        }
+                    }
+                }
+
+                summary += `${indentStr}- executionTime: ${executionTime}ms\n`;
+                return summary;
+
+            case 'executeYAMLEdits':
+                if (!success) {
+                    const errorMsg = resultData?.error || result.error || 'unknown error';
+                    const failedCount = resultData?.failedEdits?.length || 0;
+                    const executionTime = resultData?.metadata?.executionTime || 0;
+                    let summary = `${indentStr}- success: false\n${indentStr}- failedEdits: ${failedCount} edit(s)\n`;
+                    summary += `${indentStr}- error: ${errorMsg}\n`;
+                    summary += `${indentStr}- executionTime: ${executionTime}ms\n`;
+                    return summary;
+                }
+
+                // 成功情况：显示简化摘要
+                const yamlAppliedEditsCount = resultData?.appliedEdits?.length || 0;
+                const executionTimeYaml = resultData?.metadata?.executionTime || 0;
+                const fileSize = resultData?.metadata?.fileSize || 0;
+
+                let summaryYaml = `${indentStr}- success: true\n${indentStr}- appliedEdits: ${yamlAppliedEditsCount} edit(s)\n`;
+
+                // 统计操作类型
+                if (resultData?.appliedEdits && resultData.appliedEdits.length > 0) {
+                    const operations: { [key: string]: number } = {};
+                    resultData.appliedEdits.forEach((edit: any) => {
+                        const type = edit.type || 'unknown';
+                        operations[type] = (operations[type] || 0) + 1;
+                    });
+
+                    // 显示操作统计
+                    summaryYaml += `${indentStr}- operations:\n`;
+                    Object.entries(operations).forEach(([type, count]) => {
+                        summaryYaml += `${indentStr}  - ${type}: ${count}\n`;
+                    });
+                }
+
+                // 显示目标文件（从第一个edit获取，假设所有edit都是同一个文件）
+                // 注意：targetFile通常在args里，不在result里，这里尝试从result获取
+                summaryYaml += `${indentStr}- executionTime: ${executionTimeYaml}ms\n`;
+
+                if (fileSize > 0) {
+                    summaryYaml += `${indentStr}- fileSize: ${fileSize} bytes\n`;
+                }
+
+                return summaryYaml;
+
+            case 'executeTextFileEdits':
+                if (!success) {
+                    const errorMsg = resultData?.error || result.error || 'unknown error';
+                    const failedCount = resultData?.totalEdits - resultData?.appliedEdits || 0;
+                    let summary = `${indentStr}- success: false\n${indentStr}- appliedEdits: ${resultData?.appliedEdits || 0} / ${resultData?.totalEdits || 0}\n`;
+                    summary += `${indentStr}- failedEdits: ${failedCount}\n`;
+                    summary += `${indentStr}- error: ${errorMsg}\n`;
+                    return summary;
+                }
+
+                // 成功情况：显示简化摘要
+                const textFileAppliedEditsCount = resultData?.appliedEdits || 0;
+                const totalEditsCount = resultData?.totalEdits || 0;
+                let summaryTextFile = `${indentStr}- success: true\n${indentStr}- appliedEdits: ${textFileAppliedEditsCount} / ${totalEditsCount}\n`;
+
+                // 统计替换次数
+                if (resultData?.details && resultData.details.length > 0) {
+                    const totalReplacements = resultData.details
+                        .filter((d: any) => d.success)
+                        .reduce((sum: number, d: any) => sum + (d.replacements || 0), 0);
+                    if (totalReplacements > 0) {
+                        summaryTextFile += `${indentStr}- totalReplacements: ${totalReplacements}\n`;
+                    }
+                }
+
+                return summaryTextFile;
+
+            case 'findAndReplace':
+                if (!success) {
+                    const errorMsg = resultData?.error || result.error || 'unknown error';
+                    return `${indentStr}- success: false\n${indentStr}- error: ${errorMsg}\n`;
+                }
+
+                // 成功情况：显示简化摘要
+                const matchesFound = resultData?.matchesFound || 0;
+                const applied = resultData?.applied || false;
+                let summaryFindReplace = `${indentStr}- success: true\n${indentStr}- matchesFound: ${matchesFound}\n`;
+                summaryFindReplace += `${indentStr}- applied: ${applied}\n`;
+
+                // 如果有替换，显示替换数量（而不是完整的replacements数组）
+                if (resultData?.replacements && Array.isArray(resultData.replacements)) {
+                    const replacementCount = resultData.replacements.length;
+                    summaryFindReplace += `${indentStr}- replacementsCount: ${replacementCount}\n`;
+                }
+
+                return summaryFindReplace;
 
             default:
-                // 其他工具：显示success和完整结果
+                // 🚀 v5.0: summarizeResult()只用于上面4个大返回量工具
+                // 其他工具不应该走到这里，它们应该在formatToolResultAsMarkdown()中直接显示完整结果
+                // 如果走到这里，说明toolsToSimplify列表可能需要更新
                 return `${indentStr}- success: ${success}\n` +
                     (resultData ? this.jsonToMarkdownList(resultData, indent) : '');
         }

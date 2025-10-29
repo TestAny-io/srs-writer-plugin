@@ -624,11 +624,17 @@ Based on all the instructions and context above, generate a valid JSON object th
     }
 
     // 按迭代编号分组历史记录
-    const iterationGroups: Map<number, { plan?: string; results?: string; userReply?: string; previousResults?: string }> = new Map();
+    const iterationGroups: Map<number, {
+      plan?: string;
+      results?: string;
+      userReply?: string;
+      previousResults?: string;
+      thoughtSummary?: string;  // 🚀 v5.0: 新增thought摘要字段
+    }> = new Map();
 
     for (const entry of internalHistory) {
       // 匹配两种格式：
-      // 1. "迭代 X - 类型: 内容"（用户回复）
+      // 1. "迭代 X - 类型: 内容"（用户回复、Thought摘要）
       // 2. "迭代 X - 类型:\n内容"（AI计划、工具结果等）
       const iterationMatchWithColon = entry.match(/^迭代\s+(\d+)\s+-\s+(.+?):\s+(.*)$/s);
 
@@ -645,6 +651,9 @@ Based on all the instructions and context above, generate a valid JSON object th
         // 注意：需要先检查"之前的工具结果"，因为它也包含"工具结果"
         if (entryType.includes('之前的工具结果')) {
           group.previousResults = content;
+        } else if (entryType.includes('Thought摘要')) {
+          // 🚀 v5.0: 识别thought摘要
+          group.thoughtSummary = content;
         } else if (entryType.includes('AI计划')) {
           group.plan = content;
         } else if (entryType.includes('工具结果')) {
@@ -664,6 +673,11 @@ Based on all the instructions and context above, generate a valid JSON object th
       const parts: string[] = [];
 
       parts.push(`### Iteration ${iterationNum}:\n`);
+
+      // 🚀 v5.0: 如果有thought摘要，紧接着iteration标题后显示
+      if (group.thoughtSummary) {
+        parts.push(`${group.thoughtSummary}\n`);
+      }
 
       if (group.userReply) {
         parts.push(`**User Reply**: ${group.userReply}\n`);
