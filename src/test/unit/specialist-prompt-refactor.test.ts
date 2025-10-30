@@ -673,4 +673,83 @@ describe('Specialist提示词重构测试', () => {
       expect(formatted).not.toContain('results: 1 item(s)');
     });
   });
+
+  describe('AI Plan显示完整参数（v5.0设计）', () => {
+    test('executeMarkdownEdits的AI Plan应该显示完整intents内容', () => {
+      const internalHistory = [
+        '迭代 1 - AI计划:\nexecuteMarkdownEdits:\n  - intents:\n    - intent #1:\n      - type: replace_section_content\n      - target:\n        - sid: /doc/section1\n      - content: New content here\n      - summary: Update section content\n  - targetFile: SRS.md',
+        '迭代 1 - 工具结果:\nexecuteMarkdownEdits:\n  - success: true\n  - appliedIntents: 1 / 1'
+      ];
+
+      const formatted = (promptAssemblyEngine as any).formatIterativeHistory(internalHistory);
+
+      // 验证AI Plan显示完整的intents数组内容（包括type, target, content等字段）
+      expect(formatted).toContain('**AI Plan**:');
+      expect(formatted).toContain('executeMarkdownEdits:');
+      expect(formatted).toContain('- intents:');
+      expect(formatted).toContain('- intent #1:');
+      expect(formatted).toContain('- type: replace_section_content');
+      expect(formatted).toContain('- target:');
+      expect(formatted).toContain('- sid: /doc/section1');
+      expect(formatted).toContain('- content: New content here');
+      expect(formatted).toContain('- summary: Update section content');
+      expect(formatted).toContain('- targetFile: SRS.md');
+
+      // 验证Tool Results显示简化内容
+      expect(formatted).toContain('**Tool Results**:');
+      expect(formatted).toContain('- success: true');
+      expect(formatted).toContain('- appliedIntents: 1 / 1');
+    });
+
+    test('executeTextFileEdits的AI Plan应该显示完整edits内容', () => {
+      const internalHistory = [
+        '迭代 1 - AI计划:\nexecuteTextFileEdits:\n  - summary: Update CSS styles\n  - targetFile: styles.css\n  - edits:\n    - edit #1:\n      - oldString: .old-class { color: red; }\n      - newString: .new-class { color: blue; }\n      - expectedReplacements: 1\n      - reason: Update styling',
+        '迭代 1 - 工具结果:\nexecuteTextFileEdits:\n  - success: true\n  - appliedEdits: 1 / 1\n  - totalReplacements: 1'
+      ];
+
+      const formatted = (promptAssemblyEngine as any).formatIterativeHistory(internalHistory);
+
+      // 验证AI Plan显示完整的edits数组内容（包括oldString和newString）
+      expect(formatted).toContain('**AI Plan**:');
+      expect(formatted).toContain('executeTextFileEdits:');
+      expect(formatted).toContain('- summary: Update CSS styles');
+      expect(formatted).toContain('- targetFile: styles.css');
+      expect(formatted).toContain('- edits:');
+      expect(formatted).toContain('- edit #1:');
+      expect(formatted).toContain('- oldString: .old-class { color: red; }');
+      expect(formatted).toContain('- newString: .new-class { color: blue; }');
+      expect(formatted).toContain('- expectedReplacements: 1');
+      expect(formatted).toContain('- reason: Update styling');
+
+      // 验证Tool Results显示简化内容
+      expect(formatted).toContain('**Tool Results**:');
+      expect(formatted).toContain('- success: true');
+      expect(formatted).toContain('- appliedEdits: 1 / 1');
+      expect(formatted).toContain('- totalReplacements: 1');
+    });
+
+    test('executeYAMLEdits的AI Plan应该显示完整edits内容', () => {
+      const internalHistory = [
+        '迭代 1 - AI计划:\nexecuteYAMLEdits:\n  - targetFile: config.yaml\n  - edits:\n    - edit #1:\n      - keyPath: [settings, timeout]\n      - value: 5000\n      - reason: Increase timeout',
+        '迭代 1 - 工具结果:\nexecuteYAMLEdits:\n  - success: true\n  - appliedEdits: 1 / 1'
+      ];
+
+      const formatted = (promptAssemblyEngine as any).formatIterativeHistory(internalHistory);
+
+      // 验证AI Plan显示完整的edits数组内容
+      expect(formatted).toContain('**AI Plan**:');
+      expect(formatted).toContain('executeYAMLEdits:');
+      expect(formatted).toContain('- targetFile: config.yaml');
+      expect(formatted).toContain('- edits:');
+      expect(formatted).toContain('- edit #1:');
+      expect(formatted).toContain('- keyPath: [settings, timeout]');
+      expect(formatted).toContain('- value: 5000');
+      expect(formatted).toContain('- reason: Increase timeout');
+
+      // 验证Tool Results显示简化内容
+      expect(formatted).toContain('**Tool Results**:');
+      expect(formatted).toContain('- success: true');
+      expect(formatted).toContain('- appliedEdits: 1 / 1');
+    });
+  });
 });

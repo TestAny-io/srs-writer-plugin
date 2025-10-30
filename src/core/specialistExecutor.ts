@@ -1238,26 +1238,15 @@ ${context.dependentResults?.length > 0
 
     /**
      * 为非最新迭代生成参数摘要
-     * 
+     *
+     * 🚀 v5.0设计：当前showFullPlan = true，所以此方法不会被调用
+     * 所有工具的AI Plan都显示完整参数内容（包括executeMarkdownEdits的完整intents数组）
+     *
      * @param indent - 缩进级别（与jsonToMarkdownList保持一致）
      */
     private summarizeArgs(toolName: string, args: any, indent: number = 1): string {
-        const indentStr = '  '.repeat(indent);
-
-        switch (toolName) {
-            case 'executeMarkdownEdits':
-                const intentCount = args.intents?.length || 0;
-                const targetFile = args.targetFile || 'unknown';
-                return `${indentStr}- intents: ${intentCount} item(s)\n${indentStr}- targetFile: ${targetFile}\n`;
-
-            case 'readMarkdownFile':
-                const targetCount = args.targets?.length || 0;
-                return `${indentStr}- path: ${args.path}\n${indentStr}- targets: ${targetCount} item(s)\n`;
-
-            default:
-                // 其他工具：简化显示顶层字段
-                return this.jsonToMarkdownList(args, indent);
-        }
+        // 所有工具统一处理：显示完整参数
+        return this.jsonToMarkdownList(args, indent);
     }
 
     /**
