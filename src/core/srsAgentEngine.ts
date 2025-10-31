@@ -489,7 +489,7 @@ export class SRSAgentEngine implements ISessionObserver {
         
         const progressCallback: SpecialistProgressCallback = {
           onSpecialistStart: (specialistId) => {
-            this.stream.markdown(`🧠 **需求文档专家正在工作**: ${specialistId}\n\n`);
+            this.stream.markdown(this.formatSpecialistWorkingMessage(specialistId) + '\n\n');
             executionSummary = []; // 重置执行摘要
           },
           onIterationStart: (current, max) => {
@@ -502,7 +502,7 @@ export class SRSAgentEngine implements ISessionObserver {
           onToolsComplete: (toolCalls, results, duration) => {
             const success = results.every(r => r.success);
             const toolNames = toolCalls.map(t => t.name);
-            
+
             // 记录到执行摘要中
             const iterationNum = executionSummary.length + 1;
             executionSummary.push({
@@ -511,47 +511,54 @@ export class SRSAgentEngine implements ISessionObserver {
               duration,
               success
             });
-            
-            // 只显示关键工具的执行结果
-            if (toolNames.includes('executeMarkdownEdits') || toolNames.includes('taskComplete')) {
-              const status = success ? '✅' : '❌';
-              const displayText = this.formatToolsDisplay(toolCalls);
-              
-              if (toolNames.includes('taskComplete')) {
-                // taskComplete 只显示简单的状态信息，避免与最终任务完成信息重复
-                if (success) {
-                  this.stream.markdown(`${status} **${displayText}** 完成 (${duration}ms)\n\n`);
+
+            // 🆕 改进2：全透明显示所有工具的执行结果
+            toolCalls.forEach((toolCall, index) => {
+              const result = results[index];
+              const toolStatus = result.success ? '✅' : '❌';
+
+              // 🆕 特殊处理：recordThought显示思考类型、context、nextSteps
+              if (toolCall.name === 'recordThought' && result.success) {
+                const thought = result.result?.thoughtRecord;
+                if (thought) {
+                  const emoji = this.getThinkingTypeEmoji(thought.thinkingType);
+                  const contextPart = thought.context ? ` - ${thought.context}` : '';
+                  const nextStepsPart = thought.nextSteps?.length
+                    ? ` → ${thought.nextSteps.length} next steps`
+                    : '';
+
+                  // 格式：✅ Thought (🤔 reflection) - Context → 3 next steps
+                  this.stream.markdown(
+                    `${toolStatus} **Thought** (${emoji} ${thought.thinkingType})` +
+                    `${contextPart}${nextStepsPart}\n\n`
+                  );
                 } else {
-                  const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
-                  this.stream.markdown(`${status} **${displayText}** 失败 - ${errors} (${duration}ms)\n\n`);
+                  // fallback：如果没有thoughtRecord
+                  this.stream.markdown(`${toolStatus} **Thought**\n\n`);
                 }
               } else {
-                // executeMarkdownEdits 等其他工具显示详细摘要
-                const smartSummary = this.generateToolsSummary(results);
-                if (success) {
-                  this.stream.markdown(`${status} **${displayText}** 完成${smartSummary ? ` - ${smartSummary}` : ''} (${duration}ms)\n\n`);
-                } else {
-                  const errors = results.filter(r => !r.success).map(r => r.error).join('; ');
-                  this.stream.markdown(`${status} **${displayText}** 失败 - ${errors} (${duration}ms)\n\n`);
-                }
+                // 🆕 其他工具：显示工具名 + 关键参数
+                const detailPart = this.formatToolDetail(toolCall.name, toolCall.args, result);
+                const errorPart = !result.success ? ` - ${result.error}` : '';
+                this.stream.markdown(`${toolStatus} **${toolCall.name}**${detailPart}${errorPart}\n\n`);
               }
-            }
+            });
           },
           onTaskComplete: (summary) => {
-            // 显示执行摘要
-            if (executionSummary.length > 1) {
+            // 🆕 改进2：只在迭代较多时显示执行摘要（避免与实时输出重复）
+            if (executionSummary.length > 3) {
               this.stream.markdown(`\n---\n### 📊 执行摘要\n\n`);
               this.stream.markdown(`总共完成 **${executionSummary.length}** 轮迭代：\n\n`);
-              
+
               executionSummary.forEach(item => {
                 const statusIcon = item.success ? '✅' : '❌';
                 const toolList = item.tools.join(', ');
                 this.stream.markdown(`- ${statusIcon} 第${item.iteration}轮: ${toolList} (${item.duration}ms)\n`);
               });
-              
+
               this.stream.markdown(`\n---\n\n`);
             }
-            
+
             this.stream.markdown(`📝 **任务完成** - ${summary}\n\n`);
           }
         };
@@ -1204,7 +1211,7 @@ export class SRSAgentEngine implements ISessionObserver {
 
   // 🚀 新增：特殊处理specialist工具的用户交互需求
   private async handleSpecialistTool(toolCall: { name: string; args: any }): Promise<{ needsUserInteraction: boolean } | undefined> {
-    this.stream.markdown(`🧠 **需求文档专家正在工作**: ${toolCall.name}\n`);
+    this.stream.markdown(this.formatSpecialistWorkingMessage(toolCall.name) + '\n');
     
     const startTime = Date.now();
     // 🚀 修复：移除重复记录，只保留最终结果记录
@@ -2141,7 +2148,7 @@ export class SRSAgentEngine implements ISessionObserver {
   private createProgressCallback(): any {
     return {
       onSpecialistStart: (specialistId: string) => {
-        this.stream.markdown(`🧠 **需求文档专家正在工作**: ${specialistId}\n\n`);
+        this.stream.markdown(this.formatSpecialistWorkingMessage(specialistId) + '\n\n');
       },
       onIterationStart: (current: number, max: number) => {
         this.stream.progress(`第 ${current}/${max} 轮迭代...`);
@@ -2227,5 +2234,232 @@ export class SRSAgentEngine implements ISessionObserver {
       'srs_reviewer': '审查文档'
     };
     return nameMap[specialistId] || specialistId;
+  }
+
+  // ============================================================================
+  // 🆕 改进2：全透明工具显示 + recordThought内容显示
+  // ============================================================================
+
+  /**
+   * 🆕 改进2：获取思考类型对应的emoji
+   */
+  private getThinkingTypeEmoji(thinkingType: string): string {
+    const emojiMap: Record<string, string> = {
+      'planning': '📋',
+      'analysis': '🔍',
+      'synthesis': '🔗',
+      'reflection': '🤔',
+      'derivation': '➡️'
+    };
+    return emojiMap[thinkingType] || '🧠';
+  }
+
+  /**
+   * 🆕 改进2：格式化specialist工作消息
+   * 格式：[随机emoji] [英文名] is working...
+   * 例如：🧑‍💼 SRS Reviewer is working...
+   */
+  private formatSpecialistWorkingMessage(specialistId: string): string {
+    // 随机选择一个emoji
+    const emojis = ['🧑‍💼', '👩🏻‍💼'];
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+    // 尝试从SpecialistRegistry获取英文名称
+    try {
+      const { getSpecialistRegistry } = require('./specialistRegistry');
+      const specialistRegistry = getSpecialistRegistry();
+      const specialist = specialistRegistry.getSpecialist(specialistId);
+      const englishName = specialist?.config?.name || specialistId;
+
+      return `${randomEmoji} **${englishName}** is working...`;
+    } catch (error) {
+      // fallback：如果无法获取specialist信息，使用specialistId
+      return `${randomEmoji} **${specialistId}** is working...`;
+    }
+  }
+
+  /**
+   * 🆕 改进2：格式化工具的详细信息（显示关键参数）
+   * 基于用户决策，为30个工具提供定制化的参数显示
+   */
+  private formatToolDetail(toolName: string, args: any, result: any): string {
+    try {
+      switch (toolName) {
+        // ========== 文件系统操作（8个）==========
+        case 'readTextFile':
+          return args.path ? ` - ${this.shortenPath(args.path)}` : '';
+
+        case 'writeFile':
+          // 只显示path，不显示size（用户决定）
+          return args.path ? ` - ${this.shortenPath(args.path)}` : '';
+
+        case 'appendTextToFile':
+          // 只显示path，不显示size（用户决定）
+          return args.path ? ` - ${this.shortenPath(args.path)}` : '';
+
+        case 'createDirectory':
+          return args.dirPath ? ` - ${this.shortenPath(args.dirPath)}` : '';
+
+        case 'listFiles':
+          // 只显示dirPath，不显示count（用户决定）
+          return args.dirPath ? ` - ${this.shortenPath(args.dirPath)}` : '';
+
+        case 'deleteFile':
+          return args.path ? ` - ${this.shortenPath(args.path)}` : '';
+
+        case 'moveAndRenameFile':
+          if (args.sourcePath && args.targetPath) {
+            return ` - ${this.shortenPath(args.sourcePath)} → ${this.shortenPath(args.targetPath)}`;
+          }
+          return '';
+
+        case 'copyAndRenameFile':
+          if (args.sourcePath && args.targetPath) {
+            return ` - ${this.shortenPath(args.sourcePath)} → ${this.shortenPath(args.targetPath)}`;
+          }
+          return '';
+
+        // ========== 编辑器工具（2个）==========
+        case 'getActiveDocumentContent':
+          // 无参数，不显示
+          return '';
+
+        case 'openAndShowFile':
+          return args.path ? ` - ${this.shortenPath(args.path)}` : '';
+
+        // ========== 智能编辑工具（3个）==========
+        case 'findAndReplace':
+          // 显示summary和path，不显示matchCount（用户决定）
+          if (args.summary && args.path) {
+            return ` - ${args.summary} (${this.shortenPath(args.path)})`;
+          } else if (args.summary) {
+            return ` - ${args.summary}`;
+          } else if (args.path) {
+            return ` - ${this.shortenPath(args.path)}`;
+          }
+          return '';
+
+        case 'findInFiles':
+          // 只显示searchPattern（用户决定）
+          return args.searchPattern ? ` - "${this.truncateText(args.searchPattern, 50)}"` : '';
+
+        case 'replaceInSelection':
+          // 不显示（用户决定）
+          return '';
+
+        // ========== 用户交互工具（4个）- 全部不显示（用户决定）==========
+        case 'showInformationMessage':
+        case 'showWarningMessage':
+        case 'askQuestion':
+        case 'suggestNextAction':
+          return '';
+
+        // ========== 输出工具（1个）==========
+        case 'finalAnswer':
+          // 不显示（用户决定）
+          return '';
+
+        // ========== 知识工具（4个）==========
+        case 'readLocalKnowledge':
+        case 'enterpriseRAGCall':
+          // 显示query（截断50字符）
+          return args.query ? ` - "${this.truncateText(args.query, 50)}"` : '';
+
+        case 'customRAGRetrieval':
+          // 显示query（截断50字符），用户决定显示，但不显示sourceCount
+          return args.query ? ` - "${this.truncateText(args.query, 50)}"` : '';
+
+        case 'internetSearch':
+          // 显示query（截断50字符）
+          return args.query ? ` - "${this.truncateText(args.query, 50)}"` : '';
+
+        // ========== 内部工具（3个）==========
+        case 'recordThought':
+          // 特殊处理：在onToolsComplete中单独处理，这里返回空
+          return '';
+
+        case 'taskComplete':
+          // 不显示参数（用户决定：用户已经在最终显示中看到summary）
+          return '';
+
+        case 'createNewProjectFolder':
+          // 只显示projectName，不显示templateType（用户决定）
+          return args.projectName ? ` - ${args.projectName}` : '';
+
+        // ========== 文档层工具（5个）==========
+        case 'readMarkdownFile':
+          // 只显示filePath，不显示returnFormat（用户决定）
+          return args.filePath ? ` - ${this.shortenPath(args.filePath)}` : '';
+
+        case 'executeMarkdownEdits':
+          // 已有智能摘要，保持不变
+          const smartSummary = this.generateToolsSummary([result]);
+          return smartSummary ? ` - ${smartSummary}` : '';
+
+        case 'readYAMLFiles':
+          // 只显示filePattern，不显示file count（用户决定）
+          return args.filePattern ? ` - ${args.filePattern}` : '';
+
+        case 'executeYAMLEdits':
+          // 显示filePath和edits count
+          if (args.yamlFilePath && args.edits) {
+            const editsCount = Array.isArray(args.edits) ? args.edits.length : 0;
+            return ` - 修改了${editsCount}个字段 (${this.shortenPath(args.yamlFilePath)})`;
+          } else if (args.yamlFilePath) {
+            return ` - ${this.shortenPath(args.yamlFilePath)}`;
+          }
+          return '';
+
+        case 'executeTextFileEdits':
+          // 显示filePath和edits count
+          if (args.filePath && args.edits) {
+            const editsCount = Array.isArray(args.edits) ? args.edits.length : 0;
+            return ` - 修改了${editsCount}个部分 (${this.shortenPath(args.filePath)})`;
+          } else if (args.filePath) {
+            return ` - ${this.shortenPath(args.filePath)}`;
+          }
+          return '';
+
+        default:
+          // 未知工具：尝试显示第一个参数（如果是短字符串）
+          const firstArg = Object.values(args || {})[0];
+          if (typeof firstArg === 'string' && firstArg.length < 50) {
+            return ` - ${firstArg}`;
+          }
+          return '';
+      }
+    } catch (error) {
+      // 格式化失败时，静默返回空字符串，不影响工具显示
+      return '';
+    }
+  }
+
+  /**
+   * 🆕 改进2：缩短文件路径（只显示项目内的相对路径）
+   */
+  private shortenPath(fullPath: string): string {
+    if (!fullPath) return '';
+
+    // 移除常见的长前缀
+    const parts = fullPath.split('/').filter(p => p); // 🔧 过滤空字符串（处理开头/和末尾/）
+
+    // 如果路径很短（<= 2段），直接返回
+    if (parts.length <= 2) {
+      return parts.join('/');
+    }
+
+    // 取最后2-3段，确保可读性
+    // 例如：/Users/.../project/docs/SRS.md → docs/SRS.md
+    const shortened = parts.slice(-2).join('/');
+    return shortened;
+  }
+
+  /**
+   * 🆕 改进2：截断文本到指定长度
+   */
+  private truncateText(text: string, maxLength: number): string {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
   }
 }
