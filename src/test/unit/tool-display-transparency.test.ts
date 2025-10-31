@@ -104,8 +104,8 @@ class ToolDisplayTester {
 
                 // 文档层工具
                 case 'readMarkdownFile':
-                    // 只显示filePath，不显示returnFormat（用户决定）
-                    return args.filePath ? ` - ${this.shortenPath(args.filePath)}` : '';
+                    // 只显示path，不显示parseMode（用户决定）
+                    return args.path ? ` - ${this.shortenPath(args.path)}` : '';
 
                 case 'executeYAMLEdits':
                     if (args.yamlFilePath && args.edits) {
@@ -478,17 +478,17 @@ describe('改进2：全透明工具显示测试', () => {
     // formatToolDetail() 测试 - 文档层工具
     // ========================================================================
     describe('formatToolDetail() - 文档层工具', () => {
-        it('readMarkdownFile 应该只显示filePath（不显示returnFormat）', () => {
+        it('readMarkdownFile 应该只显示path（不显示parseMode）', () => {
             const result = tester.formatToolDetail('readMarkdownFile',
-                { filePath: '/project/docs/SRS.md', returnFormat: 'structured' },
+                { path: '/project/docs/SRS.md', parseMode: 'structure' },
                 { success: true }
             );
             expect(result).toBe(' - docs/SRS.md');
         });
 
-        it('readMarkdownFile 只有filePath也正常显示', () => {
+        it('readMarkdownFile 只有path也正常显示', () => {
             const result = tester.formatToolDetail('readMarkdownFile',
-                { filePath: '/project/SRS.md' },
+                { path: '/project/SRS.md' },
                 { success: true }
             );
             expect(result).toBe(' - project/SRS.md');

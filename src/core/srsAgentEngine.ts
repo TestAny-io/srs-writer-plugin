@@ -2388,8 +2388,8 @@ export class SRSAgentEngine implements ISessionObserver {
 
         // ========== 文档层工具（5个）==========
         case 'readMarkdownFile':
-          // 只显示filePath，不显示returnFormat（用户决定）
-          return args.filePath ? ` - ${this.shortenPath(args.filePath)}` : '';
+          // 只显示path，不显示parseMode（用户决定）
+          return args.path ? ` - ${this.shortenPath(args.path)}` : '';
 
         case 'executeMarkdownEdits':
           // 已有智能摘要，保持不变
@@ -2397,8 +2397,8 @@ export class SRSAgentEngine implements ISessionObserver {
           return smartSummary ? ` - ${smartSummary}` : '';
 
         case 'readYAMLFiles':
-          // 只显示filePattern，不显示file count（用户决定）
-          return args.filePattern ? ` - ${args.filePattern}` : '';
+          // 只显示path，不显示结构信息（用户决定）
+          return args.path ? ` - ${this.shortenPath(args.path)}` : '';
 
         case 'executeYAMLEdits':
           // 显示filePath和edits count
