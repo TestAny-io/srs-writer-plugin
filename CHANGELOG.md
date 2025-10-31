@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Improvement 1: Display Execution Plan** - Enhanced transparency for specialist workflow
+    - Execution plan is now displayed in chat window before specialist execution starts
+    - Shows complete task plan with step-by-step breakdown
+    - Each step displays: step number, specialist icon, Chinese name, and full description
+    - Helps users understand what the system will do, reducing anxiety during 30-60s execution periods
+    - Enables advanced users to diagnose task allocation issues
+    - Zero cost: no additional API calls
+    - Format: `📋 **任务计划** - [description]` followed by numbered steps with icons
+    - Added comprehensive unit tests with 22 test cases covering all edge cases
+
 ## [0.6.0] - 2025-10-29
 
 ### Added

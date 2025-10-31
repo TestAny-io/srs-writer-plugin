@@ -478,7 +478,11 @@ export class SRSAgentEngine implements ISessionObserver {
     // 🚀 新增：检查PLAN_EXECUTION模式
     if (plan.response_mode === 'PLAN_EXECUTION' && (plan as any).execution_plan) {
       this.logger.info(`🚀 [DEBUG] 检测到PLAN_EXECUTION模式，移交给orchestrator.planAndExecute处理`);
-      
+
+      // 🆕 改进1：显示execution_plan
+      const formattedPlan = this.formatExecutionPlan((plan as any).execution_plan);
+      this.stream.markdown(formattedPlan);
+
       try {
         // 🚀 新增：创建specialist进度回调 - 简化显示模式
         let executionSummary: Array<{iteration: number, tools: string[], duration: number, success: boolean}> = [];
@@ -2146,5 +2150,82 @@ export class SRSAgentEngine implements ISessionObserver {
         this.stream.markdown(`📝 **任务完成** - ${summary}\n\n`);
       }
     };
+  }
+
+  // ============================================================================
+  // 🆕 改进1：显示Execution Plan（任务计划）
+  // ============================================================================
+
+  /**
+   * 🆕 格式化execution_plan为优雅的markdown显示
+   * 显示完整description，便于高级用户troubleshooting
+   */
+  private formatExecutionPlan(plan: any): string {
+    const lines: string[] = [];
+
+    // 标题行
+    lines.push(`📋 **任务计划** - ${plan.description}\n`);
+
+    // 步骤列表（显示完整description）
+    if (plan.steps && Array.isArray(plan.steps)) {
+      plan.steps.forEach((step: any) => {
+        const icon = this.getSpecialistIcon(step.specialist);
+        const name = this.simplifySpecialistName(step.specialist);
+        const fullDesc = step.description; // 使用完整描述，不截断
+
+        // 每步后加空行，便于阅读
+        lines.push(`${step.step}. ${icon} **${name}** - ${fullDesc}\n`);
+      });
+    }
+
+    lines.push('---\n');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * 🆕 获取specialist对应的图标
+   */
+  private getSpecialistIcon(specialistId: string): string {
+    const iconMap: Record<string, string> = {
+      'project_initializer': '🚀',
+      'overall_description_writer': '📝',
+      'biz_req_and_rule_writer': '📋',
+      'use_case_writer': '🎭',
+      'user_journey_writer': '🗺️',
+      'user_story_writer': '📖',
+      'fr_writer': '✏️',
+      'nfr_writer': '⚡',
+      'ifr_and_dar_writer': '🔗',
+      'adc_writer': '📌',
+      'summary_writer': '📄',
+      'prototype_designer': '🎨',
+      'document_formatter': '🎨',
+      'srs_reviewer': '🔍'
+    };
+    return iconMap[specialistId] || '✏️';
+  }
+
+  /**
+   * 🆕 简化specialist名称为中文
+   */
+  private simplifySpecialistName(specialistId: string): string {
+    const nameMap: Record<string, string> = {
+      'project_initializer': '项目初始化',
+      'overall_description_writer': '撰写项目概述',
+      'biz_req_and_rule_writer': '定义业务需求',
+      'use_case_writer': '生成用例',
+      'user_journey_writer': '撰写用户旅程',
+      'user_story_writer': '编写用户故事',
+      'fr_writer': '编写功能需求',
+      'nfr_writer': '定义非功能需求',
+      'ifr_and_dar_writer': '指定接口需求',
+      'adc_writer': '记录假设约束',
+      'summary_writer': '编写执行摘要',
+      'prototype_designer': '设计原型',
+      'document_formatter': '文档格式化检查',
+      'srs_reviewer': '审查文档'
+    };
+    return nameMap[specialistId] || specialistId;
   }
 }
