@@ -5,32 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.1] - 2025-10-31
 
 ### Added
 
-- **Improvement 1: Display Execution Plan** - Enhanced transparency for specialist workflow
+- **Improvement 1: Display Execution Plan** - Enhanced transparency for SRS Agent Workflow
     - Execution plan is now displayed in chat window before specialist execution starts
     - Shows complete task plan with step-by-step breakdown
-    - Each step displays: step number, specialist icon, Chinese name, and full description
-    - Helps users understand what the system will do, reducing anxiety during 30-60s execution periods
-    - Enables advanced users to diagnose task allocation issues
-    - Zero cost: no additional API calls
-    - Format: `📋 **任务计划** - [description]` followed by numbered steps with icons
-    - Added comprehensive unit tests with 22 test cases covering all edge cases
+    - Helps users understand what the system will do
 
-- **Improvement 2: Full Transparency Tool Display + recordThought Content Display** - Real-time tool execution visibility
-    - ALL tool executions are now displayed in real-time (matching Claude Code behavior)
-    - Each tool shows: success/failure status, tool name, and key parameters
-    - Smart parameter display for all 30 tools based on user-defined display rules
-    - Special formatting for `recordThought`: shows thinking type with emoji, context, and next steps count
-    - Path shortening: displays last 2 path segments for better readability (e.g., `docs/SRS.md`)
-    - Text truncation: long queries/summaries truncated to 50-100 chars with "..." suffix
-    - Progressive disclosure: execution summary only shown for tasks with >3 iterations (reduces redundancy)
-    - Format: `✅ **toolName** - [key parameters]` for each tool execution
-    - Format: `✅ 📋 **recordThought** (planning) - Context → 3 next steps` for thinking records
-    - Added comprehensive unit tests with 64 test cases covering all edge cases and 30 tool types
-    - Zero cost: no additional API calls, pure formatting enhancement
+- **Improvement 2: Full Transparency Tool Display + recordThought Content Display in specialist execution** - Real-time tool execution visibility
+    - ALL tool executions are now displayed in specialist execution process
+    - Each tool shows: success/failure status, tool name, and key parameters with smart parameter display rules
 
 ## [0.6.0] - 2025-10-29
 
