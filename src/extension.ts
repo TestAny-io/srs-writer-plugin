@@ -333,7 +333,7 @@ async function showEnhancedStatus(): Promise<void> {
             case '$(sync) Sync Status Check':
                 await showSyncStatus();
                 break;
-            case '$(tools) MCP Tools Status':
+            case '$(tools) MCP Tools Management':
                 await showVSCodeToolsStatus();
                 break;
             case '$(gear) Plugin Settings':

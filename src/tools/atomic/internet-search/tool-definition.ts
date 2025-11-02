@@ -31,7 +31,6 @@ export const internetSearchToolDefinition = {
   interactionType: 'autonomous',
   riskLevel: 'low',
   requiresConfirmation: false,
-  // 🚀 重新启用internetSearch工具
   accessibleBy: [
     CallerType.ORCHESTRATOR_KNOWLEDGE_QA,    // 知识问答模式
     CallerType.ORCHESTRATOR_TOOL_EXECUTION   // 工具执行模式

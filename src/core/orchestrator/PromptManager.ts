@@ -168,7 +168,7 @@ ${historyContext}
 ## Tool Results Context
 ${toolResultsContext}
 
-# Your available tools (in KNOWLEDGE_QA mode)
+# Your available tools
 ${toolsJsonSchema}
 
 # FINAL INSTRUCTION
