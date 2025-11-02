@@ -54,11 +54,14 @@ import {
     knowledgeToolImplementations
 } from './knowledge-tools-backup';
 
-// 🚀 Internet Search 工具（新实现）
-import {
-    internetSearchToolDefinitions,
-    internetSearchToolImplementations
-} from './internet-search';
+// 🚫 Internet Search 工具（已禁用 - 2025-11-02）
+// 原因: Tavily MCP 工具已提供相同功能，且在中国大陆也可访问
+// 保留代码以备需要时恢复，但不注册到工具系统
+// 恢复方法: 取消下面的注释即可
+// import {
+//     internetSearchToolDefinitions,
+//     internetSearchToolImplementations
+// } from './internet-search';
 
 // 智能编辑工具
 import {
@@ -84,7 +87,7 @@ const logger = Logger.getInstance();
 export const atomicToolDefinitions = [
     ...filesystemToolDefinitions,
     ...knowledgeToolDefinitions,
-    ...internetSearchToolDefinitions,  // 🚀 新的 internetSearch 实现
+    // ...internetSearchToolDefinitions,  // 🚫 已禁用 (2025-11-02) - 使用 Tavily MCP 代替
     ...editorToolDefinitions,
     ...smartEditToolDefinitions,
     ...interactionToolDefinitions,
@@ -97,7 +100,7 @@ export const atomicToolDefinitions = [
 export const atomicToolImplementations = {
     ...filesystemToolImplementations,
     ...knowledgeToolImplementations,
-    ...internetSearchToolImplementations,  // 🚀 新的 internetSearch 实现
+    // ...internetSearchToolImplementations,  // 🚫 已禁用 (2025-11-02) - 使用 Tavily MCP 代替
     ...editorToolImplementations,
     ...smartEditToolImplementations,
     ...interactionToolImplementations,
@@ -292,11 +295,12 @@ export {
 
 } from './knowledge-tools-backup';
 
-// 🚀 新的 Internet Search 工具导出
-export {
-    internetSearch,
-    internetSearchToolDefinition
-} from './internet-search';
+// 🚫 Internet Search 工具导出（已禁用 - 2025-11-02）
+// 使用 Tavily MCP 工具代替 (vscode_mcp_tavily_tavily-search)
+// export {
+//     internetSearch,
+//     internetSearchToolDefinition
+// } from './internet-search';
 
 // 🚀 Phase 1新增：编辑执行工具
 export {
