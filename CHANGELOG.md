@@ -5,29 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+
+## [0.7.0] - 2025-11-02
 
 ### Added
 
-- **🔌 MCP (Model Context Protocol) Support** - SRS Writer 现在支持 MCP 工具！
-    - **动态工具注册**: 自动发现并注册来自 MCP 服务器的工具
-    - **真实 Schema 查询**: 查询 MCP 服务器的完整工具 schema（`inputSchema`）而非泛型参数
-    - **三层权限控制架构**:
-        - 层级1（全局默认）: 所有 AI 可访问所有 MCP 工具（对用户友好）
-        - 层级2（服务器级）: 在 `mcp.json` 的 `permissions.default` 中配置
-        - 层级3（工具级）: 在 `mcp.json` 的 `permissions.tools[toolName]` 中精确控制
-    - **多配置源支持**:
+- **🔌 MCP (Model Context Protocol) Support** - SRS Writer now supports MCP tools!
+    - **Dynamic Tool Registration**: Automatically discover and register tools from MCP servers
+    - **Real Schema Query**: Query full tool schema (`inputSchema`) from MCP servers instead of generic parameters
+    - **Three-tier Permission Control Architecture**:
+        - Tier 1 (Global Default): All AI can access all MCP tools (user-friendly)
+        - Tier 2 (Server-level): Configure in `permissions.default` of `mcp.json`
+        - Tier 3 (Tool-level): Fine-grained control in `permissions.tools[toolName]` of `mcp.json`
+    - **Multiple Configuration Sources Support**:
         - Workspace-level: `.vscode/mcp.json`
         - User-level: `~/Library/Application Support/Code/User/mcp.json` (macOS)
-    - **热更新**: 配置文件变化时自动重新加载工具（1秒 debounce）
-    - **平台兼容**: 支持 macOS、Linux、Windows
-
-### Technical Details
-
-- MCP 工具以 `mcp_<server>_<tool>` 格式命名
-- 工具注册时自动触发 ToolRegistry 缓存失效
-- Workspace 配置优先于 user-level 配置
-- 单元测试覆盖率: MCPRegistry 82%+
+    - **Hot Reload**: Automatically reload tools when config file changes (1-second debounce)
+    - **Platform Compatibility**: Supports macOS, Linux, Windows
 
 ## [0.6.1] - 2025-10-31
 
