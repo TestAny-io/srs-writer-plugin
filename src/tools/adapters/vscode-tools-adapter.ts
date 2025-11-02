@@ -53,16 +53,26 @@ export class VSCodeToolsAdapter {
             let successCount = 0;
             let failCount = 0;
             let skippedCount = 0;
+            let excludedCount = 0;
 
             for (const toolInfo of vscodeTools) {
                 try {
-                    // registerSingleTool 会过滤掉非 MCP 工具
+                    // registerSingleTool 会过滤掉非 MCP 工具和黑名单工具
                     const beforeCount = this.registeredTools.size;
+
+                    // 检查是否是 MCP 工具
+                    const safeName = toolInfo.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+                    const isMCPTool = safeName.includes('_mcp_') || safeName.startsWith('mcp_');
+                    const toolName = safeName.startsWith('vscode_') ? safeName : `vscode_${safeName}`;
+                    const isExcluded = isMCPTool && !this.shouldRegisterTool(toolName);
+
                     await this.registerSingleTool(toolInfo);
                     const afterCount = this.registeredTools.size;
 
                     if (afterCount > beforeCount) {
                         successCount++;
+                    } else if (isExcluded) {
+                        excludedCount++;
                     } else {
                         skippedCount++;
                     }
@@ -75,8 +85,19 @@ export class VSCodeToolsAdapter {
                 }
             }
 
+            const summaryParts = [
+                `${successCount} MCP tools registered`,
+                `${skippedCount} non-MCP tools skipped`
+            ];
+            if (excludedCount > 0) {
+                summaryParts.push(`${excludedCount} MCP tools excluded by keywords`);
+            }
+            if (failCount > 0) {
+                summaryParts.push(`${failCount} failed`);
+            }
+
             this.logger.info(
-                `[VSCodeTools] Registration complete: ${successCount} MCP tools registered, ${skippedCount} non-MCP tools skipped, ${failCount} failed`
+                `[VSCodeTools] Registration complete: ${summaryParts.join(', ')}`
             );
 
             // 如果全部失败，显示警告
@@ -127,6 +148,12 @@ export class VSCodeToolsAdapter {
 
         // 生成工具名（添加 vscode_ 前缀，避免重复前缀）
         const toolName = safeName.startsWith('vscode_') ? safeName : `vscode_${safeName}`;
+
+        // 🔑 关键字黑名单过滤
+        if (!this.shouldRegisterTool(toolName)) {
+            this.logger.debug(`[VSCodeTools] Tool excluded by blacklist: ${toolName}`);
+            return;
+        }
 
         // 避免重复注册
         if (this.registeredTools.has(toolName)) {
@@ -336,6 +363,35 @@ export class VSCodeToolsAdapter {
         }
 
         return 'medium';
+    }
+
+    /**
+     * 检查工具是否应该被注册（基于关键字黑名单）
+     */
+    private shouldRegisterTool(toolName: string): boolean {
+        const config = vscode.workspace.getConfiguration('srs-writer.mcp');
+        const excludeKeywords = config.get<string[]>('excludeKeywords', []);
+
+        // 如果没有配置关键字，默认注册所有工具
+        if (!excludeKeywords || excludeKeywords.length === 0) {
+            return true;
+        }
+
+        // 检查工具名是否包含任何黑名单关键字（不区分大小写）
+        const toolNameLower = toolName.toLowerCase();
+        for (const keyword of excludeKeywords) {
+            if (!keyword || keyword.trim() === '') {
+                continue;
+            }
+
+            const keywordLower = keyword.trim().toLowerCase();
+            if (toolNameLower.includes(keywordLower)) {
+                this.logger.info(`[VSCodeTools] Tool excluded by keyword "${keyword}": ${toolName}`);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

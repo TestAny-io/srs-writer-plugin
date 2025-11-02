@@ -103,21 +103,21 @@ export async function activate(context: vscode.ExtensionContext) {
         logger.info('✅ Folders View Enhancer initialized successfully');
 
         // 🚀 v3.0新增：注册 VSCode/MCP 工具（使用 VSCode API）
-        logger.info('Step 7: Registering VSCode/MCP tools...');
+        logger.info('Step 7: Registering MCP Tools...');
         try {
             vsCodeToolsAdapter = new VSCodeToolsAdapter();
             await vsCodeToolsAdapter.registerVSCodeTools();
 
             const toolCount = vsCodeToolsAdapter.getRegisteredToolCount();
-            console.log(`[MCP] Registered ${toolCount} VSCode/MCP tool(s)`);
+            console.log(`[MCP] Registered ${toolCount} MCP tool(s)`);
 
             if (toolCount > 0) {
-                logger.info(`✅ VSCode/MCP tools registered: ${toolCount} tool(s)`);
+                logger.info(`✅ MCP Tools registered: ${toolCount} tool(s)`);
             } else {
-                logger.info('ℹ️ No VSCode/MCP tools found (no MCP servers configured)');
+                logger.info('ℹ️ No MCP Tools found (no MCP servers configured)');
             }
         } catch (error) {
-            logger.error(`❌ VSCode/MCP tools registration failed: ${(error as Error).message}`);
+            logger.error(`❌ MCP Tools registration failed: ${(error as Error).message}`);
             // 不阻塞扩展激活
         }
 
@@ -307,9 +307,9 @@ async function showEnhancedStatus(): Promise<void> {
                 detail: 'File vs memory sync status'
             },
             {
-                label: '$(tools) VSCode/MCP Tools Status',
-                description: 'View registered VSCode and MCP tools',
-                detail: 'Shows all tools discovered from vscode.lm.tools API'
+                label: '$(tools) MCP Tools Management',
+                description: 'Manage MCP tools',
+                detail: 'View registered MCP tools, add or remove keywords to exclude tools'
             },
             {
                 label: '$(gear) Plugin Settings',
@@ -333,7 +333,7 @@ async function showEnhancedStatus(): Promise<void> {
             case '$(sync) Sync Status Check':
                 await showSyncStatus();
                 break;
-            case '$(tools) VSCode/MCP Tools Status':
+            case '$(tools) MCP Tools Status':
                 await showVSCodeToolsStatus();
                 break;
             case '$(gear) Plugin Settings':
@@ -347,7 +347,7 @@ async function showEnhancedStatus(): Promise<void> {
 }
 
 /**
- * 🚀 v3.0新增：显示 VSCode/MCP 工具状态
+ * 🚀 v3.0新增：显示 VSCode/MCP 工具状态和管理
  */
 async function showVSCodeToolsStatus(): Promise<void> {
     try {
@@ -356,71 +356,301 @@ async function showVSCodeToolsStatus(): Promise<void> {
             return;
         }
 
-        // 获取已注册的工具
-        const registeredTools = vsCodeToolsAdapter.getRegisteredToolNames();
-        const registeredCount = vsCodeToolsAdapter.getRegisteredToolCount();
+        // 第一级菜单：选择操作
+        const action = await vscode.window.showQuickPick([
+            {
+                label: '$(eye) View Tools Status',
+                description: 'View registered VSCode and MCP tools',
+                detail: 'Shows all tools discovered from vscode.lm.tools API'
+            },
+            {
+                label: '$(filter) Manage Excluded Keywords',
+                description: 'Add or remove keywords to exclude MCP tools',
+                detail: 'Exclude tools by adding keywords (e.g., java_app_mode, appmod)'
+            },
+            {
+                label: '$(refresh) Reload Tools',
+                description: 'Reload all MCP tools after configuration changes',
+                detail: 'Unregister and re-register all tools with current settings'
+            }
+        ], {
+            placeHolder: 'Select an action',
+            title: 'MCP Tools Management'
+        });
 
-        // 获取 vscode.lm.tools 中的原始工具信息
-        let vscodeToolsInfo = 'Not available';
-        let vscodeToolsCount = 0;
-        if (vscode.lm && vscode.lm.tools) {
-            vscodeToolsCount = vscode.lm.tools.length;
-            vscodeToolsInfo = vscode.lm.tools.map(tool =>
-                `  • ${tool.name}: ${tool.description || 'No description'}`
-            ).join('\n');
-        }
+        if (!action) return;
 
-        // 构建状态信息
-        const statusMessage = [
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            '📊 VSCode/MCP Tools Status',
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            '',
-            `✅ VSCode API Status: ${vscode.lm && vscode.lm.tools ? 'Available' : 'Not Available'}`,
-            `📦 Tools in vscode.lm.tools: ${vscodeToolsCount}`,
-            `🔧 Tools registered by SRS Writer: ${registeredCount}`,
-            '',
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            '🔍 Raw VSCode Tools (from vscode.lm.tools):',
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            vscodeToolsInfo,
-            '',
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            '✨ Registered Tools (available to AI):',
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            registeredTools.length > 0
-                ? registeredTools.map(name => `  • ${name}`).join('\n')
-                : '  (No tools registered)',
-            '',
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            '📝 Notes:',
-            '  • MCP servers are configured in ~/Library/Application Support/Code/User/mcp.json',
-            '  • Tools from MCP servers appear in vscode.lm.tools automatically',
-            '  • SRS Writer wraps these tools with vscode_ prefix',
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
-        ].join('\n');
-
-        // 显示在 Output Channel
-        logger.info('\n' + statusMessage);
-        logger.show();
-
-        // 同时显示一个简洁的通知
-        const action = await vscode.window.showInformationMessage(
-            `VSCode/MCP Tools: ${registeredCount} registered (${vscodeToolsCount} available)`,
-            'View Details',
-            'Open MCP Config'
-        );
-
-        if (action === 'Open MCP Config') {
-            const mcpConfigPath = vscode.Uri.file(
-                `${process.env.HOME}/Library/Application Support/Code/User/mcp.json`
-            );
-            await vscode.commands.executeCommand('vscode.open', mcpConfigPath);
+        switch (action.label) {
+            case '$(eye) View Tools Status':
+                await viewToolsStatus();
+                break;
+            case '$(filter) Manage Excluded Keywords':
+                await manageExcludedKeywords();
+                break;
+            case '$(refresh) Reload Tools':
+                await reloadMCPTools();
+                break;
         }
 
     } catch (error) {
         logger.error('Failed to show VSCode tools status', error as Error);
         vscode.window.showErrorMessage(`Failed to show tools status: ${(error as Error).message}`);
+    }
+}
+
+/**
+ * 查看工具状态
+ */
+async function viewToolsStatus(): Promise<void> {
+    if (!vsCodeToolsAdapter) return;
+
+    // 获取已注册的工具
+    const registeredTools = vsCodeToolsAdapter.getRegisteredToolNames();
+    const registeredCount = vsCodeToolsAdapter.getRegisteredToolCount();
+
+    // 获取 vscode.lm.tools 中的原始工具信息
+    let vscodeToolsInfo = 'Not available';
+    let vscodeToolsCount = 0;
+    if (vscode.lm && vscode.lm.tools) {
+        vscodeToolsCount = vscode.lm.tools.length;
+        vscodeToolsInfo = vscode.lm.tools.map(tool =>
+            `  • ${tool.name}: ${tool.description || 'No description'}`
+        ).join('\n');
+    }
+
+    // 获取排除关键字配置
+    const config = vscode.workspace.getConfiguration('srs-writer.mcp');
+    const excludeKeywords = config.get<string[]>('excludeKeywords', []);
+    const excludeInfo = excludeKeywords.length > 0
+        ? `\n  Keywords: ${excludeKeywords.map(k => `"${k}"`).join(', ')}`
+        : '\n  (No keywords configured)';
+
+    // 构建状态信息
+    const statusMessage = [
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '📊 MCP Tools Status',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '',
+        `✅ VSCode API Status: ${vscode.lm && vscode.lm.tools ? 'Available' : 'Not Available'}`,
+        `📦 Tools in vscode.lm.tools: ${vscodeToolsCount}`,
+        `🔧 Tools registered by SRS Writer: ${registeredCount}`,
+        `🚫 Exclude keywords: ${excludeKeywords.length}${excludeInfo}`,
+        '',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '🔍 Raw VSCode Tools (from vscode.lm.tools):',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        vscodeToolsInfo,
+        '',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '✨ Registered Tools (available to AI):',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        registeredTools.length > 0
+            ? registeredTools.map(name => `  • ${name}`).join('\n')
+            : '  (No tools registered)',
+        '',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '📝 Notes:',
+        '  • MCP servers are configured in ~/Library/Application Support/Code/User/mcp.json',
+        '  • Tools from MCP servers appear in vscode.lm.tools automatically',
+        '  • SRS Writer wraps these tools with vscode_ prefix',
+        '  • Use "Manage Excluded Keywords" to exclude unwanted tools',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+    ].join('\n');
+
+    // 显示在 Output Channel
+    logger.info('\n' + statusMessage);
+    logger.show();
+
+    // 同时显示一个简洁的通知
+    const action = await vscode.window.showInformationMessage(
+        `MCP Tools: ${registeredCount} registered (${vscodeToolsCount} available, ${excludeKeywords.length} keywords)`,
+        'View Details',
+        'Open MCP Config'
+    );
+
+    if (action === 'Open MCP Config') {
+        const mcpConfigPath = vscode.Uri.file(
+            `${process.env.HOME}/Library/Application Support/Code/User/mcp.json`
+        );
+        await vscode.commands.executeCommand('vscode.open', mcpConfigPath);
+    }
+}
+
+/**
+ * 管理排除关键字
+ */
+async function manageExcludedKeywords(): Promise<void> {
+    const config = vscode.workspace.getConfiguration('srs-writer.mcp');
+    const excludeKeywords = config.get<string[]>('excludeKeywords', []);
+
+    const action = await vscode.window.showQuickPick([
+        {
+            label: '$(add) Add Keyword',
+            description: 'Add a new keyword to exclude tools',
+            detail: 'Tools containing this keyword will not be registered'
+        },
+        {
+            label: '$(remove) Remove Keyword',
+            description: 'Remove an existing keyword',
+            detail: `Current keywords: ${excludeKeywords.length > 0 ? excludeKeywords.join(', ') : '(none)'}`
+        },
+        {
+            label: '$(list-unordered) View Current Keywords',
+            description: 'View all configured exclude keywords',
+            detail: `${excludeKeywords.length} keyword(s) configured`
+        }
+    ], {
+        placeHolder: 'Select an action',
+        title: 'Manage Excluded Keywords'
+    });
+
+    if (!action) return;
+
+    switch (action.label) {
+        case '$(add) Add Keyword':
+            await addExcludeKeyword();
+            break;
+        case '$(remove) Remove Keyword':
+            await removeExcludeKeyword();
+            break;
+        case '$(list-unordered) View Current Keywords':
+            await viewCurrentKeywords();
+            break;
+    }
+}
+
+/**
+ * 添加排除关键字
+ */
+async function addExcludeKeyword(): Promise<void> {
+    const keyword = await vscode.window.showInputBox({
+        prompt: 'Enter keyword to exclude MCP tools',
+        placeHolder: 'e.g., java_app_mode, appmod',
+        validateInput: (value) => {
+            if (!value || value.trim() === '') {
+                return 'Keyword cannot be empty';
+            }
+            return null;
+        }
+    });
+
+    if (!keyword) return;
+
+    const config = vscode.workspace.getConfiguration('srs-writer.mcp');
+    const excludeKeywords = config.get<string[]>('excludeKeywords', []);
+
+    // 检查是否已存在
+    if (excludeKeywords.includes(keyword.trim())) {
+        vscode.window.showWarningMessage(`Keyword "${keyword.trim()}" already exists`);
+        return;
+    }
+
+    // 添加关键字
+    excludeKeywords.push(keyword.trim());
+    await config.update('excludeKeywords', excludeKeywords, vscode.ConfigurationTarget.Global);
+
+    const shouldReload = await vscode.window.showInformationMessage(
+        `Keyword "${keyword.trim()}" added. Reload tools to apply changes?`,
+        'Reload Now',
+        'Later'
+    );
+
+    if (shouldReload === 'Reload Now') {
+        await reloadMCPTools();
+    }
+}
+
+/**
+ * 移除排除关键字
+ */
+async function removeExcludeKeyword(): Promise<void> {
+    const config = vscode.workspace.getConfiguration('srs-writer.mcp');
+    const excludeKeywords = config.get<string[]>('excludeKeywords', []);
+
+    if (excludeKeywords.length === 0) {
+        vscode.window.showInformationMessage('No keywords configured');
+        return;
+    }
+
+    const keyword = await vscode.window.showQuickPick(excludeKeywords, {
+        placeHolder: 'Select keyword to remove',
+        title: 'Remove Exclude Keyword'
+    });
+
+    if (!keyword) return;
+
+    // 移除关键字
+    const updatedKeywords = excludeKeywords.filter(k => k !== keyword);
+    await config.update('excludeKeywords', updatedKeywords, vscode.ConfigurationTarget.Global);
+
+    const shouldReload = await vscode.window.showInformationMessage(
+        `Keyword "${keyword}" removed. Reload tools to apply changes?`,
+        'Reload Now',
+        'Later'
+    );
+
+    if (shouldReload === 'Reload Now') {
+        await reloadMCPTools();
+    }
+}
+
+/**
+ * 查看当前关键字
+ */
+async function viewCurrentKeywords(): Promise<void> {
+    const config = vscode.workspace.getConfiguration('srs-writer.mcp');
+    const excludeKeywords = config.get<string[]>('excludeKeywords', []);
+
+    if (excludeKeywords.length === 0) {
+        vscode.window.showInformationMessage('No exclude keywords configured');
+        return;
+    }
+
+    const message = [
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '🚫 Excluded Keywords',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '',
+        ...excludeKeywords.map((k, i) => `  ${i + 1}. "${k}"`),
+        '',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '📝 Tools containing these keywords will not be registered',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+    ].join('\n');
+
+    logger.info('\n' + message);
+    logger.show();
+
+    vscode.window.showInformationMessage(`${excludeKeywords.length} keyword(s) configured. Check Output for details.`);
+}
+
+/**
+ * 重新加载 MCP 工具
+ */
+async function reloadMCPTools(): Promise<void> {
+    if (!vsCodeToolsAdapter) {
+        vscode.window.showWarningMessage('VSCode Tools Adapter is not initialized');
+        return;
+    }
+
+    try {
+        logger.info('[MCP] Reloading MCP tools...');
+
+        // 注销所有现有工具
+        vsCodeToolsAdapter.dispose();
+        logger.info('[MCP] All tools unregistered');
+
+        // 重新注册工具
+        await vsCodeToolsAdapter.registerVSCodeTools();
+
+        const toolCount = vsCodeToolsAdapter.getRegisteredToolCount();
+        logger.info(`[MCP] Reloaded: ${toolCount} tool(s) registered`);
+
+        vscode.window.showInformationMessage(`✅ MCP tools reloaded: ${toolCount} tool(s) registered`);
+
+    } catch (error) {
+        logger.error('Failed to reload MCP tools', error as Error);
+        vscode.window.showErrorMessage(`Failed to reload tools: ${(error as Error).message}`);
     }
 }
 
