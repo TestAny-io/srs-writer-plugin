@@ -4,7 +4,7 @@
  * 测试从VS Code配置中读取API密钥的功能
  */
 
-import { APIConfigManager } from '../config/api-config';
+import { APIConfigManager } from '../../tools/atomic/internet-search/config/api-config';
 
 // Mock VSCode API
 const mockWorkspaceConfiguration = {
@@ -18,7 +18,7 @@ jest.mock('vscode', () => ({
 }));
 
 // Mock Logger
-jest.mock('../../../../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
   Logger: {
     getInstance: () => ({
       info: jest.fn(),

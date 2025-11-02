@@ -263,7 +263,7 @@ export class Orchestrator {
       sessionContext,
       historyContext,
       toolResultsContext,
-      this.toolCacheManager.getTools.bind(this.toolCacheManager),
+      this.toolCacheManager.getToolsForPrompt.bind(this.toolCacheManager),
       iterationCount  // 🔧 传递参数
     );
   }
@@ -276,10 +276,10 @@ export class Orchestrator {
   }
 
   /**
-   * 🚀 获取工具定义
+   * 🚀 获取工具定义（用于提示词，已过滤metadata字段）
    */
   public async getTools(caller?: CallerType): Promise<{ definitions: any[], jsonSchema: string }> {
-    return await this.toolCacheManager.getTools(caller || CallerType.ORCHESTRATOR_TOOL_EXECUTION);
+    return await this.toolCacheManager.getToolsForPrompt(caller || CallerType.ORCHESTRATOR_TOOL_EXECUTION);
   }
 
   /**

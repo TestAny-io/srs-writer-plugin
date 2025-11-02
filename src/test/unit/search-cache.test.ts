@@ -4,11 +4,11 @@
  * 测试LRU缓存和TTL功能
  */
 
-import { SearchCache } from '../config/search-cache';
-import { SearchResult } from '../types';
+import { SearchCache } from '../../tools/atomic/internet-search/config/search-cache';
+import { SearchResult } from '../../tools/atomic/internet-search/types';
 
 // Mock Logger
-jest.mock('../../../../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
   Logger: {
     getInstance: () => ({
       info: jest.fn(),

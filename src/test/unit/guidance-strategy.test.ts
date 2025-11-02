@@ -4,10 +4,10 @@
  * 测试始终可用的fallback策略
  */
 
-import { GuidanceStrategy } from '../strategies/guidance-strategy';
+import { GuidanceStrategy } from '../../tools/atomic/internet-search/strategies/guidance-strategy';
 
 // Mock Logger
-jest.mock('../../../../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
   Logger: {
     getInstance: () => ({
       info: jest.fn(),

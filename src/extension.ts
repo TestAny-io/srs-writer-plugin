@@ -7,6 +7,7 @@ import { Orchestrator } from './core/orchestrator';
 import { Logger } from './utils/logger';
 import { ErrorHandler } from './utils/error-handler';
 import { FoldersViewEnhancer } from './core/FoldersViewEnhancer';
+import { VSCodeToolsAdapter } from './tools/adapters/vscode-tools-adapter';
 // Language Model Tools已禁用 - 暂时移除工具类导入
 // import { 
 //     InternetSearchTool, 
@@ -19,13 +20,14 @@ let chatParticipant: SRSChatParticipant;
 let sessionManager: SessionManager;
 let orchestrator: Orchestrator;
 let foldersViewEnhancer: FoldersViewEnhancer;
+let vsCodeToolsAdapter: VSCodeToolsAdapter | null = null;
 const logger = Logger.getInstance();
 
 /**
  * 扩展激活时调用 - v1.3最终版本
  * @param context 扩展上下文
  */
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     // 🚨 新增：扩展激活追踪
     const activateTimestamp = new Date().toISOString();
     const activateStack = new Error().stack;
@@ -99,7 +101,26 @@ export function activate(context: vscode.ExtensionContext) {
         // 启用Folders视图增强功能
         vscode.commands.executeCommand('setContext', 'srs-writer:foldersViewEnhanced', true);
         logger.info('✅ Folders View Enhancer initialized successfully');
-        
+
+        // 🚀 v3.0新增：注册 VSCode/MCP 工具（使用 VSCode API）
+        logger.info('Step 7: Registering VSCode/MCP tools...');
+        try {
+            vsCodeToolsAdapter = new VSCodeToolsAdapter();
+            await vsCodeToolsAdapter.registerVSCodeTools();
+
+            const toolCount = vsCodeToolsAdapter.getRegisteredToolCount();
+            console.log(`[MCP] Registered ${toolCount} VSCode/MCP tool(s)`);
+
+            if (toolCount > 0) {
+                logger.info(`✅ VSCode/MCP tools registered: ${toolCount} tool(s)`);
+            } else {
+                logger.info('ℹ️ No VSCode/MCP tools found (no MCP servers configured)');
+            }
+        } catch (error) {
+            logger.error(`❌ VSCode/MCP tools registration failed: ${(error as Error).message}`);
+            // 不阻塞扩展激活
+        }
+
         logger.info('SRS Writer Plugin v1.3 activation completed successfully');
         
         // 显示激活成功消息
@@ -281,9 +302,14 @@ async function showEnhancedStatus(): Promise<void> {
                 detail: 'Create new project directory or switch to existing project in workspace'
             },
             {
-                label: '$(sync) Sync Status Check', 
+                label: '$(sync) Sync Status Check',
                 description: 'Check data consistency',
                 detail: 'File vs memory sync status'
+            },
+            {
+                label: '$(tools) VSCode/MCP Tools Status',
+                description: 'View registered VSCode and MCP tools',
+                detail: 'Shows all tools discovered from vscode.lm.tools API'
             },
             {
                 label: '$(gear) Plugin Settings',
@@ -307,6 +333,9 @@ async function showEnhancedStatus(): Promise<void> {
             case '$(sync) Sync Status Check':
                 await showSyncStatus();
                 break;
+            case '$(tools) VSCode/MCP Tools Status':
+                await showVSCodeToolsStatus();
+                break;
             case '$(gear) Plugin Settings':
                 await openPluginSettings();
                 break;
@@ -314,6 +343,84 @@ async function showEnhancedStatus(): Promise<void> {
     } catch (error) {
         logger.error('Failed to show enhanced status', error as Error);
         vscode.window.showErrorMessage(`Failed to view status: ${(error as Error).message}`);
+    }
+}
+
+/**
+ * 🚀 v3.0新增：显示 VSCode/MCP 工具状态
+ */
+async function showVSCodeToolsStatus(): Promise<void> {
+    try {
+        if (!vsCodeToolsAdapter) {
+            vscode.window.showInformationMessage('VSCode Tools Adapter is not initialized');
+            return;
+        }
+
+        // 获取已注册的工具
+        const registeredTools = vsCodeToolsAdapter.getRegisteredToolNames();
+        const registeredCount = vsCodeToolsAdapter.getRegisteredToolCount();
+
+        // 获取 vscode.lm.tools 中的原始工具信息
+        let vscodeToolsInfo = 'Not available';
+        let vscodeToolsCount = 0;
+        if (vscode.lm && vscode.lm.tools) {
+            vscodeToolsCount = vscode.lm.tools.length;
+            vscodeToolsInfo = vscode.lm.tools.map(tool =>
+                `  • ${tool.name}: ${tool.description || 'No description'}`
+            ).join('\n');
+        }
+
+        // 构建状态信息
+        const statusMessage = [
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            '📊 VSCode/MCP Tools Status',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            '',
+            `✅ VSCode API Status: ${vscode.lm && vscode.lm.tools ? 'Available' : 'Not Available'}`,
+            `📦 Tools in vscode.lm.tools: ${vscodeToolsCount}`,
+            `🔧 Tools registered by SRS Writer: ${registeredCount}`,
+            '',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            '🔍 Raw VSCode Tools (from vscode.lm.tools):',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            vscodeToolsInfo,
+            '',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            '✨ Registered Tools (available to AI):',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            registeredTools.length > 0
+                ? registeredTools.map(name => `  • ${name}`).join('\n')
+                : '  (No tools registered)',
+            '',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            '📝 Notes:',
+            '  • MCP servers are configured in ~/Library/Application Support/Code/User/mcp.json',
+            '  • Tools from MCP servers appear in vscode.lm.tools automatically',
+            '  • SRS Writer wraps these tools with vscode_ prefix',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+        ].join('\n');
+
+        // 显示在 Output Channel
+        logger.info('\n' + statusMessage);
+        logger.show();
+
+        // 同时显示一个简洁的通知
+        const action = await vscode.window.showInformationMessage(
+            `VSCode/MCP Tools: ${registeredCount} registered (${vscodeToolsCount} available)`,
+            'View Details',
+            'Open MCP Config'
+        );
+
+        if (action === 'Open MCP Config') {
+            const mcpConfigPath = vscode.Uri.file(
+                `${process.env.HOME}/Library/Application Support/Code/User/mcp.json`
+            );
+            await vscode.commands.executeCommand('vscode.open', mcpConfigPath);
+        }
+
+    } catch (error) {
+        logger.error('Failed to show VSCode tools status', error as Error);
+        vscode.window.showErrorMessage(`Failed to show tools status: ${(error as Error).message}`);
     }
 }
 
@@ -1856,26 +1963,26 @@ export function deactivate() {
     // 🚨 新增：扩展停用追踪
     const deactivateTimestamp = new Date().toISOString();
     const deactivateStack = new Error().stack;
-    
+
     logger.warn(`🚨 [EXTENSION DEACTIVATE] Extension deactivating at ${deactivateTimestamp}`);
     logger.warn(`🚨 [EXTENSION DEACTIVATE] Call stack:`);
     logger.warn(deactivateStack || 'No stack trace available');
-    
+
     logger.info('SRS Writer Plugin is deactivating...');
-    
+
     try {
         // 🚀 v5.0新增：清理全局引擎
         logger.info('Step 1: Disposing global engine...');
         SRSChatParticipant.disposeGlobalEngine();
         logger.info('✅ Global engine disposed successfully');
-        
+
         // 清理Chat Participant会话
         if (chatParticipant) {
             logger.info('Step 2: Cleaning up chat participant...');
             // 已移除过期会话清理功能 - 现在由 SessionManager 自动处理
             logger.info('✅ Chat participant cleanup completed');
         }
-        
+
         // 保存会话状态
         if (sessionManager) {
             logger.info('Step 3: Saving session state...');
@@ -1884,11 +1991,18 @@ export function deactivate() {
             });
             logger.info('✅ Session state save initiated');
         }
-        
+
+        // 🚀 v3.0新增：清理 VSCode tools adapter
+        if (vsCodeToolsAdapter) {
+            logger.info('Step 4: Disposing VSCode tools adapter...');
+            vsCodeToolsAdapter.dispose();
+            logger.info('✅ VSCode tools adapter disposed');
+        }
+
         // 清理Logger资源
-        logger.info('Step 4: Disposing logger...');
+        logger.info('Step 5: Disposing logger...');
         logger.dispose();
-        
+
         logger.info('SRS Writer Plugin deactivated successfully');
     } catch (error) {
         console.error('Error during SRS Writer Plugin deactivation:', (error as Error).message || error);

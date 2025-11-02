@@ -4,10 +4,10 @@
  * 测试完整的搜索流程和策略选择
  */
 
-import { InternetSearchTool, internetSearch } from '../index';
+import { InternetSearchTool, internetSearch } from '../../tools/atomic/internet-search/index';
 
 // Mock Logger
-jest.mock('../../../../utils/logger', () => ({
+jest.mock('../../utils/logger', () => ({
   Logger: {
     getInstance: () => ({
       info: jest.fn(),
@@ -55,12 +55,11 @@ describe('InternetSearchTool Integration Tests', () => {
     it('应该按优先级排序策略', async () => {
       const statuses = await tool.getStrategiesStatus();
 
-      // Should have 3 strategies: MCP, DirectAPI, Guidance
-      expect(statuses.length).toBe(3);
+      // 🚀 v3.0: Should have 2 strategies: DirectAPI, Guidance (MCP removed, now via VSCode API)
+      expect(statuses.length).toBe(2);
 
       // Check priorities are in order (lower number = higher priority)
       expect(statuses[0].priority).toBeLessThan(statuses[1].priority);
-      expect(statuses[1].priority).toBeLessThan(statuses[2].priority);
     });
   });
 

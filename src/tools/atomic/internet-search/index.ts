@@ -2,19 +2,20 @@
  * Internet Search Tool - Main Entry Point
  *
  * Multi-strategy internet search tool with elegant degradation.
- * Tries strategies in priority order: MCP → Direct API → Guidance
+ * Tries strategies in priority order: Direct API → Guidance
  *
  * Key Features:
  * - Never fails (always returns useful response)
  * - No popups (results go directly to chat)
  * - Zero-configuration startup (guidance provided when needed)
  * - Supports multiple providers (Tavily, Bing, Baidu)
+ *
+ * Note: MCP-based search (v2.0) has been replaced by VSCode API integration (v3.0)
  */
 
 import { SearchRequest, SearchResult, SearchStrategy } from './types';
 import { GuidanceStrategy } from './strategies/guidance-strategy';
 import { DirectAPIStrategy } from './strategies/direct-api-strategy';
-import { MCPStrategy } from './strategies/mcp-strategy';
 import { Logger } from '../../../utils/logger';
 
 export class InternetSearchTool {
@@ -29,9 +30,8 @@ export class InternetSearchTool {
    * Initialize all search strategies in priority order
    */
   private initializeStrategies(): void {
-    // All strategies now implemented (Phase 3 complete)
+    // 🚀 v3.0: MCP strategy removed (now handled via VSCode API + ToolRegistry)
     this.strategies = [
-      new MCPStrategy(),        // Priority 1: MCP servers (highest)
       new DirectAPIStrategy(),  // Priority 2: Direct API calls
       new GuidanceStrategy()    // Priority 999: Always-available fallback
     ];
