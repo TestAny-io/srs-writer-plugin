@@ -23,7 +23,6 @@ import { Logger } from '../../utils/logger';
 export class VSCodeToolsAdapter {
     private logger = Logger.getInstance();
     private registeredTools: Set<string> = new Set();
-    private readonly TOOL_TIMEOUT_MS = 30000; // 30 seconds
 
     /**
      * 从 VSCode 发现并注册所有可用工具
@@ -200,21 +199,14 @@ export class VSCodeToolsAdapter {
         // 构建工具实现（包装 vscode.lm.invokeTool）
         const toolImplementation = async (args: Record<string, any>): Promise<any> => {
             const tokenSource = new vscode.CancellationTokenSource();
-            let timeoutId: NodeJS.Timeout | undefined;
 
             try {
                 this.logger.debug(`[VSCodeTools] Invoking VSCode tool: ${toolInfo.name}`);
 
-                // 创建超时 Promise（带清理功能）
-                const timeoutPromise = new Promise<never>((_, reject) => {
-                    timeoutId = setTimeout(() => {
-                        tokenSource.cancel(); // 取消工具调用
-                        reject(new Error(`Tool execution timeout (${this.TOOL_TIMEOUT_MS / 1000}s)`));
-                    }, this.TOOL_TIMEOUT_MS);
-                });
-
-                // 调用 VSCode API (with timeout)
-                const invocationPromise = vscode.lm.invokeTool(
+                // 调用 VSCode API
+                // 注意：对于 MCP 工具，我们不设置超时，信任 VSCode 自己的超时机制
+                // 原因：MCP 工具需要用户确认，可能需要较长时间
+                const result = await vscode.lm.invokeTool(
                     toolInfo.name,  // 原始名称（不带前缀）
                     {
                         input: args,
@@ -222,14 +214,6 @@ export class VSCodeToolsAdapter {
                     },
                     tokenSource.token
                 );
-
-                // Race between tool invocation and timeout
-                const result = await Promise.race([invocationPromise, timeoutPromise]);
-
-                // 🔑 清理超时定时器（防止内存泄漏）
-                if (timeoutId) {
-                    clearTimeout(timeoutId);
-                }
 
                 // 读取工具结果 - LanguageModelToolResult.content 是数组
                 let output = '';
@@ -258,17 +242,6 @@ export class VSCodeToolsAdapter {
 
                 // 🔑 关键：返回结构化错误，不抛异常
                 // 区分错误类型并提供友好消息
-
-                // 超时错误
-                if (errorMessage.includes('timeout')) {
-                    return {
-                        success: false,
-                        error: 'Tool execution timeout',
-                        userMessage: `The tool "${toolInfo.name}" did not respond within 30 seconds.`,
-                        recoverable: false,
-                        suggestion: `This might be due to:\n- Network issues\n- Server overload\n- Large data processing\n\nPlease try again later.`
-                    };
-                }
 
                 // MCP 服务器连接问题
                 if (errorMessage.includes('not running') ||
@@ -312,9 +285,6 @@ export class VSCodeToolsAdapter {
                 };
             } finally {
                 // 🔑 确保资源始终被清理（防止内存泄漏）
-                if (timeoutId) {
-                    clearTimeout(timeoutId);
-                }
                 tokenSource.dispose();
             }
         };

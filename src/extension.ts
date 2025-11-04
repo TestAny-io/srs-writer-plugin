@@ -9,10 +9,10 @@ import { ErrorHandler } from './utils/error-handler';
 import { FoldersViewEnhancer } from './core/FoldersViewEnhancer';
 import { VSCodeToolsAdapter } from './tools/adapters/vscode-tools-adapter';
 // Language Model Tools已禁用 - 暂时移除工具类导入
-// import { 
-//     InternetSearchTool, 
-//     CustomRAGRetrievalTool, 
-//     ReadLocalKnowledgeTool 
+// import {
+//     InternetSearchTool,
+//     CustomRAGRetrievalTool,
+//     ReadLocalKnowledgeTool
 // } from './tools/atomic/knowledge-tools-backup';
 
 

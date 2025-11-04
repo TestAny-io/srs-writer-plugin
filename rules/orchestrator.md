@@ -89,7 +89,7 @@ Translate your chosen action into a precise JSON response using the strict proto
 
 **Gate ID**: `Contextual_Answer_Triage`
 
-**Purpose**: To prevent the agent from misinterpreting a direct answer to its own question as a new, unrelated user request. This gate has the HIGHEST priority.
+**Purpose**: To prevent you from misinterpreting a direct answer to your own question as a new, unrelated user request. This gate has the HIGHEST priority.
 
 - The agent's **immediate previous turn** was a `direct_response` that explicitly asked the user a question with clear expected answer formats (e.g., asking for a project name, a file path, or a choice from a numbered list).
 - The user's current `USER REQUEST` appears to be a direct answer to that question (e.g., just a project name, just a number like "1", just a file path).
