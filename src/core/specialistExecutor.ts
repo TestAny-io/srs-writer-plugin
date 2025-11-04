@@ -157,6 +157,7 @@ export class SpecialistExecutor {
     ): Promise<SpecialistOutput | SpecialistInteractionResult> {
         const startTime = Date.now();
         const isResuming = !!resumeState;
+
         this.logger.info(`🚀 执行专家任务: ${specialistId}${isResuming ? ` (从第${resumeState.iteration}轮恢复)` : ''}`);
 
         // 🆕 保存当前specialist ID和上下文供工具调用使用

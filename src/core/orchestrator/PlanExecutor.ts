@@ -2032,6 +2032,7 @@ export class PlanExecutor {
      * @param selectedModel VSCode语言模型
      * @param userInput 原始用户输入
      * @param latestSpecialistResult 最新的specialist结果
+     * @param progressCallback 进度回调函数（用于显示specialist输出）
      */
     public async continueExecution(
         plan: any,
@@ -2040,26 +2041,27 @@ export class PlanExecutor {
         sessionContext: SessionContext,
         selectedModel: vscode.LanguageModelChat,
         userInput: string,
-        latestSpecialistResult: SpecialistOutput
+        latestSpecialistResult: SpecialistOutput,
+        progressCallback?: SpecialistProgressCallback
     ): Promise<{ intent: string; result?: any }> {
         this.logger.info(`🔄 从步骤 ${currentStep.step} 继续执行计划`);
-        
+
         // 将最新的specialist结果添加到stepResults
         stepResults[currentStep.step] = latestSpecialistResult;
-        
+
         // 继续执行计划的下一步（如果有的话）
         const remainingSteps = plan.steps.filter((step: any) => step.step > currentStep.step);
-        
+
         if (remainingSteps.length > 0) {
             this.logger.info(`🔄 继续执行剩余 ${remainingSteps.length} 个步骤`);
-            
+
             // 继续执行剩余步骤
             const continuationPlan = {
                 ...plan,
                 steps: remainingSteps
             };
-            
-            return await this.execute(continuationPlan, sessionContext, selectedModel, userInput);
+
+            return await this.execute(continuationPlan, sessionContext, selectedModel, userInput, progressCallback);
         } else {
             // 所有步骤完成
             this.logger.info(`✅ 所有计划步骤已完成`);

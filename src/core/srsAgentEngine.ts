@@ -48,9 +48,12 @@ export class SRSAgentEngine implements ISessionObserver {
   private toolExecutionHandler: ToolExecutionHandler;
   private loopDetector: LoopDetector;
   private contextManager: ContextManager;
-  
+
   // 🚀 新增：增强的循环检测历史记录
   private recentToolCallHistory: Array<{toolName: string, iteration: number}> = [];
+
+  // 保存 progressCallback 供恢复执行时使用
+  private savedProgressCallback?: SpecialistProgressCallback;
 
   constructor(
     stream: vscode.ChatResponseStream,
@@ -562,7 +565,10 @@ export class SRSAgentEngine implements ISessionObserver {
             this.stream.markdown(`📝 **任务完成** - ${summary}\n\n`);
           }
         };
-        
+
+        // 保存 progressCallback 供后续恢复执行时使用
+        this.savedProgressCallback = progressCallback;
+
         // 🚀 新增：记录orchestrator生成的execution_plan到执行历史
         if (plan.response_mode === 'PLAN_EXECUTION' && plan.execution_plan) {
           await this.recordExecution(
@@ -1433,7 +1439,7 @@ export class SRSAgentEngine implements ISessionObserver {
   }> {
     const resumeContext = this.state.resumeContext!;
     const planExecutorState = resumeContext.planExecutorState;
-    
+
     this.logger.info(`🔄 恢复PlanExecutor状态: specialist=${planExecutorState.specialistLoopState.specialistId}, iteration=${planExecutorState.specialistLoopState.currentIteration}`);
     
     // 🚀 关键修复：从原始的SpecialistInteractionResult恢复specialist状态
@@ -1450,7 +1456,7 @@ export class SRSAgentEngine implements ISessionObserver {
     this.stream.markdown(`🔄 **恢复specialist执行**: ${planExecutorState.specialistLoopState.specialistId} (第${originalSpecialistResumeContext.iteration}轮)\n\n`);
     
     try {
-      // 🚀 关键修复：使用新的resumeState参数正确恢复specialist执行
+      // 使用新的resumeState参数正确恢复specialist执行
       const continuedResult = await specialistExecutor.execute(
         planExecutorState.specialistLoopState.specialistId,
         originalSpecialistResumeContext.contextForThisStep,
@@ -1460,11 +1466,11 @@ export class SRSAgentEngine implements ISessionObserver {
           internalHistory: originalSpecialistResumeContext.internalHistory,
           currentPlan: originalSpecialistResumeContext.currentPlan,
           toolResults: originalSpecialistResumeContext.toolResults,
-          userResponse: userResponse,  // 🚀 关键：传递用户回复
+          userResponse: userResponse,
           contextForThisStep: originalSpecialistResumeContext.contextForThisStep
         },
-        undefined, // progressCallback 
-        () => this.state.cancelled === true // 🚀 v6.0：传递取消检查回调
+        this.savedProgressCallback,
+        () => this.state.cancelled === true
       );
       
       // 🚀 如果specialist成功继续，需要更新PlanExecutor的循环状态
@@ -1574,26 +1580,26 @@ export class SRSAgentEngine implements ISessionObserver {
    * 🚀 新增：恢复PlanExecutor循环
    */
   private async resumePlanExecutorLoop(
-    planExecutorState: any, 
-    specialistResult: SpecialistOutput, 
+    planExecutorState: any,
+    specialistResult: SpecialistOutput,
     userResponse: string
   ): Promise<void> {
     this.logger.info(`🔄 恢复PlanExecutor循环执行`);
-    
+
     // 重新创建PlanExecutor，但恢复其循环状态
     const { PlanExecutor } = await import('./orchestrator/PlanExecutor');
     const { SpecialistExecutor } = await import('./specialistExecutor');
-    
+
     const specialistExecutor = new SpecialistExecutor();
     const planExecutor = new PlanExecutor(specialistExecutor);
-    
-    // 🚀 关键：恢复循环状态到PlanExecutor
+
+    // 恢复循环状态到PlanExecutor
     planExecutor.restoreLoopState(
       planExecutorState.specialistLoopState.specialistId,
       planExecutorState.specialistLoopState
     );
-    
-    // 🚀 继续执行计划的剩余部分
+
+    // 继续执行计划的剩余部分
     const sessionContext = await this.restoreSessionContext(planExecutorState.sessionContext);
     const finalResult = await planExecutor.continueExecution(
       planExecutorState.plan,
@@ -1602,9 +1608,10 @@ export class SRSAgentEngine implements ISessionObserver {
       sessionContext,
       this.selectedModel,
       planExecutorState.userInput,
-      specialistResult  // 传入specialist的最新结果
+      specialistResult,
+      this.savedProgressCallback
     );
-    
+
     await this.handlePlanExecutionResult(finalResult);
   }
 
