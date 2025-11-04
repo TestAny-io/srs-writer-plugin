@@ -73,7 +73,7 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage(
                 '💡 **SRS Writer User Guide**\n\n' +
                 '🚀 Start using: Enter @srs-writer in Chat panel\n' +
-                '📊 View status: Cmd+Shift+P → "SRS Writer: Show Status"\n' +
+                '📊 View status: Cmd+Shift+P → "SRS Writer: Control Panel"\n' +
                 '🔄 Force sync: Cmd+Shift+P → "SRS Writer: Force Sync Context"\n' +
                 '🧹 Clear session: Cmd+Shift+P → "SRS Writer: Clear Session"'
             );

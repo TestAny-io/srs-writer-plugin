@@ -1,4 +1,4 @@
-# SRS Writer - AI-Powered Requirements Engineering
+# SRS Writer
 
 <div align="center">
 
@@ -9,470 +9,582 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![DeepWiki](https://img.shields.io/badge/DeepWiki-TestAny--io%2Fsrs--writer--plugin-blue.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==)](https://deepwiki.com/TestAny-io/srs-writer-plugin)
 
-**AI-Powered Requirements Engineering for VSCode**
+**AI-Powered Requirements Engineering**
 
-[Quick Start](#-quick-start) • [Features](#-features) • [Architecture](#-architecture) • [Installation](#-installation) • [Documentation](#-documentation)
+[Quick Start](#-quick-start) • [Features](#-features) • [Use Cases](#-use-cases) • [Documentation](#-documentation)
 
 </div>
 
 ---
 
-## 🎯 Overview
+## What is SRS Writer?
 
-SRS Writer is an intelligent VSCode extension that transforms natural language conversations into professional Software Requirements Specification (SRS) documents. Using a sophisticated multi-specialist system, it automatically generates structured, standardized requirement documents from user descriptions.
+SRS Writer is an **AI-powered requirements engineering assistant** that lives in your VSCode editor. It transforms natural language conversations or existing documents into professional Software Requirements Specification (SRS) documents with full traceability, automated quality checks, and interactive prototypes.
 
-**Core Capabilities:**
+**Instead of spending weeks writing requirements manually**, just describe your project in plain language or give it an existing document, even a draft. A team of specialized AI agents will collaborate to create comprehensive, IEEE 830-compliant documentation in minutes.
 
-- **Conversational Interface** - Create requirements through natural VSCode Chat interactions with @srs-writer
-- **Specialist System** - 13 specialized content and process agents for different document sections
-- **Project Management** - Workspace isolation with multi-project support and template system
-- **Intelligent Editing** - Semantic content editing with real-time synchronization
-- **Session Persistence** - Maintains project context and state across conversations
+### Why SRS Writer?
 
-**Key Features:**
+| Traditional Approach | With SRS Writer |
+|---------------------|-----------------|
+| 📝 Weeks of manual writing | ⚡ **10-20x faster** with AI assistance |
+| 🤷 Inconsistent quality | ✅ **Built-in quality checks** (7-dimensional scoring) |
+| 📊 Complex tools (DOORS, Jama) | 🎯 **Simple VSCode chat** interface |
+| 🔗 Manual traceability | 🤖 **Automatic** requirement linking |
+| 📄 Documents out of sync | 🔄 **Bidirectional sync** (Markdown ↔ YAML) |
+| 🎨 No prototypes | 🖼️ **Interactive HTML prototypes** from requirements |
 
-- **Complete SRS Generation** - Functional requirements, non-functional requirements, user journeys, and more
-- **Workspace Management** - Automatic project structure creation with professional templates
-- **Multi-Format Support** - Markdown documents with synchronized YAML data structures
-- **Template System** - Built-in professional templates ensuring document standardization
+---
 
 ## ✨ Key Features
 
-### 🤖 Intelligent Specialist System
+### 🤖 Multi-Agent Specialist System
 
-**Conversational Requirements Engineering**: Simply chat with @srs-writer in VSCode to describe your project, and watch as specialized agents automatically generate comprehensive SRS documents.
+Unlike generic AI assistants, SRS Writer uses a **team of 17+ specialized agents**, each expert in different aspects of requirements engineering:
 
-**Content Specialists**:
+**Content Specialists** (11+):
+- 📋 **Summary Writer** - Executive summaries and project overviews
+- 📖 **Overall Description Writer** - System context and environment
+- 👤 **User Story Writer** - Agile user stories with acceptance criteria
+- 🗺️ **User Journey Writer** - User experience flows and scenarios
+- 🎯 **Use Case Writer** - Detailed interaction scenarios
+- ⚙️ **Functional Requirements Writer** - Feature specifications (FR-xxx)
+- 🚀 **Non-Functional Requirements Writer** - Performance, security, scalability (NFR-xxx)
+- 🔌 **Interface Requirements Writer** - API and integration specs (IFR-xxx)
+- 💾 **Data Requirements Writer** - Data models and storage (DAR-xxx)
+- 📐 **Business Requirements Writer** - Business rules and constraints
+- 🎨 **Prototype Designer** - Interactive HTML/CSS/JS prototypes
 
-- **ADC Writer** - Architecture Decision Capture
-- **FR Writer** - Functional Requirements
-- **NFR Writer** - Non-Functional Requirements
-- **Overall Description Writer** - System Overview and Context
-- **User Journey Writer** - User Experience Mapping
-- **Summary Writer** - Executive Summaries
-- **Story & Case Writer** - User Stories and Use Cases
-- **IFR & DAR Writer** - Interface Requirements and Design Analysis
-- **Prototype Designer** - System Design and Prototyping
+**Process Specialists** (4+):
+- 🚀 **Project Initializer** - Workspace setup and Git integration
+- 🔍 **SRS Reviewer** - Quality assessment and compliance checking
+- 📝 **Document Formatter** - Professional formatting and structure
+- 🔧 **Git Operator** - Version control automation
 
-**Process Specialists**:
+### 📊 Complete Document Lifecycle
 
-- **Project Initializer** - Workspace and Project Setup
-- **Document Formatter** - Professional Document Formatting
-- **Requirement Syncer** - Data Synchronization
-- **Git Operator** - Version Control Integration
+From initial concept to final deliverables:
 
-### 📋 Professional Document Generation
-
-**Comprehensive SRS Documents**: Generate structured requirements specifications with:
-
-- **Executive Summary** - Project overviews and key insights
-- **System Context** - Overall system description and environment  
-- **Functional Requirements** - Detailed feature specifications with traceability
-- **Non-Functional Requirements** - Performance, security, and quality criteria
-- **User Journeys** - User experience flows and interaction scenarios
-- **Use Cases & User Stories** - Structured requirement scenarios
-- **Architecture Decisions** - Design rationale and technical choices
-
-**Multi-Format Output**:
-
-- **Markdown Documents** - Human-readable, version-control friendly
-- **YAML Data** - Machine-readable, structured requirement data
-- **Professional Templates** - Industry-standard formatting
-
-### 🏗️ Project Management Features
-
-**Workspace Setup**: Automatic project structure creation with professional templates and organized file layouts.
-
-**Session Persistence**: Maintains project context and conversation history across VSCode sessions.
-
-**Multi-Project Support**: Handle multiple projects with isolated contexts and clean separation.
-
-### 🛠️ Tool Architecture
-
-**Professional tool ecosystem for intelligent document generation:**
-
-```text
-📊 Tool Categories Overview
-
-🟡 Atomic Layer - Core Operations
-├── File Operations: readFile, writeFile, createFile, appendTextToFile
-├── Directory Management: createDirectory, listFiles (support single-level/recursive)
-├── Editor Integration: openAndShowFile, executeMarkdownEdits, executeYAMLEdits
-├── User Interaction: askQuestion, confirmAction, suggestNextAction
-└── Smart Editing: semantic locators, unified edit execution
-
-🔴 Document Layer - Document Processing  
-├── Requirements: requirement scaffolding, YAML synchronization
-├── Document Generation: structured content creation
-├── Template System: professional SRS templates
-└── Traceability: requirement completion and linking
-
-🟣 Internal Layer - System Control
-├── Session Management: project state, context persistence  
-├── Project Setup: createNewProjectFolder, workspace initialization
-├── Task Completion: finalAnswer, taskComplete
-└── System Tools: recordThought, status reporting
+```
+💬 Conversation / Existing Document → 📋 SRS.md → 📄 requirements.yaml → 🎨 Prototype → ✅ Quality Review
 ```
 
-### ⚡ Additional Features
+**What You Get:**
 
-**Smart Context Management**: Maintains project state and specialist context across conversation sessions.
+1. **SRS.md** - Professional markdown document with:
+   - Executive summary
+   - System overview and context
+   - User stories, journeys, and use cases
+   - Functional and non-functional requirements
+   - Interface and data specifications
+   - Architecture decisions and constraints
 
-**Quality Assurance**: Built-in validation and consistency checks for generated content.
+2. **requirements.yaml** - Structured data with:
+   - Automatic entity ID extraction (US-xxx, UC-xxx, FR-xxx, etc.)
+   - Traceability relationships (which FRs derive from which user stories)
+   - Machine-readable format for tooling integration
 
-**Template Integration**: Professional SRS templates with customizable sections and formatting.
+3. **Interactive Prototypes** - Production-ready HTML with:
+   - Responsive design (mobile/tablet/desktop)
+   - CSS variable-based theming
+   - Interactive JavaScript behaviors
+   - Professional styling
 
-**VSCode Integration**: Seamless integration with VSCode's chat interface and file management.
+### 🎯 Intelligent Orchestration
+
+The **Orchestrator** acts as your project manager:
+
+- **Understands Intent** - Analyzes your request and creates execution plans
+- **Coordinates Specialists** - Assigns tasks to the right agents
+- **Handles Complexity** - Breaks down multi-step workflows automatically
+- **Self-Corrects** - Uses multi-turn dialogue to refine outputs
+- **Manages Context** - Maintains project state across conversations
+
+### 🔍 Built-in Quality Assurance
+
+**SRS Reviewer** performs comprehensive quality assessment:
+
+| Dimension | What It Checks |
+|-----------|---------------|
+| 📐 **Structure** | IEEE 830 compliance, section completeness |
+| 📊 **Completeness** | Missing requirements, coverage gaps |
+| 🔄 **Consistency** | Contradictions, terminology alignment |
+| 💬 **Clarity** | Ambiguity, testability, precision |
+| ⚖️ **Feasibility** | Technical viability, resource constraints |
+| 💼 **Business Value** | ROI, priority alignment |
+| 🤖 **AI Quality** | Hallucination detection, factual accuracy |
+
+**Scoring:** 0-10 scale for each dimension + overall quality score
+
+**Syntax Checker:**
+- Markdown linting (markdownlint integration)
+- YAML validation (basic/standard/strict modes)
+- Configurable rules
+
+**Traceability Completion:**
+- Automatic relationship mapping (US → UC → FR → NFR)
+- Derived FR computation
+- Cross-reference validation
+
+### 🛠️ Advanced Editing Capabilities
+
+**Semantic Document Editing:**
+- **SID-based targeting** - Stable, content-based section identifiers
+- **Structure-aware** - Maintains document hierarchy
+- **Precise modifications** - Replace/insert/delete specific sections
+- **Batch operations** - Multiple edits in one transaction
+
+**YAML Editing:**
+- **KeyPath operations** - Dot-notation targeting (`functional_requirements.0.priority`)
+- **Three parse modes**:
+  - `structure` - Explore keys only (90%+ token savings)
+  - `content` - Values only (default)
+  - `full` - Both structure and values
+- **Targeted extraction** - Pull specific paths without reading entire file
+
+### 🔌 Extensibility
+
+**Model Context Protocol (MCP) Support:**
+- Dynamic tool discovery from MCP servers
+- Three-tier permission control (global/server/tool levels)
+- Hot reload on configuration changes
+- Enterprise knowledge base integration
+
+**Template System:**
+- Customizable section templates (`.md` or `.poml` files)
+- Per-specialist template paths
+- Professional formatting out of the box
+
+**Multi-Project Workspace:**
+- Isolated project contexts
+- Git branch integration (`SRS/ProjectName`)
+- Session persistence across VSCode restarts
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- **VSCode 1.85.0+** with chat feature enabled
-- **AI Provider**: GitHub Copilot, Claude, or compatible language model
+- **VSCode 1.102+** with chat feature enabled
+- **AI Provider:** GitHub Copilot
 
 ### Installation
 
-1. **From VSCode Marketplace** (Recommended):
-   - Open VSCode Extensions panel (`Ctrl+Shift+X`)
-   - Search for "SRS Writer"
-   - Click Install
-
-2. **Manual Installation**:
-   - Download the latest `.vsix` file from [Releases](https://github.com/Testany-io/srs-writer-plugin/releases)
-   - Run `code --install-extension srs-writer-plugin-x.x.x.vsix`
+1. Open VSCode Extensions (`Ctrl+Shift+X` / `Cmd+Shift+X`)
+2. Search for **"SRS Writer"**
+3. Click **Install**
 
 ### First-Time Setup
 
-After installation, set up your workspace:
-1. Open Command Palette (`Ctrl+Shift+P`)
-2. Run "SRS Writer: Show Status"
-3. Select "Create Workspace and Initialize" 
-4. Choose a parent directory and workspace name
-5. SRS Writer will create the workspace with templates
+After installation, initialize your workspace:
 
-### Creating Your First SRS Document
+1. Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+2. Run **"SRS Writer: Control Panel"**
+3. Select **"Create Workspace & Initialize"**
+4. Choose parent directory and enter workspace name
+5. SRS Writer will:
+   - Create workspace directory
+   - Copy `.templates/` folder with professional templates
+   - Initialize Git repository with `.gitignore`
+   - Create initial commit
 
-1. **Open VSCode Chat Panel** (`Ctrl+Shift+I` or `Cmd+Shift+I`)
-2. **Start a conversation with @srs-writer**:
+**Your workspace is now ready!** Open it in VSCode to start creating SRS documents.
 
-   ```text
-   @srs-writer I want to create requirements for a task management webapp that helps development teams track sprints and assignments
+### Create Your First SRS in 3 Steps
+
+**Step 1: Open Chat Panel**
+
+Press `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (Mac)
+
+**Step 2: Start Conversation**
+
+```
+@srs-writer I'm building a task management web app for development teams.
+It needs sprint tracking, task assignments, time logging, and team dashboards.
+```
+
+**Step 3: Watch the Magic**
+
+SRS Writer will:
+1. 🤔 Analyze your requirements
+2. 📋 Create execution plan (you can review/modify)
+3. 🤖 Activate specialists to write each section
+4. 📄 Generate SRS.md + requirements.yaml
+5. ✅ Validate quality and traceability
+
+---
+
+## 💡 Use Cases
+
+### 1️⃣ Greenfield Projects (Starting from Scratch)
+
+**Perfect for:** New projects, MVP planning, client proposals
+
+```
+@srs-writer Create SRS for a mobile banking app with:
+- User authentication (biometric + PIN)
+- Account management (view balance, transactions)
+- Transfers (internal + external)
+- Bill payments
+- Push notifications
+```
+
+**Result:** Complete SRS with user stories, use cases, functional/non-functional requirements, and prototype.
+
+---
+
+### 2️⃣ Brownfield Projects (Importing Existing Documents)
+
+**Perfect for:** Standardizing legacy docs, importing from other tools
+
+```
+@srs-writer Start new project from my draft at /Users/me/docs/project-draft.md
+```
+
+SRS Writer will:
+- Extract existing requirements
+- Standardize format to IEEE 830
+- Fill in missing sections
+- Create structured YAML data
+
+---
+
+### 3️⃣ Agile → Traditional Documentation
+
+**Perfect for:** Compliance requirements, enterprise delivery, RFP responses
+
+```
+@srs-writer We have 50 user stories in Jira. Create a formal SRS document
+with functional requirements, use cases, and architecture decisions.
+```
+
+SRS Writer bridges Agile and traditional methodologies.
+
+---
+
+### 4️⃣ Iterative Refinement
+
+**Perfect for:** Ongoing projects, change requests, feature additions
+
+```
+@srs-writer Update the authentication section to add OAuth 2.0
+and social login (Google, Apple, Facebook)
+```
+
+**Semantic editing** precisely modifies specific sections without affecting the rest of the document.
+
+---
+
+### 5️⃣ Quality Audits
+
+**Perfect for:** Pre-delivery reviews, compliance checks, quality gates
+
+```
+@srs-writer Review my SRS for IEEE 830 compliance and identify gaps
+```
+
+**7-dimensional scoring** highlights:
+- Missing requirements
+- Inconsistencies
+- Ambiguous language
+- Technical risks
+- Business value misalignment
+
+---
+
+### 6️⃣ Prototype Generation
+
+**Perfect for:** Stakeholder demos, design validation, user testing
+
+```
+@srs-writer Create an interactive prototype for the user dashboard screen
+```
+
+**Multi-stage dialogue:**
+1. Confirm requirements
+2. Design layout (wireframe)
+3. Choose theme (colors, typography)
+4. Add interactions (clicks, hovers)
+
+**Output:** Production-ready HTML/CSS/JS with responsive design.
+
+---
+
+## 🎨 Chat Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `@srs-writer create` | Start new SRS document | `@srs-writer create an e-commerce platform` |
+| `@srs-writer edit` | Modify existing document | `@srs-writer edit the login use case` |
+| `@srs-writer review` | Quality assessment | `@srs-writer review my requirements` |
+| `@srs-writer sync` | Update YAML from markdown | `@srs-writer sync requirements.yaml` |
+| `@srs-writer prototype` | Generate interactive prototype | `@srs-writer prototype the checkout flow` |
+| `@srs-writer help` | Show available commands | `@srs-writer help` |
+| `@srs-writer new` | Start fresh conversation | `@srs-writer new` |
+
+---
+
+## 🏗️ How It Works
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     VSCode Chat Interface                    │
+│                  "I need SRS for X project..."               │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   🧠 Orchestrator (AI)                        │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ 1. Analyze intent (OODA Loop: Observe → Orient →     │  │
+│  │    Decide → Act)                                     │  │
+│  │ 2. Create execution plan (multi-step breakdown)      │  │
+│  │ 3. Select specialists for each task                  │  │
+│  │ 4. Coordinate execution (sequential or parallel)     │  │
+│  └──────────────────────────────────────────────────────┘  │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                ┌────────────┼────────────┐
+                ▼            ▼            ▼
+┌─────────────────────┬─────────────────┬──────────────────────┐
+│  📝 Content         │  ⚙️ Process     │  🎨 Prototype        │
+│  Specialists        │  Specialists    │  Designer            │
+├─────────────────────┼─────────────────┼──────────────────────┤
+│ • Summary Writer    │ • Project Init  │ • Layout Design      │
+│ • FR Writer         │ • SRS Reviewer  │ • Theme Selection    │
+│ • NFR Writer        │ • Req Syncer    │ • Interaction Design │
+│ • User Story Writer │ • Git Operator  │ • HTML/CSS/JS Gen    │
+│ • Use Case Writer   │ • Doc Formatter │                      │
+│ • ... (12 total)    │ • ... (5 total) │                      │
+└─────────────────────┴─────────────────┴──────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      🛠️ Tool Ecosystem                        │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ • Markdown Editor (semantic SID-based targeting)     │  │
+│  │ • YAML Editor (keyPath operations, parse modes)      │  │
+│  │ • Scaffold Generator (extract entity IDs)            │  │
+│  │ • Traceability Completer (relationship mapping)      │  │
+│  │ • Syntax Checker (markdown lint + YAML validation)   │  │
+│  │ • File Operations (read/write/create)                │  │
+│  │ • Git Operations (branch, commit, push)              │  │
+│  │ • MCP Tools (dynamic external tools)                 │  │
+│  └──────────────────────────────────────────────────────┘  │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    📊 Output Deliverables                    │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ 📋 SRS.md              Professional markdown document │  │
+│  │ 📄 requirements.yaml    Structured data with IDs      │  │
+│  │ 🎨 prototype/          Interactive HTML prototypes   │  │
+│  │ ✅ quality-report.md    7-dimensional assessment      │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Execution Flow Example
+
+**User Request:** *"Create SRS for an e-commerce platform"*
+
+1. **Orchestrator** analyzes intent → Creates 5-step plan:
+   ```
+   Step 1: Initialize project structure
+   Step 2: Generate system overview
+   Step 3: Create user stories and use cases
+   Step 4: Write functional requirements
+   Step 5: Add non-functional requirements
    ```
 
-3. **Available Chat Commands**:
+2. **Project Initializer** (Process Specialist):
+   - Creates `/my-ecommerce-project/` directory
+   - Initializes `SRS.md` with template
+   - Sets up Git branch `SRS/my-ecommerce-project`
 
-   - `@srs-writer create` - Create a new SRS document
-   - `@srs-writer edit` - Edit existing SRS document  
-   - `@srs-writer lint` - Check document quality
-   - `@srs-writer help` - Show help information
-   - `@srs-writer new` - Start a fresh conversation session
+3. **Overall Description Writer** (Content Specialist):
+   - Reads project context
+   - Generates system overview section
+   - Writes to SRS.md using semantic edits
 
-### Usage Examples
+4. **User Story Writer** (Content Specialist):
+   - Creates user stories (US-001, US-002, ...)
+   - Adds acceptance criteria
+   - Updates SRS.md
 
-**Create a New Project**:
+5. **Traceability Completer** (Tool):
+   - Analyzes SRS + YAML
+   - Computes relationships (US → UC → FR)
+   - Updates `requirements.yaml` with `derivedFrom` mappings
 
-```text
-@srs-writer create a mobile e-commerce app with user authentication, product catalog, shopping cart, and payment processing
+6. **SRS Reviewer** (Process Specialist):
+   - Performs 7-dimensional quality check
+   - Generates quality report
+   - Suggests improvements
+
+---
+
+## 🔧 Configuration
+
+SRS Writer is highly customizable through VSCode settings:
+
+### AI Orchestrator
+
+```json
+{
+  "srsWriter.orchestrator.aiEnabled": true  // Enable AI orchestration mode
+}
 ```
 
-**Edit Existing Requirements**:
+### Syntax Checker
 
-```text
-@srs-writer edit the user authentication section to add two-factor authentication and social login options
+```json
+{
+  "srsWriter.syntaxChecker.markdownMode": "standard",  // all | standard | no | custom
+  "srsWriter.syntaxChecker.yamlLevel": "standard"      // basic | standard | strict
+}
 ```
 
-**Quality Check**:
+### Templates
 
-```text
-@srs-writer lint my current requirements document and suggest improvements
+```json
+{
+  "srsWriter.templates.summaryWriter": "${workspaceFolder}/.templates/summary.md",
+  "srsWriter.templates.frWriter": "${workspaceFolder}/.templates/FR.md"
+  // ... 11 configurable templates
+}
 ```
 
-**Add New Features**:
+### MCP Tools
 
-```text
-@srs-writer I need to add real-time notifications and offline mode capabilities to my existing project
+```json
+{
+  "srsWriter.mcp.excludeKeywords": ["dangerous", "admin"]  // Filter MCP tools by keyword
+}
 ```
 
-## 🏗️ System Architecture
+### Knowledge Sources
 
-### Overview
-
-SRS Writer uses a specialist-based architecture where different agents handle specific aspects of SRS document generation:
-
-```mermaid
-flowchart TB
-    subgraph "💬 User Interface"
-        CHAT["VSCode Chat Integration"]
-        CMD["Command Palette"]
-        STATUS["Agent Status Indicators"]
-    end
-    
-    subgraph "🧠 Multi-Agent Orchestration"
-        ORCH["Master Orchestrator"]
-        PLAN["Plan Generator"]
-        EXEC["Plan Executor"]
-        CONV["Conversational Executor"]
-    end
-    
-    subgraph "🎯 Specialist Agent System"
-        PROJ["Project Initializer"]
-        OVER["Overall Description Writer"]
-        FR["FR Writer"]
-        NFR["NFR Writer"]
-        USER["User Journey Writer"]
-        SUM["Summary Writer"]
-        PROTO["Prototype Designer"]
-        SYNC["Requirement Syncer"]
-        DOC["Document Formatter"]
-    end
-    
-    subgraph "🔧 Agent Tool Ecosystem"
-        ATOMIC["Atomic Tools (19)"]
-        DOCUMENT["Document Tools (6)"]
-        INTERNAL["Internal Tools (4)"]
-        SPECIALIST["Specialist Tools (4)"]
-    end
-    
-    subgraph "💾 Agent State Management"
-        SESSION["Session Manager"]
-        CONTEXT["Context Manager"]
-        LOOP["Loop Detector"]
-        QUALITY["Quality Monitor"]
-    end
-    
-    CHAT --> ORCH
-    ORCH --> PLAN
-    PLAN --> EXEC
-    EXEC --> CONV
-    
-    EXEC --> PROJ
-    EXEC --> OVER
-    EXEC --> FR
-    EXEC --> NFR
-    EXEC --> USER
-    EXEC --> SUM
-    EXEC --> PROTO
-    EXEC --> SYNC
-    EXEC --> DOC
-    
-    PROJ --> ATOMIC
-    OVER --> DOCUMENT
-    FR --> INTERNAL
-    NFR --> SPECIALIST
-    
-    ATOMIC --> SESSION
-    DOCUMENT --> CONTEXT
-    INTERNAL --> LOOP
-    SPECIALIST --> QUALITY
-    
-    style CHAT fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#ffffff
-    style ORCH fill:#553c9a,stroke:#6b46c1,stroke-width:2px,color:#ffffff
-    style PROJ fill:#059669,stroke:#047857,stroke-width:2px,color:#ffffff
-    style SESSION fill:#92400e,stroke:#d97706,stroke-width:2px,color:#ffffff
+```json
+{
+  "srsWriter.knowledge.localPaths": ["/path/to/enterprise/kb"],
+  "srsWriter.knowledge.ragEndpoint": "https://rag.company.com/api"
+}
 ```
 
-### Core Components
-
-| Component | Purpose | Capabilities |
-|-----------|---------|--------------|
-| **Chat Participant** | VSCode chat integration | Natural language processing, command handling |
-| **Orchestrator** | Task coordination | Intent analysis, specialist selection, workflow management |
-| **Specialists** | Content generation | Domain-specific document creation (FR, NFR, etc.) |
-| **Session Manager** | State management | Project context, session persistence |
-| **Tool Executor** | Action execution | File operations, editing, validation |
-
-### Agent Execution Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Orchestrator
-    participant PlanExecutor
-    participant ProjectInit as Project Initializer
-    participant OverallDesc as Overall Description Writer
-    participant FRWriter as FR Writer
-    participant NFRWriter as NFR Writer
-    participant DocFormatter as Document Formatter
-    
-    User->>Orchestrator: Create SRS for e-commerce platform
-    Orchestrator->>Orchestrator: Analyze intent & generate plan
-    Orchestrator->>PlanExecutor: Execute multi-agent plan
-    
-    PlanExecutor->>ProjectInit: Step 1: Initialize project
-    ProjectInit->>PlanExecutor: Project structure created
-    
-    PlanExecutor->>OverallDesc: Step 2: Create system overview
-    OverallDesc->>PlanExecutor: System context complete
-    
-    PlanExecutor->>FRWriter: Step 3: Generate functional requirements
-    FRWriter->>PlanExecutor: FR specifications ready
-    
-    PlanExecutor->>NFRWriter: Step 4: Add non-functional requirements
-    NFRWriter->>PlanExecutor: NFR specifications complete
-    
-    PlanExecutor->>DocFormatter: Step 5: Format final document
-    DocFormatter->>PlanExecutor: Professional SRS ready
-    
-    PlanExecutor->>User: Complete SRS delivered
-```
-
-## 📊 Technical Information
-
-### System Requirements
-
-- **VSCode**: Version 1.85.0 or higher
-- **AI Provider**: GitHub Copilot, Claude, or compatible language model
-- **Platform**: Cross-platform (Windows, macOS, Linux)
-
-### Performance
-
-- **Document Generation**: Typically 10-15 minutes for a comprehensive SRS
-- **Session Persistence**: Project state maintained across VSCode restarts
-- **Template System**: Pre-built templates for consistent formatting
-
-### Compatibility
-
-- **VSCode Chat**: Full integration with VSCode's native chat interface
-- **File Formats**: Markdown (.md) and YAML (.yml) output
-- **Multi-Project**: Support for multiple concurrent projects
-
-## 📁 Project Structure
-
-```text
-srs-writer-plugin/
-├── 📦 src/                          # TypeScript source code
-│   ├── 🧠 core/                     # Core system components
-│   │   ├── orchestrator.ts          # Task coordination
-│   │   ├── specialistExecutor.ts    # Specialist management
-│   │   ├── session-manager.ts       # Project state management
-│   │   └── srsAgentEngine.ts        # Execution engine
-│   ├── 🛠️ tools/                    # Tool implementations
-│   │   ├── atomic/                  # Basic operations (file I/O, editing)
-│   │   ├── document/                # Document processing tools
-│   │   └── internal/                # System control tools
-│   ├── 💬 chat/                     # VSCode chat integration
-│   │   └── srs-chat-participant.ts # Chat participant implementation
-│   ├── 🎨 types/                    # TypeScript type definitions
-│   └── 🔧 utils/                    # Utility functions
-├── 📋 rules/                        # Specialist behavior rules
-│   ├── orchestrator.md              # Orchestrator behavior
-│   ├── base/                        # Common specialist behaviors
-│   └── specialists/                 # Specialist-specific rules
-│       ├── content/                 # Content generation specialists
-│       └── process/                 # Process automation specialists
-├── 📄 .templates/                   # Professional SRS templates
-│   ├── ADC/                         # Architecture Decision Capture
-│   ├── functional_requirements/     # FR templates
-│   ├── NFR/                         # Non-functional requirements
-│   └── ...                          # Other specialist templates
-├── 🧪 src/test/                     # Test suite
-├── ⚙️ config/                       # Configuration files
-└── 📚 docs/                         # Documentation
-```
-
-## 💡 Usage Examples
-
-### Complex SRS Creation
-
-**Input**:
-```text
-@srs-writer Create a comprehensive requirements document for a university course management system with student enrollment, grade tracking, course scheduling, instructor management, and mobile app integration.
-```
-
-**What happens**:
-1. **Project Setup**: Creates workspace structure and initializes templates
-2. **Content Generation**: Multiple specialists generate different document sections
-3. **Quality Assurance**: Reviews and validates generated content
-4. **Final Output**: Professional SRS document with structured requirements
-
-### Enhancing Existing Projects
-
-**Adding new features**:
-```text
-@srs-writer Add real-time chat, video conferencing, and mobile notifications to my existing e-learning platform project
-```
-
-**Document review**:
-```text
-@srs-writer Review my requirements document for completeness, consistency, and industry best practices
-```
-
-## 🧪 Testing & Quality
-
-- **Unit Tests**: Individual component functionality
-- **Integration Tests**: End-to-end workflow testing  
-- **Template Validation**: Ensures template integrity
-- **Content Quality**: Validates generated document structure
-- **Error Handling**: Graceful error recovery and user feedback
-
-## 🚀 Development
-
-### Development Environment
-
-```bash
-# Setup development environment
-git clone https://github.com/Testany-io/srs-writer-plugin.git
-cd srs-writer-plugin
-npm install
-
-# Development workflow
-npm run build           # Build the extension
-npm run watch          # Development with hot-reload
-npm run test           # Run test suite
-npm run package        # Create VSIX package
-
-# Quality assurance
-npm run lint           # Code validation
-npm run test:coverage  # Test coverage analysis
-npm run test:integration # Integration testing
-```
-
-### Contributing Guidelines
-
-1. **Code Quality**: Follow TypeScript best practices and linting rules
-2. **Testing**: Include tests for new features and bug fixes
-3. **Documentation**: Update documentation for new functionality
-4. **Template Updates**: Ensure template changes maintain compatibility
+---
 
 ## 📚 Documentation
 
-### Getting Help
+### Learning Resources
 
-- **Chat Commands**: Use `@srs-writer help` in VSCode Chat for assistance
-- **Status Check**: Run "SRS Writer: Show Status" from Command Palette
-- **Templates**: Explore `.templates/` folder for available document templates
+- **Quick Start Guide** - Get started in 5 minutes
+- **User Manual** - Comprehensive feature documentation
+- **Specialist Guide** - Understanding each specialist's role
+- **Tool Reference** - Available tools and their capabilities
+- **Template Customization** - Creating custom templates
+- **MCP Integration** - Connecting enterprise knowledge bases
 
-### Resources
+### Support
 
-- **GitHub Repository**: [Source code and issues](https://github.com/Testany-io/srs-writer-plugin)
-- **VSCode Marketplace**: [Extension page and reviews](https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin)
-- **Documentation**: See `docs/` folder for detailed guides
+- **GitHub Issues:** [Report bugs or request features](https://github.com/Testany-io/srs-writer-plugin/issues)
+- **GitHub Discussions:** [Ask questions and share tips](https://github.com/Testany-io/srs-writer-plugin/discussions)
+- **VSCode Marketplace:** [Reviews and ratings](https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin)
 
-## 🎯 Roadmap
+---
 
-### Current Features
+## 🏆 What Makes SRS Writer Unique?
 
-- ✅ **13 Specialized Specialists**: Complete coverage of SRS document sections
-- ✅ **Template System**: Professional templates for consistent output
-- ✅ **VSCode Integration**: Native chat interface and workspace management
-- ✅ **Session Persistence**: Project state maintained across sessions
-- ✅ **Multi-Project Support**: Handle multiple projects simultaneously
+### vs. Manual SRS Writing
 
-### Planned Improvements
+| Aspect | Manual | SRS Writer |
+|--------|--------|------------|
+| **Speed** | Weeks | Hours (**10-20x faster**) |
+| **Quality** | Varies by author | Consistent (**7-dimensional checks**) |
+| **Traceability** | Manual spreadsheets | Automatic (**computed relationships**) |
+| **IEEE 830 Compliance** | Requires expertise | Built-in (**template-driven**) |
+| **Prototype** | Separate tool | Integrated (**HTML/CSS/JS generation**) |
 
-- **Enhanced Templates**: More industry-specific template options
-- **Better Integration**: Improved VSCode workspace features
-- **Quality Enhancements**: Advanced content validation and suggestions  
-- **User Experience**: Streamlined workflows and better feedback
-- **Documentation**: Expanded guides and examples
+### vs. Generic AI Tools (ChatGPT, Claude)
+
+| Aspect | Generic AI | SRS Writer |
+|--------|------------|------------|
+| **Specialization** | General purpose | **17+ domain experts** |
+| **VSCode Integration** | Copy-paste | **Native chat participant** |
+| **Structured Output** | Text only | **Markdown + YAML + HTML** |
+| **Traceability** | Manual linking | **Automatic mapping** |
+| **Quality Assurance** | None | **Built-in reviewer** |
+
+### vs. Requirements Tools (DOORS, Jama)
+
+| Aspect | Traditional Tools | SRS Writer |
+|--------|-------------------|------------|
+| **AI Content Generation** | ❌ None | ✅ **Full AI authoring** |
+| **Complexity** | High (enterprise) | Low (**VSCode chat**) |
+| **Cost** | $$$$ | $ (**VSCode extension**) |
+| **Version Control** | Proprietary | **Git-friendly markdown** |
+| **Prototype** | ❌ None | ✅ **Interactive HTML** |
+
+---
+
+## 🧑‍💻 Development
+
+### Building from Source
+
+```bash
+# Clone repository
+git clone https://github.com/Testany-io/srs-writer-plugin.git
+cd srs-writer-plugin
+
+# Install dependencies
+yarn install
+
+# Development
+yarn watch             # Hot reload during development
+yarn build             # Production build
+yarn test              # Run test suite
+yarn package           # Create VSIX package
+
+# Quality checks
+yarn lint              # Code linting
+yarn test:coverage     # Test coverage report
+yarn test:integration  # Integration testing
+```
+
+### Contributing
+
+We welcome contributions! Here are areas we'd love help with:
+
+- 📝 **Additional Specialist Templates** - Create new content generation templates
+- 🌐 **Internationalization (i18n)** - Add multi-language support
+- 🧪 **Test Coverage** - Improve unit and integration tests
+- 📚 **Documentation** - Write guides, tutorials, and examples
+- 🐛 **Bug Fixes** - Report and fix issues
+- ⚡ **Performance** - Optimize token usage and execution speed
+
+**How to Contribute:**
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and add tests
+4. Ensure all tests pass (`yarn test`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+Please ensure your code follows the existing style and includes appropriate tests.
+
+---
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for complete details.
+**Apache License 2.0** - See [LICENSE](LICENSE) for details.
 
-**License Highlights:**
-
+**Quick Summary:**
 - ✅ Commercial use permitted
 - ✅ Modification and distribution allowed
 - ✅ Patent protection included
@@ -484,10 +596,14 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 <div align="center">
 
-**Built with ❤️ for the software engineering community**
+### Built with ❤️ for the Software Engineering Community
 
 **Powered by Advanced Multi-Agent AI Architecture**
 
-[⭐ Star on GitHub](https://github.com/Testany-io/srs-writer-plugin) • [🐛 Report Bug](https://github.com/Testany-io/srs-writer-plugin/issues) • [💡 Request Feature](https://github.com/Testany-io/srs-writer-plugin/issues)
+[⭐ Star on GitHub](https://github.com/Testany-io/srs-writer-plugin) • [🐛 Report Bug](https://github.com/Testany-io/srs-writer-plugin/issues) • [💡 Request Feature](https://github.com/Testany-io/srs-writer-plugin/issues) • [💬 Discussions](https://github.com/Testany-io/srs-writer-plugin/discussions)
+
+[![GitHub Stars](https://img.shields.io/github/stars/Testany-io/srs-writer-plugin?style=social)](https://github.com/Testany-io/srs-writer-plugin)
+[![VSCode Installs](https://img.shields.io/visual-studio-marketplace/i/Testany.srs-writer-plugin?label=Installs)](https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin)
+[![VSCode Rating](https://img.shields.io/visual-studio-marketplace/r/Testany.srs-writer-plugin?label=Rating)](https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin)
 
 </div>

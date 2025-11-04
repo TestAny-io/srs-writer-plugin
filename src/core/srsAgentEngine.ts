@@ -1036,7 +1036,10 @@ export class SRSAgentEngine implements ISessionObserver {
       case 'executeSemanticEdits':
       case 'executeMarkdownEdits':
         return `应用${result.appliedCount || result.appliedIntents?.length || 0}个编辑`;
-      
+
+      case 'executeYAMLEdits':
+        return `应用${result.appliedEdits?.length || 0}个编辑`;
+
       case 'readFileWithStructure':
       case 'readMarkdownFile':
         const sizeKB = Math.round((result.metadata?.documentLength || result.content?.length || 0) / 1024);
@@ -2402,21 +2405,21 @@ export class SRSAgentEngine implements ISessionObserver {
 
         case 'executeYAMLEdits':
           // 显示filePath和edits count
-          if (args.yamlFilePath && args.edits) {
+          if (args.targetFile && args.edits) {
             const editsCount = Array.isArray(args.edits) ? args.edits.length : 0;
-            return ` - 修改了${editsCount}个字段 (${this.shortenPath(args.yamlFilePath)})`;
-          } else if (args.yamlFilePath) {
-            return ` - ${this.shortenPath(args.yamlFilePath)}`;
+            return ` - 修改了${editsCount}个字段 (${this.shortenPath(args.targetFile)})`;
+          } else if (args.targetFile) {
+            return ` - ${this.shortenPath(args.targetFile)}`;
           }
           return '';
 
         case 'executeTextFileEdits':
           // 显示filePath和edits count
-          if (args.filePath && args.edits) {
+          if (args.targetFile && args.edits) {
             const editsCount = Array.isArray(args.edits) ? args.edits.length : 0;
-            return ` - 修改了${editsCount}个部分 (${this.shortenPath(args.filePath)})`;
-          } else if (args.filePath) {
-            return ` - ${this.shortenPath(args.filePath)}`;
+            return ` - 修改了${editsCount}个部分 (${this.shortenPath(args.targetFile)})`;
+          } else if (args.targetFile) {
+            return ` - ${this.shortenPath(args.targetFile)}`;
           }
           return '';
 

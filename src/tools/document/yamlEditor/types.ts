@@ -17,11 +17,46 @@ export interface YAMLStructure {
 }
 
 /**
+ * YAML解析模式
+ * - structure: 仅返回结构信息（键路径、类型、深度），不返回实际内容
+ * - content: 返回完整内容和解析后的数据，不返回结构信息
+ * - full: 返回所有信息（内容 + 数据 + 结构）
+ */
+export type ParseMode = 'structure' | 'content' | 'full';
+
+/**
+ * 目标提取请求
+ */
+export interface TargetRequest {
+    type: 'keyPath';                       // 目标类型（目前仅支持keyPath）
+    path: string;                          // 要提取的键路径（如 "functional_requirements.0.title"）
+    maxDepth?: number;                     // 对于对象/数组值，分析的最大深度（默认：5）
+}
+
+/**
+ * 目标提取结果
+ */
+export interface TargetResult {
+    type: 'keyPath';                       // 结果类型
+    path: string;                          // 键路径
+    success: boolean;                      // 是否成功提取
+    value?: any;                           // 提取的值
+    valueType?: string;                    // 值的类型
+    structure?: YAMLStructure;             // 如果值是对象/数组，其结构信息
+    error?: {
+        message: string;
+        details?: string;
+    };
+}
+
+/**
  * YAML读取参数
  */
 export interface ReadYAMLArgs {
     path: string;                           // YAML文件路径（相对于工作区根目录）
-    includeStructure?: boolean;             // 是否包含结构信息（默认：true）
+    parseMode?: ParseMode;                  // 解析模式（默认：'content'）
+    targets?: TargetRequest[];              // 目标提取列表（指定后忽略parseMode）
+    includeStructure?: boolean;             // [已废弃] 是否包含结构信息（使用parseMode替代）
     maxDepth?: number;                      // 结构分析的最大深度（默认：5）
 }
 
@@ -30,9 +65,10 @@ export interface ReadYAMLArgs {
  */
 export interface ReadYAMLResult {
     success: boolean;
-    content: string;                        // 原始YAML内容
-    parsedData?: any;                       // 解析后的JavaScript对象
-    structure?: YAMLStructure;              // YAML结构信息
+    content: string;                        // 原始YAML内容（parseMode='structure'时为空）
+    parsedData?: any;                       // 解析后的JavaScript对象（parseMode='structure'时不返回）
+    structure?: YAMLStructure;              // YAML结构信息（parseMode='content'时不返回）
+    targets?: TargetResult[];               // 目标提取结果（指定targets参数时返回）
     error?: string;
 }
 

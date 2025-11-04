@@ -25,22 +25,53 @@ const logger = Logger.getInstance();
  */
 export const readYAMLFilesToolDefinition = {
     name: "readYAMLFiles",
-    description: "Read and parse YAML files with structural analysis. Provides key paths and data types for editing. Specialized for .yaml/.yml files.",
+    description: "Read YAML files. Supports token-optimized modes: 'structure' (explore only), 'content' (full data), or 'targets' (extract specific paths).",
     parameters: {
         type: "object",
         properties: {
             path: {
                 type: "string",
-                description: "YAML file path relative to project baseDir (or workspace root if no project is active). Do not include project name in path. Must be .yaml or .yml file. Example: 'requirements.yaml' not 'projectName/requirements.yaml'"
+                description: "Relative path to YAML file. Example: 'requirements.yaml'"
+            },
+            parseMode: {
+                type: "string",
+                enum: ["structure", "content", "full"],
+                description: "Controls what each target returns: 'content' (values only, default), 'structure' (structure only), 'full' (both)"
+            },
+            targets: {
+                type: "array",
+                description: "Extract specific paths only. Use after exploring with parseMode='structure'. Example: [{type: 'keyPath', path: 'functional_requirements.0'}]",
+                items: {
+                    type: "object",
+                    properties: {
+                        type: {
+                            type: "string",
+                            enum: ["keyPath"],
+                            description: "Target type (only 'keyPath' supported)"
+                        },
+                        path: {
+                            type: "string",
+                            description: "Dot-separated path. Use numbers for arrays: 'items.0.name'"
+                        },
+                        maxDepth: {
+                            type: "number",
+                            description: "Structure depth for this target. Default: 5",
+                            default: 5,
+                            minimum: 1,
+                            maximum: 10
+                        }
+                    },
+                    required: ["type", "path"]
+                }
             },
             includeStructure: {
                 type: "boolean",
-                description: "Include YAML structure information with key paths and types. Default: true",
+                description: "[DEPRECATED] Use parseMode instead",
                 default: true
             },
             maxDepth: {
                 type: "number",
-                description: "Maximum depth for structure analysis. Default: 5",
+                description: "Structure analysis depth. Default: 5",
                 default: 5,
                 minimum: 1,
                 maximum: 10
@@ -57,7 +88,35 @@ export const readYAMLFilesToolDefinition = {
     ],
     interactionType: 'autonomous',
     riskLevel: 'low',
-    requiresConfirmation: false
+    requiresConfirmation: false,
+    callingGuide: {
+        whenToUse: "Read YAML files. For large files (>100 lines), use layered exploration to save tokens.",
+        prerequisites: "YAML file exists at specified path (relative to workspace/project).",
+        performanceNotes: [
+            "Suggested Layered workflow for context token saving: 1) parseMode='structure' (file overview) → 2) targets with parseMode='content' (values only) → 3) parseMode='full' if need both",
+            "targets mode never returns full file content - only requested paths",
+            "Default parseMode='content' returns values without structure analysis"
+        ],
+        examples: [
+            {
+                scenario: "Explore file structure",
+                input: { path: "requirements.yaml", parseMode: "structure", maxDepth: 2 }
+            },
+            {
+                scenario: "Get values only (count array length)",
+                input: { path: "requirements.yaml", targets: [{ type: "keyPath", path: "functional_requirements" }] }
+            },
+            {
+                scenario: "Get structure to explore nested object",
+                input: { path: "config.yaml", parseMode: "structure", targets: [{ type: "keyPath", path: "database", maxDepth: 2 }] }
+            }
+        ],
+        commonPitfalls: [
+            "❌ Not using targets for large files",
+            "❌ Using parseMode='full' when only need values",
+            "✅ Use targets with default parseMode for values only"
+        ]
+    }
 };
 
 /**

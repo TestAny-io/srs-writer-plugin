@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { Logger } from '../../../utils/logger';
 import { resolveWorkspacePath } from '../../../utils/path-resolver';
-import { YAMLStructure, ReadYAMLArgs, ReadYAMLResult, ScaffoldError, ScaffoldErrorType } from './types';
+import { YAMLStructure, ReadYAMLArgs, ReadYAMLResult, ScaffoldError, ScaffoldErrorType, TargetRequest, TargetResult, ParseMode } from './types';
 import { YAMLKeyPathOperator } from './YAMLKeyPathOperator';
 
 const logger = Logger.getInstance();
@@ -47,10 +47,75 @@ export class YAMLReader {
             // 4. 解析YAML（使用与scaffoldGenerator相同的yaml.load）
             const parsedData = yaml.load(content) as any;
 
-            // 5. 生成结构信息（新功能）
-            let structure: YAMLStructure | undefined;
-            if (args.includeStructure !== false) {
-                structure = this.analyzeStructure(parsedData, args.maxDepth || 5);
+            // 5. 确定解析模式和参数
+            const hasTargets = args.targets && args.targets.length > 0;
+            const maxDepth = args.maxDepth || 5;
+
+            // 6. 处理targets模式（优先级最高）
+            if (hasTargets) {
+                const parseMode: ParseMode = args.parseMode || 'content';
+                logger.info(`🎯 目标提取模式: ${args.targets!.length} 个目标, parseMode: ${parseMode}`);
+                const targetResults = await this.processTargets(
+                    args.targets!,
+                    parsedData,
+                    parseMode,
+                    maxDepth
+                );
+
+                return {
+                    success: true,
+                    content: '',  // targets模式永远不返回完整文件内容
+                    targets: targetResults
+                };
+            }
+
+            // 7. 处理parseMode模式（如果指定了parseMode）
+            if (args.parseMode) {
+                logger.info(`📊 解析模式: ${args.parseMode}`);
+
+                switch (args.parseMode) {
+                    case 'structure': {
+                        // 仅返回结构信息，不返回内容和数据
+                        const structure = this.analyzeStructure(parsedData, maxDepth);
+                        logger.info(`📊 结构分析完成: ${structure.totalKeys} 个键，最大深度 ${structure.depth}`);
+                        return {
+                            success: true,
+                            content: '',
+                            structure
+                        };
+                    }
+
+                    case 'content': {
+                        // 返回内容和数据，不返回结构
+                        logger.info(`📄 返回完整内容和解析数据`);
+                        return {
+                            success: true,
+                            content,
+                            parsedData
+                        };
+                    }
+
+                    case 'full': {
+                        // 返回所有信息
+                        const structure = this.analyzeStructure(parsedData, maxDepth);
+                        logger.info(`📊 结构分析完成: ${structure.totalKeys} 个键，最大深度 ${structure.depth}`);
+                        logger.info(`📄 返回完整信息（内容+数据+结构）`);
+                        return {
+                            success: true,
+                            content,
+                            parsedData,
+                            structure
+                        };
+                    }
+                }
+            }
+
+            // 8. 向后兼容：使用includeStructure参数（当parseMode未指定时）
+            const structure = args.includeStructure !== false
+                ? this.analyzeStructure(parsedData, maxDepth)
+                : undefined;
+
+            if (structure) {
                 logger.info(`📊 结构分析完成: ${structure.totalKeys} 个键，最大深度 ${structure.depth}`);
             }
 
@@ -90,7 +155,7 @@ export class YAMLReader {
         try {
             // 使用YAMLKeyPathOperator提取所有键路径
             const keyPaths = YAMLKeyPathOperator.extractAllKeyPaths(data, '', maxDepth);
-            
+
             // 分析键类型
             const keyTypes: Record<string, string> = {};
             for (const keyPath of keyPaths) {
@@ -99,7 +164,7 @@ export class YAMLReader {
             }
 
             // 计算最大深度
-            const depth = keyPaths.length > 0 
+            const depth = keyPaths.length > 0
                 ? Math.max(...keyPaths.map(path => path.split('.').length))
                 : 0;
 
@@ -117,6 +182,141 @@ export class YAMLReader {
                 keyTypes: {},
                 depth: 0,
                 totalKeys: 0
+            };
+        }
+    }
+
+    /**
+     * 处理目标提取列表
+     * @param targets 目标列表
+     * @param parsedData 解析后的YAML数据
+     * @param parseMode 解析模式
+     * @param defaultMaxDepth 默认最大深度
+     * @returns 目标提取结果列表
+     */
+    private static async processTargets(
+        targets: TargetRequest[],
+        parsedData: any,
+        parseMode: ParseMode,
+        defaultMaxDepth: number
+    ): Promise<TargetResult[]> {
+        const results: TargetResult[] = [];
+
+        for (const target of targets) {
+            try {
+                if (target.type === 'keyPath') {
+                    const result = await this.processKeyPathTarget(
+                        target,
+                        parsedData,
+                        parseMode,
+                        defaultMaxDepth
+                    );
+                    results.push(result);
+                } else {
+                    // 未知的目标类型
+                    results.push({
+                        type: 'keyPath',
+                        path: target.path,
+                        success: false,
+                        error: {
+                            message: `不支持的目标类型: ${target.type}`,
+                            details: '当前仅支持 keyPath 类型'
+                        }
+                    });
+                }
+            } catch (error) {
+                logger.warn(`目标提取失败: ${target.path}, 错误: ${(error as Error).message}`);
+                results.push({
+                    type: 'keyPath',
+                    path: target.path,
+                    success: false,
+                    error: {
+                        message: '目标提取失败',
+                        details: (error as Error).message
+                    }
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 处理单个keyPath目标
+     * @param target 目标请求
+     * @param parsedData 解析后的YAML数据
+     * @param parseMode 解析模式
+     * @param defaultMaxDepth 默认最大深度
+     * @returns 目标提取结果
+     */
+    private static async processKeyPathTarget(
+        target: TargetRequest,
+        parsedData: any,
+        parseMode: ParseMode,
+        defaultMaxDepth: number
+    ): Promise<TargetResult> {
+        try {
+            // 1. 提取值
+            const value = YAMLKeyPathOperator.getValue(parsedData, target.path);
+
+            // 2. 检查值是否存在
+            if (value === undefined) {
+                return {
+                    type: 'keyPath',
+                    path: target.path,
+                    success: false,
+                    error: {
+                        message: '键路径不存在',
+                        details: `在YAML数据中找不到键路径: ${target.path}`
+                    }
+                };
+            }
+
+            // 3. 推断值类型
+            const valueType = YAMLKeyPathOperator.inferValueType(value);
+
+            // 4. 根据parseMode决定返回内容
+            const needsStructure = parseMode === 'structure' || parseMode === 'full';
+            const needsValue = parseMode === 'content' || parseMode === 'full';
+
+            // 5. 如果需要结构信息，分析对象/数组的结构
+            let structure: YAMLStructure | undefined;
+            if (needsStructure && (valueType === 'object' || valueType === 'array')) {
+                const maxDepth = target.maxDepth || defaultMaxDepth;
+                structure = this.analyzeStructure(value, maxDepth);
+                logger.info(`📊 键路径 ${target.path} 结构分析: ${structure.totalKeys} 个键`);
+            }
+
+            // 6. 构建返回结果（只包含需要的字段）
+            const result: TargetResult = {
+                type: 'keyPath',
+                path: target.path,
+                success: true,
+                valueType
+            };
+
+            // 只在需要时添加value字段
+            if (needsValue) {
+                result.value = value;
+            }
+
+            // 只在需要且已分析时添加structure字段
+            if (structure) {
+                result.structure = structure;
+            }
+
+            return result;
+
+        } catch (error) {
+            logger.warn(`处理keyPath目标失败: ${target.path}, 错误: ${(error as Error).message}`);
+            return {
+                type: 'keyPath',
+                path: target.path,
+                success: false,
+                error: {
+                    message: 'keyPath提取失败',
+                    details: (error as Error).message
+                }
             };
         }
     }
