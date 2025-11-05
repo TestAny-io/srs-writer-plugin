@@ -593,7 +593,7 @@ export class SRSAgentEngine implements ISessionObserver {
         
         // 根据执行结果更新引擎状态
         if (executionResult.intent === 'plan_completed') {
-          this.stream.markdown(`✅ **计划执行完成**: ${executionResult.result?.summary}\n\n`);
+          this.stream.markdown(`🎉 **计划执行完成**: ${executionResult.result?.summary}\n\n`);
           this.logger.info(`🔍 [DEBUG-CONTEXT] === PLAN EXECUTION COMPLETED ===`);
         this.logger.info(`🔍 [DEBUG-CONTEXT] About to record execution: "计划执行完成: ${executionResult.result?.summary}"`);
         await this.recordExecution('result', `计划执行完成: ${executionResult.result?.summary}`, true, 'planExecutor', executionResult.result?.planExecutionContext);
@@ -1745,7 +1745,7 @@ export class SRSAgentEngine implements ISessionObserver {
   private async handlePlanExecutionResult(result: any): Promise<void> {
     switch (result.intent) {
       case 'plan_completed':
-        this.stream.markdown(`✅ **计划执行完成**: ${result.result?.summary}\n\n`);
+        this.stream.markdown(`🎉 **计划执行完成**: ${result.result?.summary}\n\n`);
         this.state.stage = 'completed';
         break;
         
