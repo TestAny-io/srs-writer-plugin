@@ -666,7 +666,8 @@ Based on all the instructions and context above, generate a valid JSON object th
 
     // 格式化输出
     const formattedIterations: string[] = [];
-    const sortedIterations = Array.from(iterationGroups.keys()).sort((a, b) => a - b);
+    // ✅ 修复：改为降序排序（最新的迭代在上），与 YOUR PREVIOUS THOUGHTS 保持一致
+    const sortedIterations = Array.from(iterationGroups.keys()).sort((a, b) => b - a);
 
     for (const iterationNum of sortedIterations) {
       const group = iterationGroups.get(iterationNum)!;

@@ -218,16 +218,6 @@ export class SpecialistExecutor {
                 
                 // 添加到内部历史
                 internalHistory.push(`迭代 ${iteration} - 用户回复: ${resumeState.userResponse}`);
-                
-                // 如果有之前的工具结果，也要添加到历史中
-                if (resumeState.toolResults) {
-                    const previousToolResultsText = resumeState.toolResults.map((result: any) => {
-                        // 🚀 v5.0: 使用markdown格式化方法，而不是直接JSON.stringify
-                        const formattedResult = this.summarizeToolResult(result, false);
-                        return `工具: ${result.toolName}\n${formattedResult}`;
-                    }).join('\n\n');
-                    internalHistory.push(`迭代 ${iteration} - 之前的工具结果:\n${previousToolResultsText}`);
-                }
             }
 
             // 🚀 新增：token limit和空响应重试计数器
@@ -395,10 +385,23 @@ export class SpecialistExecutor {
 
                     if (needsInteractionResult) {
                         this.logger.info(`💬 专家 ${specialistId} 需要用户交互，暂停执行`);
-                        
+
                         // 提取问题内容
                         const question = needsInteractionResult.result?.chatQuestion || '需要您的确认';
-                        
+
+                        // 🚀 【关键修复】在返回前先添加历史记录
+                        // 使用当前 iteration 值（尚未递增），确保历史记录使用正确的迭代编号
+                        this.addIterationToHistory(iteration, aiPlan, toolResults, internalHistory);
+
+                        // ✅ 递增 iteration
+                        // 理由：已完成一次完整的"Think-Act-Observe"循环
+                        //   - LLM 完成了推理（决定调用交互工具）
+                        //   - 工具已执行并返回结果（needsChatInteraction: true）
+                        //   - 消耗了资源（LLM 调用）
+                        //   - 符合 iteration 的本质定义
+                        // 适用范围：任何返回 needsChatInteraction 的工具（askQuestion、未来的 askChoice 等）
+                        iteration++;
+
                         // 返回SpecialistInteractionResult
                         return {
                             success: false,
@@ -406,8 +409,8 @@ export class SpecialistExecutor {
                             question: question,
                             resumeContext: {
                                 specialist: specialistId,
-                                iteration: iteration,
-                                internalHistory: [...internalHistory],
+                                iteration: iteration,  // ✅ 保存递增后的值
+                                internalHistory: [...internalHistory],  // ✅ 现在包含了刚添加的历史记录
                                 currentPlan: aiPlan,
                                 contextForThisStep: contextForThisStep,
                                 toolResults: toolResults,
@@ -469,40 +472,10 @@ export class SpecialistExecutor {
 
                     // 🚀 将工具执行结果添加到历史记录，支持specialist的循环迭代 - 使用智能摘要
                     // 🚀 关键修改：过滤掉recordThought工具调用和结果，避免重复显示
-                    // 🚀 v5.0: 拆分参数 - AI Plan保持完整，Tool Results简化显示
-                    const showFullPlan = true;      // AI Plan显示完整内容（包括intents的完整内容）
-                    const showFullResults = false;  // Tool Results简化显示（只显示摘要信息）
+                    // 🚀 使用统一的历史记录添加方法
+                    this.addIterationToHistory(iteration, aiPlan, toolResults, internalHistory);
 
-                    const planSummary = aiPlan?.tool_calls
-                        ?.map((call: any) => this.summarizeToolCall(call, showFullPlan))
-                        .filter((summary: string) => summary.trim()) // 过滤空摘要
-                        .join('\n') || '无工具调用';
-
-                    const resultsSummary = toolResults
-                        .filter(result => result.toolName !== 'recordThought') // 🚀 过滤掉recordThought
-                        .map(result => this.summarizeToolResult(result, showFullResults))
-                        .join('\n');
-
-                    // 🚀 v5.0: 如果该iteration有recordThought调用，添加thought摘要
-                    const recordThoughtResult = toolResults.find(result => result.toolName === 'recordThought');
-                    if (recordThoughtResult && recordThoughtResult.success) {
-                        const thoughtRecord = recordThoughtResult.result?.thoughtRecord;
-                        if (thoughtRecord) {
-                            const thinkingType = thoughtRecord.thinkingType || 'UNKNOWN';
-                            const context = thoughtRecord.context || 'No context provided';
-                            // 生成一行摘要：💭 **Thought**: [类型] 一句话摘要
-                            const thoughtSummary = `💭 **Thought**: [${thinkingType.toUpperCase()}] ${context}`;
-                            internalHistory.push(`迭代 ${iteration} - Thought摘要: ${thoughtSummary}`);
-                        }
-                    }
-
-                    internalHistory.push(`迭代 ${iteration} - AI计划:\n${planSummary}`);
-                    if (resultsSummary.trim()) { // 只有非空结果才添加
-                        internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsSummary}`);
-                    }
-                    
                     this.logger.info(`✅ [${specialistId}] 迭代 ${iteration} 记录了 ${toolResults.length} 个工具执行结果`);
-                    this.logger.info(`🔧 [DEBUG] [${specialistId}] 迭代 ${iteration} 工具执行结果:\n${resultsSummary}`);
                     
                     // 🚀 CRITICAL FIX (2025-10-08): 在任何return之前递增iteration
                     // 原因：每完成一次"组装提示词→AI响应→执行工具"就是一次完整的循环
@@ -1482,6 +1455,56 @@ ${context.dependentResults?.length > 0
         
         // 🚀 新逻辑（v3.0）：使用Markdown格式
         return this.formatToolCallAsMarkdown(name, args, isLatestIteration);
+    }
+
+    /**
+     * 🚀 统一的历史记录添加方法
+     * 用于在 askQuestion 分支和正常流程中添加迭代历史记录
+     *
+     * @param iteration 当前迭代编号
+     * @param aiPlan AI 生成的计划
+     * @param toolResults 工具执行结果数组
+     * @param internalHistory 内部历史记录数组（会被修改）
+     */
+    private addIterationToHistory(
+        iteration: number,
+        aiPlan: any,
+        toolResults: any[],
+        internalHistory: string[]
+    ): void {
+        // 1️⃣ 构建 AI 计划摘要
+        const showFullPlan = true;
+        const planSummary = aiPlan?.tool_calls
+            ?.map((call: any) => this.summarizeToolCall(call, showFullPlan))
+            .filter((summary: string) => summary.trim())
+            .join('\n') || '无工具调用';
+
+        // 2️⃣ 构建工具结果摘要（过滤掉 recordThought）
+        const showFullResults = false;
+        const resultsSummary = toolResults
+            .filter(result => result.toolName !== 'recordThought')
+            .map(result => this.summarizeToolResult(result, showFullResults))
+            .join('\n');
+
+        // 3️⃣ 单独处理 recordThought，添加 Thought 摘要
+        const recordThoughtResult = toolResults.find(result => result.toolName === 'recordThought');
+        if (recordThoughtResult && recordThoughtResult.success) {
+            const thoughtRecord = recordThoughtResult.result?.thoughtRecord;
+            if (thoughtRecord) {
+                const thinkingType = thoughtRecord.thinkingType || 'UNKNOWN';
+                const context = thoughtRecord.context || 'No context provided';
+                const thoughtSummary = `💭 **Thought**: [${thinkingType.toUpperCase()}] ${context}`;
+                internalHistory.push(`迭代 ${iteration} - Thought摘要: ${thoughtSummary}`);
+            }
+        }
+
+        // 4️⃣ 添加 AI 计划到历史
+        internalHistory.push(`迭代 ${iteration} - AI计划:\n${planSummary}`);
+
+        // 5️⃣ 如果有工具结果（非 recordThought），添加到历史
+        if (resultsSummary.trim()) {
+            internalHistory.push(`迭代 ${iteration} - 工具结果:\n${resultsSummary}`);
+        }
     }
 
     /**

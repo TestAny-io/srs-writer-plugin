@@ -532,18 +532,18 @@ export class SRSAgentEngine implements ISessionObserver {
 
                   // 格式：✅ Thought (🤔 reflection) - Context → 3 next steps
                   this.stream.markdown(
-                    `${toolStatus} **Thought** (${emoji} ${thought.thinkingType})` +
+                    `  ${toolStatus} **Thought** (${emoji} ${thought.thinkingType})` +
                     `${contextPart}${nextStepsPart}\n\n`
                   );
                 } else {
                   // fallback：如果没有thoughtRecord
-                  this.stream.markdown(`${toolStatus} **Thought**\n\n`);
+                  this.stream.markdown(`  ${toolStatus} **Thought**\n\n`);
                 }
               } else {
                 // 🆕 其他工具：显示工具名 + 关键参数
                 const detailPart = this.formatToolDetail(toolCall.name, toolCall.args, result);
                 const errorPart = !result.success ? ` - ${result.error}` : '';
-                this.stream.markdown(`${toolStatus} **${toolCall.name}**${detailPart}${errorPart}\n\n`);
+                this.stream.markdown(`  ${toolStatus} **${toolCall.name}**${detailPart}${errorPart}\n\n`);
               }
             });
           },
@@ -562,7 +562,7 @@ export class SRSAgentEngine implements ISessionObserver {
               this.stream.markdown(`\n---\n\n`);
             }
 
-            this.stream.markdown(`📝 **任务完成** - ${summary}\n\n`);
+            this.stream.markdown(`  📝 **任务完成** - ${summary}\n\n`);
           }
         };
 

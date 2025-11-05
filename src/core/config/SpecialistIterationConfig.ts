@@ -81,9 +81,9 @@ export const DEFAULT_SPECIALIST_ITERATION_CONFIG: SpecialistIterationConfig = {
         compressionEnabled: true,
         tokenBudget: 40000,
         tierRatios: {
-            immediate: 0.90,  // 最近3轮: 90% (9000 tokens)
-            recent: 0.07,     // 第4-8轮: 7% (700 tokens)
-            milestone: 0.03   // 第9轮及以上: 3% (300 tokens)
+            immediate: 0.55,  // 最近5轮: 55% (22000 tokens)
+            recent: 0.30,     // 接下来4轮: 30% (12000 tokens)
+            milestone: 0.15   // 更早轮次: 15% (6000 tokens)
         }
     }
 };

@@ -43,7 +43,7 @@ describe('askQuestion Multiple Interactions - Integration Test', () => {
             };
             state.resumeContext = {
                 specialist: 'prototype_designer',
-                iteration: 1,
+                iteration: 2,  // ✅ 修复后：askQuestion返回前已递增，保存的是递增后的值
                 planExecutorState: { /* ... */ }
             };
 

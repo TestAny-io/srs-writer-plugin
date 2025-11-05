@@ -12,10 +12,10 @@ import type { HistoryManagementConfig } from '../config/SpecialistIterationConfi
  */
 
 interface HistoryTokenBudget {
-  totalBudget: number;      // 总token预算: 10000
-  immediateRatio: number;   // 最近3轮: 90% (9000 tokens)
-  recentRatio: number;      // 第4-8轮前: 7% (700 tokens)  
-  milestoneRatio: number;   // 第9轮及以上前: 3% (300 tokens)
+  totalBudget: number;      // 总token预算: 40000
+  immediateRatio: number;   // 最近5轮: 55% (22000 tokens)
+  recentRatio: number;      // 接下来4轮: 30% (12000 tokens)
+  milestoneRatio: number;   // 更早轮次: 15% (6000 tokens)
 }
 
 interface HistoryEntry {
@@ -27,15 +27,15 @@ interface HistoryEntry {
 }
 
 interface TieredHistory {
-  immediate: HistoryEntry[];    // 最近3轮
-  recent: HistoryEntry[];       // 第4-8轮前
-  milestone: HistoryEntry[];    // 第9轮及以上前
+  immediate: HistoryEntry[];    // 最近5轮
+  recent: HistoryEntry[];       // 接下来4轮
+  milestone: HistoryEntry[];    // 更早轮次
 }
 
 interface CompressedHistoryResult {
-  immediate: string[];     // 最近3轮完整保留
-  recent: string[];        // 第4-8轮前智能摘要
-  milestone: string[];     // 第9轮及以上前里程碑提取
+  immediate: string[];     // 最近5轮完整保留
+  recent: string[];        // 接下来4轮保留 AI Plan + Tool Results
+  milestone: string[];     // 更早轮次只保留 Tool Results
   totalTokens: number;
   compressionRatio: number;
   debugInfo?: {
@@ -54,9 +54,9 @@ export class TokenAwareHistoryManager {
   
   private readonly DEFAULT_BUDGET_CONFIG: HistoryTokenBudget = {
     totalBudget: 40000,
-    immediateRatio: 0.90,   // 9000 tokens
-    recentRatio: 0.07,      // 700 tokens
-    milestoneRatio: 0.03    // 300 tokens
+    immediateRatio: 0.55,   // 22000 tokens (55%)
+    recentRatio: 0.30,      // 12000 tokens (30%)
+    milestoneRatio: 0.15    // 6000 tokens (15%)
   };
 
   /**
@@ -85,7 +85,17 @@ export class TokenAwareHistoryManager {
    */
   compressHistory(fullHistory: string[], currentIteration: number): string[] {
     this.logger.info(`🧠 [HistoryManager] 开始压缩历史记录: ${fullHistory.length}条, 当前轮次: ${currentIteration}`);
-    
+
+    // 🔍 [DEBUG_CONTEXT_MISSING] 记录输入历史的迭代编号范围
+    const iterations = fullHistory
+      .map(entry => {
+        const match = entry.match(/迭代\s*(\d+)/);
+        return match ? parseInt(match[1], 10) : null;
+      })
+      .filter(it => it !== null) as number[];
+    const uniqueIterations = Array.from(new Set(iterations)).sort((a, b) => a - b);
+    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 输入历史包含的迭代: [${uniqueIterations.join(', ')}], 共${uniqueIterations.length}个迭代`);
+
     if (fullHistory.length === 0) {
       return [];
     }
@@ -178,11 +188,16 @@ export class TokenAwareHistoryManager {
     const recent: HistoryEntry[] = [];
     const milestone: HistoryEntry[] = [];
 
+    // 🔍 [DEBUG_CONTEXT_MISSING] 记录分层边界
+    const immediateBoundary = currentIteration - 4;
+    const recentBoundary = currentIteration - 8;
+    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 分层边界 - immediate: >=${immediateBoundary}, recent: >=${recentBoundary}, milestone: <${recentBoundary}`);
+
     entries.forEach(entry => {
       // immediate层: 最近3轮 (当前轮次-2 到 当前轮次)
-      // recent层: 第4-8轮前 (当前轮次-7 到 当前轮次-4)  
+      // recent层: 第4-8轮前 (当前轮次-7 到 当前轮次-4)
       // milestone层: 第9轮及以上前 (小于 当前轮次-7)
-      
+
       if (entry.iteration >= currentIteration - 4) {
         immediate.push(entry); // 最近3轮（当前 + 前2轮）
       } else if (entry.iteration >= currentIteration - 8) {
@@ -192,7 +207,16 @@ export class TokenAwareHistoryManager {
       }
     });
 
+    // 🔍 [DEBUG_CONTEXT_MISSING] 详细记录每层包含的迭代编号
+    const immediateIters = Array.from(new Set(immediate.map(e => e.iteration))).sort((a, b) => a - b);
+    const recentIters = Array.from(new Set(recent.map(e => e.iteration))).sort((a, b) => a - b);
+    const milestoneIters = Array.from(new Set(milestone.map(e => e.iteration))).sort((a, b) => a - b);
+
     this.logger.info(`📂 [HistoryManager] 分层结果: immediate=${immediate.length}, recent=${recent.length}, milestone=${milestone.length}`);
+    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] immediate层迭代: [${immediateIters.join(', ')}]`);
+    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] recent层迭代: [${recentIters.join(', ')}]`);
+    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] milestone层迭代: [${milestoneIters.join(', ')}]`);
+
     return { immediate, recent, milestone };
   }
 
@@ -246,22 +270,37 @@ export class TokenAwareHistoryManager {
    */
   private reconstructHistory(result: CompressedHistoryResult): string[] {
     const history: string[] = [];
-    
+
+    // 🔍 [DEBUG_CONTEXT_MISSING] 记录重构前各层的条目数
+    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 重构历史 - immediate层: ${result.immediate.length}条, recent层: ${result.recent.length}条, milestone层: ${result.milestone.length}条`);
+
     // 添加immediate层
     if (result.immediate.length > 0) {
+      this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加immediate层: ${result.immediate.length}条`);
       history.push(...result.immediate);
+    } else {
+      this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] immediate层为空！`);
     }
-    
+
     // 添加recent层摘要
     if (result.recent.length > 0) {
+      this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加recent层: ${result.recent.length}条`);
+      this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] recent层内容格式示例: "${result.recent[0].substring(0, 100)}..."`);
       history.push(...result.recent);
+    } else {
+      this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] recent层为空！`);
     }
-    
+
     // 添加milestone层摘要
     if (result.milestone.length > 0) {
+      this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加milestone层: ${result.milestone.length}条`);
       history.push(...result.milestone);
+    } else {
+      this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] milestone层为空！`);
     }
-    
+
+    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 重构后总条目数: ${history.length}条`);
+
     return history;
   }
 
@@ -307,207 +346,71 @@ export class TokenAwareHistoryManager {
   }
 
   /**
-   * recent层：第4-8轮前分轮摘要（不要标题，按迭代编号降序）
+   * recent层：第4-8轮前保留 AI Plan + Tool Results（按迭代编号降序）
+   * 🚀 修复：不生成摘要，而是保留原始 entries，只过滤掉 User Reply 和 Thought
    */
   private compressRecent(entries: HistoryEntry[], budget: number): string[] {
     if (entries.length === 0) return [];
-    
-    // 按迭代分组
-    const iterationGroups = this.groupByIteration(entries);
-    
-    // 生成分轮摘要，按迭代编号降序
-    const summaries: string[] = [];
-    const sortedIterations = Object.keys(iterationGroups)
-      .map(k => parseInt(k))
-      .sort((a, b) => b - a); // 降序排列
-    
-    for (const iteration of sortedIterations) {
-      const iterationEntries = iterationGroups[iteration];
-      const summary = this.generateIterationSummary(iteration, iterationEntries);
-      if (summary) {
-        summaries.push(summary);
-        
-        // 检查token预算
-        const usedTokens = summaries.reduce((sum, s) => sum + this.estimateTokens(s), 0);
-        if (usedTokens > budget) {
-          summaries.pop(); // 移除最后一个超预算的摘要
-          break;
-        }
+
+    // 过滤：只保留 AI计划 和 工具结果
+    const filtered = entries.filter(entry =>
+      entry.type === 'plan' || entry.type === 'result'
+    );
+
+    // 按迭代编号降序排序，同一迭代内按原始索引升序
+    const sorted = filtered.sort((a, b) => {
+      if (a.iteration !== b.iteration) {
+        return b.iteration - a.iteration; // 降序
       }
+      return a.originalIndex - b.originalIndex;
+    });
+
+    // 检查token预算并截断
+    const contents = sorted.map(e => e.content);
+    const totalTokens = sorted.reduce((sum, e) => sum + e.tokens, 0);
+
+    if (totalTokens <= budget) {
+      return contents;
     }
-    
-    return summaries;
+
+    // 超预算时截断
+    return this.truncateToTokenBudget(contents, budget);
   }
 
   /**
-   * milestone层：第9轮及以上前提取里程碑
+   * milestone层：第9轮及以上前只保留 Tool Results（按迭代编号降序）
+   * 🚀 修复：不生成摘要，而是保留原始 entries，只保留 Tool Results
    */
   private extractMilestones(entries: HistoryEntry[], budget: number): string[] {
     if (entries.length === 0) return [];
-    
-    const milestones = this.identifyMilestones(entries);
-    const summary = this.generateMilestoneSummary(milestones, budget);
-    
-    return summary ? [summary] : [];
+
+    // 过滤：只保留工具结果
+    const filtered = entries.filter(entry => entry.type === 'result');
+
+    // 按迭代编号降序排序，同一迭代内按原始索引升序
+    const sorted = filtered.sort((a, b) => {
+      if (a.iteration !== b.iteration) {
+        return b.iteration - a.iteration; // 降序
+      }
+      return a.originalIndex - b.originalIndex;
+    });
+
+    // 检查token预算并截断
+    const contents = sorted.map(e => e.content);
+    const totalTokens = sorted.reduce((sum, e) => sum + e.tokens, 0);
+
+    if (totalTokens <= budget) {
+      return contents;
+    }
+
+    // 超预算时截断
+    return this.truncateToTokenBudget(contents, budget);
   }
 
   // ========== 辅助方法 ==========
 
   /**
-   * 按成功/失败分类条目
-   */
-  private categorizeByOutcome(entries: HistoryEntry[]): { successes: HistoryEntry[], failures: HistoryEntry[] } {
-    const successes: HistoryEntry[] = [];
-    const failures: HistoryEntry[] = [];
-    
-    entries.forEach(entry => {
-      if (this.isSuccessfulEntry(entry.content)) {
-        successes.push(entry);
-      } else {
-        failures.push(entry);
-      }
-    });
-    
-    return { successes, failures };
-  }
-
-  /**
-   * 判断是否为成功的条目
-   */
-  private isSuccessfulEntry(content: string): boolean {
-    return content.includes('成功: true') || 
-           content.includes('✅') ||
-           content.includes('success') ||
-           !content.includes('❌') && !content.includes('失败');
-  }
-
-  /**
-   * 按迭代编号分组
-   */
-  private groupByIteration(entries: HistoryEntry[]): { [iteration: number]: HistoryEntry[] } {
-    const groups: { [iteration: number]: HistoryEntry[] } = {};
-    
-    entries.forEach(entry => {
-      if (!groups[entry.iteration]) {
-        groups[entry.iteration] = [];
-      }
-      groups[entry.iteration].push(entry);
-    });
-    
-    return groups;
-  }
-  
-  /**
-   * 生成单个迭代的摘要
-   */
-  private generateIterationSummary(iteration: number, entries: HistoryEntry[]): string | null {
-    if (entries.length === 0) return null;
-    
-    const { successes, failures } = this.categorizeByOutcome(entries);
-    const totalOps = successes.length + failures.length;
-    
-    if (totalOps === 0) return null;
-    
-    // 提取工具使用信息
-    const successTools = this.extractToolUsage(successes);
-    const failureTools = this.extractToolUsage(failures);
-    
-    let summary = `迭代 ${iteration}: ${totalOps}次操作`;
-    
-    if (successTools.length > 0) {
-      summary += ` ✅ ${successTools.join(', ')}`;
-    }
-    
-    if (failureTools.length > 0) {
-      summary += ` ❌ ${failureTools.join(', ')}`;
-    }
-    
-    return summary;
-  }
-  
-  /**
-   * 提取工具使用信息
-   */
-  private extractToolUsage(entries: HistoryEntry[]): string[] {
-    const toolCounts: { [tool: string]: number } = {};
-    
-    entries.forEach(entry => {
-      const toolMatch = entry.content.match(/工具:\s*(\w+)/);
-      if (toolMatch) {
-        const tool = toolMatch[1];
-        toolCounts[tool] = (toolCounts[tool] || 0) + 1;
-      }
-    });
-    
-    return Object.entries(toolCounts)
-      .map(([tool, count]) => count > 1 ? `${tool}(${count}次)` : tool)
-      .slice(0, 3); // 限制显示数量
-  }
-
-
-
-  /**
-   * 识别里程碑事件
-   */
-  private identifyMilestones(entries: HistoryEntry[]): HistoryEntry[] {
-    const milestones: HistoryEntry[] = [];
-    
-    entries.forEach(entry => {
-      if (this.isMilestone(entry.content)) {
-        milestones.push(entry);
-      }
-    });
-    
-    return milestones;
-  }
-
-  /**
-   * 判断是否为里程碑事件
-   */
-  private isMilestone(content: string): boolean {
-    const milestonePatterns = [
-      /文件创建成功/,
-      /项目初始化/,
-      /重大修改完成/,
-      /任务阶段完成/,
-      /用户交互完成/,
-      /taskComplete/,
-      /专家任务执行完成/
-    ];
-    
-    return milestonePatterns.some(pattern => pattern.test(content));
-  }
-
-  /**
-   * 生成里程碑摘要
-   */
-  private generateMilestoneSummary(milestones: HistoryEntry[], budget: number): string | null {
-    if (milestones.length === 0) return null;
-    
-    const summary = `## 🎯 关键里程碑 (早期历史)
-📌 共${milestones.length}个重要节点: ${milestones.map(m => `迭代${m.iteration}`).join(', ')}
-🏆 最新里程碑: ${this.extractMilestoneType(milestones[milestones.length - 1].content)}`;
-    
-    if (this.estimateTokens(summary) <= budget) {
-      return summary;
-    }
-    
-    return `## 🎯 里程碑: ${milestones.length}个节点`;
-  }
-
-  /**
-   * 提取里程碑类型
-   */
-  private extractMilestoneType(content: string): string {
-    if (content.includes('taskComplete')) return '任务完成';
-    if (content.includes('文件创建')) return '文件创建';
-    if (content.includes('项目初始化')) return '项目初始化';
-    return '重要操作';
-  }
-
-  /**
    * 按token预算截断内容
-   * 🚀 第二层防护：对工具结果条目进行智能处理，而不是直接跳过
    */
   private truncateToTokenBudget(entries: string[], budget: number): string[] {
     const result: string[] = [];
@@ -519,19 +422,18 @@ export class TokenAwareHistoryManager {
         result.push(entry);
         usedTokens += entryTokens;
       } else {
-        // 🚀 第二层防护：对于工具结果条目，生成警告替代而不是直接跳过
+        // 超出预算时，检查是否为工具结果条目
         if (this.isToolResultEntry(entry)) {
           const warningEntry = this.generateToolResultWarning(entry);
           const warningTokens = this.estimateTokens(warningEntry);
-          
+
           if (usedTokens + warningTokens <= budget) {
             result.push(warningEntry);
             usedTokens += warningTokens;
-            this.logger.warn(`⚠️ [第二层防护] 工具结果条目过大，已替换为警告: ${entryTokens}/${budget} tokens`);
+            this.logger.warn(`⚠️ [HistoryManager] 工具结果条目过大，已替换为警告: ${entryTokens}/${budget} tokens`);
           }
         }
-        // 对于其他类型的条目，继续原有的跳过逻辑
-        // 注意：这里不break，因为可能还有其他较小的条目可以加入
+        // 对于其他类型的条目，继续检查是否有其他较小的条目可以加入
         continue;
       }
     }
@@ -540,19 +442,19 @@ export class TokenAwareHistoryManager {
   }
 
   /**
-   * 🚀 第二层防护：检测是否为工具结果条目
+   * 检测是否为工具结果条目
    */
   private isToolResultEntry(entry: string): boolean {
     return entry.includes('- 工具结果:');
   }
 
   /**
-   * 🚀 第二层防护：生成工具结果警告条目
+   * 生成工具结果警告条目
    */
   private generateToolResultWarning(originalEntry: string): string {
     const iterationMatch = originalEntry.match(/迭代 (\d+) - 工具结果:/);
     const iteration = iterationMatch ? iterationMatch[1] : 'X';
-    
+
     return `迭代 ${iteration} - 工具结果: Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`;
   }
 }
