@@ -307,24 +307,60 @@ export async function executeTextFileEdits(args: ExecuteTextFileEditsArgs): Prom
         
         const duration = Date.now() - startTime;
         logger.info(`Text file editing completed in ${duration}ms`);
-        
+
+        // Generate top-level error summary if any edits failed
+        let topLevelError: string | undefined;
+        if (appliedCount < args.edits.length) {
+            const failedEdits = details.filter(d => !d.success);
+
+            // Build detailed error message with specific failure reasons
+            const failureSummaries = failedEdits.map(d => {
+                const editInfo = args.edits[d.editIndex - 1];
+                return `Edit ${d.editIndex} ("${editInfo.reason}"): ${d.error}`;
+            });
+
+            topLevelError = [
+                `${failedEdits.length}/${args.edits.length} edit(s) failed in "${args.targetFile}".`,
+                ...failureSummaries
+            ].join(' | ');
+
+            // Add actionable suggestion if all edits failed
+            if (appliedCount === 0) {
+                topLevelError += ' | Suggestion: Use readFile to verify current file content and ensure exact text matching.';
+            }
+        }
+
         return {
             success: appliedCount > 0,
             appliedEdits: appliedCount,
             totalEdits: args.edits.length,
-            details
+            details,
+            error: topLevelError
         };
         
     } catch (error) {
         const duration = Date.now() - startTime;
         logger.error(`Text file editing failed after ${duration}ms:`, error as Error);
-        
+
+        // Enhanced error message with context
+        const errorCode = (error as any).code;
+        let errorMessage = `Text file editing failed for "${args.targetFile}": ${(error as Error).message}`;
+
+        // Add specific suggestions based on error type
+        if (errorCode === 'ENOENT') {
+            errorMessage += ' | Suggestion: File not found. Use writeFile to create the file first.';
+        } else if (errorCode === 'EACCES') {
+            errorMessage += ' | Suggestion: Permission denied. Check file permissions.';
+        } else {
+            errorMessage += ' | Suggestion: Verify file path and accessibility.';
+        }
+
         return {
             success: false,
             appliedEdits: 0,
             totalEdits: args.edits.length,
             details: [],
-            error: `Text file editing failed: ${(error as Error).message}`
+            error: errorMessage
         };
     }
 }

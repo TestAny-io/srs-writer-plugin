@@ -123,11 +123,11 @@ export class PromptAssemblyEngine {
     //this.logger.info(`🔍 [PromptAssembly] - context.projectMetadata存在: ${!!context.projectMetadata}`);
     
     if (context.structuredContext) {
-      this.logger.info(`🔍 [PromptAssembly] - structuredContext内容: ${JSON.stringify(context.structuredContext, null, 2)}`);
+      // this.logger.info(`🔍 [PromptAssembly] - structuredContext内容: ${JSON.stringify(context.structuredContext, null, 2)}`);
     }
     
     if (context.projectMetadata) {
-      this.logger.info(`🔍 [PromptAssembly] - projectMetadata内容: ${JSON.stringify(context.projectMetadata, null, 2)}`);
+      // this.logger.info(`🔍 [PromptAssembly] - projectMetadata内容: ${JSON.stringify(context.projectMetadata, null, 2)}`);
     }
 
     try {
@@ -1205,8 +1205,8 @@ Based on all the instructions and context above, generate a valid JSON object th
   private async gatherEnvironmentContext(context: SpecialistContext): Promise<EnvironmentContext> {
     const baseDir = context.projectMetadata?.baseDir;
     
-    this.logger.info(`🌍 [EnvironmentSensing] 开始收集环境信息`);
-    this.logger.info(`🌍 [EnvironmentSensing] baseDir: ${baseDir}`);
+    // this.logger.info(`🌍 [EnvironmentSensing] 开始收集环境信息`);
+    // this.logger.info(`🌍 [EnvironmentSensing] baseDir: ${baseDir}`);
     
     if (!baseDir) {
       this.logger.warn('🌍 [EnvironmentSensing] No baseDir available, using empty environment context');
@@ -1219,14 +1219,14 @@ Based on all the instructions and context above, generate a valid JSON object th
     try {
       // 获取项目目录文件列表
       const projectFiles = await this.listDirectoryFiles(baseDir, baseDir);
-      this.logger.info(`🌍 [EnvironmentSensing] 项目目录文件数量: ${projectFiles.length}`);
+      // this.logger.info(`🌍 [EnvironmentSensing] 项目目录文件数量: ${projectFiles.length}`);
       
       const environmentContext: EnvironmentContext = {
         projectDirectory: baseDir,
         projectFiles
       };
       
-      this.logger.info(`🌍 [EnvironmentSensing] 环境感知信息收集完成`);
+      // this.logger.info(`🌍 [EnvironmentSensing] 环境感知信息收集完成`);
       return environmentContext;
       
     } catch (error) {
@@ -1345,9 +1345,9 @@ Based on all the instructions and context above, generate a valid JSON object th
         context.SRS_TOC = tocText;
         context.CURRENT_SRS_TOC = tocText;
         
-        this.logger.info(`✅ 成功加载项目SRS目录结构: ${srsPath}`);
-        this.logger.info(`📋 目录结构包含 ${result.tableOfContentsToCTree.length} 个顶级章节`);
-        this.logger.debug(`📄 生成的ToC格式:\n${tocText}`);
+        // this.logger.info(`✅ 成功加载项目SRS目录结构: ${srsPath}`);
+        // this.logger.info(`📋 目录结构包含 ${result.tableOfContentsToCTree.length} 个顶级章节`);
+        // this.logger.debug(`📄 生成的ToC格式:\n${tocText}`);
         
         return; // 成功加载后返回
         

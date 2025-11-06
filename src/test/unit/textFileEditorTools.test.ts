@@ -532,4 +532,126 @@ describe('executeTextFileEdits Unit Tests', () => {
             expect(mockWriteFileSync).not.toHaveBeenCalled();
         });
     });
+
+    describe('Top-level error message formatting (Issue #4)', () => {
+        test('should provide detailed error message when all edits fail', async () => {
+            const mockFilePath = '/test/workspace/style.css';
+            const originalContent = ':root { --primary: red; }';
+
+            mockResolveWorkspacePath.mockResolvedValue(mockFilePath);
+            mockExistsSync.mockReturnValue(true);
+            mockReadFileSync.mockReturnValue(originalContent);
+            mockWriteFileSync.mockImplementation(() => {});
+
+            const args: ExecuteTextFileEditsArgs = {
+                summary: 'Multiple failing edits',
+                targetFile: 'style.css',
+                edits: [
+                    {
+                        oldString: '',
+                        newString: 'new content',
+                        reason: 'Try empty oldString'
+                    },
+                    {
+                        oldString: 'nonexistent text',
+                        newString: 'replacement',
+                        reason: 'Try non-existent text'
+                    }
+                ]
+            };
+
+            const result = await executeTextFileEdits(args);
+
+            expect(result.success).toBe(false);
+            expect(result.appliedEdits).toBe(0);
+            expect(result.totalEdits).toBe(2);
+
+            // Verify top-level error message exists and contains key information
+            expect(result.error).toBeDefined();
+            expect(result.error).toContain('2/2 edit(s) failed');
+            expect(result.error).toContain('style.css');
+            expect(result.error).toContain('Edit 1');
+            expect(result.error).toContain('Edit 2');
+            expect(result.error).toContain('Try empty oldString');
+            expect(result.error).toContain('Try non-existent text');
+            expect(result.error).toContain('Suggestion');
+            expect(result.error).toContain('readFile');
+        });
+
+        test('should provide detailed error message for partial failures', async () => {
+            const mockFilePath = '/test/workspace/style.css';
+            const originalContent = 'a b c';
+
+            mockResolveWorkspacePath.mockResolvedValue(mockFilePath);
+            mockExistsSync.mockReturnValue(true);
+            mockReadFileSync.mockReturnValue(originalContent);
+            mockWriteFileSync.mockImplementation(() => {});
+
+            const args: ExecuteTextFileEditsArgs = {
+                summary: 'Partial failure scenario',
+                targetFile: 'style.css',
+                edits: [
+                    {
+                        oldString: 'a',
+                        newString: 'x',
+                        reason: 'Success edit'
+                    },
+                    {
+                        oldString: 'nonexistent',
+                        newString: 'y',
+                        reason: 'Failed edit'
+                    }
+                ]
+            };
+
+            const result = await executeTextFileEdits(args);
+
+            expect(result.success).toBe(true); // Still success because one edit succeeded
+            expect(result.appliedEdits).toBe(1);
+            expect(result.totalEdits).toBe(2);
+
+            // Verify top-level error message for the failed edit
+            expect(result.error).toBeDefined();
+            expect(result.error).toContain('1/2 edit(s) failed');
+            expect(result.error).toContain('Edit 2');
+            expect(result.error).toContain('Failed edit');
+            expect(result.error).toContain('Text not found');
+            // Should NOT contain suggestion since not all edits failed
+            expect(result.error).not.toContain('Suggestion');
+        });
+
+        test('should not have error field when all edits succeed', async () => {
+            const mockFilePath = '/test/workspace/style.css';
+            const originalContent = 'a b c';
+
+            mockResolveWorkspacePath.mockResolvedValue(mockFilePath);
+            mockExistsSync.mockReturnValue(true);
+            mockReadFileSync.mockReturnValue(originalContent);
+            mockWriteFileSync.mockImplementation(() => {});
+
+            const args: ExecuteTextFileEditsArgs = {
+                summary: 'All success',
+                targetFile: 'style.css',
+                edits: [
+                    {
+                        oldString: 'a',
+                        newString: 'x',
+                        reason: 'First'
+                    },
+                    {
+                        oldString: 'b',
+                        newString: 'y',
+                        reason: 'Second'
+                    }
+                ]
+            };
+
+            const result = await executeTextFileEdits(args);
+
+            expect(result.success).toBe(true);
+            expect(result.appliedEdits).toBe(2);
+            expect(result.totalEdits).toBe(2);
+            expect(result.error).toBeUndefined();
+        });
+    });
 });

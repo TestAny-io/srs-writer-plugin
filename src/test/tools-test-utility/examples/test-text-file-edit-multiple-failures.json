@@ -1,0 +1,25 @@
+{
+  "toolName": "executeTextFileEdits",
+  "args": {
+    "summary": "Test multiple edit failures",
+    "targetFile": "nonexistent-file.css",
+    "edits": [
+      {
+        "oldString": "",
+        "newString": "content1",
+        "reason": "Empty oldString error"
+      },
+      {
+        "oldString": "text that doesn't exist",
+        "newString": "replacement",
+        "reason": "Text not found error"
+      },
+      {
+        "oldString": "another missing text",
+        "newString": "another replacement",
+        "expectedReplacements": 2,
+        "reason": "Occurrence count mismatch"
+      }
+    ]
+  }
+}

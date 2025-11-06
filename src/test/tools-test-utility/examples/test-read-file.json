@@ -1,0 +1,6 @@
+{
+  "toolName": "readTextFile",
+  "args": {
+    "path": "package.json"
+  }
+}

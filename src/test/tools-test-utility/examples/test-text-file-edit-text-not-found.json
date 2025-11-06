@@ -1,0 +1,25 @@
+{
+  "toolName": "executeTextFileEdits",
+  "args": {
+    "summary": "Test text not found error",
+    "targetFile": "test-file.css",
+    "edits": [
+      {
+        "oldString": "body { color: red; }",
+        "newString": "body { color: blue; }",
+        "reason": "This should succeed"
+      },
+      {
+        "oldString": "nonexistent text",
+        "newString": "replacement",
+        "reason": "This should fail - text not found"
+      },
+      {
+        "oldString": "another missing text",
+        "newString": "another",
+        "expectedReplacements": 1,
+        "reason": "This should also fail"
+      }
+    ]
+  }
+}

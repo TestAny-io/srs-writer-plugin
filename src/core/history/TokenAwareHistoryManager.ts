@@ -109,7 +109,7 @@ export class TokenAwareHistoryManager {
       })
       .filter(it => it !== null) as number[];
     const uniqueIterations = Array.from(new Set(iterations)).sort((a, b) => a - b);
-    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 输入历史包含的迭代: [${uniqueIterations.join(', ')}], 共${uniqueIterations.length}个迭代`);
+    // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 输入历史包含的迭代: [${uniqueIterations.join(', ')}], 共${uniqueIterations.length}个迭代`);
 
     if (fullHistory.length === 0) {
       return [];
@@ -206,7 +206,7 @@ export class TokenAwareHistoryManager {
     // 🔍 [DEBUG_CONTEXT_MISSING] 记录分层边界
     const immediateBoundary = currentIteration - 4;
     const recentBoundary = currentIteration - 8;
-    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 分层边界 - immediate: >=${immediateBoundary}, recent: >=${recentBoundary}, milestone: <${recentBoundary}`);
+    // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 分层边界 - immediate: >=${immediateBoundary}, recent: >=${recentBoundary}, milestone: <${recentBoundary}`);
 
     entries.forEach(entry => {
       // immediate层: 最近3轮 (当前轮次-2 到 当前轮次)
@@ -227,10 +227,10 @@ export class TokenAwareHistoryManager {
     const recentIters = Array.from(new Set(recent.map(e => e.iteration))).sort((a, b) => a - b);
     const milestoneIters = Array.from(new Set(milestone.map(e => e.iteration))).sort((a, b) => a - b);
 
-    this.logger.info(`📂 [HistoryManager] 分层结果: immediate=${immediate.length}, recent=${recent.length}, milestone=${milestone.length}`);
-    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] immediate层迭代: [${immediateIters.join(', ')}]`);
-    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] recent层迭代: [${recentIters.join(', ')}]`);
-    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] milestone层迭代: [${milestoneIters.join(', ')}]`);
+    // this.logger.info(`📂 [HistoryManager] 分层结果: immediate=${immediate.length}, recent=${recent.length}, milestone=${milestone.length}`);
+    // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] immediate层迭代: [${immediateIters.join(', ')}]`);
+    // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] recent层迭代: [${recentIters.join(', ')}]`);
+    // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] milestone层迭代: [${milestoneIters.join(', ')}]`);
 
     return { immediate, recent, milestone };
   }
@@ -287,34 +287,34 @@ export class TokenAwareHistoryManager {
     const history: string[] = [];
 
     // 🔍 [DEBUG_CONTEXT_MISSING] 记录重构前各层的条目数
-    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 重构历史 - immediate层: ${result.immediate.length}条, recent层: ${result.recent.length}条, milestone层: ${result.milestone.length}条`);
+    // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 重构历史 - immediate层: ${result.immediate.length}条, recent层: ${result.recent.length}条, milestone层: ${result.milestone.length}条`);
 
     // 添加immediate层
     if (result.immediate.length > 0) {
-      this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加immediate层: ${result.immediate.length}条`);
+      // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加immediate层: ${result.immediate.length}条`);
       history.push(...result.immediate);
     } else {
-      this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] immediate层为空！`);
+      // this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] immediate层为空！`);
     }
 
     // 添加recent层摘要
     if (result.recent.length > 0) {
-      this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加recent层: ${result.recent.length}条`);
-      this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] recent层内容格式示例: "${result.recent[0].substring(0, 100)}..."`);
+      // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加recent层: ${result.recent.length}条`);
+      // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] recent层内容格式示例: "${result.recent[0].substring(0, 100)}..."`);
       history.push(...result.recent);
     } else {
-      this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] recent层为空！`);
+      // this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] recent层为空！`);
     }
 
     // 添加milestone层摘要
     if (result.milestone.length > 0) {
-      this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加milestone层: ${result.milestone.length}条`);
+      // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 添加milestone层: ${result.milestone.length}条`);
       history.push(...result.milestone);
     } else {
-      this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] milestone层为空！`);
+      // this.logger.warn(`⚠️ [DEBUG_CONTEXT_MISSING] milestone层为空！`);
     }
 
-    this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 重构后总条目数: ${history.length}条`);
+    // this.logger.info(`🔍 [DEBUG_CONTEXT_MISSING] 重构后总条目数: ${history.length}条`);
 
     return history;
   }

@@ -1,0 +1,14 @@
+{
+  "toolName": "executeTextFileEdits",
+  "args": {
+    "summary": "Test empty oldString error case",
+    "targetFile": "test-file.css",
+    "edits": [
+      {
+        "oldString": "",
+        "newString": "body { margin: 0; }",
+        "reason": "Try to use empty oldString on non-empty file"
+      }
+    ]
+  }
+}

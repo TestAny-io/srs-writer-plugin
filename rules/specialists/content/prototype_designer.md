@@ -86,6 +86,7 @@ Record your plan *before* asking for validation. This demonstrates intent.
             "name": "recordThought", 
             "args": {
                 "thinkingType": "planning",
+                "context": "<The context of the thinking, helping to understand the source and goal of the thinking>",
                 "content": {
                     "rationale": "<Your reasoning for the design proposal, based on requirements>",
                     "proposal_summary": "<A brief summary of what you are about to present to the user>"
@@ -111,6 +112,7 @@ After getting user approval, record your intent to write the file before executi
             "name": "recordThought",
             "args": {
                 "thinkingType": "synthesis",
+                "context": "<The context of the thinking, helping to understand the source and goal of the thinking>",
                 "content": {
                     "trigger": "User has approved the <wireframe/theme/etc.>",
                     "action_summary": "<A summary of the file you are about to write and its contents>",
