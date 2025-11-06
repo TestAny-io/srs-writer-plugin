@@ -686,61 +686,69 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 🚀 v5.0新增：检查Git分支一致性
+     * 🚀 v6.0重构：检查Git分支状态（仅提供信息，不强制分支-项目绑定）
+     *
+     * 设计背景：
+     * - 采用两分支模型：main（稳定）+ wip（工作）
+     * - 所有项目开发都在 wip 分支进行
+     * - 项目切换通过 session 管理，不依赖 Git 分支名称
+     * - 废弃 SRS/xxx 项目分支模型
      */
     private async checkGitBranchConsistency(inconsistencies: string[]): Promise<void> {
         try {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
-                // 没有工作区，跳过Git检查
                 return;
             }
 
             const { getCurrentBranch } = await import('../tools/atomic/git-operations');
             const currentBranch = await getCurrentBranch(workspaceFolder.uri.fsPath);
-            
+
             if (!currentBranch) {
-                // 不是Git仓库或无法获取分支信息
                 return;
             }
 
             const currentSession = this.currentSession;
-            
-            // 检查项目分支一致性
-            if (currentBranch.startsWith('SRS/')) {
-                const branchProjectName = currentBranch.substring(4);
-                
-                if (!currentSession) {
-                    inconsistencies.push(`On project branch "${currentBranch}" but no session in memory`);
-                } else if (currentSession.projectName !== branchProjectName) {
-                    inconsistencies.push(`Git branch project "${branchProjectName}" doesn't match session project "${currentSession.projectName}"`);
-                }
-            } else {
-                // 在主分支上
+
+            // ℹ️ 只检查意外的分支使用情况（作为警告，不是错误）
+            if (currentBranch !== 'main' && currentBranch !== 'wip') {
+                // 在意外分支上（既不是 main 也不是 wip）
                 if (currentSession?.projectName) {
-                    inconsistencies.push(`On main branch "${currentBranch}" but session has project "${currentSession.projectName}"`);
+                    inconsistencies.push(`On unexpected branch "${currentBranch}". Expected "main" or "wip" for two-branch workflow.`);
                 }
             }
 
+            // 📝 记录 info 级别的信息（不添加到 inconsistencies）
+            if (currentBranch === 'main' && currentSession?.projectName) {
+                this.logger.info(`ℹ️ Working on project "${currentSession.projectName}" on main branch. Consider switching to wip branch for development.`);
+            }
+
         } catch (error) {
-            // Git检查失败不算严重错误，只记录警告
             this.logger.warn(`Git branch consistency check failed: ${(error as Error).message}`);
         }
     }
 
     /**
-     * 🚀 v5.0新增：检查路径管理器状态一致性
+     * 🚀 v6.0优化：检查路径管理器状态一致性
      */
     private async checkPathManagerConsistency(inconsistencies: string[]): Promise<void> {
         try {
             if (!this.pathManager) {
-                inconsistencies.push('PathManager not initialized');
+                // ℹ️ PathManager 未初始化通常是因为没有工作区，这是警告而非错误
+                this.logger.info('ℹ️ PathManager not initialized. No workspace folder open. Session features unavailable.');
                 return;
             }
 
             // 检查工作区路径有效性
             if (!this.pathManager.validateWorkspacePath()) {
-                inconsistencies.push('PathManager workspace path validation failed');
+                const sessionDirPath = this.pathManager.getSessionDirectory();
+                const pathLength = sessionDirPath.length;
+
+                if (pathLength > 240) {
+                    inconsistencies.push(`Session directory path too long (${pathLength} characters). Windows has a 260-character limit. Consider moving workspace to a shorter path.`);
+                } else {
+                    inconsistencies.push('Workspace root path is invalid or empty');
+                }
             }
 
         } catch (error) {
@@ -946,56 +954,34 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
-     * 🚀 智能Git分支检测和恢复
-     * 基于当前Git分支智能恢复对应的项目会话
+     * 🚀 v6.0重构：智能会话恢复（不依赖Git分支名称）
+     *
+     * 设计变更：
+     * - 废弃基于 SRS/xxx 分支名称的项目识别
+     * - 采用两分支模型：main + wip
+     * - 启动时尝试加载主会话文件（如果存在）
+     * - 用户通过命令手动切换项目
      */
     private async attemptSmartRecoveryFromGitBranch(): Promise<void> {
         try {
-            // 1. 检测当前Git分支
+            // 1. 检测当前Git分支（仅用于日志记录）
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) {
-                this.logger.info('🔍 No workspace folder, skipping Git branch detection');
+                this.logger.info('🔍 No workspace folder, skipping session recovery');
                 return;
             }
-            
+
             const { getCurrentBranch } = await import('../tools/atomic/git-operations');
             const currentBranch = await getCurrentBranch(workspaceFolder.uri.fsPath);
-            
-            this.logger.info(`🔍 Current Git branch: ${currentBranch || 'unknown'}`);
-            
-            // 2. 检查是否为项目分支 (SRS/xxx 格式)
-            if (!currentBranch || !currentBranch.startsWith('SRS/')) {
-                this.logger.info('🔍 Not on a project branch, attempting to load main session');
-                await this.attemptLoadMainSession();
-                return;
-            }
-            
-            // 3. 提取项目名
-            const projectName = currentBranch.substring(4); // 移除 "SRS/" 前缀
-            this.logger.info(`🔍 Detected project branch: ${currentBranch}, project: ${projectName}`);
-            
-            // 4. 检查对应的项目会话文件是否存在并加载
-            const projectSessionPath = this.pathManager?.getProjectSessionPath(projectName);
-            if (!projectSessionPath) {
-                this.logger.warn('🔍 PathManager not available, cannot determine project session path');
-                return;
-            }
-            
-            try {
-                await fsPromises.access(projectSessionPath);
-                // 会话文件存在，加载它
-                this.logger.info(`🔄 Smart recovery: Loading session for project ${projectName}`);
-                await this.loadProjectSessionDirect(projectName);
-            } catch {
-                // 会话文件不存在，创建新的项目会话
-                this.logger.info(`🔄 Smart recovery: Creating new session for existing project ${projectName}`);
-                await this.createProjectSessionForExistingProject(projectName);
-            }
-            
+
+            this.logger.info(`🔍 Current Git branch: ${currentBranch || 'not a git repository'}`);
+
+            // 2. 尝试加载主会话文件
+            this.logger.info('🔍 Attempting to load last active session');
+            await this.attemptLoadMainSession();
+
         } catch (error) {
             this.logger.warn(`Smart recovery failed: ${(error as Error).message}`);
-            // 静默失败，尝试加载主会话作为fallback
-            await this.attemptLoadMainSession();
         }
     }
 

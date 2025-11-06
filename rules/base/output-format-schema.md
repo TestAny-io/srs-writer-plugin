@@ -27,7 +27,7 @@ Based on the tool definitions above, these are the most commonly used tool types
 - **File operations**: `readMarkdownFile`, `executeMarkdownEdits`, `readYAMLFile`, `executeYAMLEdits`
 - **Environment awareness**: `listFiles` etc.
 - **Task management**: `taskComplete` (must be used when complete)
-- **Knowledge retrieval**: `readLocalKnowledge`
+- **Knowledge retrieval**: mcp tool with Internet search capability
 - **User interaction**: `askQuestion`
 
 ### **Absolutely forbidden**
