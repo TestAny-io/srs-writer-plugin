@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.7.3-dev.1",
+  "version": "0.7.3-dev.4",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -72,10 +72,6 @@
       {
         "command": "srs-writer.status",
         "title": "SRS Writer: Control Panel"
-      },
-      {
-        "command": "srs-writer.startNewProject",
-        "title": "SRS Writer: Start New Project"
       },
       {
         "command": "srs-writer.toggleAIMode",

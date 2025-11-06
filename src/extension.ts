@@ -151,16 +151,14 @@ function registerCoreCommands(context: vscode.ExtensionContext): void {
     const statusCommand = vscode.commands.registerCommand('srs-writer.status', async () => {
         await showEnhancedStatus();
     });
-    
 
-    
-    // 🚀 v4.0新增：开始新项目命令（归档旧项目）
-    const startNewProjectCmd = vscode.commands.registerCommand('srs-writer.startNewProject', startNewProjectCommand);
-    
+
+
+    // 🚀 v6.0清理：移除手动创建项目命令，项目创建由 project_initializer specialist 独家处理
     // 🚀 阶段4清理：移除归档历史命令注册
-    
 
-    
+
+
     // AI模式切换命令 - 新架构：不再需要手动切换模式，AI自动智能分诊
     const toggleAIModeCommand = vscode.commands.registerCommand('srs-writer.toggleAIMode', async () => {
         const currentStatus = await orchestrator.getSystemStatus();
@@ -181,7 +179,7 @@ function registerCoreCommands(context: vscode.ExtensionContext): void {
     // 注册所有命令
     context.subscriptions.push(
         statusCommand,
-        startNewProjectCmd,
+        // 🚀 v6.0清理：移除 startNewProjectCmd
         // 🚀 阶段4清理：移除 viewArchiveHistoryCmd
         toggleAIModeCommand,
         forceSyncCommand  // 🚀 新增强制同步命令
@@ -297,9 +295,9 @@ async function showEnhancedStatus(): Promise<void> {
                 detail: 'Select parent directory, create workspace, copy template files'
             },
             {
-                label: '$(arrow-swap) Create / Switch Project',
-                description: 'Create new project or switch to existing project',
-                detail: 'Create new project directory or switch to existing project in workspace'
+                label: '$(arrow-swap) Switch Project',
+                description: 'Switch to existing project',
+                detail: 'Switch to existing project in workspace'
             },
             {
                 label: '$(sync) Sync Status Check',
@@ -327,7 +325,7 @@ async function showEnhancedStatus(): Promise<void> {
             case '$(folder-library) Create Workspace & Initialize':
                 await createWorkspaceAndInitialize();
                 break;
-            case '$(arrow-swap) Create / Switch Project':
+            case '$(arrow-swap) Switch Project':
                 await switchProject();
                 break;
             case '$(sync) Sync Status Check':
@@ -882,184 +880,8 @@ ${syncStatus.isConsistent
 /**
  * 🚀 v4.0重构：开始新项目（归档当前项目，保护用户资产）
  */
-async function startNewProjectCommand(): Promise<void> {
-    try {
-        // 询问用户新项目名称
-        const newProjectName = await vscode.window.showInputBox({
-            prompt: 'Enter new project name',
-            placeHolder: 'e.g. mobile-app-v2',
-            validateInput: (value) => {
-                if (value && !/^[a-zA-Z0-9_-]+$/.test(value)) {
-                    return 'Project name can only contain letters, numbers, underscores, and hyphens';
-                }
-                return undefined;
-            }
-        });
-
-        // 用户取消输入
-        if (newProjectName === undefined) {
-            return;
-        }
-
-        // 获取当前会话信息用于确认
-        const currentSession = await sessionManager.getCurrentSession();
-        const hasCurrentProject = currentSession?.projectName;
-
-        // 显示确认对话框
-        const confirmMessage = hasCurrentProject 
-            ? `📁 Current project "${currentSession.projectName}" will be archived and saved, no files will be lost.\n\n🚀 Start new project${newProjectName ? ` "${newProjectName}"` : ''}?`
-            : `🚀 Start new project${newProjectName ? ` "${newProjectName}"` : ''}?`;
-
-        const confirmed = await vscode.window.showInformationMessage(
-            confirmMessage,
-            { modal: true },
-            'Start new project'
-        );
-
-        if (confirmed !== 'Start new project') {
-            return;
-        }
-
-        // 🚀 v6.0新增：检查是否有Plan正在执行
-        let hasPlanExecution = false;
-        let planDescription = '';
-        
-        if (chatParticipant && chatParticipant.isPlanExecuting()) {
-            hasPlanExecution = true;
-            planDescription = chatParticipant.getCurrentPlanDescription() || 'Current task is being executed';
-            
-            const planConfirmMessage = `⚠️ Detected executing plan:\n\n${planDescription}\n\nIf you start a new project now, the current plan will be safely stopped. Do you want to continue?`;
-            const planConfirmed = await vscode.window.showWarningMessage(
-                planConfirmMessage,
-                { modal: true },
-                'Confirm start (stop plan)'
-            );
-
-            if (planConfirmed !== 'Confirm start (stop plan)') {
-                vscode.window.showInformationMessage('Start new project cancelled, plan continues execution');
-                return;
-            }
-        }
-
-        // 🚀 v6.0新增：使用进度对话框执行新项目创建
-        const result = await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Creating new project${newProjectName ? ` "${newProjectName}"` : ''}...`,
-            cancellable: false
-        }, async (progress, token) => {
-            try {
-                let currentProgress = 0;
-                
-                // 阶段1：中止当前计划（如果需要）
-                if (hasPlanExecution) {
-                    progress.report({ 
-                        increment: 0, 
-                        message: '🛑 Requesting plan stop...' 
-                    });
-                    
-                    progress.report({ 
-                        increment: 10, 
-                        message: '⏳ Waiting for specialist to safely stop...' 
-                    });
-                    
-                    logger.info('🛑 User confirmed to cancel plan for new project');
-                    await chatParticipant.cancelCurrentPlan(); // 这现在会等待真正停止
-                    currentProgress = 40;
-                    
-                    progress.report({ 
-                        increment: 30, 
-                        message: '✅ Plan fully stopped' 
-                    });
-                } else {
-                    currentProgress = 40;
-                    progress.report({ 
-                        increment: 40, 
-                        message: '✅ No plan to stop, continue creating...' 
-                    });
-                }
-
-                // 阶段2：归档当前项目并创建新项目
-                progress.report({ 
-                    increment: 0, 
-                    message: '📦 Archiving current project...' 
-                });
-
-                const sessionResult = await sessionManager.startNewSession(newProjectName || undefined);
-                
-                progress.report({ 
-                    increment: 35, 
-                    message: sessionResult.success ? '✅ Project created successfully' : '❌ Project creation failed' 
-                });
-
-                if (!sessionResult.success) {
-                    throw new Error(sessionResult.error || 'New project creation failed');
-                }
-
-                // 阶段3：清理项目上下文
-                progress.report({ 
-                    increment: 0, 
-                    message: '🧹 Cleaning project context...' 
-                });
-
-                if (chatParticipant) {
-                    chatParticipant.clearProjectContext();
-                }
-                
-                progress.report({ 
-                    increment: 20, 
-                    message: '✅ Context cleaned up' 
-                });
-
-                // 阶段4：最终完成
-                progress.report({ 
-                    increment: 5, 
-                    message: '🚀 New project created successfully!' 
-                });
-
-                return sessionResult;
-
-            } catch (error) {
-                logger.error(`❌ New project creation failed: ${(error as Error).message}`);
-                throw error;
-            }
-        });
-
-        if (result.success) {
-            // 🚀 阶段4简化：移除归档相关信息显示
-            const successMessage = `✅ New project created successfully!\n\n📁 Current project: ${newProjectName || 'New project'}\n\n🚀 Ready to start new work!`;
-            await vscode.window.showInformationMessage(
-                successMessage,
-                { modal: false },
-                'Confirm'
-            );
-            
-            logger.info(`✅ New project created successfully.`);
-        } else {
-            throw new Error(result.error || 'Unknown error');
-        }
-
-    } catch (error) {
-        logger.error('Failed to start new project', error as Error);
-        
-        // 🚀 v6.0新增：增强错误处理，提供更好的用户反馈
-        const errorMessage = `❌ New project creation failed\n\nError details: ${(error as Error).message}\n\nPlease check the logs for more information.`;
-        const action = await vscode.window.showErrorMessage(
-            errorMessage,
-            'View logs',
-            'Retry',
-            'Cancel'
-        );
-        
-        if (action === 'View logs') {
-            vscode.commands.executeCommand('workbench.action.toggleDevTools');
-        } else if (action === 'Retry') {
-            // 重新执行开始新项目命令
-            setTimeout(() => {
-                vscode.commands.executeCommand('srs-writer.startNewProject');
-            }, 100);
-        }
-    }
-}
+// 🚀 v6.0清理：移除 startNewProjectCommand 函数
+// 项目创建由 project_initializer specialist 独家处理
 
 // 🚀 阶段4清理：移除 viewArchiveHistoryCommand 函数
 
@@ -1258,28 +1080,23 @@ async function switchProject(): Promise<void> {
         
         const projectItems = allProjects.map(project => ({
             label: `📁 ${project.name}${project.isCurrentProject ? ' (Current)' : ''}`,
-            description: project.hasSession 
-                ? `📂 Directory 💾 Session • ${formatRelativeTime(project.lastModified)}` 
+            description: project.hasSession
+                ? `📂 Directory 💾 Session • ${formatRelativeTime(project.lastModified)}`
                 : `📂 Directory • Session will be created`,
-            detail: project.isCurrentProject ? 'Currently active project' : 
+            detail: project.isCurrentProject ? 'Currently active project' :
                    project.hasSession ? 'Complete project, ready to switch' : 'Will create project session automatically',
             project,
             action: 'switch' as const
         }));
 
         // 🚀 UAT反馈：简化选项，移除"退出当前项目"
+        // 🚀 v6.0更新：移除手动创建项目选项，项目创建由 project_initializer specialist 独家处理
         const allOptions = [
-            {
-                label: '🆕 Create New Project',
-                description: 'Create a brand new project directory and session',
-                detail: 'Enter project name, automatically create directory, session and Git branch',
-                action: 'create'  // 新增标识
-            },
             ...projectItems
         ];
 
         const selectedOption = await vscode.window.showQuickPick(allOptions, {
-            placeHolder: `Create new project or switch to existing project (Current: ${currentProjectName})`,
+            placeHolder: `Switch to existing project (Current: ${currentProjectName})`,
             matchOnDescription: true,
             matchOnDetail: true
         });
@@ -1288,11 +1105,7 @@ async function switchProject(): Promise<void> {
             return;
         }
 
-        // 🚀 阶段2新增：处理"创建新项目"选项
-        if (selectedOption.action === 'create') {
-            await handleCreateNewProject();
-            return;
-        }
+        // 🚀 v6.0清理：移除创建新项目选项的处理逻辑
 
         // 确保这是一个项目切换操作
         if (!('project' in selectedOption) || !selectedOption.project) {
@@ -1545,87 +1358,8 @@ async function switchProject(): Promise<void> {
 /**
  * 🚀 阶段2新增：处理创建新项目的操作
  */
-async function handleCreateNewProject(): Promise<void> {
-    try {
-        logger.info('🚀 [Phase2] Starting new project creation from Create / Switch Project...');
-
-        // 1. 获取项目名称
-        const projectName = await vscode.window.showInputBox({
-            prompt: 'Enter new project name',
-            placeHolder: 'e.g. mobile-app-v2',
-            validateInput: (value) => {
-                if (!value || value.trim().length === 0) {
-                    return 'Project name cannot be empty';
-                }
-                if (!/^[a-zA-Z0-9_-]+$/.test(value.trim())) {
-                    return 'Project name can only contain letters, numbers, underscores, and hyphens';
-                }
-                return undefined;
-            }
-        });
-
-        if (!projectName) {
-            logger.info('🚀 [Phase2] User cancelled project name input');
-            return;
-        }
-
-        // 2. 使用 createNewProjectFolder 工具创建项目
-        logger.info(`🚀 [Phase2] Creating new project: ${projectName}`);
-        
-        const { createNewProjectFolder } = await import('./tools/internal/createNewProjectFolderTool');
-        
-        // 3. 显示进度并执行创建
-        const result = await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: `Creating new project "${projectName}"...`,
-            cancellable: false
-        }, async (progress) => {
-            progress.report({ increment: 0, message: '🚀 Starting project creation...' });
-            
-            const createResult = await createNewProjectFolder({
-                projectName: projectName.trim(),
-                summary: 'user_requested_from_switch_project',
-                confirmWithUser: false
-            });
-            
-            progress.report({ increment: 100, message: '✅ Project created successfully!' });
-            return createResult;
-        });
-
-        // 4. 显示结果
-        if (result.success) {
-            const gitBranchInfo = result.gitBranch?.name 
-                ? `\n🌿 Git branch: ${result.gitBranch.name}${result.gitBranch.created ? ' (newly created)' : ' (already exists)'}` 
-                : '';
-            
-            const directoryInfo = result.directoryRenamed 
-                ? `\n📁 Project directory: ${result.directoryName} (automatically renamed to avoid conflicts)`
-                : result.directoryName 
-                ? `\n📁 Project directory: ${result.directoryName}`
-                : '';
-
-            const successMessage = `✅ New project created successfully!\n\n📝 Project name: ${result.projectName}${directoryInfo}${gitBranchInfo}\n\n🚀 Ready to start working on the new project!`;
-            
-            await vscode.window.showInformationMessage(
-                successMessage,
-                { modal: false },
-                'Confirm'
-            );
-            
-            logger.info(`✅ [Phase2] New project created successfully: ${result.projectName}`);
-        } else {
-            const errorMessage = `❌ New project creation failed\n\nError details: ${result.error}\n\nPlease check the logs for more information.`;
-            
-            await vscode.window.showErrorMessage(errorMessage, 'Confirm');
-            logger.error(`❌ [Phase2] New project creation failed: ${result.error}`);
-        }
-
-    } catch (error) {
-        const errorMessage = `❌ An error occurred while creating a new project: ${(error as Error).message}`;
-        logger.error('Failed to handle create new project', error as Error);
-        await vscode.window.showErrorMessage(errorMessage, 'Confirm');
-    }
-}
+// 🚀 v6.0清理：移除 handleCreateNewProject 函数
+// 项目创建由 project_initializer specialist 独家处理
 
 /**
  * 🚀 v3.0新增：创建工作区并初始化功能

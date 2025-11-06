@@ -60,7 +60,7 @@ describe('UAT UI Changes', () => {
                     label: '$(folder-library) Create Workspace & Initialize'
                 }),
                 expect.objectContaining({
-                    label: '$(arrow-swap) Create / Switch Project'
+                    label: '$(arrow-swap) Switch Project'
                 }),
                 expect.objectContaining({
                     label: '$(sync) Sync Status Check'
@@ -80,15 +80,15 @@ describe('UAT UI Changes', () => {
             expect(expectedOptions).not.toContain(quickOverviewOption);
         });
 
-        it('should have renamed Switch Project to Create / Switch Project', () => {
-            // 验证新的标签文本
-            const newLabel = '$(arrow-swap) Create / Switch Project';
-            const newDescription = 'Create new project or switch to existing project';
-            const newDetail = 'Create new project directory or switch to existing project in workspace';
-            
-            expect(newLabel).toContain('Create / Switch Project');
-            expect(newDescription).toContain('Create new project or switch to existing project');
-            expect(newDetail).toContain('Create new project directory or switch to existing project');
+        it('should have renamed to Switch Project (create removed)', () => {
+            // 🚀 v6.0更新：移除手动创建项目选项，项目创建由 project_initializer specialist 独家处理
+            const newLabel = '$(arrow-swap) Switch Project';
+            const newDescription = 'Switch to existing project';
+            const newDetail = 'Switch to existing project in workspace';
+
+            expect(newLabel).toContain('Switch Project');
+            expect(newDescription).toContain('Switch to existing project');
+            expect(newDetail).toContain('Switch to existing project in workspace');
         });
     });
 

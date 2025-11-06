@@ -60,7 +60,12 @@ jest.mock('../../core/toolExecutor', () => ({
 }));
 
 jest.mock('../../core/config/SpecialistIterationManager', () => ({
-  SpecialistIterationManager: jest.fn()
+  SpecialistIterationManager: {
+    getInstance: jest.fn().mockReturnValue({
+      getMaxIterations: jest.fn().mockReturnValue({ maxIterations: 5, source: 'mock' }),
+      getHistoryConfig: jest.fn().mockReturnValue(null)
+    })
+  }
 }));
 
 describe('Specialist模版映射系统', () => {

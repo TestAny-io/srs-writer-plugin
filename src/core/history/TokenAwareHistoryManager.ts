@@ -50,14 +50,29 @@ interface CompressedHistoryResult {
 
 export class TokenAwareHistoryManager {
   private logger = Logger.getInstance();
-  private iterationManager = SpecialistIterationManager.getInstance();
-  
+  private _iterationManager?: SpecialistIterationManager;
+
   private readonly DEFAULT_BUDGET_CONFIG: HistoryTokenBudget = {
     totalBudget: 40000,
     immediateRatio: 0.55,   // 22000 tokens (55%)
     recentRatio: 0.30,      // 12000 tokens (30%)
     milestoneRatio: 0.15    // 6000 tokens (15%)
   };
+
+  /**
+   * 懒加载 iterationManager 以避免模块初始化顺序问题
+   *
+   * 设计理由：
+   * - 类字段初始化在模块加载时就会执行，此时依赖的模块可能未完全初始化
+   * - 懒加载确保只在真正需要时才初始化，避免模块加载顺序问题
+   * - 在测试环境和生产环境都更加robust
+   */
+  private get iterationManager(): SpecialistIterationManager {
+    if (!this._iterationManager) {
+      this._iterationManager = SpecialistIterationManager.getInstance();
+    }
+    return this._iterationManager;
+  }
 
   /**
    * 获取历史管理配置
