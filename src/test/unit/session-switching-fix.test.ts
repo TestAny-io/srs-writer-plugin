@@ -37,7 +37,9 @@ jest.mock('fs', () => ({
         mkdir: jest.fn()
     },
     existsSync: jest.fn(),
-    mkdirSync: jest.fn()
+    mkdirSync: jest.fn(),
+    statSync: jest.fn(),      // 🚀 Phase 1.1: Add for BaseDirValidator
+    realpathSync: jest.fn()   // 🚀 Phase 1.1: Add for BaseDirValidator
 }));
 
 // Mock git operations
@@ -70,10 +72,13 @@ describe('Session Switching Fix', () => {
 
         mockFs = fs as jest.Mocked<typeof fs>;
         mockFsSync = fsSync as jest.Mocked<typeof fsSync>;
-        
+
         // Setup fs sync mocks
         mockFsSync.existsSync.mockReturnValue(true);
         mockFsSync.mkdirSync.mockReturnValue(undefined);
+        // 🚀 Phase 1.1: Add mocks for BaseDirValidator
+        (mockFsSync.statSync as any).mockReturnValue({ isDirectory: () => true });
+        (mockFsSync.realpathSync as any).mockImplementation((p: string) => p);
         
         sessionManager = SessionManager.getInstance(mockContext);
         

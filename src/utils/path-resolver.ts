@@ -15,6 +15,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { Logger } from './logger';
+import { BaseDirValidator } from './baseDir-validator';
 
 const logger = Logger.getInstance();
 
@@ -85,12 +86,30 @@ export async function resolveWorkspacePath(
         const { SessionManager } = await import('../core/session-manager');
         const sessionManager = SessionManager.getInstance();
         const currentSession = await sessionManager.getCurrentSession();
-        
+
         if (currentSession?.baseDir) {
-            const absolutePath = path.resolve(currentSession.baseDir, relativePath);
+            // 🚀 Phase 1.1：验证 baseDir 的有效性
+            let validatedBaseDir: string;
+            try {
+                validatedBaseDir = BaseDirValidator.validateBaseDir(
+                    currentSession.baseDir,
+                    { checkWithinWorkspace: true }
+                );
+                logger.info(`✅ BaseDir validation passed: ${validatedBaseDir}`);
+            } catch (error) {
+                // 验证失败，记录错误并回退到工作区根目录
+                logger.error(`❌ Invalid baseDir in session: ${currentSession.baseDir}`, error as Error);
+                logger.warn(`⚠️ BaseDir validation failed, falling back to workspace root`);
+                throw error;  // 抛出异常，触发回退逻辑
+            }
+
+            const absolutePath = BaseDirValidator.validatePathWithinBaseDir(
+                relativePath,
+                validatedBaseDir
+            );
             logger.info(`🔗 路径解析（使用项目baseDir）: ${relativePath} -> ${absolutePath}`);
-            logger.info(`📂 项目baseDir: ${currentSession.baseDir}`);
-            
+            logger.info(`📂 项目baseDir: ${validatedBaseDir}`);
+
             // 🚀 新增：存在性检查（如果启用）
             if (checkExistence) {
                 const exists = await fileExists(absolutePath);
@@ -109,7 +128,7 @@ export async function resolveWorkspacePath(
             logger.warn(`⚠️ SessionContext中没有baseDir，回退到工作区根目录`);
         }
     } catch (error) {
-        logger.warn(`⚠️ 获取SessionContext失败，回退到工作区根目录: ${(error as Error).message}`);
+        logger.warn(`⚠️ 获取SessionContext失败或baseDir验证失败，回退到工作区根目录: ${(error as Error).message}`);
     }
 
     // 3. 回退策略：使用VSCode工作区根目录

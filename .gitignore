@@ -73,3 +73,6 @@ reports/
 
 # 开发工具 - 仅用于本地开发，不同步到远程
 dev-tools/
+
+# 用户文档工作目录 - 文档素材和草稿，最终发布到 docs.testany.io
+user-guide/

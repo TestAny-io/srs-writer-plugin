@@ -10,6 +10,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Logger } from '../utils/logger';
+import { ProjectNameValidator } from '../utils/project-name-validator';
 
 const logger = Logger.getInstance();
 
@@ -89,14 +90,9 @@ export class SessionPathManager {
      * - 只替换文件系统禁止字符：\ / : * ? " < > | null
      */
     private sanitizeProjectName(projectName: string): string {
-        // 1. Unicode正规化 - 避免macOS(NFD)和Windows(NFC)的编码差异
-        const normalized = projectName.normalize('NFC');
-        
-        // 2. 只过滤文件系统明确禁止的字符
-        return normalized
-            .trim()
-            .replace(/[\\/:"*?<>|\x00]/g, '_')  // Windows/macOS/Linux禁止字符
-            .substring(0, 50);                  // 限制长度（中文字符占3字节）
+        // Unify using ProjectNameValidator's sanitize logic
+        return ProjectNameValidator.sanitizeProjectName(projectName)
+            .substring(0, 50);  // Keep file name length limit
     }
 
     /**

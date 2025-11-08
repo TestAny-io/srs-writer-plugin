@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.7.3-dev.5",
+  "version": "0.7.3-dev.13",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -85,6 +85,22 @@
         "command": "srs-writer.selectBranchForFolders",
         "title": "Select Git Branch for Folders View",
         "icon": "$(git-branch)"
+      },
+      {
+        "command": "srs-writer.projectManagement",
+        "title": "SRS Writer: Project Management"
+      },
+      {
+        "command": "srs-writer.renameProject",
+        "title": "SRS Writer: Rename Project"
+      },
+      {
+        "command": "srs-writer.changeBaseDir",
+        "title": "SRS Writer: Change Base Directory"
+      },
+      {
+        "command": "srs-writer.deleteProject",
+        "title": "SRS Writer: Delete Project"
       }
     ],
     "_menus_note": "🚀 分支切换按钮功能已暂时隐藏 - 详细信息见下方注释块",

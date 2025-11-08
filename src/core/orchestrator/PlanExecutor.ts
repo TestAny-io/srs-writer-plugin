@@ -10,6 +10,8 @@ import { SpecialistOutput, SpecialistExecutionHistory, SpecialistInteractionResu
 import { executeEditInstructions } from '../../tools/atomic/edit-execution-tools';
 // 🚀 Phase 4新增：统一编辑执行器（支持语义编辑）
 import { executeUnifiedEdits } from '../../tools/atomic/unified-edit-executor';
+// 🚀 Phase 1.1新增：baseDir验证
+import { BaseDirValidator } from '../../utils/baseDir-validator';
 
 /**
  * 🚀 新增：specialist输出验证结果
@@ -1237,24 +1239,25 @@ export class PlanExecutor {
         // Case 1: target_file是绝对路径
         if (path.isAbsolute(targetFile)) {
             this.logger.info(`🔍 [PATH] Case 1: 绝对路径 -> ${targetFile}`);
-            return targetFile;
+            return this.validateAndNormalizePath(targetFile, baseDir);  // 🚀 Phase 1.1：添加验证
         }
-        
+
         // Case 2: 没有baseDir，使用target_file作为相对路径
         if (!baseDir) {
             this.logger.info(`🔍 [PATH] Case 2: 无baseDir -> ${targetFile}`);
-            return targetFile;
+            return this.validateAndNormalizePath(targetFile, baseDir);  // 🚀 Phase 1.1：添加验证
         }
-        
+
         // Case 3: 没有projectName，直接拼接
         if (!projectName) {
             const result = path.join(baseDir, targetFile);
             this.logger.info(`🔍 [PATH] Case 3: 无projectName -> ${result}`);
-            return result;
+            return this.validateAndNormalizePath(result, baseDir);  // 🚀 Phase 1.1：添加验证
         }
-        
+
         // Case 4: 核心逻辑 - 检查重复项目名问题
-        return this.resolveProjectNameDuplication(targetFile, baseDir, projectName);
+        const result = this.resolveProjectNameDuplication(targetFile, baseDir, projectName);
+        return this.validateAndNormalizePath(result, baseDir);  // 🚀 Phase 1.1：添加验证
     }
 
     /**
@@ -1405,13 +1408,60 @@ export class PlanExecutor {
     private normalizeProjectName(projectName: string): string {
         // 处理项目名中的特殊字符，但保持原有格式
         const normalized = projectName.trim();
-        
+
         // 检查项目名是否包含路径分隔符（这通常是错误的）
         if (normalized.includes(path.sep)) {
             this.logger.warn(`⚠️ 项目名包含路径分隔符，可能存在问题: ${normalized}`);
         }
-        
+
         return normalized;
+    }
+
+    /**
+     * 🚀 Phase 1.1新增：验证并规范化路径
+     *
+     * 对smartPathResolution返回的所有路径进行安全验证
+     * 确保路径不会逃逸baseDir
+     *
+     * @param resolvedPath 智能路径解析后的路径
+     * @param baseDir 基础目录（可能为null）
+     * @returns 验证后的路径
+     */
+    private validateAndNormalizePath(resolvedPath: string, baseDir: string | null): string {
+        // Case 1: 绝对路径 - 仅验证存在性
+        if (path.isAbsolute(resolvedPath)) {
+            // 绝对路径不需要baseDir验证，直接返回（保持现有行为）
+            this.logger.info(`🔍 [VALIDATE] Absolute path, no baseDir validation needed: ${resolvedPath}`);
+            return resolvedPath;
+        }
+
+        // Case 2: 相对路径但没有baseDir - 返回相对路径（保持现有行为）
+        if (!baseDir) {
+            this.logger.info(`🔍 [VALIDATE] Relative path without baseDir: ${resolvedPath}`);
+            return resolvedPath;
+        }
+
+        // Case 3: 有baseDir的路径 - 验证不会逃逸
+        try {
+            // 首先验证baseDir本身的有效性
+            const validatedBaseDir = BaseDirValidator.validateBaseDir(baseDir, {
+                checkWithinWorkspace: true
+            });
+
+            // 然后验证resolvedPath在baseDir范围内（允许不存在，因为可能是即将创建的文件）
+            const validatedPath = BaseDirValidator.validatePathWithinBaseDir(
+                resolvedPath,
+                validatedBaseDir
+            );
+
+            this.logger.info(`✅ [VALIDATE] Path validation passed: ${validatedPath}`);
+            return validatedPath;
+        } catch (error) {
+            // 验证失败 - 路径可能尝试逃逸
+            this.logger.error(`❌ [VALIDATE] Path validation failed for: ${resolvedPath}`, error as Error);
+            this.logger.error(`❌ [VALIDATE] BaseDir was: ${baseDir}`);
+            throw error;  // 抛出异常，阻止不安全的路径使用
+        }
     }
 
     /**

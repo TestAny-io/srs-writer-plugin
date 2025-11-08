@@ -38,7 +38,9 @@ jest.mock('fs', () => ({
         writeFile: jest.fn().mockResolvedValue(undefined),
         readFile: jest.fn().mockResolvedValue('{}')
     },
-    existsSync: jest.fn().mockReturnValue(true)
+    existsSync: jest.fn().mockReturnValue(true),
+    statSync: jest.fn(),      // 🚀 Phase 1.1: Add for BaseDirValidator
+    realpathSync: jest.fn()   // 🚀 Phase 1.1: Add for BaseDirValidator
 }));
 
 describe('阶段4: 归档系统清理验证', () => {
@@ -53,9 +55,14 @@ describe('阶段4: 归档系统清理验证', () => {
 
         sessionManager = SessionManager.getInstance(mockContext);
         pathManager = new SessionPathManager('/test/workspace');
-        
+
         // 清理所有mock
         jest.clearAllMocks();
+
+        // Setup mock implementations for BaseDirValidator
+        const fs = require('fs');
+        (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
+        (fs.realpathSync as jest.Mock).mockImplementation((p: string) => p);
     });
 
     afterEach(() => {

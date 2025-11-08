@@ -12,7 +12,9 @@ const mockExistsSync = jest.fn();
 jest.mock('fs', () => ({
     readFileSync: (...args: any[]) => mockReadFileSync(...args),
     writeFileSync: (...args: any[]) => mockWriteFileSync(...args),
-    existsSync: (...args: any[]) => mockExistsSync(...args)
+    existsSync: (...args: any[]) => mockExistsSync(...args),
+    statSync: jest.fn(),      // 🚀 Phase 1.1: Add for BaseDirValidator
+    realpathSync: jest.fn()   // 🚀 Phase 1.1: Add for BaseDirValidator
 }));
 
 // Mock vscode
@@ -48,6 +50,11 @@ describe('executeTextFileEdits Unit Tests', () => {
     beforeEach(() => {
         // Reset all mocks
         jest.clearAllMocks();
+
+        // Setup mock implementations for BaseDirValidator
+        const fs = require('fs');
+        (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
+        (fs.realpathSync as jest.Mock).mockImplementation((p: string) => p);
     });
 
     describe('Basic functionality', () => {

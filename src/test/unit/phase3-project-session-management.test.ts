@@ -43,7 +43,9 @@ jest.mock('fs', () => ({
         writeFile: jest.fn().mockResolvedValue(undefined),
         readFile: jest.fn().mockResolvedValue('{}')
     },
-    existsSync: jest.fn().mockReturnValue(true)
+    existsSync: jest.fn().mockReturnValue(true),
+    statSync: jest.fn(),      // 🚀 Phase 1.1: Add for BaseDirValidator
+    realpathSync: jest.fn()   // 🚀 Phase 1.1: Add for BaseDirValidator
 }));
 
 describe('阶段3: 项目级会话文件支持', () => {
@@ -53,17 +55,22 @@ describe('阶段3: 项目级会话文件支持', () => {
     beforeEach(() => {
         // 清理单例
         (SessionManager as any).instance = null;
-        
+
         // 创建新的实例
         const mockContext = {
             globalStoragePath: '/test/global-storage'
         } as any;
-        
+
         sessionManager = SessionManager.getInstance(mockContext);
         pathManager = new SessionPathManager('/test/workspace');
-        
+
         // 重置所有 mocks
         jest.clearAllMocks();
+
+        // Setup mock implementations for BaseDirValidator
+        const fs = require('fs');
+        (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
+        (fs.realpathSync as jest.Mock).mockImplementation((p: string) => p);
     });
 
     describe('项目会话扫描功能', () => {

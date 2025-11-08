@@ -8,6 +8,7 @@ import { Logger } from './utils/logger';
 import { ErrorHandler } from './utils/error-handler';
 import { FoldersViewEnhancer } from './core/FoldersViewEnhancer';
 import { VSCodeToolsAdapter } from './tools/adapters/vscode-tools-adapter';
+import { BaseDirValidator } from './utils/baseDir-validator';
 // Language Model Tools已禁用 - 暂时移除工具类导入
 // import {
 //     InternetSearchTool,
@@ -94,13 +95,19 @@ export async function activate(context: vscode.ExtensionContext) {
         // 🚀 新增：初始化Folders视图增强器
         logger.info('Step 6: Initializing Folders View Enhancer...');
         foldersViewEnhancer = new FoldersViewEnhancer();
-        
+
         // 注册Folders视图增强命令
         registerFoldersViewCommands(context);
-        
+
         // 启用Folders视图增强功能
         vscode.commands.executeCommand('setContext', 'srs-writer:foldersViewEnhanced', true);
         logger.info('✅ Folders View Enhancer initialized successfully');
+
+        // 🚀 Phase 1.2: 注册项目管理命令
+        registerProjectManagementCommands(context);
+
+        // 🚀 Phase 1.2: 设置 Session File 保护
+        setupSessionFileProtection(context);
 
         // 🚀 v3.0新增：注册 VSCode/MCP 工具（使用 VSCode API）
         logger.info('Step 7: Registering MCP Tools...');
@@ -204,6 +211,205 @@ function registerFoldersViewCommands(context: vscode.ExtensionContext): void {
 }
 
 /**
+ * 🚀 Phase 1.2: 注册项目管理命令
+ */
+function registerProjectManagementCommands(context: vscode.ExtensionContext): void {
+    const sessionManager = SessionManager.getInstance(context);
+
+    // Command 1: Project Management Menu (Quick Pick)
+    const projectManagementCmd = vscode.commands.registerCommand('srs-writer.projectManagement', async () => {
+        const action = await vscode.window.showQuickPick([
+            {
+                label: '$(edit) Rename Project',
+                description: 'Rename project (updates projectName, directory, and baseDir atomically)',
+                action: 'rename'
+            },
+            {
+                label: '$(trash) Delete Project',
+                description: 'Delete project session and directory',
+                action: 'delete'
+            }
+        ], {
+            placeHolder: 'Select a project management action'
+        });
+
+        if (!action) return;
+
+        switch (action.action) {
+            case 'rename':
+                await vscode.commands.executeCommand('srs-writer.renameProject');
+                break;
+            case 'delete':
+                await vscode.commands.executeCommand('srs-writer.deleteProject');
+                break;
+        }
+    });
+
+    // Command 2: Rename Project
+    const renameProjectCmd = vscode.commands.registerCommand('srs-writer.renameProject', async () => {
+        const currentSession = await sessionManager.getCurrentSession();
+        const currentProjectName = currentSession?.projectName;
+
+        if (!currentProjectName) {
+            vscode.window.showErrorMessage('No active project to rename.');
+            return;
+        }
+
+        const newName = await vscode.window.showInputBox({
+            prompt: 'Enter new project name',
+            value: currentProjectName,
+            validateInput: (value) => {
+                if (!value || value.trim() === '') {
+                    return 'Project name cannot be empty';
+                }
+                if (value === currentProjectName) {
+                    return 'New name is the same as current name';
+                }
+                return null;
+            }
+        });
+
+        if (!newName) return; // User cancelled
+
+        try {
+            await sessionManager.renameProject(currentProjectName, newName);
+            vscode.window.showInformationMessage(
+                `✅ Project renamed: ${currentProjectName} → ${newName}\n` +
+                `(directory and baseDir updated)`
+            );
+        } catch (error) {
+            vscode.window.showErrorMessage(
+                `Failed to rename project: ${(error as Error).message}`
+            );
+        }
+    });
+
+    // Command 3: Delete Project
+    const deleteProjectCmd = vscode.commands.registerCommand('srs-writer.deleteProject', async () => {
+        const currentSession = await sessionManager.getCurrentSession();
+        if (!currentSession || !currentSession.projectName) {
+            vscode.window.showErrorMessage('No active project to delete.');
+            return;
+        }
+
+        const projectName = currentSession.projectName;
+        const baseDir = currentSession.baseDir;
+
+        // Confirmation dialog
+        const confirmChoice = await vscode.window.showWarningMessage(
+            `Are you sure you want to delete project "${projectName}"?\n\n` +
+            `This will delete:\n` +
+            `  - Session file\n` +
+            `  - Project directory: ${baseDir}\n` +
+            `  - All files and folders in the directory\n\n` +
+            `⚠️ Files will be moved to Trash/Recycle Bin (recoverable).`,
+            { modal: true },
+            'Yes, Delete Session and Directory',
+            'No, Cancel'
+        );
+
+        if (confirmChoice !== 'Yes, Delete Session and Directory') return;
+
+        try {
+            await sessionManager.deleteProject(projectName);
+            vscode.window.showInformationMessage(
+                `✅ Project "${projectName}" deleted`
+            );
+        } catch (error) {
+            vscode.window.showErrorMessage(
+                `Failed to delete project: ${(error as Error).message}`
+            );
+        }
+    });
+
+    // Register all commands
+    context.subscriptions.push(
+        projectManagementCmd,
+        renameProjectCmd,
+        deleteProjectCmd
+    );
+
+    logger.info('🚀 Phase 1.2: Project Management commands registered successfully');
+}
+
+/**
+ * 🚀 Phase 1.2: Setup session file protection
+ *
+ * Detects manual edits to session files and warns users to use management commands
+ */
+function setupSessionFileProtection(context: vscode.ExtensionContext): void {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    if (!workspaceRoot) return;
+
+    // Create file system watcher for .session-log/*.json
+    const watcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(workspaceRoot, '.session-log/**/*.json')
+    );
+
+    // 🔧 Bug fix: 使用计数器而不是布尔标志，支持连续多次写入（如 renameProject）
+    let extensionWriteCount = 0;
+
+    // Intercept SessionManager's write operations
+    const sessionManager = SessionManager.getInstance(context);
+    const originalSave = (sessionManager as any).saveUnifiedSessionFile;
+
+    if (originalSave) {
+        (sessionManager as any).saveUnifiedSessionFile = async function(...args: any[]) {
+            extensionWriteCount++;
+            try {
+                return await originalSave.apply(this, args);
+            } finally {
+                // 🔧 延迟 1000ms 以确保文件系统 watcher 事件被处理
+                // 文件系统事件的触发时间不确定，可能远超过 200ms
+                // 这个延迟需要覆盖：
+                // 1. renameProject 的两次连续保存
+                // 2. 单次保存后文件系统事件的延迟触发
+                setTimeout(() => {
+                    extensionWriteCount = Math.max(0, extensionWriteCount - 1);
+                }, 1000);
+            }
+        };
+    }
+
+    // Watch for file changes
+    watcher.onDidChange(async (uri) => {
+        // Ignore extension's own writes
+        if (extensionWriteCount > 0) return;
+
+        // User manually edited session file
+        const choice = await vscode.window.showWarningMessage(
+            '⚠️ Session File Edited Manually\n\n' +
+            'Session files are managed by SRS Writer extension. ' +
+            'Manual edits may cause data inconsistency or be overwritten.\n\n' +
+            'Please use "Project Management" commands to make changes safely.',
+            'Open Project Management',
+            'Keep My Changes'
+        );
+
+        if (choice === 'Open Project Management') {
+            vscode.commands.executeCommand('srs-writer.projectManagement');
+        }
+        // 'Keep My Changes' - do nothing, but user has been warned
+    });
+
+    // Watch for file creation (user may manually create new session file)
+    watcher.onDidCreate(async (uri) => {
+        if (extensionWriteCount > 0) return;
+
+        vscode.window.showWarningMessage(
+            '⚠️ New Session File Detected\n\n' +
+            'A new session file was created manually. This may cause conflicts. ' +
+            'Please use "Project Management" commands to create projects.',
+            'Okay'
+        );
+    });
+
+    context.subscriptions.push(watcher);
+
+    logger.info('🚀 Phase 1.2: Session file protection enabled');
+}
+
+/**
  * 🔧 注册Language Model Tools - 已禁用以支持Marketplace发布
  * TODO: 当VS Code Language Model Tools API稳定化后重新启用
  */
@@ -300,6 +506,11 @@ async function showEnhancedStatus(): Promise<void> {
                 detail: 'Switch to existing project in workspace'
             },
             {
+                label: '$(folder-opened) Project Management',
+                description: 'Manage current project',
+                detail: 'Rename project, change base directory, or delete project'
+            },
+            {
                 label: '$(sync) Sync Status Check',
                 description: 'Check data consistency',
                 detail: 'File vs memory sync status'
@@ -327,6 +538,9 @@ async function showEnhancedStatus(): Promise<void> {
                 break;
             case '$(arrow-swap) Switch Project':
                 await switchProject();
+                break;
+            case '$(folder-opened) Project Management':
+                await vscode.commands.executeCommand('srs-writer.projectManagement');
                 break;
             case '$(sync) Sync Status Check':
                 await showSyncStatus();
@@ -888,157 +1102,17 @@ ${syncStatus.isConsistent
 /**
  * 🚀 v4.0新增：工作空间项目信息
  */
-interface WorkspaceProject {
-    name: string;           // 从 srs-writer-log.json 的 project_name 读取Read from srs-writer-log.json project_name
-    baseDir: string;        // 计算得出：workspaceRoot + 目录名Calculate from workspaceRoot + directory name
-    isCurrentProject: boolean;
-    gitBranch?: string;     // 🚀 新增：从 srs-writer-log.json 的 git_branch 读取Read from srs-writer-log.json git_branch
-}
+// 🚀 Phase 2.1: Removed WorkspaceProject and EnhancedProject interfaces
+// Now using only ProjectSessionInfo from session-based scanning
 
-/**
- * 🚀 阶段3新增：增强的项目信息接口
- */
-interface EnhancedProject {
-    name: string;
-    baseDir: string;
-    gitBranch?: string;
-    isCurrentProject: boolean;
-    hasDirectory: boolean;  // 是否有项目目录
-    hasSession: boolean;    // 是否有会话文件
-    lastModified?: string;  // 最后修改时间
-    operationCount?: number; // 操作数量
-    projectType: 'complete' | 'directory-only'; // 项目类型
-}
-
-// 🚀 阶段3清理：移除废弃的 readProjectInfoFromLog 函数
+// 🚀 Phase 2.1: 移除废弃的目录扫描相关函数
+// - scanWorkspaceProjects(): 不再需要目录扫描
+// - getProjectSwitchingExcludeList(): 与目录扫描配套的排除列表
+// - isLikelyProjectDirectory(): 目录启发式检测
 // 现在统一从 .session-log/ 目录中的会话文件获取所有项目信息
 
-/**
- * 🚀 v4.0新增：扫描workspace中的项目
- */
-async function scanWorkspaceProjects(): Promise<WorkspaceProject[]> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-        return [];
-    }
-
-    const projects: WorkspaceProject[] = [];
-    const currentSession = await sessionManager.getCurrentSession();
-    const currentProjectName = currentSession?.projectName;
-
-    // 扫描workspace根目录下的子文件夹
-    const workspaceRoot = workspaceFolders[0].uri.fsPath;
-    
-    try {
-        const items = await vscode.workspace.fs.readDirectory(workspaceFolders[0].uri);
-        
-        // 🚀 获取排除目录列表
-        const excludeList = getProjectSwitchingExcludeList();
-        const excludeSet = new Set(excludeList.map(dir => dir.toLowerCase()));
-        logger.info(`🔍 Project scanning excludes: [${excludeList.join(', ')}]`);
-        
-        for (const [itemName, fileType] of items) {
-            // 只处理文件夹，跳过文件和隐藏文件夹
-            if (fileType === vscode.FileType.Directory && !itemName.startsWith('.')) {
-                // 🚀 检查排除列表
-                if (excludeSet.has(itemName.toLowerCase())) {
-                    logger.debug(`⏭️ Skipping excluded directory: ${itemName}`);
-                    continue; // 跳过被排除的目录
-                }
-                
-                // 检查是否像项目文件夹
-                if (isLikelyProjectDirectory(itemName)) {
-                    // 🚀 阶段3修复：直接使用目录名作为项目名，Git分支信息从会话文件获取
-                    const projectName = itemName;  // 直接使用目录名
-                    
-                    projects.push({
-                        name: projectName,
-                        baseDir: `${workspaceRoot}/${itemName}`,
-                        isCurrentProject: projectName === currentProjectName,
-                        gitBranch: undefined  // Git分支信息将从会话文件中获取
-                    });
-                    
-                    logger.debug(`📂 Found project directory: ${projectName}`);
-                }
-            }
-        }
-    } catch (error) {
-        logger.error('Failed to scan workspace projects', error as Error);
-    }
-
-    // 如果当前有项目但不在扫描列表中，添加它
-    if (currentProjectName && !projects.find(p => p.name === currentProjectName)) {
-        // 🚀 阶段3修复：直接从当前会话获取信息，不再读取项目日志文件
-        projects.push({
-            name: currentProjectName,
-            baseDir: currentSession?.baseDir || `${workspaceRoot}/${currentProjectName}`,
-            isCurrentProject: true,
-            gitBranch: currentSession?.gitBranch  // 直接从会话文件获取Git分支信息
-        });
-    }
-
-    return projects;
-}
-
-/**
- * 获取项目切换时要排除的目录列表
- */
-function getProjectSwitchingExcludeList(): string[] {
-    const config = vscode.workspace.getConfiguration('srs-writer');
-    const excludeList = config.get<string[]>('projectSwitching.excludeDirectories');
-    return excludeList || [
-        'templates', 'knowledge', 'node_modules', 
-        '.git', '.vscode', 'coverage', 'dist', 'build'
-    ];
-}
-
-/**
- * 检测文件夹是否像项目目录
- */
-function isLikelyProjectDirectory(dirName: string): boolean {
-    const projectIndicators = [
-        'project', 'srs-', '项目', 'webapp', 'app', 'system', '系统',
-        'Project', 'SRS', 'System', 'App', 'Web'
-    ];
-    
-    const lowerName = dirName.toLowerCase();
-    return projectIndicators.some(indicator => 
-        lowerName.includes(indicator.toLowerCase())
-    ) || dirName.length > 3; // 或者名称足够长（可能是项目名）
-}
-
-/**
- * 🚀 阶段3新增：合并目录项目和会话项目列表
- */
-function mergeProjectLists(directoryProjects: WorkspaceProject[], sessionProjects: ProjectSessionInfo[]): EnhancedProject[] {
-    const result: EnhancedProject[] = [];
-    
-    // 以目录项目为基准（只显示有目录的项目）
-    for (const dirProject of directoryProjects) {
-        // 🚀 阶段3修复：使用大小写不敏感的匹配，因为会话文件名经过 sanitize 处理
-        const sessionInfo = sessionProjects.find(s => 
-            s.projectName.toLowerCase() === dirProject.name.toLowerCase()
-        );
-        
-        result.push({
-            name: dirProject.name,
-            baseDir: dirProject.baseDir,
-            gitBranch: sessionInfo?.gitBranch || dirProject.gitBranch,  // 🚀 优先使用会话文件中的Git分支信息
-            isCurrentProject: dirProject.isCurrentProject,
-            
-            // 🎯 关键区分：是否有会话文件
-            hasDirectory: true,  // 肯定有目录
-            hasSession: !!sessionInfo,  // 可能有会话
-            lastModified: sessionInfo?.lastModified,
-            operationCount: sessionInfo?.operationCount || 0,
-            
-            // 决定项目类型
-            projectType: sessionInfo ? 'complete' : 'directory-only'
-        });
-    }
-    
-    return result;
-}
+// 🚀 Phase 2.1: 移除 mergeProjectLists() 函数
+// 不再需要合并目录扫描和会话扫描的结果，现在单一数据源
 
 /**
  * 🚀 阶段3新增：格式化相对时间
@@ -1069,25 +1143,36 @@ async function switchProject(): Promise<void> {
         const currentSession = await sessionManager.getCurrentSession();
         const currentProjectName = currentSession?.projectName || 'No Project';
 
-        // 🚀 阶段3新增：整合项目发现
-        const [directoryProjects, sessionProjects] = await Promise.all([
-            scanWorkspaceProjects(),              // 基于目录扫描
-            sessionManager.listProjectSessions() // 基于会话文件扫描
-        ]);
-        
-        // 合并项目列表：只显示有目录的项目
-        const allProjects = mergeProjectLists(directoryProjects, sessionProjects);
-        
-        const projectItems = allProjects.map(project => ({
-            label: `📁 ${project.name}${project.isCurrentProject ? ' (Current)' : ''}`,
-            description: project.hasSession
-                ? `📂 Directory 💾 Session • ${formatRelativeTime(project.lastModified)}`
-                : `📂 Directory • Session will be created`,
-            detail: project.isCurrentProject ? 'Currently active project' :
-                   project.hasSession ? 'Complete project, ready to switch' : 'Will create project session automatically',
-            project,
-            action: 'switch' as const
-        }));
+        // 🚀 Phase 2.1: 单一数据源 - 只从 session 文件扫描
+        const sessionProjects = await sessionManager.listProjectSessions();
+
+        // 构建项目选择列表
+        const projectItems = sessionProjects.map(project => {
+            const isCurrentProject = project.isActive;
+            const { isValid, error } = project.baseDirValidation;
+
+            // 状态图标和描述
+            const statusIcon = isValid ? '📁' : '⚠️';
+            const statusText = isValid ? 'Directory' : 'Directory Error';
+
+            // 项目信息行
+            const infoLine = [
+                `${statusIcon} ${statusText}`,
+                formatRelativeTime(project.lastModified)
+            ].join(' • ');
+
+            return {
+                label: `${project.projectName}${isCurrentProject ? ' (Current)' : ''}`,
+                description: infoLine,
+                detail: isCurrentProject
+                    ? 'Currently active project'
+                    : isValid
+                        ? 'Ready to switch'
+                        : `⚠️ ${error}`,
+                project,
+                action: 'switch' as const
+            };
+        });
 
         // 🚀 UAT反馈：简化选项，移除"退出当前项目"
         // 🚀 v6.0更新：移除手动创建项目选项，项目创建由 project_initializer specialist 独家处理
@@ -1114,19 +1199,38 @@ async function switchProject(): Promise<void> {
         }
 
         const targetProject = selectedOption.project;
-        const targetProjectName = targetProject.name;
+        const targetProjectName = targetProject.projectName;
 
         // 如果选择的是当前项目，无需切换
-        if (targetProject.isCurrentProject) {
+        if (targetProject.isActive) {
             vscode.window.showInformationMessage(`✅ Already on current project: ${targetProjectName}`);
             return;
         }
 
-        // 🚀 阶段3新增：根据项目类型显示不同的确认信息
-        const confirmMessage = targetProject.hasSession 
-            ? `🔄 Switch to existing project "${targetProjectName}"?\n\nCurrent session will be saved, then load that project's session.`
-            : `🆕 Switch to project "${targetProjectName}" and create new session?\n\nA new session file will be created for this project.`;
-        
+        // 🚀 Phase 2.1: 切换前验证 baseDir
+        if (!targetProject.baseDirValidation.isValid) {
+            const errorMessage = targetProject.baseDirValidation.error || 'Unknown error';
+
+            // 显示错误并提供修复指导
+            const choice = await vscode.window.showErrorMessage(
+                `❌ Project Folder Path Error\n\n` +
+                `Project: ${targetProjectName}\n` +
+                `Error: ${errorMessage}\n\n` +
+                `Please use "Project Management → Change Base Directory" to fix the path before switching.`,
+                'Open Project Management',
+                'Cancel'
+            );
+
+            if (choice === 'Open Project Management') {
+                await vscode.commands.executeCommand('srs-writer.projectManagement');
+            }
+
+            return; // 阻止切换
+        }
+
+        // BaseDir 有效，显示确认信息
+        const confirmMessage = `🔄 Switch to project "${targetProjectName}"?\n\nCurrent session will be saved, then load that project's session.`;
+
         const confirmed = await vscode.window.showInformationMessage(
             confirmMessage,
             { modal: true },
@@ -1197,10 +1301,10 @@ async function switchProject(): Promise<void> {
                     });
                 }
 
-                // 🚀 阶段3新增：使用会话切换逻辑
-                progress.report({ 
-                    increment: 0, 
-                    message: targetProject.hasSession ? '💾 Loading project session...' : '🆕 Creating project session...'
+                // 🚀 Phase 2.1: 加载项目会话（所有项目都有会话文件）
+                progress.report({
+                    increment: 0,
+                    message: '💾 Loading project session...'
                 });
 
                 await sessionManager.switchToProjectSession(targetProjectName);
@@ -1303,11 +1407,11 @@ async function switchProject(): Promise<void> {
                     message: '🚀 Project switch completed!' 
                 });
 
-                // 返回成功结果（简化的结构）
+                // 返回成功结果
                 return {
                     success: true,
                     projectName: targetProjectName,
-                    sessionCreated: !targetProject.hasSession
+                    sessionCreated: false  // 🚀 Phase 2.1: 所有项目都有会话文件
                 };
 
             } catch (error) {

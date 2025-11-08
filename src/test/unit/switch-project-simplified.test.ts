@@ -55,7 +55,9 @@ jest.mock('fs', () => ({
         mkdir: jest.fn()
     },
     existsSync: jest.fn().mockReturnValue(true),
-    mkdirSync: jest.fn()
+    mkdirSync: jest.fn(),
+    statSync: jest.fn(),      // 🚀 Phase 1.1: Add for BaseDirValidator
+    realpathSync: jest.fn()   // 🚀 Phase 1.1: Add for BaseDirValidator
 }));
 
 describe('Switch Project Simplified', () => {
@@ -66,10 +68,10 @@ describe('Switch Project Simplified', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
-        
+
         // 重置SessionManager单例
         (SessionManager as any).instance = undefined;
-        
+
         // 创建mock context
         mockContext = {
             globalStoragePath: '/test/global',
@@ -82,16 +84,21 @@ describe('Switch Project Simplified', () => {
         // 获取mock函数
         const { getCurrentBranch } = require('../../tools/atomic/git-operations');
         mockGetCurrentBranch = getCurrentBranch as jest.MockedFunction<any>;
-        
+
         mockWithProgress = vscode.window.withProgress as jest.MockedFunction<any>;
 
         // 创建SessionManager实例
         sessionManager = SessionManager.getInstance(mockContext);
-        
+
         // Mock workspace configuration
         (vscode.workspace.getConfiguration as jest.MockedFunction<any>).mockReturnValue({
             get: jest.fn().mockReturnValue([])
         });
+
+        // Setup mock implementations for BaseDirValidator
+        const fs = require('fs');
+        (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
+        (fs.realpathSync as jest.Mock).mockImplementation((p: string) => p);
     });
 
     describe('WIP Branch Ensure Logic', () => {

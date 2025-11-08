@@ -14,6 +14,11 @@ export enum OperationType {
   "SESSION_RESTORED" = "SESSION_RESTORED",         // 从归档恢复会话
   "SESSION_CLEARED" = "SESSION_CLEARED",           // 会话清理/重置
   "PROJECT_SWITCHED" = "PROJECT_SWITCHED",         // 项目切换操作
+
+  // 🚀 Phase 1.2: 项目管理操作
+  "PROJECT_RENAMED" = "PROJECT_RENAMED",           // 项目重命名
+  "BASEDIR_CHANGED" = "BASEDIR_CHANGED",           // BaseDir 路径修改
+  "PROJECT_DELETED" = "PROJECT_DELETED",           // 项目删除
   
   // 🔧 工具执行记录
   "TOOL_EXECUTION_START" = "TOOL_EXECUTION_START", // 工具开始执行
@@ -88,6 +93,7 @@ export interface SessionContext {
 
 /**
  * 🚀 阶段3新增：项目会话信息接口
+ * 🚀 Phase 2.1 增强：添加 baseDir 验证信息
  */
 export interface ProjectSessionInfo {
   projectName: string;
@@ -96,6 +102,13 @@ export interface ProjectSessionInfo {
   isActive: boolean;
   operationCount?: number;
   gitBranch?: string;  // 🚀 阶段3新增：从会话文件中读取的Git分支信息
+
+  // 🚀 Phase 2.1 新增字段
+  baseDir: string | null;              // 项目的 baseDir 路径
+  baseDirValidation: {                 // baseDir 验证结果
+    isValid: boolean;                  // 是否通过验证
+    error?: string;                    // 如果验证失败，错误信息
+  };
 }
 
 /**

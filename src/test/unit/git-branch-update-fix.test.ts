@@ -36,7 +36,9 @@ jest.mock('fs', () => ({
         mkdir: jest.fn()
     },
     existsSync: jest.fn(),
-    mkdirSync: jest.fn()
+    mkdirSync: jest.fn(),
+    statSync: jest.fn(),      // 🚀 Phase 1.1: Add for BaseDirValidator
+    realpathSync: jest.fn()   // 🚀 Phase 1.1: Add for BaseDirValidator
 }));
 
 // Mock git operations
@@ -52,7 +54,7 @@ describe('GitBranch Update Fix', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
-        
+
         mockContext = {
             subscriptions: [],
             workspaceState: {
@@ -69,26 +71,30 @@ describe('GitBranch Update Fix', () => {
 
         mockFs = fs as jest.Mocked<typeof fs>;
         mockFsSync = fsSync as jest.Mocked<typeof fsSync>;
-        
+
         // Setup fs sync mocks
         mockFsSync.existsSync.mockReturnValue(true);
         mockFsSync.mkdirSync.mockReturnValue(undefined);
-        
+
         sessionManager = SessionManager.getInstance(mockContext);
-        
+
         // Mock PathManager methods
         const mockPathManager = {
-            getProjectSessionPath: jest.fn((projectName: string) => 
+            getProjectSessionPath: jest.fn((projectName: string) =>
                 `/test/workspace/.session-log/srs-writer-session_${projectName}.json`
             ),
-            getMainSessionPath: jest.fn(() => 
+            getMainSessionPath: jest.fn(() =>
                 '/test/workspace/.session-log/srs-writer-session_main.json'
             ),
             validateWorkspacePath: jest.fn(() => true),
             ensureSessionDirectory: jest.fn().mockResolvedValue(undefined)
         };
-        
+
         sessionManager['pathManager'] = mockPathManager as any;
+
+        // Setup mock implementations for BaseDirValidator
+        (mockFsSync.statSync as any).mockReturnValue({ isDirectory: () => true });
+        (mockFsSync.realpathSync as any).mockImplementation((p: string) => p);
     });
 
     afterEach(() => {

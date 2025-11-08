@@ -25,6 +25,13 @@ jest.mock('vscode', () => ({
     }
 }));
 
+// 🚀 Phase 1.1: Mock fs for BaseDirValidator
+jest.mock('fs', () => ({
+    existsSync: jest.fn(),
+    statSync: jest.fn(),
+    realpathSync: jest.fn()
+}));
+
 // Mock SessionManager
 const mockGetCurrentSession = jest.fn();
 const mockSessionManager = {
@@ -51,6 +58,12 @@ jest.mock('../../utils/logger', () => ({
 describe('PathResolver', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+
+        // 🚀 Phase 1.1: Setup fs mocks for BaseDirValidator
+        const fs = require('fs');
+        (fs.existsSync as jest.Mock).mockReturnValue(true);
+        (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
+        (fs.realpathSync as jest.Mock).mockImplementation((p: string) => p);
     });
 
     describe('getCurrentWorkspaceFolder', () => {
@@ -84,13 +97,14 @@ describe('PathResolver', () => {
         describe('SessionContext baseDir 优先级', () => {
             it('应该优先使用SessionContext的baseDir', async () => {
                 // Mock SessionManager返回有效的session
+                // 🚀 Phase 1.1: baseDir必须在workspace内才能通过验证
                 const mockSession = {
-                    baseDir: '/project/base/dir'
+                    baseDir: '/mock/workspace/root/project'
                 };
                 mockGetCurrentSession.mockResolvedValue(mockSession);
 
                 const result = await resolveWorkspacePath('config/settings.json');
-                expect(result).toBe('/project/base/dir/config/settings.json');
+                expect(result).toBe('/mock/workspace/root/project/config/settings.json');
             });
 
             it('当SessionContext没有baseDir时应该回退到工作区', async () => {
@@ -143,16 +157,17 @@ describe('PathResolver', () => {
 
         describe('路径拼接', () => {
             it('应该正确拼接相对路径', async () => {
+                // 🚀 Phase 1.1: baseDir必须在workspace内才能通过验证
                 const mockSession = {
-                    baseDir: '/project/root'
+                    baseDir: '/mock/workspace/root/project'
                 };
                 mockGetCurrentSession.mockResolvedValue(mockSession);
 
                 const testCases = [
-                    { input: 'file.json', expected: '/project/root/file.json' },
-                    { input: 'config/app.json', expected: '/project/root/config/app.json' },
-                    { input: 'docs/README.md', expected: '/project/root/docs/README.md' },
-                    { input: 'requirements/fr.yaml', expected: '/project/root/requirements/fr.yaml' }
+                    { input: 'file.json', expected: '/mock/workspace/root/project/file.json' },
+                    { input: 'config/app.json', expected: '/mock/workspace/root/project/config/app.json' },
+                    { input: 'docs/README.md', expected: '/mock/workspace/root/project/docs/README.md' },
+                    { input: 'requirements/fr.yaml', expected: '/mock/workspace/root/project/requirements/fr.yaml' }
                 ];
 
                 for (const testCase of testCases) {
@@ -164,7 +179,8 @@ describe('PathResolver', () => {
 
         describe('选项参数', () => {
             it('应该正确使用contextName', async () => {
-                const mockSession = { baseDir: '/project/root' };
+                // 🚀 Phase 1.1: baseDir必须在workspace内才能通过验证
+                const mockSession = { baseDir: '/mock/workspace/root/project' };
                 mockGetCurrentSession.mockResolvedValue(mockSession);
 
                 const options: PathResolutionOptions = {
@@ -172,7 +188,7 @@ describe('PathResolver', () => {
                 };
 
                 const result = await resolveWorkspacePath('config.json', options);
-                expect(result).toBe('/project/root/config.json');
+                expect(result).toBe('/mock/workspace/root/project/config.json');
                 // contextName主要用于日志和错误消息，这里主要验证不会抛出异常
             });
         });

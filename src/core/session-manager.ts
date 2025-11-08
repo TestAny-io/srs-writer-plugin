@@ -5,6 +5,8 @@ import { promises as fsPromises } from 'fs';
 import * as fs from 'fs';
 import { Logger } from '../utils/logger';
 import { SessionPathManager } from './SessionPathManager';
+import { BaseDirValidator } from '../utils/baseDir-validator';
+import { ProjectNameValidator } from '../utils/project-name-validator';
 import { 
     SessionContext, 
     ISessionManager, 
@@ -105,6 +107,45 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
+     * 🚀 Phase 1.1新增：计算并验证 baseDir
+     *
+     * 用于 createNewSession/updateSession/loadSession 等场景
+     *
+     * @param projectName 项目名（null表示workspace root）
+     * @returns 验证后的 baseDir 绝对路径
+     * @throws BaseDirValidationError 如果验证失败
+     */
+    private calculateAndValidateBaseDir(projectName: string | null): string {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            throw new Error('No workspace folder available');
+        }
+        const workspaceRoot = workspaceFolder.uri.fsPath;
+
+        if (!projectName) {
+            // 无项目名，使用 workspace root（跳过工作区检查，因为它本身就是工作区）
+            return BaseDirValidator.validateBaseDir(workspaceRoot, {
+                checkWithinWorkspace: false
+            });
+        }
+
+        // 有项目名，计算项目目录
+        const candidateBaseDir = path.join(workspaceRoot, projectName);
+
+        // 检查目录是否存在
+        if (fs.existsSync(candidateBaseDir)) {
+            // 目录存在，验证其有效性
+            return BaseDirValidator.validateBaseDir(candidateBaseDir, {
+                checkWithinWorkspace: true
+            });
+        } else {
+            // 目录不存在，允许（用于新项目创建场景）
+            // 但需要确保路径在工作区内，且不会逃逸
+            return BaseDirValidator.validatePathWithinBaseDir(candidateBaseDir, workspaceRoot);
+        }
+    }
+
+    /**
      * 🚀 阶段2修改：动态获取会话文件路径 - 根据项目名选择正确的会话文件
      */
     private get sessionFilePath(): string | null {
@@ -164,14 +205,30 @@ export class SessionManager implements ISessionManager {
 
         // 🔧 v3.0修复：确保原子更新，避免状态覆盖
         const previousSession = { ...this.currentSession };
-        
+
         try {
+            // 🚀 Phase 1.1：如果更新包含 baseDir 变更，验证新值
+            if (updates.baseDir !== undefined && updates.baseDir !== previousSession.baseDir) {
+                this.logger.info(`🔍 Validating baseDir update: ${updates.baseDir}`);
+                try {
+                    const validatedBaseDir = BaseDirValidator.validateBaseDir(
+                        updates.baseDir,
+                        { checkWithinWorkspace: true }
+                    );
+                    updates.baseDir = validatedBaseDir;
+                    this.logger.info(`✅ Validated new baseDir: ${validatedBaseDir}`);
+                } catch (error) {
+                    this.logger.error(`❌ Invalid baseDir in update: ${updates.baseDir}`, error as Error);
+                    throw error;  // 拒绝无效的 baseDir 更新
+                }
+            }
+
             // 🔧 v3.0改进：只记录实际变更的字段，减少日志噪音
             const changedFields = this.getChangedFields(previousSession, updates);
             if (changedFields.length > 0) {
                 this.logger.info(`Session updated - changed fields: ${changedFields.join(', ')}`);
             }
-            
+
             // 🚀 修复：使用UnifiedSessionFile格式保存，避免覆盖operations历史
             // updateSessionWithLog会自动更新状态和通知观察者
             await this.updateSessionWithLog({
@@ -183,7 +240,7 @@ export class SessionManager implements ISessionManager {
                     sessionData: updates
                 }
             });
-            
+
         } catch (error) {
             // 🔧 v3.0新增：更新失败时回滚状态
             this.logger.error('Failed to update session, rolling back', error as Error);
@@ -197,7 +254,12 @@ export class SessionManager implements ISessionManager {
      */
     public async createNewSession(projectName?: string): Promise<SessionContext> {
         const now = new Date().toISOString();
-        
+
+        // 🔧 SECURITY FIX: 验证 projectName 符合文件系统命名规范
+        const validatedProjectName = projectName
+            ? ProjectNameValidator.validateProjectName(projectName)
+            : null;
+
         // 🚀 修复：获取当前Git分支信息
         let currentGitBranch: string | undefined;
         try {
@@ -211,11 +273,11 @@ export class SessionManager implements ISessionManager {
             this.logger.warn(`🌿 [createNewSession] Failed to get Git branch: ${(error as Error).message}`);
             // Git检查失败不阻止会话创建
         }
-        
+
         this.currentSession = {
             sessionContextId: crypto.randomUUID(),  // 🚀 新增：项目唯一标识符
-            projectName: projectName || null,
-            baseDir: projectName ? path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', projectName) : null,
+            projectName: validatedProjectName,
+            baseDir: this.calculateAndValidateBaseDir(validatedProjectName),  // 🚀 Phase 1.1：使用验证方法
             activeFiles: [],
             gitBranch: currentGitBranch,  // 🚀 修复：初始化Git分支字段
             metadata: {
@@ -524,13 +586,48 @@ export class SessionManager implements ISessionManager {
             // 从currentSession字段直接获取状态
             if (unifiedFile.currentSession) {
                 this.logger.warn(`🔍 [LOAD SESSION] Setting currentSession from file: ${unifiedFile.currentSession.projectName} (${unifiedFile.currentSession.sessionContextId})`);
+
+                // 🚀 Phase 1.1：验证加载的 baseDir
+                // 注意：不能用 if (baseDir) 判断，因为空字符串会绕过验证！
+                // baseDir 字段存在就必须验证（包括空字符串、null、undefined）
+                try {
+                    // 验证 baseDir 的有效性（目录必须存在，因为是已有会话）
+                    const validatedBaseDir = BaseDirValidator.validateBaseDir(
+                        unifiedFile.currentSession.baseDir,
+                        { checkWithinWorkspace: true }
+                    );
+                    unifiedFile.currentSession.baseDir = validatedBaseDir;
+                    this.logger.info(`✅ Validated baseDir from session file: ${validatedBaseDir}`);
+                } catch (error) {
+                    // 🚀 Phase 1.1：严格模式 - baseDir 验证失败，拒绝加载会话
+                    this.logger.error(`❌ Invalid baseDir in session file: ${unifiedFile.currentSession.baseDir}`, error as Error);
+                    this.logger.error('Session file rejected. Please delete .session-log/ and recreate the project.');
+                    throw error;  // 直接抛出异常，拒绝加载无效会话
+                }
+
+                // 🚀 Phase 1.2: Validate projectName consistency (warning only, non-blocking)
+                const projectName = unifiedFile.currentSession.projectName;
+                if (projectName && this.pathManager) {
+                    const expectedPath = this.pathManager.getProjectSessionPath(projectName);
+                    if (this.sessionFilePath !== expectedPath) {
+                        this.logger.warn(
+                            `⚠️ Session file name doesn't match projectName field.\n` +
+                            `File: ${this.sessionFilePath}\n` +
+                            `Expected: ${expectedPath}\n\n` +
+                            `This usually happens when the file was manually edited.\n` +
+                            `To fix this properly, use "SRS Writer: Project Management" → "Rename Project".`
+                        );
+                        // Note: This is just a warning, not blocking - allows loading to continue
+                    }
+                }
+
                 this.currentSession = unifiedFile.currentSession;
                 this.logger.info(`Session loaded from unified file: ${unifiedFile.currentSession.projectName || 'unnamed'}`);
                 this.logger.info(`Loaded ${unifiedFile.operations.length} operation records`);
-                
+
                 // 🚀 v5.0：加载后通知观察者
                 this.notifyObservers();
-                
+
                 this.logger.warn(`🔍 [LOAD SESSION] Successfully loaded and set currentSession`);
                 return this.currentSession;
             } else {
@@ -1403,17 +1500,44 @@ export class SessionManager implements ISessionManager {
                         try {
                             // 读取会话文件元数据
                             const sessionData = await this.loadSessionFileContent(sessionFilePath);
-                            
+
+                            // 🚀 Phase 2.1: 读取并验证 baseDir
+                            const baseDir = sessionData.currentSession?.baseDir;
+                            let baseDirValidation: { isValid: boolean; error?: string } = { isValid: true };
+
+                            if (baseDir) {
+                                try {
+                                    // 使用 Phase 1.1 的验证器验证 baseDir
+                                    BaseDirValidator.validateBaseDir(baseDir, {
+                                        checkWithinWorkspace: true
+                                    });
+                                    baseDirValidation = { isValid: true };
+                                } catch (error) {
+                                    baseDirValidation = {
+                                        isValid: false,
+                                        error: (error as Error).message
+                                    };
+                                }
+                            } else {
+                                // baseDir 为 null 时，标记为无效
+                                baseDirValidation = {
+                                    isValid: false,
+                                    error: 'BaseDir is not set'
+                                };
+                            }
+
                             projects.push({
                                 projectName,
                                 sessionFile: sessionFilePath,
-                                lastModified: sessionData.metadata?.lastModified || '',
+                                lastModified: sessionData.currentSession?.metadata?.lastModified || sessionData.lastUpdated || '',
                                 isActive: projectName === this.currentSession?.projectName,
                                 operationCount: sessionData.operations?.length || 0,
-                                gitBranch: sessionData.gitBranch  // 🚀 阶段3新增：从会话文件中读取Git分支信息
+                                gitBranch: sessionData.currentSession?.gitBranch,  // 🚀 阶段3新增：从会话文件中读取Git分支信息
+                                baseDir,                           // 🚀 Phase 2.1 新增
+                                baseDirValidation                  // 🚀 Phase 2.1 新增
                             });
-                            
-                            this.logger.debug(`Found project session: ${projectName}`);
+
+                            this.logger.debug(`Found project session: ${projectName} (baseDir valid: ${baseDirValidation.isValid})`);
         } catch (error) {
                             this.logger.warn(`Failed to read session file ${fileName}: ${(error as Error).message}`);
                         }
@@ -1484,6 +1608,235 @@ export class SessionManager implements ISessionManager {
     }
 
     /**
+     * 🚀 Phase 1.2: Rename current project
+     *
+     * Safely renames the current project with atomic operations:
+     * 1. Validates new project name
+     * 2. Updates projectName in memory
+     * 3. Saves to new session file
+     * 4. Deletes old session file
+     * 5. Notifies observers
+     *
+     * @param oldName Current project name (must match current session)
+     * @param newName New project name
+     * @throws {Error} If validation fails or rename operation fails
+     */
+    public async renameProject(oldName: string, newName: string): Promise<void> {
+        // Validation 1: Current project exists and matches
+        if (!this.currentSession || this.currentSession.projectName !== oldName) {
+            throw new Error(`Current project is not "${oldName}"`);
+        }
+
+        // Validation 2: New name is valid (non-empty, no illegal characters, etc.)
+        // 🔧 SECURITY FIX: 验证 projectName 符合文件系统命名规范
+        const validatedNewName = ProjectNameValidator.validateProjectName(newName);
+
+        // Validation 3: No conflict with existing projects
+        if (!this.pathManager) {
+            throw new Error('PathManager not initialized');
+        }
+
+        const newSessionPath = this.pathManager.getProjectSessionPath(validatedNewName);
+        if (await this.fileExists(newSessionPath)) {
+            throw new Error(`Project "${validatedNewName}" already exists`);
+        }
+
+        // 🆕 Validation 4: 计算目录路径并验证
+        const oldDirectoryPath = this.currentSession.baseDir;
+        if (!oldDirectoryPath) {
+            throw new Error('Current project has no baseDir');
+        }
+
+        // 🔧 保留原目录的父路径结构（支持子目录组织）
+        const parentDir = path.dirname(oldDirectoryPath);
+        const newDirectoryPath = path.join(parentDir, validatedNewName);
+
+        // 验证: 新目录不存在
+        if (await this.fileExists(newDirectoryPath)) {
+            throw new Error(`Directory "${newDirectoryPath}" already exists`);
+        }
+
+        // Backup current state for rollback
+        const oldSessionPath = this.sessionFilePath!;
+        const oldSession = { ...this.currentSession };
+
+        try {
+            // 🆕 Step 1: 重命名项目目录（原子操作，放在最前面以 fail-fast）
+            await fsPromises.rename(oldDirectoryPath, newDirectoryPath);
+            this.logger.info(`✅ Directory renamed: ${oldDirectoryPath} → ${newDirectoryPath}`);
+
+            // Step 2: 在旧 session file 中记录重命名事件（此时 projectName 还是 oldName）
+            await this.saveUnifiedSessionFile({
+                timestamp: new Date().toISOString(),
+                type: OperationType.PROJECT_RENAMED,
+                sessionContextId: this.currentSession.sessionContextId,
+                operation: `Project renamed (三合一): ${oldName} → ${validatedNewName}, Directory: ${oldDirectoryPath} → ${newDirectoryPath}, BaseDir: ${oldDirectoryPath} → ${newDirectoryPath}`,
+                success: true,
+                projectName: validatedNewName
+            });
+
+            // Step 3: 更新内存中的 projectName 和 baseDir
+            this.currentSession.projectName = validatedNewName;
+            this.currentSession.baseDir = newDirectoryPath;  // 🆕 同步更新 baseDir
+
+            // Step 4: 重命名 session file（原子操作，保留所有内容）
+            await fsPromises.rename(oldSessionPath, newSessionPath);
+
+            // Step 5: 再保存一次，更新文件中的 currentSession.projectName 和 baseDir
+            // 此时 sessionFilePath getter 返回新文件名，更新文件内容
+            await this.saveUnifiedSessionFile({
+                timestamp: new Date().toISOString(),
+                type: OperationType.SESSION_UPDATED,
+                sessionContextId: this.currentSession.sessionContextId,
+                operation: 'Session updated after project rename',
+                success: true
+            });
+
+            // Step 6: Notify observers (update UI)
+            this.notifyObservers();
+
+            this.logger.info(`✅ Project renamed (三合一): ${oldName} → ${validatedNewName}`);
+            this.logger.info(`   - Directory: ${oldDirectoryPath} → ${newDirectoryPath}`);
+            this.logger.info(`   - BaseDir: ${oldDirectoryPath} → ${newDirectoryPath}`);
+        } catch (error) {
+            // 🔧 Rollback: 恢复所有修改
+            this.currentSession = oldSession;
+
+            // 回滚 1: 尝试恢复目录名（如果已重命名）
+            if (await this.fileExists(newDirectoryPath)) {
+                try {
+                    await fsPromises.rename(newDirectoryPath, oldDirectoryPath);
+                    this.logger.info(`🔄 Rolled back directory rename`);
+                } catch (rollbackError) {
+                    this.logger.error(`❌ Failed to rollback directory rename`, rollbackError as Error);
+                    // 严重错误：目录重命名了但无法回滚
+                    throw new Error(
+                        `Critical error: Directory was renamed but rollback failed. ` +
+                        `Please manually rename "${newDirectoryPath}" back to "${oldDirectoryPath}". ` +
+                        `Original error: ${(error as Error).message}`
+                    );
+                }
+            }
+
+            // 回滚 2: 恢复 session file（如果已重命名）
+            try {
+                if (await this.fileExists(newSessionPath)) {
+                    await fsPromises.rename(newSessionPath, oldSessionPath);
+                    this.logger.info(`🔄 Rolled back session file rename`);
+                }
+            } catch (rollbackError) {
+                this.logger.error('Failed to rollback session file rename', rollbackError as Error);
+            }
+
+            this.logger.error(`Failed to rename project: ${oldName} → ${validatedNewName}`, error as Error);
+            throw error;
+        }
+    }
+
+
+    /**
+     * 🚀 Phase 1.2: Delete project session and project directory
+     *
+     * Completely deletes the project (session file + directory):
+     * 1. Deletes session file (moves to Trash/Recycle Bin)
+     * 2. Deletes project directory (moves to Trash/Recycle Bin)
+     * 3. Switches to main session
+     * 4. Notifies observers
+     *
+     * Both session file and directory are moved to Trash for recovery.
+     *
+     * @param projectName Project name to delete
+     * @throws {Error} If deletion fails
+     */
+    public async deleteProject(projectName: string): Promise<void> {
+        if (!this.currentSession || this.currentSession.projectName !== projectName) {
+            throw new Error(`Current project is not "${projectName}"`);
+        }
+
+        const sessionPath = this.sessionFilePath!;
+        const baseDir = this.currentSession.baseDir;
+
+        try {
+            // Step 1: Delete session file (move to trash)
+            await vscode.workspace.fs.delete(
+                vscode.Uri.file(sessionPath),
+                { recursive: false, useTrash: true }
+            );
+            this.logger.info(`Session file moved to trash: ${sessionPath}`);
+
+            // Step 2: Delete project directory (move to trash)
+            if (baseDir) {
+                // Safety check: ensure baseDir is within workspace
+                const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+                if (!workspaceRoot) {
+                    throw new Error('No workspace folder available');
+                }
+
+                // Use BaseDirValidator for stronger path validation (supports symlinks, path normalization)
+                try {
+                    BaseDirValidator.validateBaseDir(baseDir, { checkWithinWorkspace: true });
+                } catch (error) {
+                    throw new Error('Cannot delete directory outside workspace');
+                }
+
+                // Use VSCode API delete (supports trash/recycle bin)
+                await vscode.workspace.fs.delete(
+                    vscode.Uri.file(baseDir),
+                    { recursive: true, useTrash: true }
+                );
+                this.logger.info(`Project directory moved to trash: ${baseDir}`);
+            }
+
+            // Step 3: Switch to main session
+            await this.switchToMainSession(projectName);
+
+            // Step 4: Notify observers (refresh project list)
+            this.notifyObservers();
+
+            this.logger.info(`✅ Project deleted: ${projectName}`);
+        } catch (error) {
+            this.logger.error(`Failed to delete project: ${projectName}`, error as Error);
+            throw error;
+        }
+    }
+
+    /**
+     * 🚀 Phase 1.2: Switch to main session (workspace root)
+     * Helper method for deleteProject
+     */
+    private async switchToMainSession(deletedProjectName?: string): Promise<void> {
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+        if (!workspaceRoot) {
+            throw new Error('No workspace open');
+        }
+
+        this.currentSession = {
+            sessionContextId: crypto.randomUUID(),
+            projectName: null,
+            baseDir: workspaceRoot,
+            activeFiles: [],
+            gitBranch: 'main', // Default branch, will be updated if git repo exists
+            metadata: {
+                srsVersion: 'v1.0',
+                created: new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                version: '5.0'
+            }
+        };
+
+        await this.saveUnifiedSessionFile({
+            timestamp: new Date().toISOString(),
+            type: OperationType.PROJECT_DELETED,
+            sessionContextId: this.currentSession!.sessionContextId,
+            operation: deletedProjectName
+                ? `Project deleted: ${deletedProjectName}`
+                : 'Switched to main session',
+            success: true,
+            projectName: deletedProjectName
+        });
+    }
+
+    /**
      * 🚀 彻底修复：项目会话切换逻辑重构
      * 简化为两种情况：使用目标项目session或创建新session，避免混合状态
      */
@@ -1534,17 +1887,28 @@ export class SessionManager implements ISessionManager {
             }
             
         } catch (error) {
-            // 情况3：目标项目文件不存在，创建新session
+            // 🚀 Phase 1.1：区分验证错误和文件不存在错误
+            // 验证错误（BaseDirValidationError）应该向上传播，阻止项目切换
+            const errorMessage = (error as Error).message;
+
+            if (errorMessage.includes('BaseDir') || errorMessage.includes('baseDir')) {
+                // 这是一个验证错误，直接向上抛出，阻止项目切换
+                this.logger.error(`🔍 [LOAD OR CREATE] Validation error detected, aborting project switch`);
+                this.logger.error(`🔍 [LOAD OR CREATE] Error: ${errorMessage}`);
+                throw error;  // 不创建新session，直接失败
+            }
+
+            // 情况3：目标项目文件不存在（非验证错误），创建新session
             this.logger.warn(`🔍 [LOAD OR CREATE] Target file not found, creating new session...`);
-            this.logger.warn(`🔍 [LOAD OR CREATE] Error: ${(error as Error).message}`);
+            this.logger.warn(`🔍 [LOAD OR CREATE] Error: ${errorMessage}`);
             this.logger.warn(`🔍 [LOAD OR CREATE] Current session BEFORE createNewSessionForProject (catch): ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
-            
+
             const result = await this.createNewSessionForProject(projectName, sourceProjectName);
-            
+
             this.logger.warn(`🔍 [LOAD OR CREATE] createNewSessionForProject (catch) completed`);
             this.logger.warn(`🔍 [LOAD OR CREATE] Current session AFTER createNewSessionForProject (catch): ${this.currentSession?.projectName} (${this.currentSession?.sessionContextId})`);
             this.logger.warn(`🔍 [LOAD OR CREATE] Returning result (catch): ${result.projectName} (${result.sessionContextId})`);
-            
+
             return result;
         }
     }
@@ -1558,13 +1922,29 @@ export class SessionManager implements ISessionManager {
         }
         
         this.logger.warn(`🔍 [LOAD TARGET] ===== LOADING TARGET PROJECT SESSION =====`);
-        
+
         // 直接使用目标项目的原有session
         const targetSession = unifiedFile.currentSession;
         this.logger.warn(`🔍 [LOAD TARGET] Target session from file: ${targetSession.projectName} (${targetSession.sessionContextId})`);
         this.logger.warn(`🔍 [LOAD TARGET] Target session activeFiles: ${JSON.stringify(targetSession.activeFiles)}`);
         this.logger.warn(`🔍 [LOAD TARGET] Current sessionFilePath BEFORE setting: ${this.sessionFilePath}`);
-        
+
+        // 🚀 Phase 1.1：验证目标会话的 baseDir
+        // 注意：不能用 if (baseDir) 判断，因为空字符串会绕过验证！
+        // baseDir 字段存在就必须验证（包括空字符串、null、undefined）
+        try {
+            const validatedBaseDir = BaseDirValidator.validateBaseDir(
+                targetSession.baseDir,
+                { checkWithinWorkspace: true }
+            );
+            targetSession.baseDir = validatedBaseDir;
+            this.logger.info(`✅ Validated target session baseDir: ${validatedBaseDir}`);
+        } catch (error) {
+            this.logger.error(`❌ Invalid baseDir in target session: ${targetSession.baseDir}`, error as Error);
+            this.logger.error('Target session rejected. Please delete .session-log/ and recreate the project.');
+            throw error;  // 拒绝切换到无效的会话
+        }
+
         // 设置为当前session
         this.currentSession = targetSession;
         this.logger.warn(`🔍 [LOAD TARGET] Current sessionFilePath AFTER setting: ${this.sessionFilePath}`);
@@ -1643,7 +2023,12 @@ export class SessionManager implements ISessionManager {
      */
     private async createNewSessionWithoutSaving(projectName?: string): Promise<SessionContext> {
         const now = new Date().toISOString();
-        
+
+        // 🔧 SECURITY FIX: 验证 projectName 符合文件系统命名规范
+        const validatedProjectName = projectName
+            ? ProjectNameValidator.validateProjectName(projectName)
+            : null;
+
         // 🚀 修复：获取当前Git分支信息
         let currentGitBranch: string | undefined;
         try {
@@ -1656,13 +2041,11 @@ export class SessionManager implements ISessionManager {
         } catch (error) {
             this.logger.warn(`🌿 [createNewSessionWithoutSaving] Failed to get Git branch: ${(error as Error).message}`);
         }
-        
+
         const newSession: SessionContext = {
             sessionContextId: crypto.randomUUID(),
-            projectName: projectName || null,
-            baseDir: projectName 
-                ? path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '', projectName)
-                : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '',
+            projectName: validatedProjectName,
+            baseDir: this.calculateAndValidateBaseDir(validatedProjectName),  // 🚀 Phase 1.1：使用验证方法
             activeFiles: [],
             gitBranch: currentGitBranch,
             metadata: {

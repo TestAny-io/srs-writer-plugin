@@ -7,6 +7,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Logger } from '../../../utils/logger';
+import { ProjectNameValidator } from '../../../utils/project-name-validator';
 import { ScaffoldError, ScaffoldErrorType } from '../scaffoldGenerator/types';
 import { QualityReport, QualityCheckEntry, Issue } from './types';
 
@@ -271,13 +272,10 @@ export class QualityReportWriter {
   
   /**
    * 项目名称安全处理
-   * 复用 SessionPathManager 的处理逻辑
+   * Unify using ProjectNameValidator's sanitize logic
    */
   private sanitizeProjectName(projectName: string): string {
-    return projectName
-      .replace(/[^a-zA-Z0-9_-]/g, '_')  // 替换特殊字符为下划线
-      .replace(/_{2,}/g, '_')           // 合并多个连续下划线
-      .toLowerCase()                    // 转为小写
-      .substring(0, 30);               // 限制长度
+    return ProjectNameValidator.sanitizeProjectName(projectName)
+      .substring(0, 50);
   }
 }

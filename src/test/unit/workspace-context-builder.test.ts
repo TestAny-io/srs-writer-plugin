@@ -40,7 +40,9 @@ jest.mock('fs', () => ({
     promises: {
         access: jest.fn().mockResolvedValue(undefined),
         readFile: jest.fn().mockResolvedValue('mock orchestrator instructions')
-    }
+    },
+    statSync: jest.fn(),      // 🚀 Phase 1.1: Add for BaseDirValidator
+    realpathSync: jest.fn()   // 🚀 Phase 1.1: Add for BaseDirValidator
 }));
 
 describe('Workspace Context Builder', () => {
@@ -50,7 +52,7 @@ describe('Workspace Context Builder', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         promptManager = new PromptManager();
-        
+
         // Mock基础的SessionContext
         mockSessionContext = {
             sessionContextId: 'test-session-123',
@@ -64,6 +66,11 @@ describe('Workspace Context Builder', () => {
                 version: '5.0'
             }
         };
+
+        // Setup mock implementations for BaseDirValidator
+        const fs = require('fs');
+        (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => true });
+        (fs.realpathSync as jest.Mock).mockImplementation((p: string) => p);
     });
 
     describe('buildWorkspaceContext', () => {
