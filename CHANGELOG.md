@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2025-11-08
+
+### Added
+
+- **Project Name Modification**: Added ability to rename projects via Project Management in Control Panel
+    - Users can now change project names after creation
+    - Accessible through Control Panel's Project Management menu
+    - Improved project organization and flexibility
+
+### Enhanced
+
+- **Error Messages**: Improved clarity of `executeTextFileEdits` tool error messages
+    - More descriptive error feedback for file editing operations
+    - Better debugging experience for users and AI agents
+
+### Removed
+
+- **UI Simplification**: Removed "Create Project" command from Control Panel
+    - Streamlined Control Panel interface
+    - Reduced UI clutter for better user experience
+
+### Fixed
+
+- **Status Check Consistency**: Fixed status check inconsistency defect
+    - Resolved synchronization issues in status checking mechanism
+    - Improved system state reliability
 
 ## [0.7.1] - 2025-11-04
 
