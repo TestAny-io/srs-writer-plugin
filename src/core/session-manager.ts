@@ -2194,17 +2194,8 @@ export class SessionManager implements ISessionManager {
         chatContext: vscode.ChatContext, 
         request: vscode.ChatRequest
     ): Promise<'intentional_new' | 'accidental_restart' | 'continue_existing'> {
-        
-        // 1. 如果使用了 /new 命令，明确表示用户想要新会话
-        if (request.command === 'new') {
-            await this.recordSessionEvent('user_new_session', 'new_session', {
-                command: 'new',
-                userPrompt: request.prompt
-            });
-            return 'intentional_new';
-        }
 
-        // 2. 如果有历史记录，说明是现有会话的延续
+        // 如果有历史记录，说明是现有会话的延续
         if (chatContext.history.length > 0) {
             return 'continue_existing';
         }

@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.7.3",
+  "version": "0.7.4-dev.1",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -39,29 +39,7 @@
         "id": "srs-writer",
         "name": "srs-writer",
         "description": "Intelligent SRS document generator with natural language understanding",
-        "isSticky": true,
-        "commands": [
-          {
-            "name": "create",
-            "description": "Create a new SRS document"
-          },
-          {
-            "name": "edit",
-            "description": "Edit existing SRS document"
-          },
-          {
-            "name": "lint",
-            "description": "Check document quality"
-          },
-          {
-            "name": "help",
-            "description": "Show help information"
-          },
-          {
-            "name": "new",
-            "description": "Start a fresh conversation session"
-          }
-        ]
+        "isSticky": true
       }
     ],
     "commands": [

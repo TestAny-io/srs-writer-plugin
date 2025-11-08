@@ -22,18 +22,18 @@ describe('UserFriendlyConfig Simple', () => {
   it('should use preset configuration when not custom', () => {
     const mockConfig = {
       get: jest.fn()
-        .mockReturnValueOnce(true)       // enabled
-        .mockReturnValueOnce('standard') // preset
+        .mockReturnValueOnce(true)       // aEnabled
+        .mockReturnValueOnce('standard') // bMode
     };
-    
+
     (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue(mockConfig);
-    
+
     const config = SyntaxCheckerConfigLoader.loadMarkdownConfig();
-    
+
     expect(config.enabled).toBe(true);
     expect(config.preset).toBe('standard');
     expect(config.rules).toBeDefined();
-    expect(config.rules.MD013).toBeDefined(); // 应该有标准预设规则
+    expect(config.rules.MD013).toBeDefined(); // Should have standard preset rules
   });
   
   it('should handle advanced custom rules', () => {
@@ -41,35 +41,24 @@ describe('UserFriendlyConfig Simple', () => {
       MD013: { line_length: 80 },
       MD025: false
     };
-    
+
     const mockMarkdownConfig = {
       get: jest.fn()
-        .mockReturnValueOnce(true)         // enabled
-        .mockReturnValueOnce('custom')     // preset
+        .mockReturnValueOnce(true)         // aEnabled
+        .mockReturnValueOnce('custom')     // bMode
+        .mockReturnValueOnce(advancedRules) // zCustomRules
     };
-    
-    const mockRulesConfig = {
-      get: jest.fn().mockReturnValue(undefined) // 所有规则配置都返回默认值
-    };
-    
-    const mockCustomRulesConfig = {
-      get: jest.fn()
-        .mockReturnValueOnce(advancedRules) // customRules
-    };
-    
+
     (vscode.workspace.getConfiguration as jest.Mock)
       .mockImplementation((section) => {
         if (section === 'srs-writer.syntaxChecker.markdown') {
-          return mockCustomRulesConfig; // 返回有 customRules 的配置
+          return mockMarkdownConfig;
         }
-        if (section === 'srs-writer.syntaxChecker.markdown.rules') {
-          return mockRulesConfig;
-        }
-        return mockMarkdownConfig;
+        return { get: jest.fn() };
       });
-    
+
     const config = SyntaxCheckerConfigLoader.loadMarkdownConfig();
-    
+
     expect(config.enabled).toBe(true);
     expect(config.preset).toBe('custom');
     expect(config.rules).toEqual(advancedRules);
@@ -93,13 +82,13 @@ describe('UserFriendlyConfig Simple', () => {
         .mockReturnValueOnce(true)       // enabled
         .mockReturnValueOnce('strict')   // level
     };
-    
+
     (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue(mockConfig);
-    
+
     const config = SyntaxCheckerConfigLoader.loadYAMLConfig();
-    
+
     expect(config.enabled).toBe(true);
     expect(config.level).toBe('strict');
-    expect(config.checkRequirementsYaml).toBe(true); // strict 模式应该检查 requirements.yaml
+    expect(config.checkRequirementsYaml).toBe(true); // strict mode should check requirements.yaml
   });
 });

@@ -311,20 +311,6 @@ and social login (Google, Apple, Facebook)
 
 ---
 
-## 🎨 Chat Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `@srs-writer create` | Start new SRS document | `@srs-writer create an e-commerce platform` |
-| `@srs-writer edit` | Modify existing document | `@srs-writer edit the login use case` |
-| `@srs-writer review` | Quality assessment | `@srs-writer review my requirements` |
-| `@srs-writer sync` | Update YAML from markdown | `@srs-writer sync requirements.yaml` |
-| `@srs-writer prototype` | Generate interactive prototype | `@srs-writer prototype the checkout flow` |
-| `@srs-writer help` | Show available commands | `@srs-writer help` |
-| `@srs-writer new` | Start fresh conversation | `@srs-writer new` |
-
----
-
 ## 🏗️ How It Works
 
 ### Architecture Overview
