@@ -1,66 +1,167 @@
-## 非功能需求(Non-functional Requirements)
+## Non-Functional Requirements
 
-### 性能需求 (Performance Requirements)
+### 6.1 Security
 
-#### NFR-PERF-001: 用户登录响应时间
-- **描述**: 用户登录请求从提交到返回结果的响应时间要求
-- **指标名称**: 登录响应时间
-- **目标值**: ≤ 500ms (正常网络条件下)
-- **测试方法**: 
-    - 负载测试工具模拟并发用户登录
-    - 监控95%请求响应时间
-- **优先级**: High
-- **指标名称**: 登录响应时间
-- **目标值**: ≤ 500ms (正常网络条件下)
-- **测试方法**:
-    - 负载测试工具模拟并发用户登录
-    - 监控95%请求响应时间
-- **优先级**: High
-- **测量方法**: 前端时间戳记录 + 后端性能监控
-- **用例依据**: 基于UC-001用户登录流程中的"系统验证凭据"步骤
-- **相关用例**: [UC-001]
-- **parent-req**: FR-AUTH-001
+#### NFR-SEC-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: security
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+        - [verification step 3]
+- **Source Requirements**: [FR-XXX-XXX, US-XXX-XXX]
+- **Compliance Standards**: [GDPR/ISO 27001/HIPAA/SOC 2/PCI DSS]
 
-#### NFR-PERF-002: 系统并发用户数
-- **描述**: 系统同时支持的活跃用户数量要求
-- **指标名称**: 并发用户数
-- **目标值**: ≥ 1000 并发用户
-- **测试方法**:
-    - 压力测试逐步增加用户数
-    - 监控系统资源使用率
-- **优先级**: High
-- **测量方法**: 应用监控 + 服务器资源监控
-- **用例依据**: 基于多个用例的并发执行场景分析
-- **相关用例**: [UC-001, UC-002, UC-003]
-- **parent-req**: FR-CORE-001
+#### NFR-SEC-002: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: security
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+- **Source Requirements**: [FR-XXX-XXX]
+- **Compliance Standards**: [compliance standard reference]
 
-### 安全需求 (Security Requirements)
+---
 
-#### NFR-SEC-001: 用户认证安全
-- **描述**: 用户身份认证的安全性要求
-- **指标名称**: 认证安全级别
-- **目标值**: 支持多因素认证(MFA)
-- **测试方法**:
-    - 安全渗透测试
-    - 认证流程安全审计
-- **优先级**: Critical
-- **测量方法**: 安全扫描 + 合规性检查
-- **合规标准**: ISO 27001, GDPR
-- **用例依据**: 基于UC-001用户登录中的"身份验证"步骤
-- **相关用例**: [UC-001]
-- **parent-req**: FR-AUTH-001
+### 6.2 Performance
 
-### 可用性需求 (Availability Requirements)
+#### NFR-PERF-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: performance
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value with unit]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+        - [verification step 3]
+- **Source Requirements**: [FR-XXX-XXX, US-XXX-XXX]
 
-#### NFR-AVAIL-001: 系统正常运行时间
-- **描述**: 系统可用性时间要求
-- **指标名称**: 系统可用性
-- **目标值**: 99.9% (每月停机时间不超过43分钟)
-- **测试方法**:
-    - 7x24小时监控
-    - 故障注入测试
-- **优先级**: High
-- **测量方法**: 监控系统 + 告警机制
-- **用例依据**: 基于关键业务用例的可用性要求分析
-- **相关用例**: [UC-001, UC-002]
-- **parent-req**: FR-CORE-001
+#### NFR-PERF-002: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: performance
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value with unit]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+- **Source Requirements**: [FR-XXX-XXX]
+
+---
+
+### 6.3 Reliability
+
+#### NFR-REL-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: reliability
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+- **Source Requirements**: [FR-XXX-XXX]
+
+---
+
+### 6.4 Accuracy
+
+#### NFR-ACC-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: accuracy
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+- **Source Requirements**: [FR-XXX-XXX, US-XXX-XXX]
+
+---
+
+### 6.5 Usability
+
+#### NFR-USE-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: usability
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+- **Source Requirements**: [US-XXX-XXX]
+- **Compliance Standards**: [WCAG 2.1/Section 508]
+
+---
+
+### 6.6 Scalability
+
+#### NFR-SCAL-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: scalability
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+- **Source Requirements**: [FR-XXX-XXX]
+
+---
+
+### 6.7 Maintainability
+
+#### NFR-MAIN-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Classification**: maintainability
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed requirement description]
+- **Quantifiable Metric**:
+    - **Metric Name**: [metric name]
+    - **Target Value**: [target value]
+    - **Verification Method**:
+        - [verification step 1]
+        - [verification step 2]
+- **Source Requirements**: [FR-XXX-XXX]
+
+---
+
+### Non-Functional Requirements Traceability Matrix
+
+| NFR ID | Requirement Name | Classification | Priority | Source Requirements | Compliance Standards |
+|--------|------------------|----------------|----------|---------------------|---------------------|
+| NFR-SEC-001 | [name] | security | critical | FR-XXX-001, US-XXX-001 | GDPR, ISO 27001 |
+| NFR-SEC-002 | [name] | security | high | FR-XXX-002 | ISO 27001 |
+| NFR-PERF-001 | [name] | performance | high | FR-XXX-003 | none |
+| NFR-PERF-002 | [name] | performance | medium | FR-XXX-004 | none |
+| NFR-REL-001 | [name] | reliability | critical | FR-XXX-005 | none |
+| NFR-ACC-001 | [name] | accuracy | high | FR-XXX-006, US-XXX-002 | none |
+| NFR-USE-001 | [name] | usability | medium | US-XXX-003 | WCAG 2.1 |
+| NFR-SCAL-001 | [name] | scalability | high | FR-XXX-007 | none |
+| NFR-MAIN-001 | [name] | maintainability | low | FR-XXX-008 | none |
+
+**Total**: [X] non-functional requirements across [Y] categories, all traced to source requirements.

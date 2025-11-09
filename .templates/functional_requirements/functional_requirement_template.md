@@ -1,40 +1,62 @@
-## 4. Functional Requirements (功能需求)
+## Functional Requirements
 
-### 4.1 LOGIN 功能需求
+### 5.1 [Subsystem Name]
 
-#### FR-LOGIN-001:
-- **需求名称**: [该功能需求的名称]
-- **优先级**: 高/中/低
-- **来源故事和/或用例**: [UC-001]  <!-- user story 和/或 use case ID -->
-- **用例步骤**: 如果来源于用例，该功能需求对应用例主成功流的第X步
-- **描述**: [功能的详细描述，基于用例步骤细化]
-- **验收标准**:
-    - [ ] 正常场景：[基于用例主成功流]
-    - [ ] 异常场景：[基于用例扩展流]
-    - [ ] 边界条件：[补充用例未覆盖的边界]
-- **依赖关系**: [依赖的其他需求]
+#### FR-[SUBSYSTEM]-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Priority**: [critical/high/medium/low]
+- **Source Story**: US-XXX-XXX
+- **Description**: [detailed requirement description]
+- **Acceptance Criteria**:
+    - [ ] Normal Scenario: [expected behavior description]
+    - [ ] Normal Scenario: [expected behavior description]
+    - [ ] Boundary Condition: [boundary case handling]
+    - [ ] Boundary Condition: [boundary case handling]
+    - [ ] Exception Scenario: [error handling behavior]
+    - [ ] Exception Scenario: [error handling behavior]
+    - [ ] Accessibility: [accessibility requirement]
+    - [ ] Security: [security requirement]
+    - [ ] Technical Constraint: [technical limitation or compliance requirement]
+- **Dependencies**: [FR-XXX-XXX]
 
-#### FR-LOGIN-002:
-- **需求名称**: [该功能需求的名称]
-- **优先级**: 高/中/低
-- **来源故事和/或用例**: [US-002, UC-001]
-- **用例步骤**: 如果来源于用例，该功能需求对应用例主成功流的第Y步
-...
+#### FR-[SUBSYSTEM]-002: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Priority**: [critical/high/medium/low]
+- **Source Story**: US-XXX-XXX
+- **Description**: [detailed requirement description]
+- **Acceptance Criteria**:
+    - [ ] Normal Scenario: [expected behavior description]
+    - [ ] Normal Scenario: [expected behavior description]
+    - [ ] Boundary Condition: [boundary case handling]
+    - [ ] Exception Scenario: [error handling behavior]
+- **Dependencies**: FR-[SUBSYSTEM]-001
 
-### 4.2 仪表板 功能需求
+---
 
-#### FR-DASHBOARD-001:
-- **需求名称**: [该功能需求的名称]
-- **优先级**: 高/中/低
-- **来源故事和/或用例**: [UC-002]
-- **用例步骤**: 如果来源于用例，该功能需求对应用例主成功流的第X步
-...
+### 5.2 [Another Subsystem Name]
 
-### 4.3 管理与设置 功能需求
+#### FR-[SUBSYSTEM2]-001: [Requirement Title]
+- **Requirement Name**: [full requirement name]
+- **Priority**: [critical/high/medium/low]
+- **Source Story**: US-YYY-YYY
+- **Description**: [detailed requirement description]
+- **Acceptance Criteria**:
+    - [ ] Normal Scenario: [expected behavior description]
+    - [ ] Normal Scenario: [expected behavior description]
+    - [ ] Boundary Condition: [boundary case handling]
+    - [ ] Exception Scenario: [error handling behavior]
+    - [ ] Security: [security requirement]
+- **Dependencies**: [none/FR-XXX-XXX]
 
-#### FR-ADMIN-001:
-- **需求名称**: [该功能需求的名称]
-- **优先级**: 高/中/低
-- **来源故事和/或用例**: [US-001, US-002]
-- **描述**: [跨用例的共享基础功能描述]
-...
+---
+
+### Functional Requirements Traceability Matrix
+
+| FR ID | Requirement Name | Priority | Source User Story | Dependencies |
+|-------|-----------------|----------|-------------------|-------------|
+| FR-XXX-001 | [name] | high | US-AAA-001 | none |
+| FR-XXX-002 | [name] | high | US-AAA-002 | FR-XXX-001 |
+| FR-YYY-001 | [name] | critical | US-BBB-001 | none |
+| FR-YYY-002 | [name] | medium | US-BBB-002 | FR-YYY-001 |
+
+**Total**: [X] functional requirements, covering [Y] subsystems, all traced to [Z] user stories.

@@ -1,86 +1,182 @@
-## Business Requirements and Rules (业务需求和规则)
+## Business Requirements and Rules
 
-### Business Objectives (业务目标)
+### Business Objectives
 
-*在这里简要概述项目的核心业务目标，它们是驱动所有后续需求的根本原因。*
+#### BO-001: [Business Objective Title]
 
-#### **BO-01: [业务目标1的简明标题，例如：降低财务风险]**
+- **Objective Name**: [full objective name]
+- **Description**: [detailed description of the business objective, background, and expected business outcome]
+- **Stakeholders**: [primary stakeholders and their interests]
+- **Success Metrics**: [reference to metrics defined in Overall Description, e.g., metric-1, metric-2]
+- **Priority**: [critical/high/medium/low]
+- **Target Date**: [expected achievement timeframe]
 
-- **描述 (Description)**: [详细阐述这个业务目标的具体内容、背景和期望达成的业务状态。例如：通过将佣金结算模式从“日结”调整为“月结”，减少公司的现金流压力，并避免因保单状态延迟更新导致的佣金错发风险。]
-- **衡量指标 (Metrics)**: [关联到 `Overall Description` 中的成功指标ID，例如：关联 `metric-1`, `metric-2`]
-- **优先级 (Priority)**: [例如：关键 (Critical) / 高 (High) / 中 (Medium) / 低 (Low)]
+#### BO-002: [Business Objective Title]
 
-#### **BO-02: [业务目标2的简明标题，例如：提升运营效率]**
+- **Objective Name**: [full objective name]
+- **Description**: [detailed description of the business objective and expected outcome]
+- **Stakeholders**: [primary stakeholders and their interests]
+- **Success Metrics**: [reference to metrics defined in Overall Description, e.g., metric-3, metric-4]
+- **Priority**: [critical/high/medium/low]
+- **Target Date**: [expected achievement timeframe]
 
-- **描述 (Description)**: [详细阐述这个业务目标的具体内容。例如：通过提供一个灵活的后台配置功能，使运营人员能够自主、快速地调整不同产品的佣金生效日规则，而无需开发人员介入。]
-- **衡量指标 (Metrics)**: [关联到 `Overall Description` 中的成功指标ID，例如：关联 `metric-3`]
-- **优先级 (Priority)**: [例如：高 (High)]
+---
 
-### Key Business Rules (关键业务规则)
+### Business Requirements
 
-*本节定义了独立于任何特定功能、必须在整个系统中得到遵守的核心业务策略、约束和逻辑。它们是系统的“法律”。*
+#### BR-001: [Business Requirement Title]
 
-#### Business Rules Diagram (业务规则总览图)
+- **Requirement Name**: [full requirement name]
+- **Description**: [detailed description of what the business needs]
+- **Rationale**: [why this requirement is needed from business perspective]
+- **Related Business Objective**: [BO-XXX]
+- **Stakeholders**: [stakeholder roles affected by this requirement]
+- **Priority**: [critical/high/medium/low]
+- **Acceptance Criteria**:
+    1. [business-level acceptance criterion 1]
+    2. [business-level acceptance criterion 2]
+    3. [business-level acceptance criterion 3]
+- **Dependencies**: [BR-XXX, external dependency description]
+- **Constraints**: [business constraints or limitations]
 
-*此图用于可视化展示核心业务规则之间的关系，以及它们作用于哪些核心业务实体上。*
+#### BR-002: [Business Requirement Title]
+
+- **Requirement Name**: [full requirement name]
+- **Description**: [detailed description of what the business needs]
+- **Rationale**: [why this requirement is needed from business perspective]
+- **Related Business Objective**: [BO-XXX]
+- **Stakeholders**: [stakeholder roles affected by this requirement]
+- **Priority**: [critical/high/medium/low]
+- **Acceptance Criteria**:
+    1. [business-level acceptance criterion 1]
+    2. [business-level acceptance criterion 2]
+- **Dependencies**: [BR-XXX]
+- **Constraints**: [business constraints or limitations]
+
+---
+
+### Business Rules
+
+#### Business Rules Diagram
 
 ```mermaid
 graph TD
-    subgraph "核心业务实体"
-        E1[佣金规则模板]
-        E2[产品]
-        E3[订单]
+    subgraph "Business Entities"
+        E1["[Entity 1]"]
+        E2["[Entity 2]"]
+        E3["[Entity 3]"]
+        E4["[Entity 4]"]
     end
 
-    subgraph "核心业务规则"
-        BR1["BR-001: 规则需审核"]
-        BR2["BR-002: 长险规则必须关联产品"]
-        BR3["BR-003: 规则修改后需重新审核"]
-        BR4["BR-004: 佣金月度结算逻辑"]
+    subgraph "Business Rules"
+        BR1["BRL-001: [Rule Name]"]
+        BR2["BRL-002: [Rule Name]"]
+        BR3["BRL-003: [Rule Name]"]
+        BR4["BRL-004: [Rule Name]"]
     end
 
     BR1 --> E1
     BR2 --> E1
     BR2 --> E2
-    BR3 --> E1
+    BR3 --> E2
+    BR3 --> E3
     BR4 --> E3
+    BR4 --> E4
 
     style E1 fill:#e0f7fa
     style E2 fill:#e0f7fa
     style E3 fill:#e0f7fa
+    style E4 fill:#e0f7fa
     style BR1 fill:#fffde7
     style BR2 fill:#fffde7
     style BR3 fill:#fffde7
     style BR4 fill:#fffde7
 ```
 
-#### Business Rule Specifications (业务规则规格说明)
+#### Business Rule Specifications
 
-##### **BR-001**
+##### BRL-001: [Business Rule Title]
 
-- **规则名称**: 规则需审核
-- **描述 (Description)**: 任何佣金生效日规则模板（无论是新建还是修改后）都必须经过审核流程，且只有在审核通过后才能变为“待生效”或“有效”状态。
-- **类型 (Type)**: 约束 (Constraint)
-- **触发条件 (Condition)**: 当一个规则被保存或修改时。
-- **执行动作 (Action)**: 规则的审核状态必须被置为“待送审”或“待审核”。
-- **来源 (Source)**: [例如：财务合规政策]
+- **Rule Name**: [full rule name]
+- **Rule ID**: BRL-001
+- **Description**: [detailed description of the rule, what it enforces, and why it exists]
+- **Type**: [constraint/derivation/inference/state transition/dependency]
+- **Priority**: [critical/high/medium/low]
+- **Scope**: [where this rule applies - entity, process, or system-wide]
+- **Trigger Condition**: [when or under what circumstances this rule is evaluated]
+- **Rule Logic**: [the specific logic or formula, if applicable]
+- **Action**: [what must happen when rule is triggered]
+- **Related Business Requirement**: [BR-XXX]
+- **Affected Entities**: [entity 1, entity 2]
+- **Source**: [source of authority for this rule - regulation, policy, domain expert]
+- **Exceptions**: [conditions under which rule may not apply]
 
-##### **BR-002**
+##### BRL-002: [Business Rule Title]
 
-- **规则名称**: 长险规则必须关联产品
-- **描述 (Description)**: 对于业务类型为“长险”的佣金规则模板，即使已审核通过，也必须至少关联一个产品（Ware ID），该规则才对该产品实际生效。
-- **类型 (Type)**: 依赖 (Dependency)
-- **触发条件 (Condition)**: 当系统需要为一份长险保单计算佣金生效日时。
-- **执行动作 (Action)**: 系统必须查找该保单对应产品所关联的、有效的佣金规则。如果找不到，则应用默认规则或报错。
-- **来源 (Source)**: [例如：运营管理规定]
+- **Rule Name**: [full rule name]
+- **Rule ID**: BRL-002
+- **Description**: [detailed description of the rule]
+- **Type**: [constraint/derivation/inference/state transition/dependency]
+- **Priority**: [critical/high/medium/low]
+- **Scope**: [where this rule applies]
+- **Trigger Condition**: [when or under what circumstances this rule is evaluated]
+- **Rule Logic**: [the specific logic or formula]
+- **Action**: [what must happen when rule is triggered]
+- **Related Business Requirement**: [BR-XXX]
+- **Affected Entities**: [entity 1, entity 2]
+- **Source**: [source of authority for this rule]
+- **Exceptions**: [conditions under which rule may not apply]
 
-##### **BR-003**
+##### BRL-003: [Business Rule Title]
 
-- **规则名称**: 规则修改后需重新审核
-- **描述 (Description)**: 一旦一个已经审核通过的规则被修改，其自身以及所有与之关联的产品的审核状态都将重置，需要重新发起审核流程。
-- **类型 (Type)**: 状态流转 (State Transition)
-- **触发条件 (Condition)**: 当用户修改一个“审核通过”的规则并保存时。
-- **执行动作 (Action)**: 1. 规则的审核状态变为“待送审”。 2. 所有已关联的产品的审核状态变为“待送审”。
-- **来源 (Source)**: [例如：风险控制要求]
+- **Rule Name**: [full rule name]
+- **Rule ID**: BRL-003
+- **Description**: [detailed description of the rule]
+- **Type**: [constraint/derivation/inference/state transition/dependency]
+- **Priority**: [critical/high/medium/low]
+- **Scope**: [where this rule applies]
+- **Trigger Condition**: [when or under what circumstances this rule is evaluated]
+- **Rule Logic**: [the specific logic or formula]
+- **Action**: [what must happen when rule is triggered]
+- **Related Business Requirement**: [BR-XXX]
+- **Affected Entities**: [entity 1]
+- **Source**: [source of authority for this rule]
+- **Exceptions**: [none/conditions under which rule may not apply]
 
 ---
+
+### Business Objectives Summary
+
+| Objective ID | Objective Name | Priority | Target Date | Related Business Requirements |
+|-------------|----------------|----------|-------------|------------------------------|
+| BO-001 | [name] | critical | [date/quarter] | BR-001, BR-002, BR-003 |
+| BO-002 | [name] | high | [date/quarter] | BR-004, BR-005 |
+| BO-003 | [name] | medium | [date/quarter] | BR-006 |
+
+**Total**: [X] business objectives driving [Y] business requirements.
+
+---
+
+### Business Requirements Traceability Matrix
+
+| Requirement ID | Requirement Name | Priority | Related Business Objective | Related Business Rules | Related Use Cases |
+|----------------|------------------|----------|---------------------------|------------------------|-------------------|
+| BR-001 | [name] | critical | BO-001 | BRL-001, BRL-002 | UC-XXX-001, UC-XXX-002 |
+| BR-002 | [name] | high | BO-001 | BRL-003 | UC-XXX-003 |
+| BR-003 | [name] | high | BO-001, BO-002 | BRL-001, BRL-004 | UC-XXX-004 |
+| BR-004 | [name] | medium | BO-002 | BRL-005 | UC-XXX-005 |
+
+**Total**: [X] business requirements, enforced by [Y] business rules, realized through [Z] use cases.
+
+---
+
+### Business Rules Summary
+
+| Rule ID | Rule Name | Type | Priority | Related Business Requirements | Affected Entities |
+|---------|-----------|------|----------|------------------------------|-------------------|
+| BRL-001 | [name] | constraint | critical | BR-001, BR-003 | [entity 1, entity 2] |
+| BRL-002 | [name] | state transition | high | BR-001 | [entity 1] |
+| BRL-003 | [name] | dependency | high | BR-002 | [entity 2, entity 3] |
+| BRL-004 | [name] | derivation | medium | BR-003 | [entity 3] |
+
+**Total**: [X] business rules governing [Y] business entities.

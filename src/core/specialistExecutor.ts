@@ -37,7 +37,7 @@ interface SpecialistResumeState {
 interface NetworkErrorClassification {
     retryable: boolean;
     maxRetries: number;
-    errorCategory: 'network' | 'server' | 'auth' | 'config' | 'unknown';
+    errorCategory: 'network' | 'server' | 'auth' | 'config' | 'output_limit' | 'unknown';
     userMessage: string;
 }
 
@@ -2296,33 +2296,37 @@ SUGGESTED ACTIONS:
                 if (errorClassification.retryable && retryCount < errorClassification.maxRetries) {
                     retryCount++;
                     const delay = this.calculateBackoffDelay(retryCount);
-                    
+
                     this.logger.warn(`🔄 [${specialistId}] 迭代 ${iteration} 网络错误 (${errorClassification.errorCategory}), 重试 ${retryCount}/${errorClassification.maxRetries}: ${(error as Error).message}`);
-                    
-                    // 🚀 新增：如果是token limit错误，需要优化提示词重新生成消息
-                    if (errorClassification.errorCategory === 'config' && 
-                        contextForThisStep && internalHistory &&
-                        ((error as Error).message.toLowerCase().includes('token limit') || 
-                         (error as Error).message.toLowerCase().includes('exceeds') && (error as Error).message.toLowerCase().includes('limit'))) {
-                        
-                        this.logger.info(`🚀 Token limit重试：优化提示词并重新生成消息`);
-                        
-                        // 🚀 关键：在重试前添加警告到internalHistory顶部
+
+                    // 🚀 新增：对于需要AI调整策略的错误，注入指导消息到internalHistory
+                    if ((errorClassification.errorCategory === 'output_limit' || errorClassification.errorCategory === 'config') &&
+                        contextForThisStep && internalHistory) {
+
+                        // 生成 AI 可见的错误指导消息
+                        const errorGuidance = this.getErrorGuidanceForAI(
+                            errorClassification.errorCategory,
+                            iteration,
+                            (error as Error).message
+                        );
+
+                        this.logger.info(`🚀 添加AI错误指导: ${errorGuidance}`);
+
+                        // 🚀 关键：在重试前添加指导消息到internalHistory顶部
                         const optimizedHistory = [
-                            `Warning!!! Your previous tool call cause message exceeds token limit, please find different way to perform task successfully.`,
-                            // ...this.cleanIterationResults(internalHistory) // 🔧 UAT测试：注释掉清理机制
-                            ...internalHistory // 🔧 UAT测试：保留完整历史
+                            errorGuidance,
+                            ...internalHistory // 保留完整历史
                         ];
-                        
+
                         // 重新生成优化后的提示词
                         const optimizedPrompt = await this.loadSpecialistPrompt(specialistId, contextForThisStep, optimizedHistory, iteration);
-                        
+
                         // 更新消息
                         messages[0] = vscode.LanguageModelChatMessage.User(optimizedPrompt);
-                        
+
                         this.logger.info(`🚀 已生成优化提示词，长度：${optimizedPrompt.length} (原长度：${messages[0].content?.length || 0})`);
                     }
-                    
+
                     // 等待指数退避延迟
                     await this.sleep(delay);
                     continue; // 重试，不增加迭代次数
@@ -2359,8 +2363,18 @@ SUGGESTED ACTIONS:
         this.logger.warn(`🔍 [DEBUG] classifyNetworkError: message="${message}"`);
         this.logger.warn(`🔍 [DEBUG] classifyNetworkError: code="${code}"`);
         
+        // 🚀 优先检查：输出长度限制错误
+        if (message.includes('response too long')) {
+            return {
+                retryable: true,
+                maxRetries: 3,
+                errorCategory: 'output_limit',
+                userMessage: '输出内容过长，正在重试'
+            };
+        }
+
         // 🚀 优先检查：Token limit错误和空响应错误（不依赖错误类型）
-        if (message.includes('token limit') || 
+        if (message.includes('token limit') ||
             message.includes('exceeds') && message.includes('limit') ||
             message.includes('context length') ||
             message.includes('maximum context') ||
@@ -2485,6 +2499,34 @@ SUGGESTED ACTIONS:
             errorCategory: 'config',
             userMessage: '空响应错误，正在优化提示词重试'
         };
+    }
+
+    /**
+     * 🚀 新增：获取AI可见的错误指导消息
+     * 返回符合 formatIterativeHistory 格式要求的消息（迭代 X - 类型: 内容）
+     *
+     * @param errorCategory 错误类别
+     * @param iteration 当前迭代次数
+     * @param errorMessage 原始错误消息
+     * @returns 格式化的AI指导消息
+     */
+    private getErrorGuidanceForAI(
+        errorCategory: string,
+        iteration: number,
+        errorMessage: string
+    ): string {
+        const prefix = `迭代 ${iteration} - 系统警告`;
+
+        switch (errorCategory) {
+            case 'output_limit':
+                return `${prefix}: 上一次执行因输出内容过长而中断。建议采用增量式生成策略：先规划内容结构，再分批完成各部分内容。`;
+
+            case 'network':
+                return `${prefix}: 网络请求失败 (${errorMessage})，系统将自动重试。`;
+
+            default:
+                return `${prefix}: ${errorMessage}`;
+        }
     }
 
     /**

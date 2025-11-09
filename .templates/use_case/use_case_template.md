@@ -1,84 +1,148 @@
-## Use-Cases（用例）
+## Use Cases
 
-### Use-Case Diagram (用例总览图)
+### Use Case Diagram
 
 ```mermaid
 graph TD
-    User["👤 用户"]
-    Admin["👤 管理员"]
-    
-    subgraph "订单系统"
-        UC1["用户登录"]
-        UC2["浏览商品"]
-        UC3["提交订单"]
-        UC4["验证库存"]
-        UC5["管理订单"]
-        UC6["管理商品"]
+    Actor1["👤 [Actor Role 1]"]
+    Actor2["👤 [Actor Role 2]"]
+    System["🖥️ [External System]"]
+
+    subgraph "[System Name]"
+        UC1["[Use Case 1]"]
+        UC2["[Use Case 2]"]
+        UC3["[Use Case 3]"]
+        UC4["[Use Case 4]"]
+        UC5["[Use Case 5]"]
     end
-    
-    User --> UC1
-    User --> UC2
-    User --> UC3
-    Admin --> UC1
-    Admin --> UC5
-    Admin --> UC6
-    
-    UC3 -.->|include| UC1
-    UC3 -.->|include| UC4
-    
-    style User fill:#e1f5fe
-    style Admin fill:#fff3e0
+
+    Actor1 --> UC1
+    Actor1 --> UC2
+    Actor2 --> UC3
+    Actor2 --> UC4
+    System --> UC5
+
+    UC2 -.->|include| UC1
+    UC3 -.->|extend| UC2
+    UC4 -.->|include| UC5
+
+    style Actor1 fill:#e1f5fe
+    style Actor2 fill:#fff3e0
+    style System fill:#f1f8e9
     style UC1 fill:#f3e5f5
     style UC2 fill:#f3e5f5
     style UC3 fill:#f3e5f5
     style UC4 fill:#f3e5f5
     style UC5 fill:#f3e5f5
-    style UC6 fill:#f3e5f5
 ```
 
-### Use-Case Specifications (用例规格说明)
+### Use Case Specifications
 
-#### **UC-ORDER-001**
+#### UC-[CATEGORY]-001: [Use Case Title]
 
-- **用例名称**: 提交订单
-- **参与者 (Actor)**: 用户 (User)
-- **描述 (Description)**: 用户将购物车中的商品生成一个待支付的订单。
-- **前置条件**:
-    1. 用户已登录.
-    2. 购物车中至少有一件商品。
-- **主成功流**:
-    1. 用户在购物车页面点击"去结算"。
-    2. 系统显示订单确认页面，包含商品列表、收货地址、总金额。
-    3. 用户确认信息无误，点击"提交订单"。
-    4. 系统验证商品库存。 (include: UC-XXX 验证库存)
-    5. 系统创建订单，状态为"待支付"。
-    6. 系统返回订单号，并跳转到支付页面。
-- **扩展/异常流**:
-    - **E1: 库存不足**  - 在步骤4，如果任一商品库存不足，系统将提示用户"部分商品已售罄"，并引导用户返回购物车修改。
-    - **E2: 支付失败**  - 在步骤6，如果支付失败，系统将提示用户"支付失败"，并引导用户返回订单页面重新支付。 
-- **后置条件**：
-    - **成功**：生成一个状态为"待支付"的订单。
-    - **失败**：订单未生成，购物车内容保持不变。
-
-#### **UC-LOGIN-001**
-
-- **用例名称**: 用户登录
-- **参与者 (Actor)**: 用户 (User) 
-- **描述 (Description)**: 用户通过账号密码或第三方授权登录系统。
-- **前置条件**:
-    1. 用户已拥有有效账号。
-    2. 用户处于未登录状态。
-- **主成功流**:
-    1. 用户点击"登录"按钮。
-    2. 系统显示登录页面。
-    3. 用户输入邮箱和密码。
-    4. 系统验证凭据有效性。
-    5. 系统生成会话令牌并跳转到首页。
-- **扩展/异常流**:
-    - **E1: 凭据无效**: 在步骤4，如果凭据无效，系统提示"邮箱或密码错误"。
-    - **E2: 第三方登录**: 用户可选择OAuth第三方登录流程。
-- **后置条件**:
-    - **成功**：用户获得会话令牌，处于已登录状态。
-    - **失败**：用户仍处于未登录状态。
+- **Use Case Name**: [full use case name]
+- **Use Case ID**: UC-[CATEGORY]-001
+- **Primary Actor**: [actor role]
+- **Secondary Actors**: [other actor roles, if any]
+- **Stakeholders**: [stakeholder roles and their interests]
+- **Description**: [brief description of what this use case accomplishes]
+- **Priority**: [critical/high/medium/low]
+- **Complexity**: [high/medium/low]
+- **Related Business Objective**: [BO-XXX]
+- **Trigger**: [what initiates this use case]
+- **Preconditions**:
+    1. [precondition 1]
+    2. [precondition 2]
+    3. [precondition 3]
+- **Main Success Scenario**:
+    1. [actor action step 1]
+    2. [system response step 2]
+    3. [actor action step 3]
+    4. [system response step 4]
+    5. [system response step 5]
+    6. [final step]
+- **Extensions/Alternative Flows**:
+    - **E1: [Exception Name]** - At step [X], if [condition], then [system behavior]. [Flow may return to step Y or terminate]
+    - **E2: [Exception Name]** - At step [X], if [condition], then [system behavior]. [Flow may return to step Y or terminate]
+    - **A1: [Alternative Path Name]** - At step [X], [actor] may choose to [alternative action]. Then [alternative flow description]
+- **Postconditions**:
+    - **Success**: [state of system after successful completion]
+    - **Failure**: [state of system after failure]
+- **Special Requirements**:
+    - [non-functional requirement 1, reference NFR-XXX-XXX]
+    - [non-functional requirement 2, reference NFR-XXX-XXX]
+- **Relationships**:
+    - **Includes**: [UC-XXX-XXX]
+    - **Extends**: [UC-XXX-XXX]
+    - **Generalizes**: [UC-XXX-XXX]
+- **Open Issues**: [any unresolved questions or TBD items]
 
 ---
+
+#### UC-[CATEGORY]-002: [Use Case Title]
+
+- **Use Case Name**: [full use case name]
+- **Use Case ID**: UC-[CATEGORY]-002
+- **Primary Actor**: [actor role]
+- **Secondary Actors**: [other actor roles, if any]
+- **Stakeholders**: [stakeholder roles and their interests]
+- **Description**: [brief description of what this use case accomplishes]
+- **Priority**: [critical/high/medium/low]
+- **Complexity**: [high/medium/low]
+- **Related Business Objective**: [BO-XXX]
+- **Trigger**: [what initiates this use case]
+- **Preconditions**:
+    1. [precondition 1]
+    2. [precondition 2]
+- **Main Success Scenario**:
+    1. [actor action step 1]
+    2. [system response step 2]
+    3. [actor action step 3]
+    4. [system response step 4]
+    5. [final step]
+- **Extensions/Alternative Flows**:
+    - **E1: [Exception Name]** - At step [X], if [condition], then [system behavior]
+    - **A1: [Alternative Path Name]** - At step [X], [actor] may choose to [alternative action]
+- **Postconditions**:
+    - **Success**: [state of system after successful completion]
+    - **Failure**: [state of system after failure]
+- **Special Requirements**:
+    - [non-functional requirement, reference NFR-XXX-XXX]
+- **Relationships**:
+    - **Includes**: [UC-XXX-XXX]
+- **Open Issues**: [any unresolved questions or TBD items]
+
+---
+
+### Use Case Summary Table
+
+| Use Case ID | Use Case Name | Primary Actor | Priority | Complexity | Related Business Objective |
+|-------------|---------------|---------------|----------|------------|---------------------------|
+| UC-XXX-001 | [name] | [actor] | high | medium | BO-001 |
+| UC-XXX-002 | [name] | [actor] | critical | high | BO-001, BO-002 |
+| UC-XXX-003 | [name] | [actor] | medium | low | BO-003 |
+| UC-XXX-004 | [name] | [actor] | high | medium | BO-002 |
+
+**Total**: [X] use cases, covering [Y] primary actors and [Z] business objectives.
+
+---
+
+### Use Case Traceability Matrix
+
+| Use Case ID | Related Business Objectives | Related Functional Requirements | Related NFRs |
+|-------------|----------------------------|--------------------------------|--------------|
+| UC-XXX-001 | BO-001 | FR-XXX-001, FR-XXX-002 | NFR-SEC-001, NFR-PERF-001 |
+| UC-XXX-002 | BO-001, BO-002 | FR-XXX-003, FR-XXX-004 | NFR-PERF-002 |
+| UC-XXX-003 | BO-003 | FR-XXX-005 | NFR-USE-001 |
+| UC-XXX-004 | BO-002 | FR-XXX-006, FR-XXX-007 | NFR-SEC-002, NFR-REL-001 |
+
+---
+
+### Use Case Relationships
+
+| Use Case ID | Includes | Extended By | Generalizes | Specialized By |
+|-------------|----------|-------------|-------------|----------------|
+| UC-XXX-001 | none | UC-XXX-003 | none | none |
+| UC-XXX-002 | UC-XXX-001 | none | none | none |
+| UC-XXX-003 | UC-XXX-001 | none | none | UC-XXX-005 |
+| UC-XXX-004 | UC-XXX-006 | none | UC-XXX-007 | none |

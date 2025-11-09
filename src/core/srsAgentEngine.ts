@@ -2017,7 +2017,7 @@ export class SRSAgentEngine implements ISessionObserver {
         interruptionState.sessionContext,
         interruptionState.userInput,
         this.selectedModel,  // 🚀 传递 selectedModel
-        this.createProgressCallback()
+        this.savedProgressCallback || this.createProgressCallback()  // 🔧 修复：优先使用 savedProgressCallback，确保工具信息显示
       );
       
       // 记录恢复执行
