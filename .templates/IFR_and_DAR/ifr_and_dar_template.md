@@ -1,212 +1,420 @@
-## 接口需求 (Interface Requirements)
+## Interface Requirements
 
-### 用户接口需求 (User Interface Requirements)
+### User Interface Requirements
 
-#### IFR-UI-001: 用户登录界面
-- **描述**: 用户登录界面的交互需求
-- **接口类型**: Web用户界面
-- **协议标准**: HTTP/HTTPS
-- **输入要求**:
-    - 用户名/邮箱 (必填)
-    - 密码 (必填)
-    - 记住我选项 (可选)
-- **输出要求**:
-    - 成功: 跳转到主页面
-    - 失败: 显示错误提示
-- **验证规则**:
-    - 用户名长度3-50字符
-    - 密码强度检查
-- **用例依据**: 基于UC-001用户登录流程
-- **相关用例**: [UC-001]
-- **parent-req**: FR-AUTH-001
+#### IFR-UI-001: [Interface Title]
 
-### 系统接口需求 (System Interface Requirements)
+- **Interface Name**: [full interface name]
+- **Interface ID**: IFR-UI-001
+- **Interface Type**: [web UI/mobile UI/desktop UI/tablet UI]
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed description of the user interface requirements]
+- **Platform**: [browser/iOS/Android/Windows/macOS/cross-platform]
+- **Screen/Page**: [screen or page identifier]
+- **User Roles**: [user roles who interact with this interface]
+- **Input Elements**:
+    - [input element 1]: [type, validation rules, required/optional]
+    - [input element 2]: [type, validation rules, required/optional]
+    - [input element 3]: [type, validation rules, required/optional]
+- **Output Elements**:
+    - [output element 1]: [type, format]
+    - [output element 2]: [type, format]
+- **Validation Rules**:
+    - [validation rule 1]
+    - [validation rule 2]
+    - [validation rule 3]
+- **Interaction Flow**: [description of user interaction sequence]
+- **Error Handling**: [how errors are displayed to users]
+- **Accessibility Requirements**: [WCAG level, screen reader support, keyboard navigation]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related User Stories**: [US-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-USE-XXX, NFR-ACC-XXX]
 
-#### IFR-API-001: 用户认证API
-- **描述**: 用户认证服务的API接口规约
-- **接口类型**: RESTful API
-- **协议标准**: HTTP/HTTPS
-- **认证方式**: JWT Token
-- **数据格式**: JSON
-- **端点**: POST /api/auth/login
-- **请求格式**:
+#### IFR-UI-002: [Interface Title]
 
+- **Interface Name**: [full interface name]
+- **Interface ID**: IFR-UI-002
+- **Interface Type**: [web UI/mobile UI/desktop UI/tablet UI]
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed description of the user interface requirements]
+- **Platform**: [browser/iOS/Android/Windows/macOS]
+- **Screen/Page**: [screen or page identifier]
+- **User Roles**: [user roles who interact with this interface]
+- **Input Elements**:
+    - [input element 1]: [type, validation rules, required/optional]
+    - [input element 2]: [type, validation rules, required/optional]
+- **Output Elements**:
+    - [output element 1]: [type, format]
+- **Validation Rules**:
+    - [validation rule 1]
+    - [validation rule 2]
+- **Interaction Flow**: [description of user interaction sequence]
+- **Error Handling**: [how errors are displayed to users]
+- **Accessibility Requirements**: [WCAG level, screen reader support]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-USE-XXX]
+
+---
+
+### System Interface Requirements
+
+#### IFR-SYS-001: [Interface Title]
+
+- **Interface Name**: [full interface name]
+- **Interface ID**: IFR-SYS-001
+- **Interface Type**: [RESTful API/GraphQL/SOAP/gRPC/message queue/webhook]
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed description of the system interface]
+- **Protocol**: [HTTP/HTTPS/WebSocket/AMQP/MQTT]
+- **Authentication Method**: [JWT/OAuth 2.0/API Key/Basic Auth/mTLS]
+- **Data Format**: [JSON/XML/Protocol Buffers/Avro]
+- **Endpoint**: [HTTP method and path, e.g., POST /api/resource]
+- **Request Specification**:
+    - **Headers**: [required headers]
+    - **Parameters**: [query parameters or path parameters]
+    - **Body Schema**:
 ```json
 {
-  "username": "string",
-  "password": "string",
-  "rememberMe": "boolean"
+  "field1": "type",
+  "field2": "type",
+  "field3": "type"
 }
 ```
-
-**响应格式**:
-
+- **Response Specification**:
+    - **Success Response** (HTTP status code):
 ```json
 {
-  "success": "boolean",
-  "token": "string",
-  "user": "object",
-  "message": "string"
+  "field1": "type",
+  "field2": "type",
+  "field3": "type"
 }
 ```
+    - **Error Responses**:
+        - [HTTP status code]: [error description]
+        - [HTTP status code]: [error description]
+        - [HTTP status code]: [error description]
+- **Rate Limiting**: [requests per time unit]
+- **Timeout**: [timeout value and unit]
+- **Retry Policy**: [retry strategy]
+- **Versioning**: [API version]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-PERF-XXX, NFR-SEC-XXX]
 
-- **错误处理**:
-    - 401: 认证失败
-    - 400: 参数错误
-    - 500: 服务器错误
-- **用例依据**: 基于UC-001用户登录中的"系统验证凭据"步骤
-- **相关用例**: [UC-001]
-- **parent-req**: FR-AUTH-001
+#### IFR-SYS-002: [Interface Title]
 
-### 外部接口需求 (External Interface Requirements)
+- **Interface Name**: [full interface name]
+- **Interface ID**: IFR-SYS-002
+- **Interface Type**: [RESTful API/GraphQL/SOAP/gRPC/message queue]
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed description of the system interface]
+- **Protocol**: [HTTP/HTTPS/WebSocket]
+- **Authentication Method**: [JWT/OAuth 2.0/API Key]
+- **Data Format**: [JSON/XML]
+- **Endpoint**: [HTTP method and path]
+- **Request Specification**:
+    - **Headers**: [required headers]
+    - **Body Schema**:
+```json
+{
+  "field1": "type",
+  "field2": "type"
+}
+```
+- **Response Specification**:
+    - **Success Response** (HTTP status code):
+```json
+{
+  "field1": "type",
+  "field2": "type"
+}
+```
+    - **Error Responses**:
+        - [HTTP status code]: [error description]
+        - [HTTP status code]: [error description]
+- **Rate Limiting**: [requests per time unit]
+- **Timeout**: [timeout value]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-PERF-XXX]
 
-#### IFR-EXT-001: 支付网关接口
-- **描述**: 与第三方支付网关的集成接口
-- **接口类型**: 第三方API集成
-- **协议标准**: HTTPS
-- **认证方式**: API Key + 签名验证
-- **数据格式**: JSON
-- **支持的支付方式**: 信用卡、支付宝、微信支付
-- **超时设置**: 30秒
-- **重试机制**: 最多3次重试
-- **错误处理**:
-    - 支付失败回滚
-    - 网络异常重试
-    - 金额不匹配拒绝
-- **用例依据**: 基于UC-003支付流程中的"调用支付网关"步骤
-- **相关用例**: [UC-003]
-- **parent-req**: FR-PAY-001
+---
 
-## 数据需求 (Data Requirements)
+### External Interface Requirements
 
-### 用户数据需求 (User Data Requirements)
+#### IFR-EXT-001: [Interface Title]
 
-#### DAR-USER-001: 用户基本信息
-- **描述**: 系统用户的基本信息数据要求
-- **数据实体**: User
-- **核心属性**:
-    - user_id: 用户唯一标识符
-    - username: 用户名
-    - email: 邮箱地址
-    - password_hash: 密码哈希值
-    - created_at: 创建时间
-    - updated_at: 更新时间
-    - status: 用户状态
-- **数据约束**:
-    - user_id: 主键，自增整数
-    - username: 唯一，3-50字符，字母数字下划线
-    - email: 唯一，有效邮箱格式
-    - password_hash: 非空，BCrypt加密
-    - status: 枚举值(active, inactive, suspended)
-- **数据类型**:
-    - user_id: INTEGER PRIMARY KEY
-    - username: VARCHAR(50) UNIQUE NOT NULL
-    - email: VARCHAR(255) UNIQUE NOT NULL
-    - password_hash: VARCHAR(255) NOT NULL
-    - created_at: TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    - updated_at: TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    - status: ENUM('active', 'inactive', 'suspended') DEFAULT 'active'
-- **生命周期**:
-- 创建: 用户注册时
-    - 更新: 用户信息修改时
-    - 删除: 软删除，状态改为inactive
-    - 归档: 1年后归档到历史表
-- **完整性规则**:
-    - 用户名和邮箱必须唯一
-    - 密码必须经过加密存储
-    - 删除用户时保留关联数据的引用完整性
-- **用例依据**: 基于UC-001用户登录和UC-002用户注册流程
-- **相关用例**: [UC-001, UC-002]
-- **source-requirement**: FR-AUTH-001
+- **Interface Name**: [full interface name]
+- **Interface ID**: IFR-EXT-001
+- **Interface Type**: [third-party API/partner system/cloud service/payment gateway]
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed description of external interface integration]
+- **Provider**: [external system or service provider name]
+- **Protocol**: [HTTP/HTTPS/SFTP/EDI]
+- **Authentication Method**: [API Key/OAuth 2.0/certificate/signature verification]
+- **Data Format**: [JSON/XML/CSV/custom]
+- **Integration Pattern**: [synchronous/asynchronous/batch/event-driven]
+- **Endpoint/Connection**: [URL or connection details]
+- **Request/Send Format**:
+```
+[format specification]
+```
+- **Response/Receive Format**:
+```
+[format specification]
+```
+- **Error Handling**:
+    - [error scenario 1]: [handling strategy]
+    - [error scenario 2]: [handling strategy]
+    - [error scenario 3]: [handling strategy]
+- **Timeout**: [timeout value]
+- **Retry Mechanism**: [retry strategy]
+- **Fallback Strategy**: [what happens if external system is unavailable]
+- **SLA Requirements**: [uptime, response time]
+- **Data Volume**: [expected transaction volume]
+- **Related Dependencies**: [ADC-DEPEN-XXX]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-REL-XXX, NFR-PERF-XXX]
 
-### 交易数据需求 (Transaction Data Requirements)
+#### IFR-EXT-002: [Interface Title]
 
-#### DAR-TXN-001: 交易记录
-- **描述**: 系统交易记录的数据要求
-- **数据实体**: Transaction
-- **核心属性**:
-    - transaction_id: 交易唯一标识符
-    - user_id: 关联用户ID
-    - amount: 交易金额
-    - currency: 货币类型
-    - type: 交易类型
-    - status: 交易状态
-    - created_at: 交易创建时间
-    - completed_at: 交易完成时间
-- **数据约束**:
-    - transaction_id: 主键，UUID格式
-    - user_id: 外键，关联用户表
-    - amount: 正数，精确到小数点后2位
-    - currency: ISO 4217货币代码
-    - type: 枚举值(payment, refund, transfer)
-    - status: 枚举值(pending, completed, failed, cancelled)
--**数据类型**:
-    - transaction_id: VARCHAR(36) PRIMARY KEY
-    - user_id: INTEGER FOREIGN KEY
-    - amount: DECIMAL(10,2) NOT NULL
-    - currency: VARCHAR(3) NOT NULL
-    - type: ENUM('payment', 'refund', 'transfer') NOT NULL
-    - status: ENUM('pending', 'completed', 'failed', 'cancelled') DEFAULT 'pending'
-    - created_at: TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    - completed_at: TIMESTAMP NULL
-- **生命周期**:
-    - 创建: 交易发起时
-    - 更新: 交易状态变化时
-    - 保留: 永久保存，不删除
-    - 归档: 3年后归档到历史表
-- **完整性规则**:
-    - 交易ID必须全局唯一
-    - 用户ID必须存在于用户表中
-    - 金额必须大于0
-    - 完成时间必须晚于创建时间
-- **合规要求**:
-    - 符合PCI DSS标准
-    - 满足金融监管要求
-    - 支持审计追踪
-- **用例依据**: 基于UC-003支付流程中的"记录交易信息"步骤
-- **相关用例**: [UC-003]
-- **source-requirement**: FR-PAY-001
+- **Interface Name**: [full interface name]
+- **Interface ID**: IFR-EXT-002
+- **Interface Type**: [third-party API/partner system/cloud service]
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed description of external interface integration]
+- **Provider**: [external system or service provider name]
+- **Protocol**: [HTTP/HTTPS]
+- **Authentication Method**: [API Key/OAuth 2.0]
+- **Data Format**: [JSON/XML]
+- **Integration Pattern**: [synchronous/asynchronous]
+- **Endpoint/Connection**: [URL or connection details]
+- **Request/Send Format**:
+```
+[format specification]
+```
+- **Response/Receive Format**:
+```
+[format specification]
+```
+- **Error Handling**:
+    - [error scenario 1]: [handling strategy]
+    - [error scenario 2]: [handling strategy]
+- **Timeout**: [timeout value]
+- **Retry Mechanism**: [retry strategy]
+- **Fallback Strategy**: [what happens if external system is unavailable]
+- **Related Dependencies**: [ADC-DEPEN-XXX]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-REL-XXX]
 
-### 系统日志需求 (System Log Requirements)
+---
 
-#### DAR-LOG-001: 操作日志
-- **描述**: 系统操作日志的数据要求
-- **数据实体**: AuditLog
-- **核心属性**:
-    - log_id: 日志唯一标识符
-    - user_id: 操作用户ID
-    - action: 操作类型
-    - resource: 操作对象
-    - timestamp: 操作时间
-    - ip_address: 操作IP地址
-    - user_agent: 用户代理信息
-    - result: 操作结果
-- **数据约束**:
-    - log_id: 主键，自增长整数
-    - user_id: 外键，可为空(匿名操作)
-    - action: 非空，操作类型字符串
-    - resource: 非空，操作对象标识
-    - timestamp: 非空，精确到毫秒
-    - ip_address: IPv4或IPv6格式
-    - result: 枚举值(success, failure, error)
-- **数据类型**:
-    - log_id: BIGINT PRIMARY KEY AUTO_INCREMENT
-    - user_id: INTEGER FOREIGN KEY NULL
-    - action: VARCHAR(100) NOT NULL
-    - resource: VARCHAR(255) NOT NULL
-    - timestamp: TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3)
-    - ip_address: VARCHAR(45) NOT NULL
-    - user_agent: TEXT
-    - result: ENUM('success', 'failure', 'error') NOT NULL
-- **生命周期**:
-    - 创建: 每次操作后立即记录
-    - 更新: 不允许更新
-    - 删除: 不允许删除
-    - 归档: 6个月后归档到历史表
-- **完整性规则**:
-    - 日志记录一旦创建不可修改
-    - 必须记录所有重要操作
-    - 时间戳必须单调递增
-- **用例依据**: 基于所有用例的操作审计需求
-- **相关用例**: [UC-001, UC-002, UC-003]
-- **source-requirement**: FR-AUDIT-001
+### Hardware Interface Requirements
+
+#### IFR-HW-001: [Interface Title]
+
+- **Interface Name**: [full interface name]
+- **Interface ID**: IFR-HW-001
+- **Interface Type**: [sensor/actuator/printer/scanner/card reader/IoT device]
+- **Priority**: [critical/high/medium/low]
+- **Description**: [detailed description of hardware interface]
+- **Device Type**: [specific device type or model]
+- **Connection Type**: [USB/Bluetooth/WiFi/Serial/Ethernet]
+- **Communication Protocol**: [protocol specification]
+- **Driver Requirements**: [required drivers or SDK]
+- **Data Format**: [binary/text/custom protocol]
+- **Input Specification**: [what data is received from hardware]
+- **Output Specification**: [what commands/data is sent to hardware]
+- **Power Requirements**: [voltage, current]
+- **Environmental Requirements**: [operating temperature, humidity]
+- **Error Handling**: [device not found, communication failure, device error]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-REL-XXX]
+
+---
+
+### Interface Requirements Summary
+
+| Interface ID | Interface Name | Type | Priority | Protocol/Platform | Related Requirements |
+|-------------|----------------|------|----------|-------------------|---------------------|
+| IFR-UI-001 | [name] | Web UI | critical | Browser/HTTPS | FR-XXX-001, NFR-USE-001 |
+| IFR-UI-002 | [name] | Mobile UI | high | iOS/Android | FR-XXX-002, US-XXX-001 |
+| IFR-SYS-001 | [name] | RESTful API | critical | HTTPS/JSON | FR-XXX-003, NFR-PERF-001 |
+| IFR-SYS-002 | [name] | GraphQL | medium | HTTPS/JSON | FR-XXX-004 |
+| IFR-EXT-001 | [name] | Third-party API | critical | HTTPS/JSON | FR-XXX-005, ADC-DEPEN-001 |
+| IFR-EXT-002 | [name] | Payment Gateway | high | HTTPS/JSON | FR-XXX-006, NFR-SEC-001 |
+| IFR-HW-001 | [name] | Card Reader | medium | USB | FR-XXX-007 |
+
+**Total**: [X] interface requirements across [Y] interface types.
+
+---
+
+## Data Requirements
+
+### Data Entity Requirements
+
+#### DAR-ENT-001: [Entity Name]
+
+- **Entity Name**: [full entity name]
+- **Entity ID**: DAR-ENT-001
+- **Description**: [detailed description of the data entity and its purpose]
+- **Category**: [master data/transactional data/reference data/configuration data/audit data]
+- **Priority**: [critical/high/medium/low]
+- **Attributes**:
+    - **[attribute 1]**: [data type, size, description]
+    - **[attribute 2]**: [data type, size, description]
+    - **[attribute 3]**: [data type, size, description]
+    - **[attribute 4]**: [data type, size, description]
+    - **[attribute 5]**: [data type, size, description]
+- **Primary Key**: [primary key field(s)]
+- **Foreign Keys**:
+    - **[foreign key field]**: references [target entity]([target field])
+    - **[foreign key field]**: references [target entity]([target field])
+- **Unique Constraints**:
+    - [field or field combination that must be unique]
+    - [field or field combination that must be unique]
+- **Indexes**:
+    - **[index name]**: [indexed fields] - [rationale]
+    - **[index name]**: [indexed fields] - [rationale]
+- **Data Constraints**:
+    - [constraint 1]: [description]
+    - [constraint 2]: [description]
+    - [constraint 3]: [description]
+- **Validation Rules**:
+    - [validation rule 1]
+    - [validation rule 2]
+    - [validation rule 3]
+- **Data Lifecycle**:
+    - **Creation**: [when and how entity instances are created]
+    - **Update**: [when and how entity instances are updated]
+    - **Deletion**: [hard delete/soft delete, when]
+    - **Archival**: [archival strategy and timeline]
+    - **Retention**: [retention policy and duration]
+- **Data Volume Estimate**: [expected number of records]
+- **Growth Rate**: [estimated growth rate]
+- **Data Quality Requirements**:
+    - **Completeness**: [percentage of required fields that must be populated]
+    - **Accuracy**: [accuracy requirements]
+    - **Consistency**: [consistency rules across systems]
+    - **Timeliness**: [how fresh data must be]
+- **Security Classification**: [public/internal/confidential/restricted]
+- **Privacy Requirements**: [PII/PHI classification, anonymization needs]
+- **Compliance Requirements**: [GDPR/HIPAA/PCI-DSS/SOX/other regulations]
+- **Related Business Rules**: [BRL-XXX]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-SEC-XXX, NFR-PERF-XXX]
+
+#### DAR-ENT-002: [Entity Name]
+
+- **Entity Name**: [full entity name]
+- **Entity ID**: DAR-ENT-002
+- **Description**: [detailed description of the data entity]
+- **Category**: [master data/transactional data/reference data/configuration data]
+- **Priority**: [critical/high/medium/low]
+- **Attributes**:
+    - **[attribute 1]**: [data type, size, description]
+    - **[attribute 2]**: [data type, size, description]
+    - **[attribute 3]**: [data type, size, description]
+    - **[attribute 4]**: [data type, size, description]
+- **Primary Key**: [primary key field(s)]
+- **Foreign Keys**:
+    - **[foreign key field]**: references [target entity]([target field])
+- **Unique Constraints**:
+    - [field or field combination]
+- **Indexes**:
+    - **[index name]**: [indexed fields] - [rationale]
+- **Data Constraints**:
+    - [constraint 1]
+    - [constraint 2]
+- **Validation Rules**:
+    - [validation rule 1]
+    - [validation rule 2]
+- **Data Lifecycle**:
+    - **Creation**: [when and how created]
+    - **Update**: [when and how updated]
+    - **Deletion**: [deletion strategy]
+    - **Archival**: [archival strategy]
+    - **Retention**: [retention duration]
+- **Data Volume Estimate**: [expected records]
+- **Growth Rate**: [growth estimate]
+- **Data Quality Requirements**:
+    - **Completeness**: [requirement]
+    - **Accuracy**: [requirement]
+- **Security Classification**: [classification level]
+- **Privacy Requirements**: [privacy requirements]
+- **Compliance Requirements**: [compliance standards]
+- **Related Business Rules**: [BRL-XXX]
+- **Related Use Cases**: [UC-XXX-XXX]
+- **Related Functional Requirements**: [FR-XXX-XXX]
+- **Related NFRs**: [NFR-SEC-XXX]
+
+---
+
+### Data Relationship Requirements
+
+#### DAR-REL-001: [Relationship Name]
+
+- **Relationship Name**: [full relationship name]
+- **Relationship ID**: DAR-REL-001
+- **Relationship Type**: [one-to-one/one-to-many/many-to-many]
+- **Parent Entity**: [DAR-ENT-XXX: entity name]
+- **Child Entity**: [DAR-ENT-XXX: entity name]
+- **Cardinality**: [minimum:maximum on both sides]
+- **Referential Integrity**: [cascade/restrict/set null on delete and update]
+- **Description**: [description of the relationship and its business meaning]
+- **Related Business Rules**: [BRL-XXX]
+
+#### DAR-REL-002: [Relationship Name]
+
+- **Relationship Name**: [full relationship name]
+- **Relationship ID**: DAR-REL-002
+- **Relationship Type**: [one-to-one/one-to-many/many-to-many]
+- **Parent Entity**: [DAR-ENT-XXX: entity name]
+- **Child Entity**: [DAR-ENT-XXX: entity name]
+- **Cardinality**: [minimum:maximum on both sides]
+- **Referential Integrity**: [cascade/restrict/set null]
+- **Description**: [description of the relationship]
+- **Related Business Rules**: [BRL-XXX]
+
+---
+
+### Data Requirements Summary
+
+| Entity ID | Entity Name | Category | Priority | Estimated Volume | Security Classification | Compliance |
+|-----------|-------------|----------|----------|-----------------|------------------------|------------|
+| DAR-ENT-001 | [name] | master data | critical | [volume] | confidential | GDPR, PCI-DSS |
+| DAR-ENT-002 | [name] | transactional | high | [volume] | restricted | GDPR |
+| DAR-ENT-003 | [name] | reference data | medium | [volume] | internal | none |
+| DAR-ENT-004 | [name] | audit data | high | [volume] | confidential | SOX, GDPR |
+
+**Total**: [X] data entities, [Y] relationships, estimated [Z] total records.
+
+---
+
+### Data Requirements Traceability Matrix
+
+| Data Entity ID | Entity Name | Related Business Rules | Related Use Cases | Related FRs | Related NFRs |
+|----------------|-------------|----------------------|-------------------|-------------|--------------|
+| DAR-ENT-001 | [name] | BRL-001, BRL-002 | UC-XXX-001, UC-XXX-002 | FR-XXX-001, FR-XXX-002 | NFR-SEC-001, NFR-PERF-001 |
+| DAR-ENT-002 | [name] | BRL-003 | UC-XXX-003 | FR-XXX-003, FR-XXX-004 | NFR-SEC-002 |
+| DAR-ENT-003 | [name] | BRL-001 | UC-XXX-001 | FR-XXX-005 | NFR-PERF-002 |
+| DAR-ENT-004 | [name] | - | UC-XXX-001, UC-XXX-002, UC-XXX-003 | FR-XXX-006 | NFR-SEC-003 |
+
+---
+
+### Interface and Data Requirements Cross-Reference
+
+| Interface ID | Interface Name | Related Data Entities | Data Flow Direction |
+|-------------|----------------|-----------------------|-------------------|
+| IFR-UI-001 | [name] | DAR-ENT-001, DAR-ENT-002 | bidirectional |
+| IFR-SYS-001 | [name] | DAR-ENT-001, DAR-ENT-003 | input |
+| IFR-EXT-001 | [name] | DAR-ENT-002, DAR-ENT-004 | output |
+| IFR-EXT-002 | [name] | DAR-ENT-002 | bidirectional |
+
+**Total**: [X] interfaces interacting with [Y] data entities.

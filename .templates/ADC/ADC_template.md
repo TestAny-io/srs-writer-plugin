@@ -1,72 +1,179 @@
-
 ## Assumptions, Dependencies, and Constraints
 
 ### Assumptions
 
-*Assumptions are conditions or events that are believed to be true but have not been verified. These should be validated as the project progresses.*
+#### ADC-ASSU-001: [Assumption Title]
 
-#### ADC-ASSU-001: Stakeholder Availability  
-    - **Assumption**: Key business stakeholders will be available for requirements validation and user acceptance testing throughout the project lifecycle
-    - **Affected Requirements**: [US-REGISTER-001, UC-LOGIN-002]
-    - **Impact if False**: Requirements validation delays, potential scope changes
-    - **Validation Method**: Confirmed stakeholder commitment and calendar availability
-    - **Validation Date**: [Date]
-    - **Owner**: [Business Sponsor]
+- **Assumption Statement**: [description of what is assumed to be true]
+- **Category**: [organizational/technical/business/resource/external]
+- **Priority**: [critical/high/medium/low]
+- **Confidence Level**: [high/medium/low]
+- **Affected Requirements**: [US-XXX-XXX, UC-XXX-XXX, FR-XXX-XXX]
+- **Impact if False**: [description of consequences if assumption proves incorrect]
+- **Validation Method**: [how this assumption will be verified]
+- **Validation Date**: [date/ongoing/TBD]
+- **Owner**: [role or person responsible]
+- **Status**: [unvalidated/validated/invalidated]
+- **Mitigation Strategy**: [actions if assumption proves false]
 
-#### ADC-ASSU-002: Budget Stability
-    - **Assumption**: Project budget will remain stable throughout the project duration
-    - **Affected Requirements**: [US-REGISTER-001, UC-LOGIN-002]
-    - **Impact if False**: Scope reduction, timeline extension, or project cancellation
-    - **Validation Method**: Quarterly budget reviews with finance team
-    - **Validation Date**: [Ongoing]
-    - **Owner**: [Project Sponsor]
+#### ADC-ASSU-002: [Assumption Title]
 
-#### ADC-ASSU-003: Technology Platform Stability  
-    - **Assumption**: Current technology platform will remain supported and stable
-    - **Affected Requirements**: [US-REGISTER-001, US-TOPUP-003, UC-LOGIN-002]
-    - **Impact if False**: Platform migration required, additional development effort
-    - **Validation Method**: Vendor roadmap review and support agreement verification
-    - **Validation Date**: [Date]
-    - **Owner**: [Technical Architect]
+- **Assumption Statement**: [description of what is assumed to be true]
+- **Category**: [organizational/technical/business/resource/external]
+- **Priority**: [critical/high/medium/low]
+- **Confidence Level**: [high/medium/low]
+- **Affected Requirements**: [US-XXX-XXX, FR-XXX-XXX]
+- **Impact if False**: [description of consequences]
+- **Validation Method**: [how this assumption will be verified]
+- **Validation Date**: [date/ongoing/TBD]
+- **Owner**: [role or person responsible]
+- **Status**: [unvalidated/validated/invalidated]
+- **Mitigation Strategy**: [actions if assumption proves false]
 
-#### ADC-ASSU-004: Team Availability  
-    - **Assumption**: Required technical resources with appropriate skills will be available when needed
-    - **Affected Requirements**: [US-BILL-004, US-ORDER-006, UC-PAYMENT-005]
-    - **Impact if False**: Project delays, quality issues, budget overruns
-    - **Validation Method**: Resource allocation confirmation and skills assessment
-    - **Validation Date**: [Date]
-    - **Owner**: [Resource Manager]
+#### ADC-ASSU-003: [Assumption Title]
+
+- **Assumption Statement**: [description of what is assumed to be true]
+- **Category**: [organizational/technical/business/resource/external]
+- **Priority**: [critical/high/medium/low]
+- **Confidence Level**: [high/medium/low]
+- **Affected Requirements**: [UC-XXX-XXX, FR-XXX-XXX, NFR-XXX-XXX]
+- **Impact if False**: [description of consequences]
+- **Validation Method**: [how this assumption will be verified]
+- **Validation Date**: [date/ongoing/TBD]
+- **Owner**: [role or person responsible]
+- **Status**: [unvalidated/validated/invalidated]
+- **Mitigation Strategy**: [actions if assumption proves false]
+
+---
 
 ### Dependencies
 
-*Dependencies are external factors upon which the project's success depends but are outside the direct control of the project team.*
+#### ADC-DEPEN-001: [Dependency Title]
 
-#### ADC-DEPEN-001: Third-Party System Upgrades  
-    - **Dependency**: [System Name] must be upgraded to version [X.X] to support required API integration
-    - **Affected Requirements**: [US-REGISTER-001, US-ORDER-006, UC-CART-005]
-    - **Impact**: Integration functionality cannot be implemented until upgrade is complete
-    - **Risk Level**: High
-    - **Mitigation Strategy**: Coordinate with [System Owner] to prioritize upgrade, develop contingency plan
-    - **Target Completion**: [Date]
-    - **Owner**: [External System Owner]
-    - **Status**: [In Progress/Pending/Complete]
+- **Dependency Statement**: [description of what external factor is required]
+- **Category**: [external system/third-party service/organizational/vendor/infrastructure]
+- **Type**: [technical/business/resource/regulatory]
+- **Priority**: [critical/high/medium/low]
+- **Affected Requirements**: [US-XXX-XXX, UC-XXX-XXX, FR-XXX-XXX]
+- **Impact**: [description of impact on project if dependency is not met]
+- **Risk Level**: [critical/high/medium/low]
+- **Mitigation Strategy**: [actions to reduce dependency risk]
+- **Contingency Plan**: [alternative approach if dependency cannot be met]
+- **Target Completion**: [date/milestone]
+- **Owner**: [external party/system/vendor responsible]
+- **Status**: [not started/in progress/blocked/completed]
+
+#### ADC-DEPEN-002: [Dependency Title]
+
+- **Dependency Statement**: [description of what external factor is required]
+- **Category**: [external system/third-party service/organizational/vendor/infrastructure]
+- **Type**: [technical/business/resource/regulatory]
+- **Priority**: [critical/high/medium/low]
+- **Affected Requirements**: [FR-XXX-XXX, NFR-XXX-XXX]
+- **Impact**: [description of impact on project]
+- **Risk Level**: [critical/high/medium/low]
+- **Mitigation Strategy**: [actions to reduce dependency risk]
+- **Contingency Plan**: [alternative approach if dependency cannot be met]
+- **Target Completion**: [date/milestone]
+- **Owner**: [external party/system/vendor responsible]
+- **Status**: [not started/in progress/blocked/completed]
+
+---
 
 ### Constraints
 
-*Constraints are limitations that restrict the project's options and must be accommodated in the solution design.*
+#### ADC-CONST-001: [Constraint Title]
 
-#### ADC-CONST-002: Technology Platform Limitations  
-    - **Constraint**: Solution must operate within existing [Platform Name] environment
-    - **Rationale**: Organization policy requires use of standardized technology platform
-    - **Affected Requirements**: [US-REGISTER-001, US-ORDER-006, UC-CART-005]
-    - **Impact**: Limits technology choices, may affect performance or functionality options
-    - **Mitigation**: Optimize solution design within platform capabilities, identify platform enhancement opportunities
+- **Constraint Statement**: [description of limitation that must be accommodated]
+- **Category**: [technical/business/regulatory/organizational/budgetary/schedule]
+- **Type**: [mandatory/preferred]
+- **Priority**: [critical/high/medium/low]
+- **Rationale**: [reason why this constraint exists]
+- **Affected Requirements**: [US-XXX-XXX, UC-XXX-XXX, FR-XXX-XXX]
+- **Impact**: [description of how this limits design or implementation options]
+- **Mitigation Strategy**: [approaches to work within the constraint]
+- **Source**: [regulation/policy/contract/business decision]
+- **Negotiable**: [yes/no]
+- **Review Date**: [date when constraint may be reconsidered]
 
-#### ADC-CONST-002: Business Operations Continuity  
-    - **Constraint**: Minimal disruption to current business operations during implementation
-    - **Rationale**: Business continuity requirements and revenue protection
-    - **Affected Requirements**: [US-REGISTER-001, US-ORDER-006, UC-CART-005]
-    - **Impact**: Limits deployment options, requires careful cutover planning
-    - **Mitigation**: Phased rollout, parallel operations period, comprehensive rollback plans
+#### ADC-CONST-002: [Constraint Title]
+
+- **Constraint Statement**: [description of limitation that must be accommodated]
+- **Category**: [technical/business/regulatory/organizational/budgetary/schedule]
+- **Type**: [mandatory/preferred]
+- **Priority**: [critical/high/medium/low]
+- **Rationale**: [reason why this constraint exists]
+- **Affected Requirements**: [FR-XXX-XXX, NFR-XXX-XXX]
+- **Impact**: [description of how this limits design or implementation options]
+- **Mitigation Strategy**: [approaches to work within the constraint]
+- **Source**: [regulation/policy/contract/business decision]
+- **Negotiable**: [yes/no]
+- **Review Date**: [date when constraint may be reconsidered]
+
+#### ADC-CONST-003: [Constraint Title]
+
+- **Constraint Statement**: [description of limitation that must be accommodated]
+- **Category**: [technical/business/regulatory/organizational/budgetary/schedule]
+- **Type**: [mandatory/preferred]
+- **Priority**: [critical/high/medium/low]
+- **Rationale**: [reason why this constraint exists]
+- **Affected Requirements**: [UC-XXX-XXX, NFR-XXX-XXX]
+- **Impact**: [description of how this limits design or implementation options]
+- **Mitigation Strategy**: [approaches to work within the constraint]
+- **Source**: [regulation/policy/contract/business decision]
+- **Negotiable**: [yes/no]
+- **Review Date**: [date when constraint may be reconsidered]
 
 ---
+
+### Assumptions Summary
+
+| ID | Assumption | Category | Priority | Confidence | Affected Requirements | Status |
+|----|------------|----------|----------|------------|----------------------|--------|
+| ADC-ASSU-001 | [summary] | organizational | critical | high | US-XXX-001, FR-XXX-001 | validated |
+| ADC-ASSU-002 | [summary] | technical | high | medium | FR-XXX-002, NFR-XXX-001 | unvalidated |
+| ADC-ASSU-003 | [summary] | business | medium | high | UC-XXX-001 | validated |
+| ADC-ASSU-004 | [summary] | resource | high | low | FR-XXX-003, FR-XXX-004 | unvalidated |
+
+**Total**: [X] assumptions, [Y] validated, [Z] pending validation.
+
+---
+
+### Dependencies Summary
+
+| ID | Dependency | Category | Priority | Risk Level | Affected Requirements | Status |
+|----|------------|----------|----------|------------|----------------------|--------|
+| ADC-DEPEN-001 | [summary] | external system | critical | high | FR-XXX-001, FR-XXX-002 | in progress |
+| ADC-DEPEN-002 | [summary] | third-party service | high | medium | FR-XXX-003, NFR-XXX-001 | completed |
+| ADC-DEPEN-003 | [summary] | vendor | medium | low | UC-XXX-001 | not started |
+| ADC-DEPEN-004 | [summary] | infrastructure | high | high | NFR-XXX-002 | blocked |
+
+**Total**: [X] dependencies, [Y] completed, [Z] in progress, [W] blocked.
+
+---
+
+### Constraints Summary
+
+| ID | Constraint | Category | Type | Priority | Affected Requirements | Negotiable |
+|----|------------|----------|------|----------|----------------------|------------|
+| ADC-CONST-001 | [summary] | technical | mandatory | critical | FR-XXX-001, NFR-XXX-001 | no |
+| ADC-CONST-002 | [summary] | regulatory | mandatory | critical | UC-XXX-001, FR-XXX-002 | no |
+| ADC-CONST-003 | [summary] | business | preferred | high | FR-XXX-003 | yes |
+| ADC-CONST-004 | [summary] | budgetary | mandatory | high | US-XXX-001 | no |
+
+**Total**: [X] constraints, [Y] mandatory, [Z] preferred.
+
+---
+
+### ADC Traceability Matrix
+
+| ADC Type | ADC ID | ADC Summary | Priority | Affected Use Cases | Affected User Stories | Affected FRs | Affected NFRs |
+|----------|--------|-------------|----------|-------------------|----------------------|--------------|---------------|
+| Assumption | ADC-ASSU-001 | [summary] | critical | UC-XXX-001 | US-XXX-001 | FR-XXX-001, FR-XXX-002 | NFR-XXX-001 |
+| Assumption | ADC-ASSU-002 | [summary] | high | - | US-XXX-002 | FR-XXX-003 | - |
+| Dependency | ADC-DEPEN-001 | [summary] | critical | UC-XXX-002 | - | FR-XXX-004 | NFR-XXX-002 |
+| Dependency | ADC-DEPEN-002 | [summary] | medium | - | US-XXX-003 | FR-XXX-005 | - |
+| Constraint | ADC-CONST-001 | [summary] | critical | UC-XXX-001, UC-XXX-003 | - | FR-XXX-001 | NFR-XXX-001, NFR-XXX-003 |
+| Constraint | ADC-CONST-002 | [summary] | high | - | US-XXX-001 | FR-XXX-006 | NFR-XXX-004 |
+
+**Total**: [X] assumptions, [Y] dependencies, [Z] constraints affecting [W] requirements.

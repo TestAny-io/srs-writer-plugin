@@ -784,16 +784,18 @@ When you DECIDE to 'PLAN', follow these steps EXACTLY:
 
 ```typescript
 const agileSpecialists = [
-  'project_initializer', 'overall_description_writer', 
+  'project_initializer', 'overall_description_writer',
   'user_journey_writer', 'user_story_writer', 'prototype_designer',
-  'fr_writer', 'nfr_writer', 'summary_writer', 'document_formatter'
+  'fr_writer', 'nfr_writer', 'risk_analysis_writer',
+  'summary_writer', 'glossary_writer', 'document_formatter'
 ];
 
 const traditionalSpecialists = [
   'project_initializer', 'overall_description_writer',
   'biz_req_and_rule_writer', 'use_case_writer', 'prototype_designer',
-  'fr_writer', 'nfr_writer', 'ifr_and_dar_writer', 
-  'adc_writer', 'summary_writer', 'document_formatter'
+  'fr_writer', 'nfr_writer', 'ifr_and_dar_writer',
+  'adc_writer', 'risk_analysis_writer', 'test_strategy_writer',
+  'summary_writer', 'glossary_writer', 'document_formatter'
 ];
 
 // CRITICAL: Using wrong specialists will break the document structure
