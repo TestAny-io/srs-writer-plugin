@@ -16,8 +16,7 @@ export enum OperationType {
   "PROJECT_SWITCHED" = "PROJECT_SWITCHED",         // 项目切换操作
 
   // 🚀 Phase 1.2: 项目管理操作
-  "PROJECT_RENAMED" = "PROJECT_RENAMED",           // 项目重命名
-  "BASEDIR_CHANGED" = "BASEDIR_CHANGED",           // BaseDir 路径修改
+  "PROJECT_RENAMED" = "PROJECT_RENAMED",           // 项目重命名（包含baseDir更新）
   "PROJECT_DELETED" = "PROJECT_DELETED",           // 项目删除
   
   // 🔧 工具执行记录

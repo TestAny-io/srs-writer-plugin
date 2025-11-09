@@ -2,11 +2,10 @@
  * Phase 1.2 单元测试：项目管理命令
  *
  * 测试目标：
- * 1. 验证 renameProject 功能
- * 2. 验证 changeBaseDir 功能
- * 3. 验证 deleteProject 功能
- * 4. 验证 session file protection 逻辑
- * 5. 验证后备验证逻辑
+ * 1. 验证 renameProject 功能（包含baseDir更新）
+ * 2. 验证 deleteProject 功能
+ * 3. 验证 session file protection 逻辑
+ * 4. 验证后备验证逻辑
  */
 
 import * as path from 'path';

@@ -68,19 +68,7 @@ export async function activate(context: vscode.ExtensionContext) {
         // logger.info('Step 5: Registering Language Model Tools...');
         // registerLanguageModelTools(context);
         // logger.info('✅ Language Model Tools registered successfully');
-        
-        // 🔧 修复：help命令注册ID匹配package.json声明
-        const helpCommand = vscode.commands.registerCommand('srs-writer.help', () => {
-            vscode.window.showInformationMessage(
-                '💡 **SRS Writer User Guide**\n\n' +
-                '🚀 Start using: Enter @srs-writer in Chat panel\n' +
-                '📊 View status: Cmd+Shift+P → "SRS Writer: Control Panel"\n' +
-                '🔄 Force sync: Cmd+Shift+P → "SRS Writer: Force Sync Context"\n' +
-                '🧹 Clear session: Cmd+Shift+P → "SRS Writer: Clear Session"'
-            );
-        });
-        context.subscriptions.push(helpCommand);
-        
+
         // 注册状态栏项 - v1.2增强版
         const statusBarItem = createEnhancedStatusBar();
         context.subscriptions.push(statusBarItem);
@@ -133,10 +121,10 @@ export async function activate(context: vscode.ExtensionContext) {
         // 显示激活成功消息
         vscode.window.showInformationMessage(
             '🚀 SRS Writer is at your service',
-            'Learn more'
+            'Open Control Panel'
         ).then(selection => {
-            if (selection === 'Learn more') {
-                vscode.commands.executeCommand('srs-writer.help');
+            if (selection === 'Open Control Panel') {
+                vscode.commands.executeCommand('srs-writer.status');
             }
         });
         
@@ -508,7 +496,7 @@ async function showEnhancedStatus(): Promise<void> {
             {
                 label: '$(folder-opened) Project Management',
                 description: 'Manage current project',
-                detail: 'Rename project, change base directory, or delete project'
+                detail: 'Rename project or delete project'
             },
             {
                 label: '$(sync) Sync Status Check',
@@ -1216,7 +1204,7 @@ async function switchProject(): Promise<void> {
                 `❌ Project Folder Path Error\n\n` +
                 `Project: ${targetProjectName}\n` +
                 `Error: ${errorMessage}\n\n` +
-                `Please use "Project Management → Change Base Directory" to fix the path before switching.`,
+                `Please use "Project Management → Rename Project" to fix the path before switching.`,
                 'Open Project Management',
                 'Cancel'
             );

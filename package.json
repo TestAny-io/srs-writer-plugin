@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.7.4-dev.1",
+  "version": "0.7.4-dev.2",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -44,10 +44,6 @@
     ],
     "commands": [
       {
-        "command": "srs-writer.help",
-        "title": "SRS Writer: Help"
-      },
-      {
         "command": "srs-writer.status",
         "title": "SRS Writer: Control Panel"
       },
@@ -71,10 +67,6 @@
       {
         "command": "srs-writer.renameProject",
         "title": "SRS Writer: Rename Project"
-      },
-      {
-        "command": "srs-writer.changeBaseDir",
-        "title": "SRS Writer: Change Base Directory"
       },
       {
         "command": "srs-writer.deleteProject",
