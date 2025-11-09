@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-11-09
+
+### Added
+
+- **Diff View**: Added new diff view functionality for better visualization of document changes
+    - Real-time comparison of document versions
+    - Enhanced change tracking and review capabilities
+    - Improved user experience for content verification
+
+### Enhanced
+
+- **Document Templates**: Comprehensive template improvements
+    - Refined all document templates for better consistency
+    - Enhanced template structure and formatting
+    - Improved template documentation and usability
+
+- **Specialist Rules**: Optimized specialist rules and guidelines
+    - Refined orchestrator and specialist prompt templates
+    - Improved AI agent behavior and response quality
+    - Enhanced specialist execution efficiency
+
+### Removed
+
+- **Slash Commands**: Removed slash command functionality
+    - Streamlined command interface
+    - Simplified user interaction model
+    - Reduced complexity in command handling
+
+### Maintenance
+
+- **Code Cleanup**: Removed unused code and dependencies
+    - Improved codebase maintainability
+    - Reduced bundle size
+    - Enhanced performance
+
 ## [0.7.3] - 2025-11-08
 
 ### Added
