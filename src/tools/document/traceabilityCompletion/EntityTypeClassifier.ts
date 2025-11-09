@@ -15,12 +15,21 @@ export class EntityTypeClassifier {
   
   // 业务需求前缀 (可以有derived_fr字段)
   private static readonly BUSINESS_PREFIXES = ['US-', 'UC-'];
-  
-  // 技术需求前缀 (可以有ADC_related字段)  
+
+  // 技术需求前缀 (可以有ADC_related字段)
   private static readonly TECHNICAL_PREFIXES = ['FR-', 'NFR-', 'IFR-', 'DAR-'];
-  
+
   // ADC约束前缀 (在ADC_related中被引用)
   private static readonly ADC_PREFIXES = ['ADC-ASSU-', 'ADC-DEPEN-', 'ADC-CONST-'];
+
+  // 风险分析前缀
+  private static readonly RISK_PREFIXES = ['RISK-'];
+
+  // 测试项前缀
+  private static readonly TEST_PREFIXES = ['TEST-LEVEL-', 'TEST-TYPE-', 'TEST-ENV-'];
+
+  // 测试用例前缀 (Test Cases - 在traceability matrix中引用)
+  private static readonly TEST_CASE_PREFIXES = ['TC-'];
   
   /**
    * 判断是否为业务需求 (US/UC)
@@ -57,6 +66,42 @@ export class EntityTypeClassifier {
     }
     return this.ADC_PREFIXES.some(prefix => id.startsWith(prefix));
   }
+
+  /**
+   * 判断是否为风险分析 (RISK-XXX)
+   * @param id 需求ID
+   * @returns 是否为风险分析
+   */
+  static isRiskAnalysis(id: string): boolean {
+    if (!id || typeof id !== 'string') {
+      return false;
+    }
+    return this.RISK_PREFIXES.some(prefix => id.startsWith(prefix));
+  }
+
+  /**
+   * 判断是否为测试项 (TEST-LEVEL/TEST-TYPE/TEST-ENV)
+   * @param id 需求ID
+   * @returns 是否为测试项
+   */
+  static isTestItem(id: string): boolean {
+    if (!id || typeof id !== 'string') {
+      return false;
+    }
+    return this.TEST_PREFIXES.some(prefix => id.startsWith(prefix));
+  }
+
+  /**
+   * 判断是否为测试用例引用 (TC-XXX)
+   * @param id 需求ID
+   * @returns 是否为测试用例引用
+   */
+  static isTestCase(id: string): boolean {
+    if (!id || typeof id !== 'string') {
+      return false;
+    }
+    return this.TEST_CASE_PREFIXES.some(prefix => id.startsWith(prefix));
+  }
   
   /**
    * 获取实体类型描述
@@ -68,20 +113,34 @@ export class EntityTypeClassifier {
       if (id.startsWith('US-')) return '用户故事';
       if (id.startsWith('UC-')) return '用例';
     }
-    
+
     if (this.isTechnicalRequirement(id)) {
       if (id.startsWith('FR-')) return '功能需求';
       if (id.startsWith('NFR-')) return '非功能需求';
       if (id.startsWith('IFR-')) return '接口需求';
       if (id.startsWith('DAR-')) return '数据需求';
     }
-    
+
     if (this.isADCConstraint(id)) {
       if (id.startsWith('ADC-ASSU-')) return 'ADC假设';
       if (id.startsWith('ADC-DEPEN-')) return 'ADC依赖';
       if (id.startsWith('ADC-CONST-')) return 'ADC约束';
     }
-    
+
+    if (this.isRiskAnalysis(id)) {
+      return '风险分析';
+    }
+
+    if (this.isTestItem(id)) {
+      if (id.startsWith('TEST-LEVEL-')) return '测试层级';
+      if (id.startsWith('TEST-TYPE-')) return '测试类型';
+      if (id.startsWith('TEST-ENV-')) return '测试环境';
+    }
+
+    if (this.isTestCase(id)) {
+      return '测试用例';
+    }
+
     return '未知类型';
   }
   
@@ -107,7 +166,10 @@ export class EntityTypeClassifier {
     const allPrefixes = [
       ...this.BUSINESS_PREFIXES,
       ...this.TECHNICAL_PREFIXES,
-      ...this.ADC_PREFIXES
+      ...this.ADC_PREFIXES,
+      ...this.RISK_PREFIXES,
+      ...this.TEST_PREFIXES,
+      ...this.TEST_CASE_PREFIXES
     ];
     
     const hasValidPrefix = allPrefixes.some(prefix => id.startsWith(prefix));
@@ -150,6 +212,9 @@ export class EntityTypeClassifier {
     business: number;
     technical: number;
     adc: number;
+    risk: number;
+    test: number;
+    testCase: number;
     unknown: number;
   } {
     const stats = {
@@ -157,26 +222,35 @@ export class EntityTypeClassifier {
       business: 0,
       technical: 0,
       adc: 0,
+      risk: 0,
+      test: 0,
+      testCase: 0,
       unknown: 0
     };
-    
+
     for (const entity of entities) {
       if (!entity?.id) {
         stats.unknown++;
         continue;
       }
-      
+
       if (this.isBusinessRequirement(entity.id)) {
         stats.business++;
       } else if (this.isTechnicalRequirement(entity.id)) {
         stats.technical++;
       } else if (this.isADCConstraint(entity.id)) {
         stats.adc++;
+      } else if (this.isRiskAnalysis(entity.id)) {
+        stats.risk++;
+      } else if (this.isTestItem(entity.id)) {
+        stats.test++;
+      } else if (this.isTestCase(entity.id)) {
+        stats.testCase++;
       } else {
         stats.unknown++;
       }
     }
-    
+
     return stats;
   }
   
@@ -188,7 +262,10 @@ export class EntityTypeClassifier {
     return [
       ...this.BUSINESS_PREFIXES,
       ...this.TECHNICAL_PREFIXES,
-      ...this.ADC_PREFIXES
+      ...this.ADC_PREFIXES,
+      ...this.RISK_PREFIXES,
+      ...this.TEST_PREFIXES,
+      ...this.TEST_CASE_PREFIXES
     ];
   }
 } 

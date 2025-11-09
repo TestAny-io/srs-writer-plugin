@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
 import { CallerType } from '../../types/index';
 import { getActiveDocumentContent } from './editor-tools';
+import { showFileDiff } from '../../utils/diff-view';
 
 // 私有工具函数 - 复制自editor-tools.ts以避免依赖已废弃的工具
 async function replaceText(args: { text: string; startLine: number; endLine: number }): Promise<{ success: boolean; error?: string }> {
@@ -206,6 +207,12 @@ export async function findAndReplace(args: {
         await activeEditor.edit(editBuilder => {
             editBuilder.replace(fullRange, newContent);
         });
+
+        // 保存文件以确保更改被写入磁盘
+        await document.save();
+
+        // 显示diff view（原始内容 vs 新内容）
+        await showFileDiff(document.uri.fsPath, originalContent, newContent);
 
         // 6. 分析替换结果
         const originalLines = originalContent.split('\n');

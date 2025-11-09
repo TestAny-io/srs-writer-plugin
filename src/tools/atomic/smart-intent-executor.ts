@@ -10,15 +10,16 @@
 
 import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
-import { 
-    SemanticEditIntent, 
-    SemanticEditResult, 
-    AppliedIntent, 
-    FailedIntent, 
+import {
+    SemanticEditIntent,
+    SemanticEditResult,
+    AppliedIntent,
+    FailedIntent,
     IntentWarning,
     SidBasedEditError
 } from '../../types/semanticEditing';
 import { SidBasedSemanticLocator, TableOfContents } from './sid-based-semantic-locator';
+import { showFileDiff } from '../../utils/diff-view';
 
 const logger = Logger.getInstance();
 
@@ -63,20 +64,29 @@ export class SmartIntentExecutor {
      */
     async execute(intents: SemanticEditIntent[]): Promise<SemanticEditResult> {
         const startTime = Date.now();
-        
+
         logger.info(`🚀 SmartIntentExecutor starting with ${intents.length} intents`);
         logger.debug(`📝 Intent types: ${intents.map(i => i.type).join(', ')}`);
         logger.debug(`🎯 Target SIDs: ${intents.map(i => i.target.sid).join(', ')}`);
-        
+
+        // 🆕 读取原始内容用于diff显示
+        let originalContent: string | undefined;
+        try {
+            const document = await vscode.workspace.openTextDocument(this.targetFileUri);
+            originalContent = document.getText();
+        } catch (error) {
+            logger.warn(`⚠️ Failed to read original content for diff: ${(error as Error).message}`);
+        }
+
         try {
             // 1. 智能排序，减少冲突
             logger.debug(`📊 Optimizing execution order for ${intents.length} intents`);
             const optimizedIntents = this.optimizeExecutionOrder(intents);
-            
+
             // 2. 逐个执行，动态调整
             logger.debug(`⚡ Starting sequential execution with dynamic adjustment`);
             const results = await this.executeWithAdjustment(optimizedIntents);
-            
+
             // 3. 只有当有成功的编辑时才应用workspace edits
             logger.debug(`💾 Applying ${this.workspaceEdit.size} workspace changes`);
             if (this.workspaceEdit.size > 0) {
@@ -112,11 +122,17 @@ export class SmartIntentExecutor {
                 if (document && document.isDirty) {
                     await document.save();
                     logger.debug(`📄 Document saved: ${this.targetFileUri.fsPath}`);
+
+                    // 🆕 显示diff view
+                    if (originalContent !== undefined) {
+                        const newContent = document.getText();
+                        await showFileDiff(this.targetFileUri.fsPath, originalContent, newContent);
+                    }
                 } else if (document) {
                     logger.debug(`📄 Document already saved: ${this.targetFileUri.fsPath}`);
                 } else {
                     // 🚀 尝试更宽松的匹配：使用 fsPath
-                    const fsPathMatch = vscode.workspace.textDocuments.find(doc => 
+                    const fsPathMatch = vscode.workspace.textDocuments.find(doc =>
                         doc.uri.fsPath === targetFsPath
                     );
                     if (fsPathMatch) {
@@ -126,6 +142,12 @@ export class SmartIntentExecutor {
                         if (fsPathMatch.isDirty) {
                             await fsPathMatch.save();
                             logger.debug(`📄 Document saved via fsPath: ${this.targetFileUri.fsPath}`);
+
+                            // 🆕 显示diff view
+                            if (originalContent !== undefined) {
+                                const newContent = fsPathMatch.getText();
+                                await showFileDiff(this.targetFileUri.fsPath, originalContent, newContent);
+                            }
                         } else {
                             logger.debug(`📄 Document already saved via fsPath: ${this.targetFileUri.fsPath}`);
                         }

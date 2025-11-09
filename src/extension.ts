@@ -9,6 +9,7 @@ import { ErrorHandler } from './utils/error-handler';
 import { FoldersViewEnhancer } from './core/FoldersViewEnhancer';
 import { VSCodeToolsAdapter } from './tools/adapters/vscode-tools-adapter';
 import { BaseDirValidator } from './utils/baseDir-validator';
+import { disposeDiffManager } from './utils/diff-view';
 // Language Model Tools已禁用 - 暂时移除工具类导入
 // import {
 //     InternetSearchTool,
@@ -2055,8 +2056,13 @@ export function deactivate() {
             logger.info('✅ VSCode tools adapter disposed');
         }
 
+        // 🚀 清理 Diff Manager 资源
+        logger.info('Step 5: Disposing diff manager...');
+        disposeDiffManager();
+        logger.info('✅ Diff manager disposed');
+
         // 清理Logger资源
-        logger.info('Step 5: Disposing logger...');
+        logger.info('Step 6: Disposing logger...');
         logger.dispose();
 
         logger.info('SRS Writer Plugin deactivated successfully');

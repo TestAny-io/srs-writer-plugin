@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Logger } from '../../utils/logger';
 import { CallerType } from '../../types/index';
 import { resolveWorkspacePath, getCurrentWorkspaceFolder } from '../../utils/path-resolver';
+import { showFileDiff } from '../../utils/diff-view';
 
 /**
  * 文件系统操作工具 - 基于 vscode.workspace.fs API
@@ -241,11 +242,13 @@ export const writeFileToolDefinition = {
 export async function writeFile(args: { path: string; content: string }): Promise<{ success: boolean; error?: string }> {
     try {
         let fileUri: vscode.Uri;
-        
+        let resolvedFilePath: string;
+
         // 🚀 智能路径检测（方案一）
         if (path.isAbsolute(args.path)) {
             // 绝对路径：直接使用
             fileUri = vscode.Uri.file(args.path);
+            resolvedFilePath = args.path;
             logger.info(`🔗 检测到绝对路径: ${args.path}`);
         } else {
             // 相对路径：使用公共路径解析工具
@@ -253,13 +256,31 @@ export async function writeFile(args: { path: string; content: string }): Promis
                 contextName: '文件'
             });
             fileUri = vscode.Uri.file(resolvedPath);
+            resolvedFilePath = resolvedPath;
             logger.info(`🔗 相对路径解析: ${args.path} -> ${resolvedPath}`);
         }
-        
+
+        // 读取原文件内容（在写入之前！）
+        let originalContent: string | undefined;
+        try {
+            const originalBytes = await vscode.workspace.fs.readFile(fileUri);
+            originalContent = new TextDecoder().decode(originalBytes);
+            logger.info(`📖 读取原文件用于diff: ${args.path}`);
+        } catch (error) {
+            // 文件不存在，这是新文件创建
+            originalContent = undefined;
+            logger.info(`📄 新文件创建: ${args.path}`);
+        }
+
+        // 写入文件
         const contentBytes = new TextEncoder().encode(args.content);
         await vscode.workspace.fs.writeFile(fileUri, contentBytes);
-        
+
         logger.info(`✅ Wrote file: ${args.path} (${args.content.length} chars)`);
+
+        // 显示diff视图（类似Claude Code行为）
+        await showFileDiff(resolvedFilePath, originalContent, args.content);
+
         return { success: true };
     } catch (error) {
         const errorMsg = `Failed to write file ${args.path}: ${(error as Error).message}`;

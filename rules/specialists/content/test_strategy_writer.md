@@ -407,6 +407,28 @@ You must strictly follow this schema when writing to `requirements.yaml`. It mus
         availability: ''
         metadata: *metadata
 
+  TEST_CASE:
+      yaml_key: 'test_cases'
+      description: 'Test Cases - 测试用例'
+      template:
+        id: ''
+        summary: ''
+        test_level: ''  # Reference to TEST-LEVEL-XXX
+        test_type: ''   # Reference to TEST-TYPE-XXX
+        tested_requirements:  # Requirements covered by this test case
+          business_objectives: []
+          business_requirements: []
+          business_rules: []
+          use_cases: []
+          user_stories: []
+          functional_requirements: []
+          non_functional_requirements: []
+          interface_requirements: []
+          data_requirements: []
+        priority: null  # enum: critical/high/medium/low
+        status: null    # enum: planned/designed/implemented/executed/passed/failed/blocked
+        metadata: *metadata
+
   # Generic Metadata Template
   metadata_template: &metadata
     status: 'draft'
@@ -423,9 +445,15 @@ You must strictly follow this schema when writing to `requirements.yaml`. It mus
 * **Test Level Format**: TEST-LEVEL-001, TEST-LEVEL-002, ... (sequential numbering)
 * **Test Type Format**: TEST-TYPE-001, TEST-TYPE-002, ... (sequential numbering)
 * **Test Environment Format**: TEST-ENV-001, TEST-ENV-002, ... (sequential numbering)
-* **Numbering**: Start from 001 and continue numbering sequentially
+* **Test Case Format**: TC-{CONTEXT}-001, TC-{CONTEXT}-002, ... (sequential numbering with context)
+  - Context examples: TC-UAT-001, TC-SYS-001, TC-UNIT-001, TC-INT-001, TC-PERF-001, TC-SEC-001, TC-USE-001, TC-DATA-001
+  - The context should indicate the test level or test type for better organization
+* **Numbering**: Start from 001 and continue numbering sequentially within each context
 * **Uniqueness**: Ensure that the ID is unique throughout the project
-* **Traceability**: Must contain the `related_requirements` field in the structured tag for test types, linking to all tested requirement IDs
+* **Traceability**:
+  - Test types must contain the `related_requirements` field linking to all tested requirement IDs
+  - Test cases must contain the `tested_requirements` field linking to specific requirements covered by this test case
+  - Test cases must reference their `test_level` and `test_type` for complete traceability chain
 
 ## 🚫 Key Constraints
 

@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { Logger } from '../../../utils/logger';
 import { resolveWorkspacePath } from '../../../utils/path-resolver';
+import { showFileDiff } from '../../../utils/diff-view';
 import { 
     ExecuteYAMLEditsArgs, 
     ExecuteYAMLEditsResult, 
@@ -101,7 +102,7 @@ export class YAMLEditor {
 
             // 6. 写入文件（使用YAMLGenerator的配置）
             if (appliedEdits.length > 0) {
-                await this.writeYAMLFile(args.targetFile, data);
+                await this.writeYAMLFile(args.targetFile, data, readResult.content);
                 logger.info(`💾 YAML文件写入成功: ${args.targetFile}`);
             }
 
@@ -181,8 +182,9 @@ export class YAMLEditor {
      * 🚀 真正复用：使用与YAMLGenerator完全相同的yaml.dump配置
      * @param filePath 文件路径
      * @param data YAML数据
+     * @param originalContent 原始文件内容（用于显示diff）
      */
-    private static async writeYAMLFile(filePath: string, data: any): Promise<void> {
+    private static async writeYAMLFile(filePath: string, data: any, originalContent?: string): Promise<void> {
         try {
             // 🚀 复用YAMLGenerator的精确配置，不复制代码
             const yamlContent = yaml.dump(data, {
@@ -200,15 +202,20 @@ export class YAMLEditor {
                 errorType: 'scaffold',
                 contextName: 'YAML文件'
             });
-            
+
             // 确保目录存在
             const dir = path.dirname(resolvedPath);
             await fs.mkdir(dir, { recursive: true });
 
             // 写入文件
             await fs.writeFile(resolvedPath, yamlContent, 'utf-8');
-            
+
             logger.info(`✅ YAML文件写入成功: ${resolvedPath}`);
+
+            // 🆕 显示diff view
+            if (originalContent !== undefined) {
+                await showFileDiff(resolvedPath, originalContent, yamlContent);
+            }
 
         } catch (error) {
             throw new ScaffoldError(

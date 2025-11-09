@@ -5,10 +5,10 @@
 
 // 提取的ID信息
 export interface ExtractedId {
-    id: string;                    // 完整的ID，如 "US-LOGIN-001" 或 "ADC-ASSU-001"
-    type: 'basic' | 'adc';        // ID类型：基础实体或ADC复合实体
-    prefix: string;               // 前缀，如 "US", "FR", "ADC"
-    subType?: string;             // ADC子类型，如 "ASSU", "DEPEN", "CONST"
+    id: string;                    // 完整的ID，如 "US-LOGIN-001", "ADC-ASSU-001", "RISK-001", "TEST-LEVEL-001"
+    type: 'basic' | 'adc' | 'risk' | 'test';  // ID类型：基础实体、ADC复合实体、风险分析或测试项
+    prefix: string;               // 前缀，如 "US", "FR", "ADC", "RISK", "TEST"
+    subType?: string;             // 子类型：ADC子类型（"ASSU", "DEPEN", "CONST"）或TEST子类型（"LEVEL", "TYPE", "ENV"）
     fullMatch: string;            // 正则匹配的完整字符串
 }
 
@@ -21,6 +21,7 @@ export interface SchemaConfig {
     metadata_template: Record<string, any>;
     entity_mappings: Record<string, EntitySchema>;
     adc_mappings: Record<string, EntitySchema>;
+    test_mappings?: Record<string, EntitySchema>;  // 可选：测试项映射
     entity_output_order: string[];
     enums: Record<string, string[]>;
 }

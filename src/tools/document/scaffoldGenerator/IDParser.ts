@@ -10,16 +10,24 @@ export class IDParser {
 
     // 支持的ID格式正则表达式
     private static readonly ID_PATTERNS = {
-        // 基础实体: US-xxx, UC-xxx, FR-xxx, NFR-xxx, IFR-xxx, DAR-xxx
-        BASIC: /\b(US|UC|FR|NFR|IFR|DAR)-[A-Z0-9_-]+\b/g,
-        
+        // 基础实体: US-xxx, UC-xxx, FR-xxx, NFR-xxx, IFR-xxx, DAR-xxx, TC-xxx
+        BASIC: /\b(US|UC|FR|NFR|IFR|DAR|TC)-[A-Z0-9_-]+\b/g,
+
         // ADC复合实体: ADC-ASSU-xxx, ADC-DEPEN-xxx, ADC-CONST-xxx
-        ADC: /\b(ADC)-(ASSU|DEPEN|CONST)-[A-Z0-9_-]+\b/g
+        ADC: /\b(ADC)-(ASSU|DEPEN|CONST)-[A-Z0-9_-]+\b/g,
+
+        // 风险分析: RISK-xxx
+        RISK: /\b(RISK)-[A-Z0-9_-]+\b/g,
+
+        // 测试项复合实体: TEST-LEVEL-xxx, TEST-TYPE-xxx, TEST-ENV-xxx
+        TEST: /\b(TEST)-(LEVEL|TYPE|ENV)-[A-Z0-9_-]+\b/g
     };
 
     // 支持的实体前缀
-    private static readonly BASIC_PREFIXES = ['US', 'UC', 'FR', 'NFR', 'IFR', 'DAR'];
+    private static readonly BASIC_PREFIXES = ['US', 'UC', 'FR', 'NFR', 'IFR', 'DAR', 'TC'];
     private static readonly ADC_SUBTYPES = ['ASSU', 'DEPEN', 'CONST'];
+    private static readonly RISK_PREFIXES = ['RISK'];
+    private static readonly TEST_SUBTYPES = ['LEVEL', 'TYPE', 'ENV'];
 
     /**
      * 从SRS文档中提取所有ID
@@ -47,7 +55,15 @@ export class IDParser {
             const adcIds = this.extractAdcIds(srsContent);
             extractedIds.push(...adcIds);
 
-            // 3. 去重并排序
+            // 3. 提取RISK ID
+            const riskIds = this.extractRiskIds(srsContent);
+            extractedIds.push(...riskIds);
+
+            // 4. 提取TEST复合实体ID
+            const testIds = this.extractTestIds(srsContent);
+            extractedIds.push(...testIds);
+
+            // 5. 去重并排序
             const uniqueIds = this.deduplicateAndSort(extractedIds);
 
             // 4. 生成统计信息
@@ -110,10 +126,10 @@ export class IDParser {
 
         for (const match of adcMatches) {
             const parts = match.split('-');
-            
+
             if (parts.length >= 3) {
                 const [prefix, subType] = parts;
-                
+
                 // 验证ADC子类型是否有效
                 if (prefix === 'ADC' && this.ADC_SUBTYPES.includes(subType)) {
                     extractedIds.push({
@@ -128,6 +144,65 @@ export class IDParser {
                 }
             } else {
                 this.logger.warn(`⚠️  ADC ID格式无效: ${match}`);
+            }
+        }
+
+        return extractedIds;
+    }
+
+    /**
+     * 提取RISK实体ID (RISK-xxx)
+     */
+    private static extractRiskIds(content: string): ExtractedId[] {
+        const riskMatches = content.match(this.ID_PATTERNS.RISK) || [];
+        const extractedIds: ExtractedId[] = [];
+
+        for (const match of riskMatches) {
+            const [prefix] = match.split('-');
+
+            // 验证前缀是否有效
+            if (this.RISK_PREFIXES.includes(prefix)) {
+                extractedIds.push({
+                    id: match,
+                    type: 'risk',
+                    prefix,
+                    fullMatch: match
+                });
+            } else {
+                this.logger.warn(`⚠️  发现无效的风险分析前缀: ${match}`);
+            }
+        }
+
+        return extractedIds;
+    }
+
+    /**
+     * 提取TEST复合实体ID (TEST-LEVEL, TEST-TYPE, TEST-ENV)
+     */
+    private static extractTestIds(content: string): ExtractedId[] {
+        const testMatches = content.match(this.ID_PATTERNS.TEST) || [];
+        const extractedIds: ExtractedId[] = [];
+
+        for (const match of testMatches) {
+            const parts = match.split('-');
+
+            if (parts.length >= 3) {
+                const [prefix, subType] = parts;
+
+                // 验证TEST子类型是否有效
+                if (prefix === 'TEST' && this.TEST_SUBTYPES.includes(subType)) {
+                    extractedIds.push({
+                        id: match,
+                        type: 'test',
+                        prefix,
+                        subType,
+                        fullMatch: match
+                    });
+                } else {
+                    this.logger.warn(`⚠️  发现无效的TEST子类型: ${match}`);
+                }
+            } else {
+                this.logger.warn(`⚠️  TEST ID格式无效: ${match}`);
             }
         }
 

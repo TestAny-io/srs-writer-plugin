@@ -94,6 +94,11 @@ export interface RequirementsYAMLStructure {
   assumptions?: RequirementEntity[];
   dependencies?: RequirementEntity[];
   constraints?: RequirementEntity[];
+  risk_analysis?: RequirementEntity[];
+  test_levels?: RequirementEntity[];
+  test_types?: RequirementEntity[];
+  test_environments?: RequirementEntity[];
+  test_cases?: RequirementEntity[];
 }
 
 /**

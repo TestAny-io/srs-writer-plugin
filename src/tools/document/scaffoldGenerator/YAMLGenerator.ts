@@ -22,14 +22,19 @@ export class YAMLGenerator {
     // 实体类型排序定义（必须按此顺序输出）
     private static readonly ENTITY_ORDER = [
         'user_stories',              // US-xxx
-        'use_cases',                 // UC-xxx  
+        'use_cases',                 // UC-xxx
         'functional_requirements',   // FR-xxx
         'non_functional_requirements', // NFR-xxx
         'interface_requirements',    // IFR-xxx
         'data_requirements',         // DAR-xxx
         'assumptions',               // ADC-ASSU-xxx
         'dependencies',              // ADC-DEPEN-xxx
-        'constraints'                // ADC-CONST-xxx
+        'constraints',               // ADC-CONST-xxx
+        'risk_analysis',             // RISK-xxx
+        'test_levels',               // TEST-LEVEL-xxx
+        'test_types',                // TEST-TYPE-xxx
+        'test_environments',         // TEST-ENV-xxx
+        'test_cases'                 // TC-xxx
     ];
 
     /**

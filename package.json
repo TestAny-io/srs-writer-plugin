@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.7.4-dev.2",
+  "version": "0.7.4-dev.10",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -291,6 +291,19 @@
             }
           }
         },
+        "srs-writer.templates.glossaryWriter": {
+          "type": "object",
+          "default": {
+            "GLOSSARY_TEMPLATE": ".templates/glossary/glossary_template.md"
+          },
+          "description": "Glossary Writer的模板文件路径配置",
+          "properties": {
+            "GLOSSARY_TEMPLATE": {
+              "type": "string",
+              "description": "GLOSSARY_TEMPLATE模板文件路径"
+            }
+          }
+        },
         "srs-writer.templates.ifrAndDarWriter": {
           "type": "object",
           "default": {
@@ -343,6 +356,19 @@
             }
           }
         },
+        "srs-writer.templates.riskAnalysisWriter": {
+          "type": "object",
+          "default": {
+            "RISK_ANALYSIS_TEMPLATE": ".templates/risk_analysis/risk_analysis_template.md"
+          },
+          "description": "Risk Analysis Writer的模板文件路径配置",
+          "properties": {
+            "RISK_ANALYSIS_TEMPLATE": {
+              "type": "string",
+              "description": "RISK_ANALYSIS_TEMPLATE模板文件路径"
+            }
+          }
+        },
         "srs-writer.templates.summaryWriter": {
           "type": "object",
           "default": {
@@ -353,6 +379,19 @@
             "SUMMARY_WRITER_TEMPLATE": {
               "type": "string",
               "description": "SUMMARY_WRITER_TEMPLATE模板文件路径"
+            }
+          }
+        },
+        "srs-writer.templates.testStrategyWriter": {
+          "type": "object",
+          "default": {
+            "TEST_STRATEGY_TEMPLATE": ".templates/test_strategy/test_strategy_template.md"
+          },
+          "description": "Test Strategy Writer的模板文件路径配置",
+          "properties": {
+            "TEST_STRATEGY_TEMPLATE": {
+              "type": "string",
+              "description": "TEST_STRATEGY_TEMPLATE模板文件路径"
             }
           }
         },

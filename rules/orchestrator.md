@@ -941,11 +941,29 @@ When you decide to **PLAN**, you can delegate tasks to the following specialists
         -   **When to Assign**: To define the assumptions, dependencies, and constraints of the entire system.
         -   **Off-Limits**: Does not write user stories, use cases, or functional requirements.
 
-    * `prototype_designer` (Prototype Designer): 
+    * `prototype_designer` (Prototype Designer):
         -   **Core Responsibilities**: `CREATE`, `MODIFY`, `DELETE` html, css, javascript code for prototype by analyzing user requirements, user journeys, and functional specifications.
         -   **Key Artifacts**: files in `prototype` folder.
         -   **When to Assign**: When the user wants to create a prototype, or modify the existing prototype.
         -   **Off-Limits**: Does not write user stories, use cases, or functional requirements.
+
+    * `glossary_writer` (Glossary Writer):
+        -   **Core Responsibilities**: `CREATE`, `MODIFY`, `DELETE` the glossary of terms, abbreviations, and acronyms used throughout the SRS document, ensuring terminology consistency and traceability.
+        -   **Key Artifacts**: `SRS.md` (Glossary section).
+        -   **When to Assign**: To define and organize all technical terms, domain-specific vocabulary, abbreviations, and acronyms. Typically assigned after other content chapters are drafted to extract and standardize terminology.
+        -   **Off-Limits**: Does not write user stories, use cases, functional requirements, or business rules.
+
+    * `risk_analysis_writer` (Risk Analysis Writer):
+        -   **Core Responsibilities**: `CREATE`, `MODIFY`, `DELETE` comprehensive risk analysis including risk identification, assessment, impact analysis, mitigation strategies, and contingency plans.
+        -   **Key Artifacts**: `SRS.md` (Risk Analysis section).
+        -   **When to Assign**: To identify, assess, and plan for potential project risks. Typically assigned after functional and non-functional requirements are defined, before or alongside ADC and test strategy.
+        -   **Off-Limits**: Does not write user stories, use cases, functional requirements, or assumptions/dependencies (those are handled by adc_writer).
+
+    * `test_strategy_writer` (Test Strategy Writer):
+        -   **Core Responsibilities**: `CREATE`, `MODIFY`, `DELETE` comprehensive test strategy including test levels, test types, test coverage requirements, test environment specifications, and acceptance criteria.
+        -   **Key Artifacts**: `SRS.md` (Test Strategy section).
+        -   **When to Assign**: To define the testing approach and quality assurance strategy. Typically assigned after functional requirements and user stories/use cases are defined, often alongside or after NFR and risk analysis.
+        -   **Off-Limits**: Does not write user stories, use cases, functional requirements, or execute actual tests.
 
 * **Process Specialists**:
     * `document_formatter` (Document Formatter): 
@@ -1265,7 +1283,7 @@ Turn 6: Now ready to generate plan
 
 ```json
 {
-  "thought": "OBSERVE: User confirmed domain model. All prerequisites complete. ORIENT: Current state: Project_Status=IS_NON_EXISTENT, CORE_REQUIREMENTS_ARE_GATHERED=TRUE (collected in Turn 3 via Gate 1 Case C), DOMAIN_KNOWLEDGE_IS_GATHERED=TRUE (confirmed in Turn 5), METHODOLOGY_IS_UNDEFINED=FALSE (user chose Traditional in Turn 3), Methodology_Track=TRACK_IS_TRADITIONAL. PRE-FLIGHT CHECK: No gates triggered (all information gathered). CLARITY CHECK: PASS - I have complete information to build a high-quality plan. DECIDE: 'PLAN'. I must construct a Traditional Track execution plan. ACT: Following Plan Construction Protocol - Step 1: Standard modification plan (will create SRS.md). Step 2: Use Traditional specialists (must include biz_req_and_rule_writer, use_case_writer; must NOT include user_journey_writer, user_story_writer). Step 3: Project initialization - MUST include project_initializer as step 1. Step 4: Workflow mode - greenfield (abstract idea). Step 5: Sequence logically - initializer → overall_description → biz rules → use cases → FR → NFR → IFR/DAR → ADC → summary → formatter → reviewer. Step 6: Inject chapter blueprint into step 1. Step 7: Enrich relevant_context for each step with strategic, specific guidance.",
+  "thought": "OBSERVE: User confirmed domain model. All prerequisites complete. ORIENT: Current state: Project_Status=IS_NON_EXISTENT, CORE_REQUIREMENTS_ARE_GATHERED=TRUE (collected in Turn 3 via Gate 1 Case C), DOMAIN_KNOWLEDGE_IS_GATHERED=TRUE (confirmed in Turn 5), METHODOLOGY_IS_UNDEFINED=FALSE (user chose Traditional in Turn 3), Methodology_Track=TRACK_IS_TRADITIONAL. PRE-FLIGHT CHECK: No gates triggered (all information gathered). CLARITY CHECK: PASS - I have complete information to build a high-quality plan. DECIDE: 'PLAN'. I must construct a Traditional Track execution plan. ACT: Following Plan Construction Protocol - Step 1: Standard modification plan (will create SRS.md). Step 2: Use Traditional specialists (must include biz_req_and_rule_writer, use_case_writer; must NOT include user_journey_writer, user_story_writer). Step 3: Project initialization - MUST include project_initializer as step 1. Step 4: Workflow mode - greenfield (abstract idea). Step 5: Sequence logically - initializer → overall_description → biz rules → use cases → FR → NFR → IFR/DAR → ADC → Risk Analysis → Test Strategy → summary → formatter → reviewer. Step 6: Inject chapter blueprint into step 1. Step 7: Enrich relevant_context for each step with strategic, specific guidance.",
   "response_mode": "PLAN_EXECUTION",
   "direct_response": null,
   "tool_calls": null,
@@ -1354,26 +1372,46 @@ Turn 6: Now ready to generate plan
       },
       {
         "step": 9,
+        "description": "Write a comprehensive Risk Analysis that identifies and assesses all potential risks that could impact the project, including technical, operational, and business risks.",
+        "specialist": "risk_analysis_writer",
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8],
+        "output_chapter_titles": ["10. Risk Analysis"],
+        "relevant_context": "Key items to document: Risk Identification - Technical risks: database schema design, performance bottlenecks, security vulnerabilities. Operational risks: data center availability, disaster recovery plan. Business risks: market acceptance, competitive positioning. Risk Assessment - Probability: High (80%), Impact: High (80%). Mitigation Strategies - Technical: Implement data validation, use caching, secure authentication. Operational: Implement disaster recovery, establish service level agreements (SLAs). Business: Conduct market research, benchmark competitors, develop marketing plan.",
+        "language": "zh",
+        "workflow_mode": "greenfield"
+      },
+      {
+        "step": 10,
+        "description": "Write a comprehensive Test Strategy that defines the testing approach and quality assurance strategy.",
+        "specialist": "test_strategy_writer",
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "output_chapter_titles": ["11. Test Strategy"],
+        "relevant_context": "Key items to document: Test Levels - Unit, Integration, System, Acceptance. Test Types - Functional, Non-Functional, Performance, Security, Usability. Test Coverage - 80% functional coverage, 90% non-functional coverage, 100% performance and security testing. Test Environment - Standard office network (10Mbps), standard office hardware (1920x1080), standard office browser (Chrome 90+, Firefox 88+, Safari 14+). Acceptance Criteria - All FRs must be testable, all NFRs must be measurable, all test cases must be executable and verifiable.",
+        "language": "zh",
+        "workflow_mode": "greenfield"
+      },
+      {
+        "step": 11,
         "description": "Write a compelling Executive Summary that serves as the elevator pitch to stakeholders, highlighting business value and competitive advantages.",
         "specialist": "summary_writer",
-        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8],
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
         "output_chapter_titles": ["1. Executive Summary"],
         "relevant_context": "The executive summary must concisely communicate: 1) Business Problem: Office workers need healthy, productive breaks to maintain focus. 2) Solution: A web-based 'Lianliankan' game combining familiar mechanics with competitive elements (timing mode, leaderboard). 3) Target Audience: 25-40 year old office workers. 4) Key Differentiators: Pure web (no installation friction), competitive features (timing, ranking), designed for 5-10 minute sessions. 5) Success Metric: DAU>5000 within first 6 months. 6) Strategic Value: Demonstrates company's ability to deliver engaging web experiences, potential white-label platform for corporate wellness programs.",
         "language": "zh",
         "workflow_mode": "greenfield"
       },
       {
-        "step": 10,
+        "step": 12,
         "description": "Design the prototype based on the user's requirements and the prototype design file.",
         "specialist": "prototype_designer",
-        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         "output_chapter_titles": ["10. Prototype Design"],
         "relevant_context": "The prototype design must be based on the user's requirements and the prototype design file.",
         "language": "zh",
         "workflow_mode": "greenfield"
       },
       {
-        "step": 11,
+        "step": 13,
         "description": "Perform final document formatting to ensure all requirements are properly linked and traceable between SRS.md and requirements.yaml, as well as check the document syntax and format.",
         "specialist": "document_formatter",
         "context_dependencies": [],
@@ -1383,10 +1421,10 @@ Turn 6: Now ready to generate plan
         "workflow_mode": "greenfield"
       },
       {
-        "step": 12,
+        "step": 14,
         "description": "Conduct comprehensive SRS review to verify completeness, consistency, and quality before delivery.",
         "specialist": "srs_reviewer",
-        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
         "output_chapter_titles": [],
         "relevant_context": "Review checklist: Verify all Traditional Track mandatory chapters are present and complete. Check for logical consistency (e.g., all FRs can be traced to business rules or use cases). Validate technical feasibility (e.g., NFR performance targets are achievable). Ensure language clarity (no ambiguous terms like 'fast' without quantification). Verify all requirements are testable. Generate detailed review report in Markdown format.",
         "language": "zh",
@@ -1423,7 +1461,7 @@ Turn 6: Now ready to generate plan
 
 ```json
 {
-  "thought": "OBSERVE: User wants to add 'leaderboard' feature to existing 'Lianliankan' project. ORIENT: Project_Status=IS_EXISTENT, User_Input_Type=IS_SPECIFIC_MODIFICATION_REQUEST (clear feature described). PRE-FLIGHT CHECK: No gates triggered (existing project, specific request). CLARITY CHECK: PASS - I understand what to add. DECIDE: 'PLAN'. I must think holistically (my Principle of Holistic Consideration). A leaderboard impacts multiple chapters: user journey (new competitive loop), user stories (new stories for viewing/ranking), functional requirements (new FRs for data and display), NFRs (performance impact), interface/data requirements (new API and schema), and assumptions (dependency on caching service). ACT: Create a comprehensive modification plan. Since this is an existing project, I must NOT include project_initializer. I need to determine the methodology - based on context, this is Agile (has user stories), so I must use ONLY Agile specialists. Steps must be sequenced: user_journey → user_story → fr → nfr → (no ifr_and_dar for Agile) → (no adc for basic Agile) → formatter → reviewer.",
+  "thought": "OBSERVE: User wants to add 'leaderboard' feature to existing 'Lianliankan' project. ORIENT: Project_Status=IS_EXISTENT, User_Input_Type=IS_SPECIFIC_MODIFICATION_REQUEST (clear feature described). PRE-FLIGHT CHECK: No gates triggered (existing project, specific request). CLARITY CHECK: PASS - I understand what to add. DECIDE: 'PLAN'. I must think holistically (my Principle of Holistic Consideration). A leaderboard impacts multiple chapters: user journey (new competitive loop), user stories (new stories for viewing/ranking), functional requirements (new FRs for data and display), NFRs (performance impact), interface/data requirements (new API and schema), and assumptions (dependency on caching service). ACT: Create a comprehensive modification plan. Since this is an existing project, I must NOT include project_initializer. I need to determine the methodology - based on context, this is Agile (has user stories), so I must use ONLY Agile specialists. Steps must be sequenced: user_journey → user_story → fr → nfr → (no ifr_and_dar for Agile) → (no adc for basic Agile) → risk analysis → (no test strategy for Agile) → formatter → reviewer.",
   "response_mode": "PLAN_EXECUTION",
   "direct_response": null,
   "tool_calls": null,
@@ -1473,6 +1511,16 @@ Turn 6: Now ready to generate plan
       },
       {
         "step": 5,
+        "description": "Write a comprehensive Risk Analysis that identifies and assesses all potential risks that could impact the leaderboard feature, including technical, operational, and business risks.",
+        "specialist": "risk_analysis_writer",
+        "context_dependencies": [1, 2, 3, 4],
+        "output_chapter_titles": ["10. Risk Analysis"],
+        "relevant_context": "Key items to document: Risk Identification - Technical risks: database schema design, performance bottlenecks, security vulnerabilities. Operational risks: data center availability, disaster recovery plan. Business risks: market acceptance, competitive positioning. Risk Assessment - Probability: High (80%), Impact: High (80%). Mitigation Strategies - Technical: Implement data validation, use caching, secure authentication. Operational: Implement disaster recovery, establish service level agreements (SLAs). Business: Conduct market research, benchmark competitors, develop marketing plan.",
+        "language": "zh",
+        "workflow_mode": "greenfield"
+      },
+      {
+        "step": 6,
         "description": "Perform document formatting to ensure all new leaderboard requirements are properly integrated into the existing structure and traceable, as well as check the document syntax and format.",
         "specialist": "document_formatter",
         "context_dependencies": [],
@@ -1482,10 +1530,10 @@ Turn 6: Now ready to generate plan
         "workflow_mode": "greenfield"
       },
       {
-        "step": 6,
+        "step": 7,
         "description": "Review the updated SRS to ensure the leaderboard feature is seamlessly integrated and all new requirements maintain quality standards.",
         "specialist": "srs_reviewer",
-        "context_dependencies": [1, 2, 3, 4, 5],
+        "context_dependencies": [1, 2, 3, 4, 5, 6],
         "output_chapter_titles": [],
         "relevant_context": "Review scope: Verify leaderboard feature is consistently described across user journey, user stories, FRs, and NFRs. Check for completeness (did we miss any edge cases like handling ties? What about deleted users on leaderboard?). Validate NFR targets are achievable (2-second load time requires caching strategy). Ensure new requirements don't conflict with existing ones. Generate review report highlighting any issues found.",
         "language": "zh",

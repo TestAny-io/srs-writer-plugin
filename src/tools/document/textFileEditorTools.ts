@@ -16,6 +16,7 @@ import * as vscode from 'vscode';
 import { Logger } from '../../utils/logger';
 import { CallerType } from '../../types/index';
 import { resolveWorkspacePath } from '../../utils/path-resolver';
+import { showFileDiff } from '../../utils/diff-view';
 
 const logger = Logger.getInstance();
 
@@ -249,15 +250,16 @@ export async function executeTextFileEdits(args: ExecuteTextFileEditsArgs): Prom
         
         // Read current file content
         let currentContent = fs.readFileSync(resolvedPath, 'utf8');
+        const originalContent = currentContent;  // 保存原始内容用于diff
         logger.debug(`File read: ${currentContent.length} characters, ${currentContent.split('\n').length} lines`);
-        
+
         const details: Array<{
             editIndex: number;
             success: boolean;
             replacements?: number;
             error?: string;
         }> = [];
-        
+
         let appliedCount = 0;
         
         // Execute edits sequentially
@@ -301,6 +303,9 @@ export async function executeTextFileEdits(args: ExecuteTextFileEditsArgs): Prom
         if (appliedCount > 0) {
             fs.writeFileSync(resolvedPath, currentContent, 'utf8');
             logger.info(`File updated: ${appliedCount}/${args.edits.length} edits applied`);
+
+            // 🆕 显示diff view
+            await showFileDiff(resolvedPath, originalContent, currentContent);
         } else {
             logger.warn(`No edits applied - file unchanged`);
         }

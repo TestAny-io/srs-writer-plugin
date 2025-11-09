@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { Logger } from '../../../utils/logger';
 import { resolveWorkspacePath } from '../../../utils/path-resolver';
+import { showFileDiff } from '../../../utils/diff-view';
 
 // 🚀 复用：导入现有组件
 import { YAMLReader } from '../yamlEditor/YAMLReader';
@@ -53,31 +54,31 @@ export class TraceabilityCompleter {
       logger.info(`📄 SRS文件: ${args.srsFile || 'SRS.md'}`);
       
       // 🚀 Phase 1: 数据读取和验证 (100%复用YAMLReader)
-      const { data, entities } = await this.loadAndParseYAML(args.targetFile);
-      
+      const { data, entities, originalContent } = await this.loadAndParseYAML(args.targetFile);
+
       // 🆕 Phase 0: SRS-YAML ID一致性验证 (必执行)
       const consistencyResult = await this.validateSRSConsistency(
-        args.srsFile || 'SRS.md', 
+        args.srsFile || 'SRS.md',
         entities
       );
-      
+
       // 无论一致性结果如何，继续执行所有后续阶段
       logger.info('📋 继续执行追溯关系计算...');
-      
+
       // Phase 2: 字段清理 (保证幂等性)
       this.clearComputedFields(entities);
-      
+
       // Phase 3: 追溯关系计算
       const traceMap = this.buildTraceabilityMap(entities);
       const danglingRefs = Array.from(traceMap.danglingReferences);
-      
+
       // Phase 4: 字段填充
       const derivedStats = this.computeDerivedFR(entities, traceMap);
       const adcStats = this.computeADCRelated(entities, traceMap);
       const techSpecStats = this.computeTechSpecRelated(entities, traceMap);
-      
+
       // Phase 5: 文件输出 (复用YAMLEditor的写入配置)
-      await this.saveYamlFile(args.targetFile, data);
+      await this.saveYamlFile(args.targetFile, data, originalContent);
       
       // Phase 6: 写入统一质量报告 (替换 writeSummaryLog)
       await this.writeToQualityReport(
@@ -172,35 +173,36 @@ export class TraceabilityCompleter {
   private async loadAndParseYAML(targetFile: string): Promise<{
     data: any;
     entities: RequirementEntity[];
+    originalContent: string;  // 🆕 返回原始内容用于diff
   }> {
     logger.info('📖 Phase 1: 开始读取YAML文件...');
-    
+
     // 🚀 100%复用YAMLReader的功能
     const readResult = await YAMLReader.readAndParse({
       path: targetFile,        // 工具自动获得baseDir
       includeStructure: false  // 追溯工具不需要结构分析
     });
-    
+
     if (!readResult.success || !readResult.parsedData) {
       throw new ScaffoldError(
         ScaffoldErrorType.SCHEMA_LOAD_FAILED,
         readResult.error || '文件读取失败'
       );
     }
-    
+
     const data = readResult.parsedData as RequirementsYAMLStructure;
-    
+
     // 🆕 Phase 1.5: 数据结构标准化 (修复AI生成的对象结构为数组结构)
     const normalizedData = this.normalizeYAMLStructure(data);
     const entities = this.extractAllEntities(normalizedData);
-    
+
     logger.info(`✅ 文件读取成功: ${entities.length} 个实体`);
-    
+
     // 实体类型统计
     const stats = EntityTypeClassifier.getEntityStatistics(entities);
     logger.info(`📊 实体分布: 业务需求 ${stats.business}, 技术需求 ${stats.technical}, ADC约束 ${stats.adc}, 未知 ${stats.unknown}`);
-    
-    return { data: normalizedData, entities };
+
+    return { data: normalizedData, entities, originalContent: readResult.content };
   }
   
   /**
@@ -312,10 +314,11 @@ export class TraceabilityCompleter {
    * 🚀 Phase 5: 保存YAML文件 (复用YAMLEditor的配置)
    * @param filePath 文件路径
    * @param data YAML数据
+   * @param originalContent 原始文件内容（用于显示diff）
    */
-  private async saveYamlFile(filePath: string, data: any): Promise<void> {
+  private async saveYamlFile(filePath: string, data: any, originalContent?: string): Promise<void> {
     logger.info('💾 Phase 5: 开始写入YAML文件...');
-    
+
     // 🚀 复用完全相同的YAML格式化配置 (与YAMLGenerator/YAMLEditor一致)
     const yamlContent = yaml.dump(data, {
       indent: 2,              // 2空格缩进
@@ -326,21 +329,26 @@ export class TraceabilityCompleter {
       quotingType: '"',       // 使用双引号
       forceQuotes: false      // 不强制引号
     });
-    
+
     // 🚀 复用YAMLReader的路径解析逻辑
     const resolvedPath = await resolveWorkspacePath(filePath, {
       errorType: 'scaffold',
       contextName: 'YAML文件'
     });
-    
+
     // 确保目录存在
     const dir = path.dirname(resolvedPath);
     await fs.mkdir(dir, { recursive: true });
-    
+
     // 写入文件
     await fs.writeFile(resolvedPath, yamlContent, 'utf-8');
-    
+
     logger.info(`✅ YAML文件写入成功: ${resolvedPath}`);
+
+    // 🆕 显示diff view
+    if (originalContent !== undefined) {
+      await showFileDiff(resolvedPath, originalContent, yamlContent);
+    }
   }
   
   // 🚀 路径解析现在使用公共工具 resolveWorkspacePath
@@ -450,21 +458,28 @@ export class TraceabilityCompleter {
    */
   private extractAllEntities(data: RequirementsYAMLStructure): RequirementEntity[] {
     const entities: RequirementEntity[] = [];
-    
+
     // 提取业务需求
     if (data.user_stories) entities.push(...data.user_stories);
     if (data.use_cases) entities.push(...data.use_cases);
-    
+
     // 提取技术需求
     if (data.functional_requirements) entities.push(...data.functional_requirements);
     if (data.non_functional_requirements) entities.push(...data.non_functional_requirements);
     if (data.interface_requirements) entities.push(...data.interface_requirements);
     if (data.data_requirements) entities.push(...data.data_requirements);
-    
+
     // 提取ADC约束（扁平化结构）
     if (data.assumptions) entities.push(...data.assumptions);
     if (data.dependencies) entities.push(...data.dependencies);
     if (data.constraints) entities.push(...data.constraints);
+
+    // 提取风险分析和测试项
+    if (data.risk_analysis) entities.push(...data.risk_analysis);
+    if (data.test_levels) entities.push(...data.test_levels);
+    if (data.test_types) entities.push(...data.test_types);
+    if (data.test_environments) entities.push(...data.test_environments);
+    if (data.test_cases) entities.push(...data.test_cases);
     
     // 验证实体ID的唯一性
     const ids = new Set<string>();

@@ -108,6 +108,68 @@ entity_mappings:
       source_requirements: []
       metadata: *metadata
 
+  # Risk Analysis - 风险分析
+  RISK:
+    yaml_key: 'risk_analysis'
+    description: 'Risk Analysis - 风险分析'
+    template:
+      id: ''
+      summary: ''
+      category: null  # enum: technical/business/operational/external/resource/schedule/financial/compliance
+      phase: null  # enum: requirements/design/implementation/testing/deployment/maintenance
+      description: []
+      probability: null  # enum: high/medium/low
+      impact: null  # enum: critical/high/medium/low
+      risk_score: null  # enum: critical/high/medium/low
+      affected_requirements:
+        business_objectives: []
+        business_requirements: []
+        use_cases: []
+        user_stories: []
+        functional_requirements: []
+        non_functional_requirements: []
+        dependencies: []
+      triggers: []
+      mitigation_strategy:
+        approach: null  # enum: preventive/detective/corrective
+        actions: []
+        resources_required: ''
+        cost_estimate: ''
+        timeline: ''
+        success_criteria: []
+      contingency_plan:
+        trigger_condition: ''
+        actions: []
+        resources_required: ''
+        recovery_time: ''
+      residual_risk: null  # enum: critical/high/medium/low
+      risk_owner: ''
+      status: null  # enum: identified/assessed/mitigated/monitoring/closed/materialized
+      metadata: *metadata
+
+  # Test Cases - 测试用例
+  TC:
+    yaml_key: 'test_cases'
+    description: 'Test Cases - 测试用例'
+    template:
+      id: ''
+      summary: ''
+      test_level: ''  # Reference to TEST-LEVEL-XXX
+      test_type: ''   # Reference to TEST-TYPE-XXX
+      tested_requirements:
+        business_objectives: []
+        business_requirements: []
+        business_rules: []
+        use_cases: []
+        user_stories: []
+        functional_requirements: []
+        non_functional_requirements: []
+        interface_requirements: []
+        data_requirements: []
+      priority: null  # enum: critical/high/medium/low
+      status: null    # enum: planned/designed/implemented/executed/passed/failed/blocked
+      metadata: *metadata
+
 # ADC (Assumptions, Dependencies, Constraints) 复合实体映射
 adc_mappings:
   # Assumptions - 假设条件
@@ -152,6 +214,63 @@ adc_mappings:
       owner: ''
       metadata: *metadata
 
+# TEST (Test Levels, Test Types, Test Environments) 复合实体映射
+test_mappings:
+  # Test Levels - 测试层级
+  LEVEL:
+    yaml_key: 'test_levels'
+    description: 'Test Levels - 测试层级'
+    template:
+      id: ''
+      summary: ''
+      objective: ''
+      scope: []
+      test_basis: []
+      test_items: []
+      responsibilities: ''
+      test_techniques: []
+      tools: []
+      coverage_target: ''
+      entry_criteria: []
+      exit_criteria: []
+      deliverables: []
+      metadata: *metadata
+
+  # Test Types - 测试类型
+  TYPE:
+    yaml_key: 'test_types'
+    description: 'Test Types - 测试类型'
+    template:
+      id: ''
+      summary: ''
+      objective: ''
+      scope: []
+      test_levels: []
+      test_techniques: []
+      coverage_target: ''
+      related_requirements:
+        functional_requirements: []
+        non_functional_requirements: []
+        interface_requirements: []
+        data_requirements: []
+      priority: null  # enum: critical/high/medium/low
+      metadata: *metadata
+
+  # Test Environments - 测试环境
+  ENV:
+    yaml_key: 'test_environments'
+    description: 'Test Environments - 测试环境'
+    template:
+      id: ''
+      summary: ''
+      purpose: ''
+      infrastructure: []
+      software_requirements: []
+      access_control: ''
+      data_source: ''
+      availability: ''
+      metadata: *metadata
+
 # 实体类型输出顺序（必须严格遵循）
 entity_output_order:
   - 'user_stories'
@@ -163,6 +282,11 @@ entity_output_order:
   - 'assumptions'
   - 'dependencies'
   - 'constraints'
+  - 'risk_analysis'
+  - 'test_levels'
+  - 'test_types'
+  - 'test_environments'
+  - 'test_cases'
 
 # 枚举值定义
 enums:
