@@ -132,7 +132,7 @@ describe('YAMLReader - parseMode and targets functionality', () => {
         });
 
         describe('parseMode: content', () => {
-            it('should return content and parsedData without structure', async () => {
+            it('should return parsedData without content string or structure (避免重复输出)', async () => {
                 const args: ReadYAMLArgs = {
                     path: 'test.yaml',
                     parseMode: 'content'
@@ -141,7 +141,7 @@ describe('YAMLReader - parseMode and targets functionality', () => {
                 const result = await YAMLReader.readAndParse(args);
 
                 expect(result.success).toBe(true);
-                expect(result.content).toBe(testYAMLContent);
+                expect(result.content).toBe(''); // 🎯 修复后：content为空字符串，避免重复输出
                 expect(result.parsedData).toBeDefined();
                 expect(result.parsedData).toEqual(testData);
                 expect(result.structure).toBeUndefined(); // No structure
@@ -547,13 +547,14 @@ describe('YAMLReader - parseMode and targets functionality', () => {
             const structureResult = await YAMLReader.readAndParse(structureArgs);
             const contentResult = await YAMLReader.readAndParse(contentArgs);
 
-            // Structure mode should have no content
+            // Structure mode should have no content or data
             expect(structureResult.content).toBe('');
             expect(structureResult.parsedData).toBeUndefined();
 
-            // Content mode should have full content
-            expect(contentResult.content).toBe(testYAMLContent);
+            // 🎯 Content mode should have parsedData but no content string (避免重复)
+            expect(contentResult.content).toBe(''); // 修复后：不返回原始字符串
             expect(contentResult.parsedData).toBeDefined();
+            expect(contentResult.parsedData).toEqual(testData); // 数据在parsedData中
 
             // Structure should still provide useful information
             expect(structureResult.structure).toBeDefined();

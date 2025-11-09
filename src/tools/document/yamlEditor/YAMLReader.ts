@@ -86,11 +86,11 @@ export class YAMLReader {
                     }
 
                     case 'content': {
-                        // 返回内容和数据，不返回结构
-                        logger.info(`📄 返回完整内容和解析数据`);
+                        // 🎯 修复：只返回parsedData，避免重复输出（content字符串和parsedData对象实际是同一内容的两种表示）
+                        logger.info(`📄 返回解析数据（不返回原始字符串以避免token浪费）`);
                         return {
                             success: true,
-                            content,
+                            content: '',  // 避免重复输出：原始YAML字符串已经包含在parsedData中
                             parsedData
                         };
                     }

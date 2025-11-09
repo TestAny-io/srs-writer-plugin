@@ -35,19 +35,22 @@ let diffProviderDisposable: vscode.Disposable | null = null;
 
 /**
  * 注册虚拟文档提供者
+ * 延迟初始化：只在实际使用时才注册，避免测试环境中的问题
  */
 function registerDiffContentProvider(): void {
     if (!diffProviderDisposable) {
-        diffProviderDisposable = vscode.workspace.registerTextDocumentContentProvider(
-            'srs-diff',
-            diffContentProvider
-        );
-        logger.info('📋 Diff content provider registered');
+        try {
+            diffProviderDisposable = vscode.workspace.registerTextDocumentContentProvider(
+                'srs-diff',
+                diffContentProvider
+            );
+            logger.info('📋 Diff content provider registered');
+        } catch (error) {
+            // 在测试环境中可能会失败，这是正常的
+            logger.debug(`Diff content provider registration skipped: ${(error as Error).message}`);
+        }
     }
 }
-
-// 立即注册提供者
-registerDiffContentProvider();
 
 /**
  * 累积diff会话管理器
@@ -63,39 +66,44 @@ class CumulativeDiffManager {
     // 文件关闭监听器
     private closeListener: vscode.Disposable | null = null;
 
-    constructor() {
-        this.initializeCloseListener();
-    }
-
     /**
-     * 初始化文件关闭监听器
+     * 初始化文件关闭监听器（延迟初始化，避免测试环境问题）
      */
     private initializeCloseListener(): void {
-        // 监听文件关闭事件，清除对应的初始状态
-        this.closeListener = vscode.workspace.onDidCloseTextDocument(document => {
-            logger.info(`🔍 [CumulativeDiffManager] onDidCloseTextDocument triggered:`);
-            logger.info(`🔍 [CumulativeDiffManager]   - URI: ${document.uri.toString()}`);
-            logger.info(`🔍 [CumulativeDiffManager]   - scheme: ${document.uri.scheme}`);
-            logger.info(`🔍 [CumulativeDiffManager]   - fsPath: ${document.uri.fsPath}`);
-            logger.info(`🔍 [CumulativeDiffManager]   - isDirty: ${document.isDirty}`);
+        if (this.closeListener) {
+            return; // 已经初始化
+        }
 
-            const filePath = document.uri.fsPath;
+        try {
+            // 监听文件关闭事件，清除对应的初始状态
+            this.closeListener = vscode.workspace.onDidCloseTextDocument(document => {
+                logger.info(`🔍 [CumulativeDiffManager] onDidCloseTextDocument triggered:`);
+                logger.info(`🔍 [CumulativeDiffManager]   - URI: ${document.uri.toString()}`);
+                logger.info(`🔍 [CumulativeDiffManager]   - scheme: ${document.uri.scheme}`);
+                logger.info(`🔍 [CumulativeDiffManager]   - fsPath: ${document.uri.fsPath}`);
+                logger.info(`🔍 [CumulativeDiffManager]   - isDirty: ${document.isDirty}`);
 
-            // 只处理真实文件的关闭（不是untitled临时文档）
-            if (document.uri.scheme === 'file') {
-                if (this.fileInitialStates.has(filePath)) {
-                    logger.info(`📁 文件已关闭，清除累积diff状态: ${filePath}`);
-                    this.fileInitialStates.delete(filePath);
+                const filePath = document.uri.fsPath;
 
-                    // 清理对应的临时文档引用
-                    this.temporaryDocuments.delete(filePath);
+                // 只处理真实文件的关闭（不是untitled临时文档）
+                if (document.uri.scheme === 'file') {
+                    if (this.fileInitialStates.has(filePath)) {
+                        logger.info(`📁 文件已关闭，清除累积diff状态: ${filePath}`);
+                        this.fileInitialStates.delete(filePath);
+
+                        // 清理对应的临时文档引用
+                        this.temporaryDocuments.delete(filePath);
+                    } else {
+                        logger.debug(`🔍 [CumulativeDiffManager] File closed but no initial state stored: ${filePath}`);
+                    }
                 } else {
-                    logger.debug(`🔍 [CumulativeDiffManager] File closed but no initial state stored: ${filePath}`);
+                    logger.debug(`🔍 [CumulativeDiffManager] Non-file document closed (scheme=${document.uri.scheme}), ignoring`);
                 }
-            } else {
-                logger.debug(`🔍 [CumulativeDiffManager] Non-file document closed (scheme=${document.uri.scheme}), ignoring`);
-            }
-        });
+            });
+        } catch (error) {
+            // 在测试环境中可能会失败，这是正常的
+            logger.debug(`CumulativeDiffManager listener initialization skipped: ${(error as Error).message}`);
+        }
     }
 
     /**
@@ -108,6 +116,9 @@ class CumulativeDiffManager {
      * @returns 初始状态内容
      */
     public getOrSetInitialState(filePath: string, currentContent: string): string {
+        // 确保监听器已初始化（延迟初始化）
+        this.initializeCloseListener();
+
         if (this.fileInitialStates.has(filePath)) {
             const initialState = this.fileInitialStates.get(filePath)!;
             logger.info(`♻️ 使用已存储的初始状态进行累积diff: ${filePath}`);
@@ -165,6 +176,9 @@ export async function showFileDiff(
     originalContent: string | undefined,
     newContent: string
 ): Promise<void> {
+    // 确保虚拟文档提供者已注册（延迟初始化）
+    registerDiffContentProvider();
+
     logger.info(`🔍 [showFileDiff] START - filePath: ${filePath}`);
     logger.info(`🔍 [showFileDiff] originalContent defined: ${originalContent !== undefined}, length: ${originalContent?.length || 0}`);
     logger.info(`🔍 [showFileDiff] newContent length: ${newContent.length}`);

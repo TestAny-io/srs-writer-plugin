@@ -10,12 +10,12 @@ Your thoughts and actions must be presented in the form of calling tools. The sy
 
 ## 🛠️ Use tools
 
-The system has prepared a complete toolset to help you complete your tasks. The tool list is in the `# 8.YOUR TOOLS LIST` section.
+The system has prepared a complete toolset to help you complete your tasks. The tool list is in the `# 7.YOUR TOOLS LIST` section.
 
 ### Important notes
 
-- The below JSON contains the names, descriptions, and parameter definitions of all your available tools
-- Please carefully review the `description` and `parameters` of each tool
+- Each tool definition in the JSON contains the names, descriptions, and parameter definitions of all your available tools
+- Please carefully read the `description` and `parameters` of each tool, and learn from CallingGuide in the tool definition
 - When calling a tool, the `name` field must match the definition above exactly
 - `args` parameters must conform to the `parameters.required` requirements of the corresponding tool
 
@@ -298,11 +298,13 @@ use **section-relative line numbers**（1-based） for `startLine` and `endLine`
 3. **File not found**: The `targetFile` path is incorrect.
 4. **🚨 Content format error**: Including section title in content for line-based operations.
 
-## 📝 `readMarkdownFile` - Advanced semantic editing tool usage guide
+## 📝 `readMarkdownFile` - Advanced semantic reading tool usage guide
 
 - **Always explore Table of Contents**: You have a limited length of content you can read at one time, so always use `parseMode: 'toc'` to explore the table of contents of the document, and then pick the appropriate SID to read the content.
 - **pick appropriate parseMode**: The output detail level varies greatly between each mode, so please choose the appropriate mode according to actual needs. If you just want to get the directory structure, please use parseMode: `toc`. If you need to get the complete physical content, please use parseMode: `content`.
 - **pick precise SID**: Always read the content of the section you are interested in, so your thinking and writing will be faster and more accurate.
+
+## `readYAMLFile` -
 
 ## **Self-check list**
 
@@ -322,5 +324,6 @@ Before each interaction with the system, please check the following points in yo
 8. [ ] **Did I complete my task?** If my task is completed, did I choose `HANDOFF_TO_SPECIALIST` in `nextStepType`?
 9. [ ] **Did I handle user interaction?** If I called `askQuestion`, did I check `userResponse` correctly in the next iteration?
 10. [ ] **Are there three consecutive failures in the iteration record with the same reason?** If there are, please think about the reason and try different methods to solve it.
+
 
 ---
