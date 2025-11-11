@@ -29,6 +29,7 @@
     "rules",
     "media",
     ".templates",
+    ".vscode-template",
     "LICENSE",
     "README.md",
     "CHANGELOG.md"

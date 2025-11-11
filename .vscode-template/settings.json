@@ -1,0 +1,5 @@
+{
+    "diffEditor.renderSideBySide": false,
+    "workbench.editor.enablePreview": false,
+    "workbench.editor.enablePreviewFromQuickOpen": false
+}

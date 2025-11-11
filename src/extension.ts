@@ -1545,9 +1545,36 @@ async function createWorkspaceAndInitialize(): Promise<void> {
             if (extensionContext) {
                 const templatesSourcePath = path.join(extensionContext.extensionPath, '.templates');
                 const templatesTargetPath = path.join(workspacePath, '.templates');
-                
+
                 await copyDirectoryRecursive(templatesSourcePath, templatesTargetPath);
                 logger.info(`✅ Templates directory copied successfully: ${templatesTargetPath}`);
+
+                // 🚀 Step 4.1: 创建 .vscode/settings.json 以确保一致的用户体验
+                progress.report({ increment: 35, message: 'Creating workspace settings...' });
+
+                try {
+                    const vscodeDir = path.join(workspacePath, '.vscode');
+                    const vscodeSettingsPath = path.join(vscodeDir, 'settings.json');
+
+                    // 创建 .vscode 目录
+                    await vscode.workspace.fs.createDirectory(vscode.Uri.file(vscodeDir));
+
+                    // 读取模板 settings.json
+                    const settingsTemplateSource = path.join(extensionContext.extensionPath, '.vscode-template', 'settings.json');
+                    const settingsTemplateUri = vscode.Uri.file(settingsTemplateSource);
+                    const settingsContent = await vscode.workspace.fs.readFile(settingsTemplateUri);
+
+                    // 写入到工作区
+                    await vscode.workspace.fs.writeFile(
+                        vscode.Uri.file(vscodeSettingsPath),
+                        settingsContent
+                    );
+
+                    logger.info(`✅ Workspace settings created: ${vscodeSettingsPath}`);
+                } catch (settingsError) {
+                    logger.warn(`⚠️ Failed to create workspace settings: ${(settingsError as Error).message}`);
+                    // 不阻止工作区创建流程
+                }
             } else {
                 logger.warn('⚠️ Unable to get extension context, skipping templates copy');
             }
