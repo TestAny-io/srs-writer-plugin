@@ -4,6 +4,17 @@ import { ExtractedId, IdStatistics, ScaffoldError, ScaffoldErrorType } from './t
 /**
  * ID解析引擎
  * 负责从SRS文档中提取所有符合格式的需求ID
+ *
+ * ⚠️ SHARED CODE - 保留原因 (2025-11-12):
+ * 此文件虽位于 scaffoldGenerator/ 目录，但被其他活跃工具使用：
+ * - traceabilityCompletion/SRSConsistencyValidator.ts 使用 extractAllIds() 方法
+ *   用于从 SRS.md 提取 requirement IDs，验证与 requirements.yaml 的一致性
+ *
+ * 删除历史：requirementScaffoldTool 已于 2025-11-12 删除，但保留此共享代码。
+ *
+ * 相关文件：
+ * - 使用方：src/tools/document/traceabilityCompletion/SRSConsistencyValidator.ts
+ * - 测试文件：src/test/unit/scaffoldGenerator/IDParser.test.ts
  */
 export class IDParser {
     private static readonly logger = Logger.getInstance();

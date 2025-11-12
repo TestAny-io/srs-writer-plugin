@@ -307,7 +307,58 @@ You are responsible for generating the interface requirements and data requireme
 * **All requirements must have a unique ID** and follow the category prefix (IFR-/DAR-)
 * **All requirements must have a quantifiable metric or a clear verification method**
 * **IFR and DAR requirements must contain the `source_requirements` field** and link to the source ID (possibly functional requirements, use cases, user stories, etc.)
-* **You must strictly follow the given yaml schema when generating yaml content, and must organize it in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.**
+* **You must strictly follow the given yaml schema when generating yaml content.**
+
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+interface_requirements:
+  IFR-API-001:
+    id: IFR-API-001
+    summary: "User authentication API endpoint"
+    description: ["RESTful API for user login and session management"]
+    interface_type: api
+    source_requirements: ["FR-AUTH-001"]
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  IFR-API-002:
+    id: IFR-API-002
+    summary: "..."
+    # ... other fields
+
+data_requirements:
+  DAR-USER-001:
+    id: DAR-USER-001
+    summary: "User account data entity"
+    description: ["Core user account information for authentication and profile"]
+    data_entity: ["User"]
+    core_attributes: ["email (unique)", "password_hash", "created_at"]
+    source_requirements: ["FR-AUTH-001", "FR-PROFILE-001"]
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  DAR-USER-002:
+    id: DAR-USER-002
+    summary: "..."
+    # ... other fields
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'interface_requirements.IFR-API-001.summary'`
+- ❌ Wrong: Do not use array indices like `interface_requirements.0.summary`
 
 ### **YAML Schema (`requirements.yaml`)**
 

@@ -306,7 +306,75 @@ You are responsible for generating the **Assumptions, Dependencies, Constraints*
 
 * **Complete editing instructions and JSON format specifications please refer to `output-format-schema.md`**
 * **All Markdown content you generate must strictly follow the syntax specifications. In particular, any code block (starting with ``` or ~~~) must have a corresponding end tag (``` or ~~~) to close it.**
-* **All yaml content you generate must strictly follow the given yaml schema, must be organized in YAML list (sequence) format, and must not be organized in YAML dictionary (mapping) format.**
+* **All yaml content you generate must strictly follow the given yaml schema.**
+
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+assumptions:
+  ADC-ASSU-001:
+    id: ADC-ASSU-001
+    summary: "Third-party API availability assumption"
+    assumptions: ["The Xyz.API v2.1 will maintain 99.9% uptime"]
+    risk_if_false: ["System cannot authenticate users"]
+    impacted_requirements: ["FR-AUTH-001"]
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  ADC-ASSU-002:
+    id: ADC-ASSU-002
+    summary: "..."
+    # ... other fields
+
+dependencies:
+  ADC-DEPEN-001:
+    id: ADC-DEPEN-001
+    summary: "Payment gateway dependency"
+    dependencies: ["Stripe API v3 for payment processing"]
+    impacted_requirements: ["FR-PAY-001"]
+    risk_level: critical
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  ADC-DEPEN-002:
+    id: ADC-DEPEN-002
+    summary: "..."
+    # ... other fields
+
+constraints:
+  ADC-CONST-001:
+    id: ADC-CONST-001
+    summary: "GDPR compliance constraint"
+    constraints: ["All user data must be stored in EU-based servers"]
+    justification: ["Legal requirement under GDPR Article 44"]
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  ADC-CONST-002:
+    id: ADC-CONST-002
+    summary: "..."
+    # ... other fields
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'assumptions.ADC-ASSU-001.summary'`
+- ❌ Wrong: Do not use array indices like `assumptions.0.summary`
 
 ### **Must follow** the yaml schema when outputting the content of the requirements.yaml file
 

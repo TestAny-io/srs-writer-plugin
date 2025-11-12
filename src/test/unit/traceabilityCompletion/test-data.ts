@@ -282,21 +282,22 @@ export const expectedComplexResults = {
 
 /**
  * 性能测试用的大数据集生成器
+ * 使用数组结构（向后兼容测试）
  */
 export function generateLargeTestData(entityCount: number): RequirementsYAMLStructure {
   const data: RequirementsYAMLStructure = {
-    user_stories: [],
-    functional_requirements: [],
-    non_functional_requirements: [],
-    assumptions: [],
-    dependencies: [],
-    constraints: []
+    user_stories: [] as RequirementEntity[],
+    functional_requirements: [] as RequirementEntity[],
+    non_functional_requirements: [] as RequirementEntity[],
+    assumptions: [] as RequirementEntity[],
+    dependencies: [] as RequirementEntity[],
+    constraints: [] as RequirementEntity[]
   };
   
   // 生成用户故事
   const usCount = Math.floor(entityCount * 0.3);
   for (let i = 1; i <= usCount; i++) {
-    data.user_stories!.push({
+    (data.user_stories as RequirementEntity[]).push({
       id: `US-PERF-${i.toString().padStart(3, '0')}`,
       title: `性能测试用户故事 ${i}`,
       description: `这是第${i}个性能测试用户故事`
@@ -306,7 +307,7 @@ export function generateLargeTestData(entityCount: number): RequirementsYAMLStru
   // 生成ADC约束
   const adcCount = Math.floor(entityCount * 0.1);
   for (let i = 1; i <= adcCount; i++) {
-    data.assumptions!.push({
+    (data.assumptions as RequirementEntity[]).push({
       id: `ADC-ASSU-${i.toString().padStart(3, '0')}`,
       title: `假设 ${i}`,
       description: `性能测试假设 ${i}`,
@@ -330,7 +331,7 @@ export function generateLargeTestData(entityCount: number): RequirementsYAMLStru
       sourceReqs.push(`ADC-ASSU-${i.toString().padStart(3, '0')}`);
     }
     
-    data.functional_requirements!.push({
+    (data.functional_requirements as RequirementEntity[]).push({
       id: `FR-PERF-${i.toString().padStart(3, '0')}`,
       title: `性能测试功能需求 ${i}`,
       description: `这是第${i}个性能测试功能需求`,
@@ -348,7 +349,7 @@ export function generateLargeTestData(entityCount: number): RequirementsYAMLStru
       sourceReqs.push(`US-PERF-${i.toString().padStart(3, '0')}`);
     }
     
-    data.non_functional_requirements!.push({
+    (data.non_functional_requirements as RequirementEntity[]).push({
       id: `NFR-PERF-${i.toString().padStart(3, '0')}`,
       title: `性能测试非功能需求 ${i}`,
       description: `这是第${i}个性能测试非功能需求`,
@@ -357,4 +358,63 @@ export function generateLargeTestData(entityCount: number): RequirementsYAMLStru
   }
   
   return data;
-} 
+}
+
+/**
+ * Dictionary 结构测试数据（包含新增的实体类型）
+ * 测试 risk_analysis, test_levels, test_types, test_environments, test_cases 字段
+ */
+export const dictionaryStructureData: RequirementsYAMLStructure = {
+  use_cases: {
+    "UC-AUTH-001": {
+      id: "UC-AUTH-001",
+      title: "用户认证用例",
+      description: "用户登录和认证流程"
+    }
+  },
+
+  functional_requirements: {
+    "FR-AUTH-001": {
+      id: "FR-AUTH-001",
+      title: "认证功能",
+      description: "实现用户认证",
+      source_requirements: ["UC-AUTH-001"]
+    },
+    "FR-SECURE-001": {
+      id: "FR-SECURE-001",
+      title: "安全传输",
+      description: "确保数据安全传输",
+      source_requirements: ["UC-AUTH-001"]
+    }
+  },
+
+  non_functional_requirements: {
+    "NFR-PERF-001": {
+      id: "NFR-PERF-001",
+      title: "认证性能",
+      description: "认证响应时间小于1秒",
+      source_requirements: ["FR-AUTH-001"]
+    }
+  },
+
+  // 🆕 新增的实体类型
+  risk_analysis: {
+    "RISK-SEC-001": {
+      id: "RISK-SEC-001",
+      title: "安全风险",
+      description: "认证系统存在暴力破解风险",
+      severity: "high",
+      source_requirements: ["FR-AUTH-001"]
+    },
+    "RISK-PERF-001": {
+      id: "RISK-PERF-001",
+      title: "性能风险",
+      description: "高并发场景下认证可能超时",
+      severity: "medium",
+      source_requirements: ["NFR-PERF-001"]
+    }
+  },
+
+  // 注意：测试相关实体（test_levels, test_types, test_environments, test_cases）不在 SRS 范围内
+  // 测试策略和测试用例应该在独立的测试文档中管理（遵循 IEEE 829 标准）
+}; 

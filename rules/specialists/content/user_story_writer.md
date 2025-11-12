@@ -314,7 +314,39 @@ You are responsible for generating or editing the **User Stories** section in th
 
 * **Complete editing instructions and JSON format specifications please refer to `GUIDELINES AND SAMPLE OF TOOLS USING` section**
 * **All Markdown content you generate must strictly follow the syntax specifications. In particular, any code block (starting with ``` or ~~~) must have a corresponding end tag (``` or ~~~) to close it.**
-* **All yaml content you generate must strictly follow the given yaml schema, must be organized in YAML list (sequence) format, and must not be organized in YAML dictionary (mapping) format.**
+
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+user_stories:
+  US-AUTH-001:
+    id: US-AUTH-001
+    summary: "User login story"
+    epic: "Epic 1"
+    as_a: ["End User"]
+    i_want_to: ["Log into the system"]
+    so_that: ["I can access my personalized dashboard"]
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  US-AUTH-002:
+    id: US-AUTH-002
+    summary: "Password reset story"
+    epic: "Epic 1"
+    # ... other fields
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'user_stories.US-AUTH-001.summary'`
+- ❌ Wrong: Do not use array indices like `user_stories.0.summary`
 
 ### **7. Must follow** the yaml schema when outputting the content of the requirements.yaml file
 
@@ -327,6 +359,7 @@ US:
     id: ''
     summary: ''
     description: []
+    epic: ''
     as_a: []
     i_want_to: []
     so_that: []

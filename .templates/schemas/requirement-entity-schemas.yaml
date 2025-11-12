@@ -2,6 +2,33 @@
 # 版本: 1.0
 # 最后更新: 2024-01-15
 # 描述: 为需求脚手架生成器提供实体结构定义
+#
+# ============================================================================
+# IMPORTANT: YAML Structure Convention
+# ============================================================================
+# All requirement entities MUST use Dictionary (map) structure, NOT Array (sequence).
+#
+# Dictionary Structure (REQUIRED):
+# ```yaml
+# functional_requirements:
+#   FR-AUTH-001:
+#     id: FR-AUTH-001
+#     summary: "User authentication"
+#     # ... other fields
+#   FR-AUTH-002:
+#     id: FR-AUTH-002
+#     summary: "Password encryption"
+#     # ... other fields
+# ```
+#
+# Benefits:
+# - O(1) direct access via ID (vs O(n) array search)
+# - Stable key paths for editing: 'functional_requirements.FR-AUTH-001.summary'
+# - 7.5x token savings (no need to return full array when reading single item)
+# - Auto-creation support in YAMLKeyPathOperator
+#
+# Array structure is NO LONGER SUPPORTED for requirement entities.
+# ============================================================================
 
 version: "1.0"
 last_updated: "2024-01-15"
@@ -23,9 +50,23 @@ entity_mappings:
   US:
     yaml_key: 'user_stories'
     description: 'User Stories - 用户故事'
+    # Example (Dictionary structure - REQUIRED):
+    # user_stories:
+    #   US-LOGIN-001:
+    #     id: US-LOGIN-001
+    #     summary: "User login functionality"
+    #     epic: "Epic 1"
+    #     description: ["As a registered user, I want to log in..."]
+    #     as_a: ["registered user"]
+    #     i_want_to: ["log in to my account"]
+    #     so_that: ["I can access personalized features"]
+    #     acceptance_criteria: ["User enters valid credentials", "System authenticates user"]
+    #     derived_fr: ["FR-AUTH-001", "FR-AUTH-002"]
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
+      epic: ''
       description: []
       as_a: []
       i_want_to: []
@@ -38,6 +79,19 @@ entity_mappings:
   UC:
     yaml_key: 'use_cases'
     description: 'Use Cases - 用例'
+    # Example (Dictionary structure - REQUIRED):
+    # use_cases:
+    #   UC-LOGIN-001:
+    #     id: UC-LOGIN-001
+    #     summary: "User authentication process"
+    #     description: ["This use case describes..."]
+    #     actor: ["End User", "Authentication Service"]
+    #     preconditions: ["User has valid credentials"]
+    #     postconditions: ["User is authenticated"]
+    #     main_success_scenario: ["1. User enters credentials", "2. System validates"]
+    #     extensions: ["1a. Invalid credentials"]
+    #     derived_fr: ["FR-AUTH-001"]
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
@@ -54,6 +108,16 @@ entity_mappings:
   FR:
     yaml_key: 'functional_requirements'
     description: 'Functional Requirements - 功能需求'
+    # Example (Dictionary structure - REQUIRED):
+    # functional_requirements:
+    #   FR-AUTH-001:
+    #     id: FR-AUTH-001
+    #     summary: "User authentication via username and password"
+    #     description: ["The system shall authenticate users..."]
+    #     priority: high
+    #     source_requirements: ["UC-LOGIN-001", "US-LOGIN-001"]
+    #     acceptance_criteria: ["System validates credentials", "System creates session"]
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
@@ -67,6 +131,19 @@ entity_mappings:
   NFR:
     yaml_key: 'non_functional_requirements'
     description: 'Non-Functional Requirements - 非功能需求'
+    # Example (Dictionary structure - REQUIRED):
+    # non_functional_requirements:
+    #   NFR-PERF-001:
+    #     id: NFR-PERF-001
+    #     summary: "Login response time requirement"
+    #     category: performance
+    #     description: ["The system shall respond to login requests within 2 seconds"]
+    #     target_measure:
+    #       - metric: "Response time"
+    #         target_value: "< 2 seconds"
+    #     priority: high
+    #     source_requirements: ["FR-AUTH-001"]
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
@@ -76,13 +153,25 @@ entity_mappings:
         - metric: ''
           target_value: null
       priority: null  # enum: critical/high/medium/low
-      source_reqquirements: []
+      source_requirements: []
       metadata: *metadata
 
   # Interface Requirements - 接口需求
   IFR:
     yaml_key: 'interface_requirements'
     description: 'Interface Requirements - 接口需求'
+    # Example (Dictionary structure - REQUIRED):
+    # interface_requirements:
+    #   IFR-API-001:
+    #     id: IFR-API-001
+    #     summary: "User authentication API endpoint"
+    #     description: ["REST API endpoint for user authentication"]
+    #     interface_type: api
+    #     input_data: ["username: string", "password: string"]
+    #     output_data: ["token: string", "userId: string", "status: integer"]
+    #     core_validation_rules: ["Username must be non-empty", "Password must meet complexity requirements"]
+    #     source_requirements: ["FR-AUTH-001"]
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
@@ -98,6 +187,17 @@ entity_mappings:
   DAR:
     yaml_key: 'data_requirements'
     description: 'Data Requirements - 数据需求'
+    # Example (Dictionary structure - REQUIRED):
+    # data_requirements:
+    #   DAR-USER-001:
+    #     id: DAR-USER-001
+    #     summary: "User account data structure"
+    #     description: ["Defines the user account data entity"]
+    #     data_entity: ["User"]
+    #     core_attributes: ["userId: UUID", "username: string", "passwordHash: string", "email: string"]
+    #     core_validation_rules: ["userId must be unique", "Username must be 3-20 characters"]
+    #     source_requirements: ["FR-AUTH-001"]
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
@@ -108,12 +208,93 @@ entity_mappings:
       source_requirements: []
       metadata: *metadata
 
+  # Risk Analysis - 风险分析
+  RISK:
+    yaml_key: 'risk_analysis'
+    description: 'Risk Analysis - 风险分析'
+    # Example (Dictionary structure - REQUIRED):
+    # risk_analysis:
+    #   RISK-001:
+    #     id: RISK-001
+    #     summary: "Authentication service dependency risk"
+    #     category: technical
+    #     phase: implementation
+    #     description: ["Third-party authentication service may become unavailable"]
+    #     probability: medium
+    #     impact: high
+    #     risk_score: high
+    #     affected_requirements:
+    #       functional_requirements: ["FR-AUTH-001", "FR-AUTH-002"]
+    #       non_functional_requirements: ["NFR-AVAIL-001"]
+    #     triggers: ["Service downtime exceeds 5 minutes"]
+    #     mitigation_strategy:
+    #       approach: preventive
+    #       actions: ["Implement fallback authentication", "Add health check monitoring"]
+    #       resources_required: "2 developers, 1 week"
+    #       cost_estimate: "$10,000"
+    #       timeline: "Sprint 3"
+    #       success_criteria: ["Fallback activates within 30 seconds", "Zero user impact"]
+    #     contingency_plan:
+    #       trigger_condition: "Service unavailable for > 10 minutes"
+    #       actions: ["Activate local authentication", "Notify users"]
+    #       resources_required: "On-call team"
+    #       recovery_time: "< 15 minutes"
+    #     residual_risk: low
+    #     risk_owner: "Tech Lead"
+    #     status: assessed
+    #     metadata: { status: 'draft', version: '1.0' }
+    template:
+      id: ''
+      summary: ''
+      category: null  # enum: technical/business/operational/external/resource/schedule/financial/compliance
+      phase: null  # enum: requirements/design/implementation/testing/deployment/maintenance
+      description: []
+      probability: null  # enum: high/medium/low
+      impact: null  # enum: critical/high/medium/low
+      risk_score: null  # enum: critical/high/medium/low
+      affected_requirements:
+        business_objectives: []
+        business_requirements: []
+        use_cases: []
+        user_stories: []
+        functional_requirements: []
+        non_functional_requirements: []
+        dependencies: []
+      triggers: []
+      mitigation_strategy:
+        approach: null  # enum: preventive/detective/corrective
+        actions: []
+        resources_required: ''
+        cost_estimate: ''
+        timeline: ''
+        success_criteria: []
+      contingency_plan:
+        trigger_condition: ''
+        actions: []
+        resources_required: ''
+        recovery_time: ''
+      residual_risk: null  # enum: critical/high/medium/low
+      risk_owner: ''
+      status: null  # enum: identified/assessed/mitigated/monitoring/closed/materialized
+      metadata: *metadata
+
 # ADC (Assumptions, Dependencies, Constraints) 复合实体映射
 adc_mappings:
   # Assumptions - 假设条件
   ASSU:
     yaml_key: 'assumptions'
     description: 'Assumptions - 假设条件'
+    # Example (Dictionary structure - REQUIRED):
+    # assumptions:
+    #   ADC-ASSU-001:
+    #     id: ADC-ASSU-001
+    #     summary: "Third-party authentication service availability"
+    #     assumptions: ["OAuth provider maintains 99.9% uptime"]
+    #     risk_if_false: ["Users cannot log in", "System becomes unavailable"]
+    #     impacted_requirements: ["FR-AUTH-001", "NFR-AVAIL-001"]
+    #     validation_method: ["Monitor service SLA reports", "Set up health checks"]
+    #     owner: "Tech Lead"
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
@@ -128,6 +309,17 @@ adc_mappings:
   DEPEN:
     yaml_key: 'dependencies'
     description: 'Dependencies - 依赖关系'
+    # Example (Dictionary structure - REQUIRED):
+    # dependencies:
+    #   ADC-DEPEN-001:
+    #     id: ADC-DEPEN-001
+    #     summary: "Database migration completion"
+    #     dependencies: ["User table schema must be finalized before authentication implementation"]
+    #     impacted_requirements: ["FR-AUTH-001", "DAR-USER-001"]
+    #     risk_level: high
+    #     mitigation_strategy: ["Establish schema freeze date", "Create migration rollback plan"]
+    #     owner: "Database Admin"
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
@@ -142,13 +334,128 @@ adc_mappings:
   CONST:
     yaml_key: 'constraints'
     description: 'Constraints - 约束条件'
+    # Example (Dictionary structure - REQUIRED):
+    # constraints:
+    #   ADC-CONST-001:
+    #     id: ADC-CONST-001
+    #     summary: "GDPR compliance requirement"
+    #     constraints: ["User data must be encrypted at rest", "User consent required for data processing"]
+    #     justification: ["EU GDPR regulation", "Company privacy policy"]
+    #     impacted_requirements: ["FR-AUTH-001", "NFR-SEC-001", "DAR-USER-001"]
+    #     mitigation_strategy: ["Use AES-256 encryption", "Implement consent management system"]
+    #     owner: "Compliance Officer"
+    #     metadata: { status: 'draft', version: '1.0' }
     template:
       id: ''
       summary: ''
       constraints: []
       justification: []
+      impacted_requirements: []
       mitigation_strategy: []
       owner: ''
+      metadata: *metadata
+
+# TEST (Test Levels, Test Types, Test Environments) 复合实体映射
+# Note: These entities (LEVEL, TYPE, ENV) provide metadata for test cases (TC).
+# They are NOT tracked in RTM - only TC entities are traced to requirements.
+test_mappings:
+  # Test Levels - 测试层级
+  LEVEL:
+    yaml_key: 'test_levels'
+    description: 'Test Levels - 测试层级'
+    # Example (Dictionary structure - REQUIRED):
+    # test_levels:
+    #   TEST-LEVEL-004:
+    #     id: TEST-LEVEL-004
+    #     summary: "User Acceptance Testing (UAT)"
+    #     objective: "Validate system meets business requirements"
+    #     scope: ["End-to-end business workflows", "User interface validation"]
+    #     test_basis: ["Business requirements", "Use cases", "User stories"]
+    #     test_items: ["Complete system", "User workflows"]
+    #     responsibilities: "Business analysts and end users"
+    #     test_techniques: ["Exploratory testing", "Scenario-based testing"]
+    #     tools: ["Manual testing", "Test management tool"]
+    #     coverage_target: "100% of critical user scenarios"
+    #     entry_criteria: ["System testing passed", "UAT environment ready"]
+    #     exit_criteria: ["All critical defects resolved", "Business sign-off obtained"]
+    #     deliverables: ["UAT test results", "Sign-off document"]
+    #     metadata: { status: 'draft', version: '1.0' }
+    template:
+      id: ''
+      summary: ''
+      objective: ''
+      scope: []
+      test_basis: []
+      test_items: []
+      responsibilities: ''
+      test_techniques: []
+      tools: []
+      coverage_target: ''
+      entry_criteria: []
+      exit_criteria: []
+      deliverables: []
+      metadata: *metadata
+
+  # Test Types - 测试类型
+  TYPE:
+    yaml_key: 'test_types'
+    description: 'Test Types - 测试类型'
+    # Example (Dictionary structure - REQUIRED):
+    # test_types:
+    #   TEST-TYPE-001:
+    #     id: TEST-TYPE-001
+    #     summary: "Functional Testing"
+    #     objective: "Verify all functional requirements are correctly implemented"
+    #     scope: ["User authentication", "Data validation", "Business logic"]
+    #     test_levels: ["TEST-LEVEL-003", "TEST-LEVEL-004"]  # System and UAT
+    #     test_techniques: ["Equivalence partitioning", "Boundary value analysis"]
+    #     coverage_target: "100% of functional requirements"
+    #     related_requirements:
+    #       functional_requirements: ["FR-AUTH-001", "FR-DATA-001"]
+    #       interface_requirements: ["IFR-API-001"]
+    #     priority: critical
+    #     metadata: { status: 'draft', version: '1.0' }
+    template:
+      id: ''
+      summary: ''
+      objective: ''
+      scope: []
+      test_levels: []
+      test_techniques: []
+      coverage_target: ''
+      related_requirements:
+        functional_requirements: []
+        non_functional_requirements: []
+        interface_requirements: []
+        data_requirements: []
+      priority: null  # enum: critical/high/medium/low
+      metadata: *metadata
+
+  # Test Environments - 测试环境
+  ENV:
+    yaml_key: 'test_environments'
+    description: 'Test Environments - 测试环境'
+    # Example (Dictionary structure - REQUIRED):
+    # test_environments:
+    #   TEST-ENV-003:
+    #     id: TEST-ENV-003
+    #     summary: "UAT Environment"
+    #     purpose: "User acceptance testing with production-like data"
+    #     infrastructure: ["AWS EC2 t3.large", "PostgreSQL 14", "Redis 6.2"]
+    #     software_requirements: ["Node.js 18", "React 18", "Authentication service v2.1"]
+    #     access_control: "Business analysts and selected end users only"
+    #     data_source: "Anonymized production data"
+    #     availability: "Monday-Friday 8AM-8PM EST"
+    #     metadata: { status: 'draft', version: '1.0' }
+    template:
+      id: ''
+      summary: ''
+      purpose: ''
+      infrastructure: []
+      software_requirements: []
+      access_control: ''
+      data_source: ''
+      availability: ''
       metadata: *metadata
 
 # 实体类型输出顺序（必须严格遵循）
@@ -162,6 +469,11 @@ entity_output_order:
   - 'assumptions'
   - 'dependencies'
   - 'constraints'
+  - 'risk_analysis'
+  - 'test_levels'
+  - 'test_types'
+  - 'test_environments'
+  - 'test_cases'
 
 # 枚举值定义
 enums:

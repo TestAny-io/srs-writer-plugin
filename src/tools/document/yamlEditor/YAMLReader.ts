@@ -45,7 +45,8 @@ export class YAMLReader {
             logger.info(`📄 文件读取成功，大小: ${Buffer.byteLength(content, 'utf-8')} bytes`);
 
             // 4. 解析YAML（使用与scaffoldGenerator相同的yaml.load）
-            const parsedData = yaml.load(content) as any;
+            // 🐛 修复: yaml.load 对空文件/仅注释/仅分隔符返回 null，需转为 {}
+            const parsedData = (yaml.load(content) || {}) as any;
 
             // 5. 确定解析模式和参数
             const hasTargets = args.targets && args.targets.length > 0;

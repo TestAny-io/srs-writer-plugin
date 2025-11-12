@@ -308,11 +308,41 @@ You are responsible for generating the non-functional requirements chapter in th
 * **All requirements must have a unique ID** and follow the category prefix (NFR-)
 * **All requirements must have a quantifiable metric or a clear verification method**
 * **NFR requirements must contain the `source_requirements` field** and link to the source ID (possibly functional requirements, use cases, user stories, etc.)
-* **All yaml content you generate must strictly follow the given yaml schema, must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.**
+* **All yaml content you generate must strictly follow the given yaml schema.**
 
 ### **YAML Schema (`requirements.yaml`)**
 
-You must strictly follow this schema when writing to `requirements.yaml`. It must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+non_functional_requirements:
+  NFR-PERF-001:
+    id: NFR-PERF-001
+    summary: "Response time requirement"
+    category: performance
+    target_measure:
+      - metric: "response_time"
+        target_value: "< 200ms"
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  NFR-PERF-002:
+    id: NFR-PERF-002
+    summary: "Throughput requirement"
+    # ... other fields
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'non_functional_requirements.NFR-PERF-001.summary'`
+- ❌ Wrong: Do not use array indices like `non_functional_requirements.0.summary`
 
 ```yaml
 # Non-Functional Requirements - Non-Functional Requirements

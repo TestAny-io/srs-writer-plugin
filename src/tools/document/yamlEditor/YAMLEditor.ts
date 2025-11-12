@@ -165,15 +165,8 @@ export class YAMLEditor {
                 YAMLKeyPathOperator.delete(data, edit.keyPath);
                 break;
 
-            case 'append':
-                if (edit.value === undefined) {
-                    throw new Error('append操作需要提供value参数');
-                }
-                YAMLKeyPathOperator.append(data, edit.keyPath, edit.value);
-                break;
-
             default:
-                throw new Error(`不支持的操作类型: ${edit.type}`);
+                throw new Error(`不支持的操作类型: ${edit.type}. 仅支持: set, delete`);
         }
     }
 

@@ -73,13 +73,13 @@ export interface ReadYAMLResult {
 }
 
 /**
- * YAML编辑操作
+ * YAML编辑操作（仅支持 Dictionary 结构）
  */
 export interface YAMLEditOperation {
-    type: 'set' | 'delete' | 'append';     // 操作类型：设置值、删除键或向数组追加元素
-    keyPath: string;                       // 点分隔的键路径
+    type: 'set' | 'delete';                // 操作类型：设置值、删除键
+    keyPath: string;                       // 点分隔的键路径（Dictionary keys only）
     value?: any;                           // 新值（delete操作不需要）
-    valueType?: 'string' | 'number' | 'boolean' | 'array' | 'object'; // 值类型提示
+    valueType?: 'string' | 'number' | 'boolean' | 'array' | 'object'; // 值类型提示（array表示值为数组，非结构）
     reason: string;                        // 操作原因
 }
 

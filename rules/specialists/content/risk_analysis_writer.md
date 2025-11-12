@@ -334,11 +334,42 @@ You are responsible for generating the risk analysis chapter in the SRS.md docum
 * **All risks must have quantifiable probability, impact, and risk score**
 * **All risks must contain affected requirements** and link to source IDs (BO, BR, BRL, UC, US, FR, NFR, IFR, DAR, ADC)
 * **All risks must have concrete mitigation strategies and contingency plans**
-* **All yaml content you generate must strictly follow the given yaml schema, must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.**
+
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+risk_analysis:
+  RISK-001:
+    id: RISK-001
+    summary: "Risk summary"
+    category: technical
+    probability: high
+    impact: critical
+    risk_score: critical
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  RISK-002:
+    id: RISK-002
+    summary: "Another risk summary"
+    # ... other fields
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'risk_analysis.RISK-001.summary'`
+- ❌ Wrong: Do not use array indices like `risk_analysis.0.summary`
 
 ### **YAML Schema (`requirements.yaml`)**
 
-You must strictly follow this schema when writing to `requirements.yaml`. It must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.
+You must strictly follow this schema when writing to `requirements.yaml`.
 
 ```yaml
 # Risk Analysis - Risk Analysis

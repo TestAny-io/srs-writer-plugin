@@ -13,6 +13,9 @@ const logger = Logger.getInstance();
  */
 export class EntityTypeClassifier {
   
+  // 业务层需求前缀 (Business Objectives, Business Requirements, Business Rules)
+  private static readonly BUSINESS_LAYER_PREFIXES = ['BO-', 'BR-', 'BRL-'];
+
   // 业务需求前缀 (可以有derived_fr字段)
   private static readonly BUSINESS_PREFIXES = ['US-', 'UC-'];
 
@@ -25,12 +28,21 @@ export class EntityTypeClassifier {
   // 风险分析前缀
   private static readonly RISK_PREFIXES = ['RISK-'];
 
-  // 测试项前缀
-  private static readonly TEST_PREFIXES = ['TEST-LEVEL-', 'TEST-TYPE-', 'TEST-ENV-'];
-
-  // 测试用例前缀 (Test Cases - 在traceability matrix中引用)
-  private static readonly TEST_CASE_PREFIXES = ['TC-'];
+  // 注意：测试相关实体（TEST-LEVEL, TEST-TYPE, TEST-ENV, TC）不在 SRS 范围内
+  // 测试策略和测试用例应该在独立的测试文档中管理（遵循 IEEE 829 标准）
   
+  /**
+   * 判断是否为业务层需求 (BO/BR/BRL)
+   * @param id 需求ID
+   * @returns 是否为业务层需求
+   */
+  static isBusinessLayerRequirement(id: string): boolean {
+    if (!id || typeof id !== 'string') {
+      return false;
+    }
+    return this.BUSINESS_LAYER_PREFIXES.some(prefix => id.startsWith(prefix));
+  }
+
   /**
    * 判断是否为业务需求 (US/UC)
    * @param id 需求ID
@@ -79,29 +91,6 @@ export class EntityTypeClassifier {
     return this.RISK_PREFIXES.some(prefix => id.startsWith(prefix));
   }
 
-  /**
-   * 判断是否为测试项 (TEST-LEVEL/TEST-TYPE/TEST-ENV)
-   * @param id 需求ID
-   * @returns 是否为测试项
-   */
-  static isTestItem(id: string): boolean {
-    if (!id || typeof id !== 'string') {
-      return false;
-    }
-    return this.TEST_PREFIXES.some(prefix => id.startsWith(prefix));
-  }
-
-  /**
-   * 判断是否为测试用例引用 (TC-XXX)
-   * @param id 需求ID
-   * @returns 是否为测试用例引用
-   */
-  static isTestCase(id: string): boolean {
-    if (!id || typeof id !== 'string') {
-      return false;
-    }
-    return this.TEST_CASE_PREFIXES.some(prefix => id.startsWith(prefix));
-  }
   
   /**
    * 获取实体类型描述
@@ -109,6 +98,12 @@ export class EntityTypeClassifier {
    * @returns 实体类型描述
    */
   static getEntityTypeDescription(id: string): string {
+    if (this.isBusinessLayerRequirement(id)) {
+      if (id.startsWith('BO-')) return '业务目标';
+      if (id.startsWith('BR-')) return '业务需求';
+      if (id.startsWith('BRL-')) return '业务规则';
+    }
+
     if (this.isBusinessRequirement(id)) {
       if (id.startsWith('US-')) return '用户故事';
       if (id.startsWith('UC-')) return '用例';
@@ -129,16 +124,6 @@ export class EntityTypeClassifier {
 
     if (this.isRiskAnalysis(id)) {
       return '风险分析';
-    }
-
-    if (this.isTestItem(id)) {
-      if (id.startsWith('TEST-LEVEL-')) return '测试层级';
-      if (id.startsWith('TEST-TYPE-')) return '测试类型';
-      if (id.startsWith('TEST-ENV-')) return '测试环境';
-    }
-
-    if (this.isTestCase(id)) {
-      return '测试用例';
     }
 
     return '未知类型';
@@ -164,12 +149,11 @@ export class EntityTypeClassifier {
     
     // 检查是否符合已知的前缀模式
     const allPrefixes = [
+      ...this.BUSINESS_LAYER_PREFIXES,
       ...this.BUSINESS_PREFIXES,
       ...this.TECHNICAL_PREFIXES,
       ...this.ADC_PREFIXES,
-      ...this.RISK_PREFIXES,
-      ...this.TEST_PREFIXES,
-      ...this.TEST_CASE_PREFIXES
+      ...this.RISK_PREFIXES
     ];
     
     const hasValidPrefix = allPrefixes.some(prefix => id.startsWith(prefix));
@@ -209,22 +193,20 @@ export class EntityTypeClassifier {
    */
   static getEntityStatistics(entities: any[]): {
     total: number;
+    businessLayer: number;
     business: number;
     technical: number;
     adc: number;
     risk: number;
-    test: number;
-    testCase: number;
     unknown: number;
   } {
     const stats = {
       total: entities.length,
+      businessLayer: 0,
       business: 0,
       technical: 0,
       adc: 0,
       risk: 0,
-      test: 0,
-      testCase: 0,
       unknown: 0
     };
 
@@ -234,7 +216,9 @@ export class EntityTypeClassifier {
         continue;
       }
 
-      if (this.isBusinessRequirement(entity.id)) {
+      if (this.isBusinessLayerRequirement(entity.id)) {
+        stats.businessLayer++;
+      } else if (this.isBusinessRequirement(entity.id)) {
         stats.business++;
       } else if (this.isTechnicalRequirement(entity.id)) {
         stats.technical++;
@@ -242,10 +226,6 @@ export class EntityTypeClassifier {
         stats.adc++;
       } else if (this.isRiskAnalysis(entity.id)) {
         stats.risk++;
-      } else if (this.isTestItem(entity.id)) {
-        stats.test++;
-      } else if (this.isTestCase(entity.id)) {
-        stats.testCase++;
       } else {
         stats.unknown++;
       }
@@ -260,12 +240,11 @@ export class EntityTypeClassifier {
    */
   static getAllSupportedPrefixes(): string[] {
     return [
+      ...this.BUSINESS_LAYER_PREFIXES,
       ...this.BUSINESS_PREFIXES,
       ...this.TECHNICAL_PREFIXES,
       ...this.ADC_PREFIXES,
-      ...this.RISK_PREFIXES,
-      ...this.TEST_PREFIXES,
-      ...this.TEST_CASE_PREFIXES
+      ...this.RISK_PREFIXES
     ];
   }
 } 

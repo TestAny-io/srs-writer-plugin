@@ -1,6 +1,30 @@
 /**
  * 需求脚手架生成器类型定义
  * 用于ID解析、Schema加载和YAML生成的核心类型
+ *
+ * ⚠️ SHARED CODE - 保留原因 (2025-11-12):
+ * 此文件虽位于 scaffoldGenerator/ 目录，但提供了跨工具系统共享的核心类型：
+ *
+ * 1. ScaffoldError & ScaffoldErrorType - 被 11+ 个文件使用：
+ *    - yamlEditor/types.ts (re-export) → executeYAMLEdits 使用
+ *    - syntaxChecker/types.ts (re-export) → 语法检查工具使用
+ *    - traceabilityCompletion/types.ts (re-export) → 追溯性工具使用
+ *    - 以及 YAMLChecker, SyntaxChecker, MarkdownChecker, QualityReportWriter 等
+ *
+ * 2. ExtractedId & IdStatistics - 被 IDParser 使用：
+ *    - IDParser.ts (此目录下的共享代码)
+ *    - traceabilityCompletion/SRSConsistencyValidator.ts (间接使用)
+ *
+ * 3. 已删除的类型（仅被 requirementScaffoldTool 使用）：
+ *    - GenerateScaffoldParams, GenerateResult, GenerateOptions
+ *    - SchemaConfig, EntitySchema 等 Schema 相关类型
+ *    → 这些类型在 requirementScaffoldTool 删除后可以考虑清理
+ *
+ * 删除历史：requirementScaffoldTool 已于 2025-11-12 删除，但保留此共享类型定义。
+ *
+ * 相关文件：
+ * - 使用方：yamlEditor/types.ts, syntaxChecker/types.ts, traceabilityCompletion/types.ts
+ * - 使用方：IDParser.ts (本目录共享代码)
  */
 
 // 提取的ID信息

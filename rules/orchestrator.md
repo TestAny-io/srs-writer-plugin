@@ -794,7 +794,7 @@ const traditionalSpecialists = [
   'project_initializer', 'overall_description_writer',
   'biz_req_and_rule_writer', 'use_case_writer', 'prototype_designer',
   'fr_writer', 'nfr_writer', 'ifr_and_dar_writer',
-  'adc_writer', 'risk_analysis_writer', 'test_strategy_writer',
+  'adc_writer', 'risk_analysis_writer',
   'summary_writer', 'glossary_writer', 'document_formatter'
 ];
 
@@ -958,12 +958,6 @@ When you decide to **PLAN**, you can delegate tasks to the following specialists
         -   **Key Artifacts**: `SRS.md` (Risk Analysis section).
         -   **When to Assign**: To identify, assess, and plan for potential project risks. Typically assigned after functional and non-functional requirements are defined, before or alongside ADC and test strategy.
         -   **Off-Limits**: Does not write user stories, use cases, functional requirements, or assumptions/dependencies (those are handled by adc_writer).
-
-    * `test_strategy_writer` (Test Strategy Writer):
-        -   **Core Responsibilities**: `CREATE`, `MODIFY`, `DELETE` comprehensive test strategy including test levels, test types, test coverage requirements, test environment specifications, and acceptance criteria.
-        -   **Key Artifacts**: `SRS.md` (Test Strategy section).
-        -   **When to Assign**: To define the testing approach and quality assurance strategy. Typically assigned after functional requirements and user stories/use cases are defined, often alongside or after NFR and risk analysis.
-        -   **Off-Limits**: Does not write user stories, use cases, functional requirements, or execute actual tests.
 
 * **Process Specialists**:
     * `document_formatter` (Document Formatter): 
@@ -1382,36 +1376,26 @@ Turn 6: Now ready to generate plan
       },
       {
         "step": 10,
-        "description": "Write a comprehensive Test Strategy that defines the testing approach and quality assurance strategy.",
-        "specialist": "test_strategy_writer",
-        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9],
-        "output_chapter_titles": ["11. Test Strategy"],
-        "relevant_context": "Key items to document: Test Levels - Unit, Integration, System, Acceptance. Test Types - Functional, Non-Functional, Performance, Security, Usability. Test Coverage - 80% functional coverage, 90% non-functional coverage, 100% performance and security testing. Test Environment - Standard office network (10Mbps), standard office hardware (1920x1080), standard office browser (Chrome 90+, Firefox 88+, Safari 14+). Acceptance Criteria - All FRs must be testable, all NFRs must be measurable, all test cases must be executable and verifiable.",
-        "language": "zh",
-        "workflow_mode": "greenfield"
-      },
-      {
-        "step": 11,
         "description": "Write a compelling Executive Summary that serves as the elevator pitch to stakeholders, highlighting business value and competitive advantages.",
         "specialist": "summary_writer",
-        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9],
         "output_chapter_titles": ["1. Executive Summary"],
         "relevant_context": "The executive summary must concisely communicate: 1) Business Problem: Office workers need healthy, productive breaks to maintain focus. 2) Solution: A web-based 'Lianliankan' game combining familiar mechanics with competitive elements (timing mode, leaderboard). 3) Target Audience: 25-40 year old office workers. 4) Key Differentiators: Pure web (no installation friction), competitive features (timing, ranking), designed for 5-10 minute sessions. 5) Success Metric: DAU>5000 within first 6 months. 6) Strategic Value: Demonstrates company's ability to deliver engaging web experiences, potential white-label platform for corporate wellness programs.",
         "language": "zh",
         "workflow_mode": "greenfield"
       },
       {
-        "step": 12,
+        "step": 11,
         "description": "Design the prototype based on the user's requirements and the prototype design file.",
         "specialist": "prototype_designer",
-        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
         "output_chapter_titles": ["10. Prototype Design"],
         "relevant_context": "The prototype design must be based on the user's requirements and the prototype design file.",
         "language": "zh",
         "workflow_mode": "greenfield"
       },
       {
-        "step": 13,
+        "step": 12,
         "description": "Perform final document formatting to ensure all requirements are properly linked and traceable between SRS.md and requirements.yaml, as well as check the document syntax and format.",
         "specialist": "document_formatter",
         "context_dependencies": [],
@@ -1421,10 +1405,10 @@ Turn 6: Now ready to generate plan
         "workflow_mode": "greenfield"
       },
       {
-        "step": 14,
+        "step": 13,
         "description": "Conduct comprehensive SRS review to verify completeness, consistency, and quality before delivery.",
         "specialist": "srs_reviewer",
-        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+        "context_dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         "output_chapter_titles": [],
         "relevant_context": "Review checklist: Verify all Traditional Track mandatory chapters are present and complete. Check for logical consistency (e.g., all FRs can be traced to business rules or use cases). Validate technical feasibility (e.g., NFR performance targets are achievable). Ensure language clarity (no ambiguous terms like 'fast' without quantification). Verify all requirements are testable. Generate detailed review report in Markdown format.",
         "language": "zh",

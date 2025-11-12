@@ -307,11 +307,40 @@ specialist_config:
 
 * Complete editing instructions and JSON format specifications please refer to the `GUIDELINES AND SAMPLE OF TOOLS USING` section
 * You must strictly follow the syntax rules for all Markdown content you generate. In particular, any code block (starting with ```or~~~) must have a corresponding closing tag (```or~~~) to close it.
-* You must strictly follow the given YAML schema for all YAML content you generate. It must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.
+* You must strictly follow the given YAML schema for all YAML content you generate.
 
 ### **Must Follow** YAML Schema When Outputting Requirements.yaml File Content
 
-*You must strictly follow the given YAML schema for all YAML content you generate. It must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.*
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+use_cases:
+  UC-AUTH-001:
+    id: UC-AUTH-001
+    summary: "User login use case"
+    actor: ["End User"]
+    preconditions: ["User has valid credentials"]
+    main_success_scenario: ["User enters credentials", "System validates", "User logged in"]
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  UC-AUTH-002:
+    id: UC-AUTH-002
+    summary: "User logout use case"
+    # ... other fields
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'use_cases.UC-AUTH-001.summary'`
+- ❌ Wrong: Do not use array indices like `use_cases.0.summary`
 
 ```yaml
   # Use Cases - Use Cases

@@ -90,31 +90,34 @@ export const readYAMLFilesToolDefinition = {
     riskLevel: 'low',
     requiresConfirmation: false,
     callingGuide: {
-        whenToUse: "Read YAML files. For large files (>100 lines), use layered exploration to save tokens.",
+        whenToUse: "Read YAML files. ⚠️ CRITICAL: NEVER read entire large YAML files at once - this causes token explosion! Always use layered exploration.",
         prerequisites: "YAML file exists at specified path (relative to workspace/project).",
-        performanceNotes: [
-            "Suggested Layered workflow for context token saving: 1) parseMode='structure' (file overview) → 2) targets with parseMode='content' (values only) → 3) parseMode='full' if need both",
-            "targets mode never returns full file content - only requested paths",
-            "Default parseMode='content' returns values without structure analysis"
-        ],
+        tokenOptimizationWorkflow: {
+            description: "MANDATORY for files >100 lines. Saves 7.5x tokens on average.",
+            steps: [
+                "1️⃣ EXPLORE: parseMode='structure', maxDepth=2 → Get file overview (keys only, no values)",
+                "2️⃣ EXTRACT: Use targets with specific keyPaths → Get only needed values",
+                "3️⃣ DETAILED (if needed): parseMode='full' on specific targets → Get both structure and values for one section"
+            ]
+        },
         examples: [
             {
-                scenario: "Explore file structure",
+                scenario: "Step 1: Explore file structure first",
                 input: { path: "requirements.yaml", parseMode: "structure", maxDepth: 2 }
             },
             {
-                scenario: "Get values only (count array length)",
-                input: { path: "requirements.yaml", targets: [{ type: "keyPath", path: "functional_requirements" }] }
+                scenario: "Step 2: Extract specific values only",
+                input: { path: "requirements.yaml", targets: [{ type: "keyPath", path: "functional_requirements.FR-AUTH-001" }] }
             },
             {
-                scenario: "Get structure to explore nested object",
-                input: { path: "config.yaml", parseMode: "structure", targets: [{ type: "keyPath", path: "database", maxDepth: 2 }] }
+                scenario: "Step 3: Get detailed structure for one section",
+                input: { path: "requirements.yaml", parseMode: "full", targets: [{ type: "keyPath", path: "functional_requirements.FR-AUTH-001", maxDepth: 3 }] }
             }
         ],
-        commonPitfalls: [
-            "❌ Not using targets for large files",
-            "❌ Using parseMode='full' when only need values",
-            "✅ Use targets with default parseMode for values only"
+        criticalWarnings: [
+            "🚨 NEVER use parseMode='content' or 'full' without targets on large files (>100 lines) - causes token explosion!",
+            "🚨 NEVER read entire YAML files at once - always explore structure first, then extract specific paths",
+            "✅ ALWAYS use 3-step workflow: structure → targets → detailed (if needed)"
         ]
     }
 };
@@ -124,13 +127,13 @@ export const readYAMLFilesToolDefinition = {
  */
 export const executeYAMLEditsToolDefinition = {
     name: "executeYAMLEdits",
-    description: "Execute precise editing operations on YAML files. Supports setting and deleting key-value pairs. Does not preserve comments. Specialized for .yaml/.yml files.",
+    description: "Execute precise editing operations on YAML files with Dictionary structure. Supports setting and deleting key-value pairs. ONLY supports Dictionary (map) structure - Array indices are NOT supported. Does not preserve comments. Specialized for .yaml/.yml files.",
     parameters: {
         type: "object",
         properties: {
             summary: {
                 type: "string",
-                description: "Brief summary of what this YAML editing operation will accomplish (e.g., 'Update user story priorities in requirements.yaml', 'Add new functional requirements'). Used for history tracking."
+                description: "Brief summary of what this YAML editing operation will accomplish (e.g., 'Update FR-AUTH-001 priority in requirements.yaml', 'Add new functional requirement FR-DATA-003'). Used for history tracking."
             },
             targetFile: {
                 type: "string",
@@ -138,30 +141,30 @@ export const executeYAMLEditsToolDefinition = {
             },
             edits: {
                 type: "array",
-                description: "Array of YAML edit operations to execute",
+                description: "Array of YAML edit operations to execute on Dictionary structure",
                 items: {
                     type: "object",
                     properties: {
                         type: {
                             type: "string",
-                            enum: ["set", "delete", "append"],
-                            description: "Operation type: 'set' (create/modify key-value), 'delete' (remove key), 'append' (add element to array)"
+                            enum: ["set", "delete"],
+                            description: "Operation type: 'set' (create/modify key-value), 'delete' (remove key). Note: 'append' is NOT supported - use 'set' to add new Dictionary entries."
                         },
                         keyPath: {
                             type: "string",
-                            description: "Simple dot-separated key path (e.g., 'Functional Requirements.FR-AUTH.description'). For 'set' operations, missing intermediate keys will be created automatically. IMPORTANT: JSONPath syntax like [?(@.id=='value')] is NOT supported. Use numeric indices for arrays: 'user_stories.0.summary' not 'user_stories[?(@.id==...)]'"
+                            description: "Dictionary key path using entity IDs (e.g., 'functional_requirements.FR-AUTH-001.summary'). For 'set' operations, missing intermediate keys will be created automatically. IMPORTANT: Only Dictionary keys are supported - array indices like '0', '1' are NOT supported. Use entity IDs like 'FR-AUTH-001', 'NFR-PERF-001'."
                         },
                         value: {
-                            description: "New value for the key (not required for 'delete' operation)"
+                            description: "New value for the key (not required for 'delete' operation). Can be string, number, boolean, array (as a value), or nested object."
                         },
                         valueType: {
                             type: "string",
                             enum: ["string", "number", "boolean", "array", "object"],
-                            description: "Type hint for the value (helps with proper YAML formatting)"
+                            description: "Type hint for the value (helps with proper YAML formatting). 'array' means the value IS an array (e.g., acceptance_criteria: ['criterion1', 'criterion2']), not that the structure is an array."
                         },
                         reason: {
                             type: "string",
-                            description: "Explanation for this edit operation"
+                            description: "Explanation for this edit operation (e.g., 'Add authentication requirement description', 'Remove deprecated test case')"
                         }
                     },
                     required: ["type", "keyPath", "reason"]
@@ -175,14 +178,71 @@ export const executeYAMLEditsToolDefinition = {
         },
         required: ["summary", "targetFile", "edits"]
     },
-            accessibleBy: [
-            CallerType.SPECIALIST_CONTENT,
-            CallerType.SPECIALIST_PROCESS,
-            CallerType.DOCUMENT
-        ],
+    accessibleBy: [
+        CallerType.SPECIALIST_CONTENT,
+        CallerType.SPECIALIST_PROCESS,
+        CallerType.DOCUMENT
+    ],
     interactionType: 'autonomous',
     riskLevel: 'medium',
-    requiresConfirmation: false
+    requiresConfirmation: false,
+    callingGuide: {
+        whenToUse: "Edit YAML files with Dictionary structure (entity IDs as keys). ONLY supports Dictionary - Array indices NOT supported.",
+        structureRequirement: "🚨 CRITICAL: keyPath must use entity IDs (e.g., 'functional_requirements.FR-AUTH-001.summary'), NOT array indices (e.g., 'functional_requirements.0.summary')",
+        quickStart: {
+            addEntity: "Use 'set' with full keyPath: 'requirements.FR-NEW-001.summary' (auto-creates FR-NEW-001)",
+            updateField: "Use 'set' on existing keyPath: 'requirements.FR-001.priority' = 'critical'",
+            deleteEntity: "Use 'delete' on keyPath: 'requirements.FR-OLD-001' (idempotent - safe if not exists)",
+            batchEdits: "Group related edits in one call for atomic operation"
+        },
+        commonExamples: [
+            {
+                scenario: "Add new requirement with multiple fields",
+                code: {
+                    summary: "Add FR-AUTH-002 with details",
+                    targetFile: "requirements.yaml",
+                    edits: [
+                        { type: "set", keyPath: "functional_requirements.FR-AUTH-002.summary", value: "Password validation", valueType: "string", reason: "Add requirement" },
+                        { type: "set", keyPath: "functional_requirements.FR-AUTH-002.priority", value: "high", valueType: "string", reason: "Set priority" }
+                    ]
+                }
+            },
+            {
+                scenario: "Update field or delete entity",
+                code: {
+                    summary: "Update priority and remove old requirement",
+                    targetFile: "requirements.yaml",
+                    edits: [
+                        { type: "set", keyPath: "functional_requirements.FR-AUTH-001.priority", value: "critical", valueType: "string", reason: "Upgrade priority" },
+                        { type: "delete", keyPath: "functional_requirements.FR-OLD-001", reason: "Deprecated" }
+                    ]
+                }
+            },
+            {
+                scenario: "Array as value (NOT structure)",
+                code: {
+                    summary: "Add acceptance criteria array",
+                    targetFile: "requirements.yaml",
+                    edits: [
+                        { type: "set", keyPath: "functional_requirements.FR-AUTH-001.acceptance_criteria", value: ["criterion1", "criterion2"], valueType: "array", reason: "Define criteria" }
+                    ]
+                }
+            }
+        ],
+        criticalAntiPatterns: [
+            "🚨 WRONG: keyPath: 'requirements.0.summary' → Array index NOT supported",
+            "✅ RIGHT: keyPath: 'requirements.FR-AUTH-001.summary' → Use entity ID",
+            "🚨 WRONG: type: 'append' → NOT supported, use 'set' with new entity ID instead",
+            "⚠️ Array VALUES (acceptance_criteria: ['c1', 'c2']) are OK - Array STRUCTURE (0, 1, 2 indices) is NOT"
+        ],
+        notes: [
+            "Operations: 'set' (create/modify), 'delete' (remove) - 'append' NOT supported",
+            "Auto-creation: Missing intermediate keys created automatically",
+            "Idempotent: Deleting non-existent keys returns success",
+            "Performance: O(1) Dictionary access vs O(n) Array search",
+            "Backup: Use createBackup: true for destructive operations"
+        ]
+    }
 };
 
 // ============================================================================

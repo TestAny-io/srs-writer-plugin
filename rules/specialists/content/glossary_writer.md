@@ -336,11 +336,38 @@ You are responsible for generating the glossary chapter in the SRS.md document. 
 * **Abbreviations must have full forms** and brief definitions
 * **Technical standards must be documented** with descriptions and usage references
 * **External systems must be documented** with descriptions and interface types
-* **All yaml content you generate must strictly follow the given yaml schema, must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.**
+* **All yaml content you generate must strictly follow the given yaml schema.**
 
 ### **YAML Schema (`requirements.yaml`)**
 
-You must strictly follow this schema when writing to `requirements.yaml`. It must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+glossary_terms:
+  API:
+    term: API
+    definition: "Application Programming Interface"
+    type: abbreviation
+    context: "Used for system integration"
+    metadata:
+      status: draft
+      version: '1.0'
+  Authentication:
+    term: Authentication
+    definition: "Process of verifying user identity"
+    type: technical_term
+    # ... other fields
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'glossary_terms.API.definition'`
+- ❌ Wrong: Do not use array indices like `glossary_terms.0.definition`
+
+You must strictly follow this schema when writing to `requirements.yaml`:
 
 ```yaml
 # Glossary - Glossary

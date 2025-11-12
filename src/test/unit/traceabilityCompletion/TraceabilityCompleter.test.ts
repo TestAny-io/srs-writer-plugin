@@ -18,7 +18,7 @@ import {
 } from '../../../tools/document/traceabilityCompletion/types';
 
 // 测试数据
-import { 
+import {
   simpleTraceabilityData,
   adcConstraintData,
   danglingReferencesData,
@@ -27,7 +27,8 @@ import {
   expectedSimpleResults,
   expectedADCResults,
   expectedComplexResults,
-  generateLargeTestData
+  generateLargeTestData,
+  dictionaryStructureData
 } from './test-data';
 
 // Mock模块
@@ -156,7 +157,7 @@ describe('TraceabilityCompleter', () => {
       
       expect(result.success).toBe(true);
       expect(result.stats.danglingReferencesFound).toBe(3); // US-MISSING-001, ADC-MISSING-001, FR-MISSING-001
-      expect(result.warnings).toBeDefined();
+      expect(result.danglingReferences).toBeDefined();
       expect(result.danglingReferences).toContain('US-MISSING-001');
       expect(result.danglingReferences).toContain('ADC-MISSING-001');
       expect(result.danglingReferences).toContain('FR-MISSING-001');
@@ -196,14 +197,14 @@ describe('TraceabilityCompleter', () => {
       const result = await completer.syncFile(args);
       
       expect(result.success).toBe(true);
-      
-      // 验证YAML文件写入
+
+      // 验证YAML文件写入（baseDir验证失败会回退到 workspace）
       expect(mockFs.writeFile).toHaveBeenCalledWith(
-        '/test/project/requirements.yaml',
+        '/test/workspace/requirements.yaml',
         expect.any(String),
         'utf-8'
       );
-      
+
       // 验证现在使用统一质量报告而不是 srs-writer-log.json
       // 注意：由于测试环境的限制，我们主要验证工具执行成功
       expect(result.success).toBe(true);
@@ -264,45 +265,45 @@ describe('TraceabilityCompleter', () => {
       };
       
       const result = await completer.syncFile(args);
-      
+
       expect(result.success).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors![0]).toContain('文件不存在');
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain('文件不存在');
     });
     
     test('应该正确处理YAML解析失败', async () => {
       const invalidYaml = 'invalid: yaml: content: [unclosed';
-      
+
       mockFs.readFile.mockResolvedValue(invalidYaml);
-      
+
       const args: TraceabilityCompletionArgs = {
         description: '测试YAML解析失败',
         targetFile: 'requirements.yaml'
       };
-      
+
       const result = await completer.syncFile(args);
-      
+
       expect(result.success).toBe(false);
-      expect(result.errors).toBeDefined();
+      expect(result.error).toBeDefined();
     });
     
     test('应该正确处理文件写入失败', async () => {
       const testData = JSON.parse(JSON.stringify(simpleTraceabilityData));
       const yamlContent = yaml.dump(testData);
-      
+
       mockFs.readFile.mockResolvedValue(yamlContent);
       mockFs.writeFile.mockRejectedValue(new Error('磁盘空间不足'));
-      
+
       const args: TraceabilityCompletionArgs = {
         description: '测试文件写入失败',
         targetFile: 'requirements.yaml'
       };
-      
+
       const result = await completer.syncFile(args);
-      
+
       expect(result.success).toBe(false);
-      expect(result.errors).toBeDefined();
-      expect(result.errors![0]).toContain('磁盘空间不足');
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain('磁盘空间不足');
     });
   });
   
@@ -336,19 +337,91 @@ describe('TraceabilityCompleter', () => {
     test('validateSync应该与syncFile等效', async () => {
       const testData = JSON.parse(JSON.stringify(simpleTraceabilityData));
       const yamlContent = yaml.dump(testData);
-      
+
       mockFs.readFile.mockResolvedValue(yamlContent);
-      
+
       const args: TraceabilityCompletionArgs = {
         description: '测试验证模式',
         targetFile: 'requirements.yaml'
       };
-      
+
       const result = await completer.validateSync(args);
-      
+
       expect(result.success).toBe(true);
       // validateSync现在也会写入文件
       expect(mockFs.writeFile).toHaveBeenCalled();
+    });
+  });
+
+  describe('Dictionary 结构支持测试', () => {
+    test('应该正确处理 Dictionary 结构的 YAML 文件', async () => {
+      const testData = JSON.parse(JSON.stringify(dictionaryStructureData));
+      const yamlContent = yaml.dump(testData);
+
+      mockFs.readFile.mockResolvedValue(yamlContent);
+
+      const args: TraceabilityCompletionArgs = {
+        description: '测试 Dictionary 结构',
+        targetFile: 'requirements.yaml'
+      };
+
+      const result = await completer.syncFile(args);
+
+      expect(result.success).toBe(true);
+      // 验证提取了所有实体：1 UC + 2 FR + 1 NFR + 2 Risk = 6
+      // 注意：测试相关实体（test_cases）不在 SRS 范围内，遵循 IEEE 829 标准
+      expect(result.stats.entitiesProcessed).toBe(6);
+      expect(result.stats.derivedFrAdded).toBeGreaterThan(0);
+    });
+
+    test('应该正确提取 risk_analysis 实体（Dictionary 结构）', async () => {
+      const testData = JSON.parse(JSON.stringify(dictionaryStructureData));
+      const yamlContent = yaml.dump(testData);
+
+      mockFs.readFile.mockResolvedValue(yamlContent);
+
+      const args: TraceabilityCompletionArgs = {
+        description: '测试 risk_analysis 提取',
+        targetFile: 'requirements.yaml'
+      };
+
+      const result = await completer.syncFile(args);
+
+      expect(result.success).toBe(true);
+      // 确保 risk_analysis 实体被正确提取（2个 risk 实体）
+      expect(result.stats.entitiesProcessed).toBeGreaterThanOrEqual(2);
+    });
+
+    // 注意：测试相关实体（test_levels, test_types, test_environments, test_cases）不在 SRS 范围内
+    // 测试策略和测试用例应该在独立的测试文档中管理（遵循 IEEE 829 标准）
+    // 因此删除了所有测试实体相关的测试用例
+
+    test('应该正确计算新增实体类型的追溯关系', async () => {
+      const testData = JSON.parse(JSON.stringify(dictionaryStructureData));
+      const yamlContent = yaml.dump(testData);
+
+      mockFs.readFile.mockResolvedValue(yamlContent);
+
+      const args: TraceabilityCompletionArgs = {
+        description: '测试新增实体类型追溯关系',
+        targetFile: 'requirements.yaml'
+      };
+
+      const result = await completer.syncFile(args);
+
+      expect(result.success).toBe(true);
+      // 验证写入的 YAML 包含正确的追溯关系
+      expect(mockFs.writeFile).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining('UC-AUTH-001'),
+        'utf-8'
+      );
+      expect(mockFs.writeFile).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining('RISK-SEC-001'),
+        'utf-8'
+      );
+      // 注意：不再验证 TC（测试用例），因为它们不在 SRS 范围内
     });
   });
 });

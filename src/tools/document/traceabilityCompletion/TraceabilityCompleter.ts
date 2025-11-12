@@ -192,9 +192,8 @@ export class TraceabilityCompleter {
 
     const data = readResult.parsedData as RequirementsYAMLStructure;
 
-    // 🆕 Phase 1.5: 数据结构标准化 (修复AI生成的对象结构为数组结构)
-    const normalizedData = this.normalizeYAMLStructure(data);
-    const entities = this.extractAllEntities(normalizedData);
+    // Dictionary 结构无需标准化，直接提取实体
+    const entities = this.extractAllEntities(data);
 
     logger.info(`✅ 文件读取成功: ${entities.length} 个实体`);
 
@@ -202,7 +201,7 @@ export class TraceabilityCompleter {
     const stats = EntityTypeClassifier.getEntityStatistics(entities);
     logger.info(`📊 实体分布: 业务需求 ${stats.business}, 技术需求 ${stats.technical}, ADC约束 ${stats.adc}, 未知 ${stats.unknown}`);
 
-    return { data: normalizedData, entities, originalContent: readResult.content };
+    return { data, entities, originalContent: readResult.content };
   }
   
   /**
@@ -452,34 +451,37 @@ export class TraceabilityCompleter {
   }
 
   /**
-   * 从YAML数据中提取所有实体
+   * 从YAML数据中提取所有实体（支持 Dictionary 结构）
    * @param data YAML数据
    * @returns 实体数组
    */
   private extractAllEntities(data: RequirementsYAMLStructure): RequirementEntity[] {
     const entities: RequirementEntity[] = [];
 
-    // 提取业务需求
-    if (data.user_stories) entities.push(...data.user_stories);
-    if (data.use_cases) entities.push(...data.use_cases);
+    // 提取业务层需求（支持 Dictionary 结构）
+    if (data.business_objectives) entities.push(...Object.values(data.business_objectives));
+    if (data.business_requirements) entities.push(...Object.values(data.business_requirements));
+    if (data.business_rules) entities.push(...Object.values(data.business_rules));
 
-    // 提取技术需求
-    if (data.functional_requirements) entities.push(...data.functional_requirements);
-    if (data.non_functional_requirements) entities.push(...data.non_functional_requirements);
-    if (data.interface_requirements) entities.push(...data.interface_requirements);
-    if (data.data_requirements) entities.push(...data.data_requirements);
+    // 提取业务需求（支持 Dictionary 结构）
+    if (data.user_stories) entities.push(...Object.values(data.user_stories));
+    if (data.use_cases) entities.push(...Object.values(data.use_cases));
 
-    // 提取ADC约束（扁平化结构）
-    if (data.assumptions) entities.push(...data.assumptions);
-    if (data.dependencies) entities.push(...data.dependencies);
-    if (data.constraints) entities.push(...data.constraints);
+    // 提取技术需求（支持 Dictionary 结构）
+    if (data.functional_requirements) entities.push(...Object.values(data.functional_requirements));
+    if (data.non_functional_requirements) entities.push(...Object.values(data.non_functional_requirements));
+    if (data.interface_requirements) entities.push(...Object.values(data.interface_requirements));
+    if (data.data_requirements) entities.push(...Object.values(data.data_requirements));
 
-    // 提取风险分析和测试项
-    if (data.risk_analysis) entities.push(...data.risk_analysis);
-    if (data.test_levels) entities.push(...data.test_levels);
-    if (data.test_types) entities.push(...data.test_types);
-    if (data.test_environments) entities.push(...data.test_environments);
-    if (data.test_cases) entities.push(...data.test_cases);
+    // 提取ADC约束（支持 Dictionary 结构）
+    if (data.assumptions) entities.push(...Object.values(data.assumptions));
+    if (data.dependencies) entities.push(...Object.values(data.dependencies));
+    if (data.constraints) entities.push(...Object.values(data.constraints));
+
+    // 提取风险分析（支持 Dictionary 结构）
+    // 注意：测试相关实体（test_levels, test_types, test_environments, test_cases）不在 SRS 范围内
+    // 测试策略和测试用例应该在独立的测试文档中管理（遵循 IEEE 829 标准）
+    if (data.risk_analysis) entities.push(...Object.values(data.risk_analysis));
     
     // 验证实体ID的唯一性
     const ids = new Set<string>();

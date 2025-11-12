@@ -23,7 +23,6 @@ export const SPECIALIST_TEMPLATE_MAPPINGS: Record<string, string> = {
   "prototype_designer": "prototypeDesigner",
   "risk_analysis_writer": "riskAnalysisWriter",
   "summary_writer": "summaryWriter",
-  "test_strategy_writer": "testStrategyWriter",
   "use_case_writer": "useCaseWriter",
   "user_journey_writer": "userJourneyWriter",
   "user_story_writer": "userStoryWriter"

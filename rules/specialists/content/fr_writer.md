@@ -291,7 +291,37 @@ specialist_config:
 
 ### **YAML Schema (`requirements.yaml`)**
 
-You must strictly follow this schema when writing to `requirements.yaml`. It must be organized in the form of a YAML list (sequence), and the use of YAML dictionaries (maps) is prohibited.
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+functional_requirements:
+  FR-AUTH-001:
+    id: FR-AUTH-001
+    summary: "User authentication requirement"
+    description: ["System shall authenticate users via username/password"]
+    priority: high
+    source_requirements: ["UC-LOGIN-001"]
+    acceptance_criteria: ["Valid credentials grant access", "Invalid credentials denied"]
+    metadata:
+      status: 'draft'
+      created_date: null
+      last_modified: null
+      created_by: ''
+      last_modified_by: ''
+      version: '1.0'
+  FR-AUTH-002:
+    id: FR-AUTH-002
+    summary: "Password encryption requirement"
+    # ... other fields
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'functional_requirements.FR-AUTH-001.summary'`
+- ❌ Wrong: Do not use array indices like `functional_requirements.0.summary`
 
 ```yaml
 # Functional Requirements - Functional Requirements

@@ -66,12 +66,6 @@ import {
 } from './document/semantic-edit-engine';
 
 import { 
-    requirementScaffoldToolDefinitions, 
-    requirementScaffoldToolImplementations,
-    requirementScaffoldToolsCategory 
-} from './document/requirementScaffoldTools';
-
-import { 
     yamlEditorToolDefinitions, 
     yamlEditorToolImplementations,
     yamlEditorToolsCategory 
@@ -254,14 +248,6 @@ class ToolRegistry {
             semanticEditEngineToolDefinitions,
             semanticEditEngineToolImplementations,
             semanticEditEngineToolsCategory,
-            'document'
-        );
-
-        // 🚀 新增：注册需求脚手架生成工具
-        this.registerToolsFromCategory(
-            requirementScaffoldToolDefinitions,
-            requirementScaffoldToolImplementations,
-            requirementScaffoldToolsCategory,
             'document'
         );
 

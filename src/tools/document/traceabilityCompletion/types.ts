@@ -83,22 +83,24 @@ export interface TraceabilityCompletionArgs {
 
 /**
  * YAML文件结构 (requirements.yaml的预期结构)
+ * 支持 Dictionary 结构（推荐）和 Array 结构（向后兼容）
  */
 export interface RequirementsYAMLStructure {
-  user_stories?: RequirementEntity[];
-  use_cases?: RequirementEntity[];
-  functional_requirements?: RequirementEntity[];
-  non_functional_requirements?: RequirementEntity[];
-  interface_requirements?: RequirementEntity[];
-  data_requirements?: RequirementEntity[];
-  assumptions?: RequirementEntity[];
-  dependencies?: RequirementEntity[];
-  constraints?: RequirementEntity[];
-  risk_analysis?: RequirementEntity[];
-  test_levels?: RequirementEntity[];
-  test_types?: RequirementEntity[];
-  test_environments?: RequirementEntity[];
-  test_cases?: RequirementEntity[];
+  business_objectives?: RequirementEntity[] | Record<string, RequirementEntity>;
+  business_requirements?: RequirementEntity[] | Record<string, RequirementEntity>;
+  business_rules?: RequirementEntity[] | Record<string, RequirementEntity>;
+  user_stories?: RequirementEntity[] | Record<string, RequirementEntity>;
+  use_cases?: RequirementEntity[] | Record<string, RequirementEntity>;
+  functional_requirements?: RequirementEntity[] | Record<string, RequirementEntity>;
+  non_functional_requirements?: RequirementEntity[] | Record<string, RequirementEntity>;
+  interface_requirements?: RequirementEntity[] | Record<string, RequirementEntity>;
+  data_requirements?: RequirementEntity[] | Record<string, RequirementEntity>;
+  assumptions?: RequirementEntity[] | Record<string, RequirementEntity>;
+  dependencies?: RequirementEntity[] | Record<string, RequirementEntity>;
+  constraints?: RequirementEntity[] | Record<string, RequirementEntity>;
+  risk_analysis?: RequirementEntity[] | Record<string, RequirementEntity>;
+  // 注意：测试相关实体（test_levels, test_types, test_environments, test_cases）不在 SRS 范围内
+  // 测试策略和测试用例应该在独立的测试文档中管理（遵循 IEEE 829 标准）
 }
 
 /**

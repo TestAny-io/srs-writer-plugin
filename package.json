@@ -2,7 +2,7 @@
   "name": "srs-writer-plugin",
   "displayName": "SRS Writer",
   "description": "AI-powered Software Requirements Specification writer for VSCode.",
-  "version": "0.8.1",
+  "version": "0.8.2-dev.5",
   "publisher": "Testany",
   "repository": {
     "type": "git",
@@ -380,19 +380,6 @@
             "SUMMARY_WRITER_TEMPLATE": {
               "type": "string",
               "description": "SUMMARY_WRITER_TEMPLATE模板文件路径"
-            }
-          }
-        },
-        "srs-writer.templates.testStrategyWriter": {
-          "type": "object",
-          "default": {
-            "TEST_STRATEGY_TEMPLATE": ".templates/test_strategy/test_strategy_template.md"
-          },
-          "description": "Test Strategy Writer的模板文件路径配置",
-          "properties": {
-            "TEST_STRATEGY_TEMPLATE": {
-              "type": "string",
-              "description": "TEST_STRATEGY_TEMPLATE模板文件路径"
             }
           }
         },

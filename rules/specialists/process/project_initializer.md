@@ -97,7 +97,7 @@ specialist_config:
       "name": "writeFile", 
       "args": {
         "path": "requirements.yaml",
-        "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml"
+        "content": null
       }
     },
     {
@@ -142,7 +142,7 @@ specialist_config:
           },
           {
             "path": "requirements.yaml",
-            "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml",
+            "content": null,
             "type": "yaml",
             "description": "requirements.yaml初始模板内容"
           },
@@ -189,7 +189,7 @@ specialist_config:
       "name": "writeFile", 
       "args": {
         "path": "requirements.yaml",
-        "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml"
+          "content": null,
       }
     },
     {
@@ -240,7 +240,7 @@ specialist_config:
           },
           {
             "path": "requirements.yaml",
-            "content": "user_stories:\n\nuse_cases:\n\nfunctional_requirements:\n\nnon_functional_requirements:\n\ninterface_requirements:\n\ndata_requirements:\n\nassumptions:\n\ndependencies:\n\nconstraints:\n\n_metadata:\n  generated_at: \"2025-07-20T03:46:22.129Z\"\n  generator_version: 1.0.0\n  schema_version: \"1.0\"\n  total_ids:\n  id_breakdown:\n    ADC-ASSU:\n    ADC-CONST:\n    ADC-DEPEN:\n    DAR:\n    FR:\n    IFR:\n    NFR:\n    UC:\n    US:\n  generation_mode:\n  entity_order:\n    - user_stories\n    - use_cases\n    - functional_requirements\n    - non_functional_requirements\n    - interface_requirements\n    - data_requirements\n    - assumptions\n    - dependencies\n    - constraints\n  output_filename: requirements.yaml",
+            "content": null,
             "type": "yaml",
             "description": "requirements.yaml初始模板内容"
           },
@@ -255,58 +255,6 @@ specialist_config:
     }
   ]
 }
-```
-
-## 📝 文件内容模板
-
-### requirements.yaml 模板
-
-```yaml
-user_stories:
-
-use_cases:
-
-functional_requirements:
-
-non_functional_requirements:
-
-interface_requirements:
-
-data_requirements:
-
-assumptions:
-
-dependencies:
-
-constraints:
-
-_metadata:
-  generated_at: "2025-07-20T03:46:22.129Z"
-  generator_version: 1.0.0
-  schema_version: "1.0"
-  total_ids:
-  id_breakdown:
-    ADC-ASSU:
-    ADC-CONST:
-    ADC-DEPEN:
-    DAR:
-    FR:
-    IFR:
-    NFR:
-    UC:
-    US:
-  generation_mode:
-  entity_order:
-    - user_stories
-    - use_cases
-    - functional_requirements
-    - non_functional_requirements
-    - interface_requirements
-    - data_requirements
-    - assumptions
-    - dependencies
-    - constraints
-  output_filename: requirements.yaml
 ```
 
 ## 🎯 项目名称提取规则

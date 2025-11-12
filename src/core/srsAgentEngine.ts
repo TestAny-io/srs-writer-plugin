@@ -2217,8 +2217,9 @@ export class SRSAgentEngine implements ISessionObserver {
       'adc_writer': '📌',
       'summary_writer': '📄',
       'prototype_designer': '🎨',
-      'document_formatter': '🎨',
-      'srs_reviewer': '🔍'
+      'document_formatter': '📐',
+      'srs_reviewer': '🔍',
+      'risk_analysis_writer': '⚠️'
     };
     return iconMap[specialistId] || '✏️';
   }
@@ -2241,7 +2242,8 @@ export class SRSAgentEngine implements ISessionObserver {
       'summary_writer': '编写执行摘要',
       'prototype_designer': '设计原型',
       'document_formatter': '文档格式化检查',
-      'srs_reviewer': '审查文档'
+      'srs_reviewer': '审查文档',
+      'risk_analysis_writer': '风险分析'
     };
     return nameMap[specialistId] || specialistId;
   }

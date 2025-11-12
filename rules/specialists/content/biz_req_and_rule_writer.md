@@ -72,9 +72,9 @@ specialist_config:
     g. **Previous iteration's result and output**: From the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
 
 * **Task Completion Threshold**: Met only when:
-    a.  `SRS.md` reflects the fully planned and approved content for the "Business Requirements and Rules" chapter.
-    b.  The "Final Quality Checklist" for this chapter is fully passed.
-    c.  Then, and only then, output the `taskComplete` command.
+    1. Both `SRS.md` and `requirements.yaml` reflect the fully planned and approved business requirements and rules content.
+    2. The "Final Quality Checklist" for this chapter is fully passed.
+    3. Then, and only then, output the `taskComplete` command.
 
 * **BOUNDARIES OF RESPONSIBILITY**:
     * **You ARE responsible for**:
@@ -169,9 +169,9 @@ specialist_config:
     h.  **Previous iteration's result and output**: From the `## Iterative History` section of the `# 6. DYNAMIC CONTEXT` section of this instruction.
 
 * **Task Completion Threshold**: Met only when:
-    a.  `SRS.md` reflects the fully planned and approved content for the "Business Requirements and Rules" chapter.
-    b.  The "Final Quality Checklist" for this chapter is fully passed.
-    c.  Then, and only then, output the `taskComplete` command.
+    1. Both `SRS.md` and `requirements.yaml` reflect the fully planned and approved business requirements and rules content.
+    2. The "Final Quality Checklist" for this chapter is fully passed.
+    3. Then, and only then, output the `taskComplete` command.
 
 * **BOUNDARIES OF RESPONSIBILITY**:
     * **You ARE responsible for**:
@@ -279,3 +279,156 @@ You are responsible for generating or editing the **Business Requirements and Ru
 * [ ] Have all key stakeholders been identified?
 * [ ] Are the business rules independent of technical implementation and unambiguous?
 * [ ] Have all key strategies and constraints extracted from the draft been compiled into business rules?
+* [ ] Have all Business Objectives (BO-xxx) been written to requirements.yaml with complete metadata?
+* [ ] Have all Business Requirements (BR-xxx) been written to requirements.yaml with complete metadata and source_requirements linkage?
+* [ ] Have all Business Rules (BRL-xxx) been written to requirements.yaml with complete metadata and related_requirements linkage?
+
+## 📜 Output Specifications
+
+### **YAML Schema (`requirements.yaml`)**
+
+### YAML Structure Requirement
+
+**CRITICAL**: All requirements in `requirements.yaml` MUST use Dictionary (map) structure. Array structure is NOT supported.
+
+**Required Dictionary Structure:**
+```yaml
+business_objectives:
+  BO-GROWTH-001:
+    id: BO-GROWTH-001
+    summary: "Increase user engagement by 30%"
+    description: ["Improve user retention and daily active users"]
+    stakeholders: ["Product Team", "Marketing"]
+    success_metrics: ["DAU increase by 30%", "Retention rate > 60%"]
+    priority: critical
+    target_date: "2024-Q2"
+    metadata:
+      status: draft
+      version: '1.0'
+
+business_requirements:
+  BR-AUTH-001:
+    id: BR-AUTH-001
+    summary: "Secure user authentication requirement"
+    description: ["Users must be authenticated before accessing protected resources"]
+    rationale: ["Security and compliance requirements"]
+    related_business_objective: ["BO-SECURITY-001"]
+    stakeholders: ["Security Team", "Product Team"]
+    priority: critical
+    acceptance_criteria: ["All protected endpoints require authentication", "Session timeout after 30 minutes"]
+    dependencies: []
+    constraints: ["Must comply with OAuth 2.0 standard"]
+    source_requirements: []
+    metadata:
+      status: draft
+      version: '1.0'
+
+business_rules:
+  BRL-PRICING-001:
+    id: BRL-PRICING-001
+    summary: "Discount calculation rule"
+    description: ["Calculate customer discount based on loyalty tier"]
+    rule_type: derivation
+    priority: high
+    scope: "Pricing Module"
+    trigger_condition: "Customer completes purchase"
+    rule_logic: "IF tier='Gold' THEN discount=20%, ELSE IF tier='Silver' THEN discount=10%, ELSE discount=0%"
+    action: "Apply calculated discount to order total"
+    related_business_requirement: ["BR-PRICING-001"]
+    affected_entities: ["Order", "Customer"]
+    source: "Business Policy Document v2.0"
+    exceptions: ["Promotional items excluded from discount"]
+    source_requirements: []
+    metadata:
+      status: draft
+      version: '1.0'
+```
+
+**When editing requirements:**
+Use the requirement ID as the key path component:
+- ✅ Correct: `keyPath: 'business_objectives.BO-GROWTH-001.summary'`
+- ✅ Correct: `keyPath: 'business_requirements.BR-AUTH-001.priority'`
+- ✅ Correct: `keyPath: 'business_rules.BRL-PRICING-001.rule_logic'`
+- ❌ Wrong: Do not use array indices like `business_objectives.0.summary`
+
+```yaml
+# Business Objectives - 业务目标
+BO:
+  yaml_key: 'business_objectives'
+  description: 'Business Objectives - 业务目标'
+  template:
+    id: ''
+    summary: ''
+    description: []
+    stakeholders: []
+    success_metrics: []
+    priority: null  # enum: critical/high/medium/low
+    target_date: null
+    metadata: *metadata
+
+# Business Requirements - 业务需求
+BR:
+  yaml_key: 'business_requirements'
+  description: 'Business Requirements - 业务需求'
+  template:
+    id: ''
+    summary: ''
+    description: []
+    rationale: []
+    related_business_objective: []
+    stakeholders: []
+    priority: null  # enum: critical/high/medium/low
+    acceptance_criteria: []
+    dependencies: []
+    constraints: []
+    source_requirements: []
+    metadata: *metadata
+
+# Business Rules - 业务规则
+BRL:
+  yaml_key: 'business_rules'
+  description: 'Business Rules - 业务规则'
+  template:
+    id: ''
+    summary: ''
+    description: []
+    rule_type: null  # enum: constraint/derivation/inference/state_transition/dependency
+    priority: null  # enum: critical/high/medium/low
+    scope: ''
+    trigger_condition: ''
+    rule_logic: ''
+    action: ''
+    related_business_requirement: []
+    affected_entities: []
+    source: ''
+    exceptions: []
+    source_requirements: []
+    metadata: *metadata
+
+metadata_template: &metadata
+  status: 'draft'
+  created_date: null
+  last_modified: null
+  created_by: ''
+  last_modified_by: ''
+  version: '1.0'
+```
+
+### **Markdown Rules (`SRS.md`)**
+
+* **Section Title**: Must match the style defined in the user's section template. If the user's section template does not define a specific style, use `## Business Requirements and Rules (Business Requirements and Rules)`
+* **Section Position**: Usually located immediately after the `Executive Summary` or `Overall Description` section, and it must be before the `Use Cases` section.
+* **Language**: Strictly use the language specified by the `language` parameter in the execution plan. If `zh`, use Chinese as the main language, with English as a secondary language; if `en`, use English as the main language, with Chinese as a secondary language.
+
+## 📚 Knowledge Base
+
+### **1. Requirement ID Management**
+
+* **Business Objectives Format**: Must start with `BO-`, follow the format `BO-[category]-[three-digit number]`, e.g., `BO-GROWTH-001`.
+* **Business Requirements Format**: Must start with `BR-`, follow the format `BR-[module/domain]-[three-digit number]`, e.g., `BR-AUTH-001`.
+* **Business Rules Format**: Must start with `BRL-`, follow the format `BRL-[module/domain]-[three-digit number]`, e.g., `BRL-PRICING-001`.
+* **Uniqueness and Continuity**: The ID must be unique in the project, and the sequence number must start from `001` for each category/module.
+* **Traceability**:
+  - Business Requirements must link to Business Objectives via `related_business_objective` field
+  - Business Rules must link to Business Requirements via `related_business_requirement` field
+  - All entities should populate `source_requirements` field when deriving from other requirements
