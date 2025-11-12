@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2025-11-12
+
+### Enhanced
+
+- **YAML Configuration**: Changed YAML format support from array to dictionary
+    - Improved configuration structure for better maintainability
+    - Enhanced type safety and validation
+    - Better support for complex configuration scenarios
+
+- **Extension Configuration**: Improved configuration management
+    - Packaged `.vscode/settings.json` for better default settings
+    - Enhanced out-of-box experience for new users
+    - Streamlined initial setup process
+
+## [0.8.1] - 2025-11-11
+
+### Fixed
+
+- **YAML File Reading**: Fixed duplicate read bug in `readYAMLFile` tool
+    - Resolved issue causing YAML files to be read multiple times unnecessarily
+    - Improved performance and reduced redundant file I/O operations
+    - Enhanced reliability of YAML data retrieval
+
 ## [0.8.0] - 2025-11-09
 
 ### Added
