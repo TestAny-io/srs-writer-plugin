@@ -69,8 +69,8 @@ graph TD
     - **Success**: [state of system after successful completion]
     - **Failure**: [state of system after failure]
 - **Special Requirements**:
-    - [non-functional requirement 1, reference NFR-XXX-XXX]
-    - [non-functional requirement 2, reference NFR-XXX-XXX]
+    - [describe non-functional requirement 1 in natural language, e.g., "Response time must be under 2 seconds"]
+    - [describe non-functional requirement 2 in natural language, e.g., "Data must be encrypted at rest"]
 - **Relationships**:
     - **Includes**: [UC-XXX-XXX]
     - **Extends**: [UC-XXX-XXX]
@@ -107,7 +107,7 @@ graph TD
     - **Success**: [state of system after successful completion]
     - **Failure**: [state of system after failure]
 - **Special Requirements**:
-    - [non-functional requirement, reference NFR-XXX-XXX]
+    - [describe non-functional requirement in natural language]
 - **Relationships**:
     - **Includes**: [UC-XXX-XXX]
 - **Open Issues**: [any unresolved questions or TBD items]
@@ -129,12 +129,12 @@ graph TD
 
 ### Use Case Traceability Matrix
 
-| Use Case ID | Related Business Objectives | Related Functional Requirements | Related NFRs |
-|-------------|----------------------------|--------------------------------|--------------|
-| UC-XXX-001 | BO-001 | FR-XXX-001, FR-XXX-002 | NFR-SEC-001, NFR-PERF-001 |
-| UC-XXX-002 | BO-001, BO-002 | FR-XXX-003, FR-XXX-004 | NFR-PERF-002 |
-| UC-XXX-003 | BO-003 | FR-XXX-005 | NFR-USE-001 |
-| UC-XXX-004 | BO-002 | FR-XXX-006, FR-XXX-007 | NFR-SEC-002, NFR-REL-001 |
+| Use Case ID | Related Business Objectives | Complexity | Priority |
+|-------------|----------------------------|------------|----------|
+| UC-XXX-001 | BO-001 | medium | high |
+| UC-XXX-002 | BO-001, BO-002 | high | critical |
+| UC-XXX-003 | BO-003 | low | medium |
+| UC-XXX-004 | BO-002 | medium | high |
 
 ---
 

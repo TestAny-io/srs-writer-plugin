@@ -159,14 +159,14 @@ graph TD
 
 ### Business Requirements Traceability Matrix
 
-| Requirement ID | Requirement Name | Priority | Related Business Objective | Related Business Rules | Related Use Cases |
-|----------------|------------------|----------|---------------------------|------------------------|-------------------|
-| BR-001 | [name] | critical | BO-001 | BRL-001, BRL-002 | UC-XXX-001, UC-XXX-002 |
-| BR-002 | [name] | high | BO-001 | BRL-003 | UC-XXX-003 |
-| BR-003 | [name] | high | BO-001, BO-002 | BRL-001, BRL-004 | UC-XXX-004 |
-| BR-004 | [name] | medium | BO-002 | BRL-005 | UC-XXX-005 |
+| Requirement ID | Requirement Name | Priority | Related Business Objective | Related Business Rules |
+|----------------|------------------|----------|---------------------------|------------------------|
+| BR-001 | [name] | critical | BO-001 | BRL-001, BRL-002 |
+| BR-002 | [name] | high | BO-001 | BRL-003 |
+| BR-003 | [name] | high | BO-001, BO-002 | BRL-001, BRL-004 |
+| BR-004 | [name] | medium | BO-002 | BRL-005 |
 
-**Total**: [X] business requirements, enforced by [Y] business rules, realized through [Z] use cases.
+**Total**: [X] business requirements, enforced by [Y] business rules.
 
 ---
 
