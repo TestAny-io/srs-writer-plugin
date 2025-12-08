@@ -161,7 +161,7 @@ Need project isolation, Git branch discipline, enterprise RAG, or MCP tool onboa
 
 ## 🌐 Language / 语言
 
-📖 [English Documentation](home.md) | [中文文档](../cn/home.md)
+📖 [English Documentation](home.md) | [中文文档](../zh/home.md)
 
 ---
 
