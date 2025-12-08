@@ -76,4 +76,5 @@ reports/
 dev-tools/
 
 # 用户文档工作目录 - 文档素材和草稿，最终发布到 docs.testany.io
-user-guide/
+user-guide/*
+!user-guide/drafts/
