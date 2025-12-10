@@ -19,7 +19,9 @@
 ## How to open
 
 1. `Cmd+Shift+P` / `Ctrl+Shift+P` → run **SRS Writer: Control Panel**  
+![srs CLI config](../images/zh/image-20251210-132901_0001.png)
 2. (Optional) bind a keyboard shortcut; the status bar item **SRS: ...** also opens it when visible.
+![srs statusbar config](../images/zh/image-20251210-130301_0001.png)
 
 ---
 
@@ -35,7 +37,7 @@
 ```
 
 Details below.
-
+![srs config Directory 1](../images/zh/image-20251210-133501_0001.png)
 ---
 
 ### 📁 Create Workspace & Initialize
@@ -106,6 +108,7 @@ Opens VS Code settings filtered to SRS Writer. Key entries:
 
 ### First-time setup
 1. Control Panel → **Create Workspace & Initialize**
+![srs config Directory 1](../images/zh/image-20251210-133501_0001.png)
 2. Pick parent folder, enter workspace name
 3. When opened, start a project in chat: `@srs-writer ...`
 
