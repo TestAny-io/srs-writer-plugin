@@ -70,19 +70,55 @@ jobs:
           # Regenerate navigation config from frontmatter
           node scripts/generate-srs-writer-nav-config.cjs
 
-      - name: Commit and push changes
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_SYNC_TOKEN }}
         run: |
           cd docs-site
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are changes
           git add .
           if git diff --staged --quiet; then
             echo "No changes to commit"
-          else
-            git commit -m "docs: sync SRS Writer docs from srs-writer-plugin
-
-            Automated sync triggered by changes to user-guide/ in srs-writer-plugin.
-
-            🤖 Generated with GitHub Actions"
-            git push
+            exit 0
           fi
+
+          # Create a unique branch name with timestamp
+          BRANCH_NAME="docs/sync-srs-writer-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+
+          # Commit changes
+          git commit -m "docs: sync SRS Writer docs from srs-writer-plugin
+
+          Automated sync triggered by changes to user-guide/ in srs-writer-plugin.
+
+          🤖 Generated with GitHub Actions"
+
+          # Push the branch
+          git push -u origin "$BRANCH_NAME"
+
+          # Create PR using GitHub CLI
+          gh pr create \
+            --repo TestAny-io/testany_docs_for_user \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "docs: sync SRS Writer documentation" \
+            --body "## Automated Documentation Sync
+
+          This PR was automatically created by the docs sync workflow in \`srs-writer-plugin\`.
+
+          ### Changes
+          - Synced documentation from \`user-guide/\` directory
+          - Added frontmatter to markdown files
+          - Regenerated navigation config
+
+          ### Preview
+          Once CI completes, a Cloudflare Pages preview will be available for testing.
+
+          ### Source
+          Triggered by: ${{ github.event.head_commit.url }}
+
+          ---
+          🤖 Generated with GitHub Actions"
