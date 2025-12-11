@@ -8,7 +8,7 @@
 
 Make sure the following are ready:
 
-- ✅ **VS Code 1.102.0 or above+**  
+- ✅ **VS Code 1.102.0 or above+**
   Check via `Help` → `About` (macOS: `Code` → `About Visual Studio Code`).
 ![image-20251211-215721.png](../images/zh/image-20251211-215721_00000007.jpg)
 - ✅ **Git installed**  
