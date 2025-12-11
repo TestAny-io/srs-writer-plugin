@@ -32,6 +32,7 @@
 ## 创建新项目
 
 **推荐方式：聊天触发**: 打开聊天面板（`Cmd+Shift+I` / `Ctrl+Shift+I`）
+![srs命令行](../images/zh/image-20251210-101516_0001.png)
 ```
 @srs-writer 创建一个名为 "MobileAppBackend" 的新项目，
 这是移动应用后端 API，请先生成骨架文档。

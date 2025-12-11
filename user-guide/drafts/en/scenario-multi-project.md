@@ -31,7 +31,8 @@ After switching:
 
 ## Create a new project
 **Recommended: via chat** :
-Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)
+Press `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
+![srs in CLI](../images/zh/image-20251210-101516_0001.png)
 ```
 @srs-writer Create a new project called "MobileAppBackend";
 this is the backend API for a mobile app—start with the skeleton docs.

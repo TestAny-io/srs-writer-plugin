@@ -15,7 +15,8 @@
 
 ## 运行质量审查
 
-在聊天中：
+打开聊天面板（`Cmd+Shift+I` / `Ctrl+Shift+I`），在聊天中输入：
+![srs命令行](../images/zh/image-20251210-101516_0001.png)
 ```
 @srs-writer 做一轮质量检查，按严重度列出需要修改的章节
 ```
@@ -40,7 +41,7 @@
 - Markdown：`standard` 模式（常见 lint 规则，避免格式错误）
 - YAML：`standard` / `strict`（校验结构与 requirement schema）
 
-如需重新校验：
+如需重新校验，直接聊天输入：
 ```
 @srs-writer 重新跑一次 Markdown/YAML 语法检查
 ```

@@ -145,6 +145,7 @@ SRS Writer 可以分析现有文档并提取结构化需求。
 **第 2 步：打开 SRS Writer 聊天**
 
 按 `Cmd+Shift+I` / `Ctrl+Shift+I`
+![srs命令行](../images/zh/image-20251210-101516_0001.png)
 
 **第 3 步：粘贴并附上说明**
 

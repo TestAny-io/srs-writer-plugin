@@ -27,7 +27,8 @@ SRS Writer 能理解自然语言的变更请求，并通过 SID 语义编辑器�
 ## 进行变更
 
 ### 类型 1：添加新功能
-
+打开聊天面板（`Cmd+Shift+I` / `Ctrl+Shift+I`），在聊天中输入：
+![srs命令行](../images/zh/image-20251210-101516_0001.png)
 **简单添加**：
 ```
 @srs-writer 添加一个功能：用户可以将任务列表导出为 Excel 文件
@@ -348,7 +349,7 @@ functionalRequirements:
 
 ### 提交到 Git
 
-更新需求后：
+更新需求后，可以手工同步到Git个人仓库：
 
 ```bash
 git add TaskManagement/

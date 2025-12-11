@@ -145,6 +145,7 @@ From any source:
 **Step 2: Open SRS Writer Chat**
 
 Press `Cmd+Shift+I` / `Ctrl+Shift+I`
+![srs in CLI](../images/zh/image-20251210-101516_0001.png)
 
 **Step 3: Paste with instructions**
 
