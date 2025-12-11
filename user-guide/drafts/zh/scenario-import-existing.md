@@ -51,6 +51,7 @@ SRS Writer 直接支持以下纯文本文件：
 
 1. 打开 VSCode 扩展视图（`Cmd+Shift+X` / `Ctrl+Shift+X`）
 2. 搜索：`Office to Markdown Converter`
+![Converter install](../images/zh/image-20251211-142601_0001.png)
 3. 点击**安装**
 4. 发布者：**Testany**
 
