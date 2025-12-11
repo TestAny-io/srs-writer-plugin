@@ -33,6 +33,8 @@ They need to create tasks, assign them to team members, set priorities and due d
 track progress, and receive notifications. We're using JIRA now but it's too complex.
 ```
 
+![image-20251210-215721.png](../images/zh/image-20251210-215721_00000001.jpg)
+
 **Why it works**:
 
 - Specifies who (software team, 20 people)
@@ -64,6 +66,8 @@ CFO needs monthly reports. We process about 500 claims per month.
 @srs-writer Build a task management app
 ```
 
+![image-20251210-215721.png](../images/zh/image-20251210-215721_00000002.jpg)
+
 **Problem**: No context about users, scale, or needs. SRS Writer has to guess.
 
 ---
@@ -93,6 +97,10 @@ CFO needs monthly reports. We process about 500 claims per month.
 4. If wrong password 3 times, account is locked for 15 minutes
 5. User can click "Forgot password" to receive a reset email
 ```
+
+![image-20251210-215721.png](../images/zh/image-20251210-215721_00000003.jpg)
+
+![image-20251210-215721.png](../images/zh/image-20251210-215721_00000004.jpg)
 
 **What SRS Writer infers**:
 
@@ -125,6 +133,8 @@ For example:
 - If any row is invalid, highlight the errors and reject the entire batch
 ```
 
+![image-20251210-215721.png](../images/zh/image-20251210-215721_00000005.jpg)
+
 **What this clarifies**:
 
 - Import format (CSV)
@@ -146,6 +156,8 @@ very professional, include security and compliance sections,
 and explain technical decisions in business terms.
 ```
 
+![image-20251210-215721.png](../images/zh/image-20251210-215721_00000006.jpg)
+
 **For internal dev team**:
 
 ```text
@@ -154,12 +166,16 @@ Focus on technical details, API specifications, and database schema.
 Keep it practical and skip the business justification.
 ```
 
+![image-20251210-215721.png](../images/zh/image-20251210-215721_00000007.jpg)
+
 **For regulatory submission**:
 
 ```text
 @srs-writer This SRS is for FDA submission, so it must strictly follow
 IEC 62304 and include complete traceability to design specifications.
 ```
+
+![image-20251210-215721.png](../images/zh/image-20251210-215721_00000008.jpg)
 
 ---
 

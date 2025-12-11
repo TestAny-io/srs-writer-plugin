@@ -30,6 +30,7 @@
 ### How do I know which project is active?
 - Check the status bar: `SRS: <project>`.  
 - Or open **SRS Writer: Control Panel**; the current project is shown there.
+![image-20251211-215721.jpg](../images/zh/image-20251211-215721_00000015.jpg)
 
 ### Can I edit files manually?
 - Yes—`SRS.md`/`requirements.yaml` are plain text.  
