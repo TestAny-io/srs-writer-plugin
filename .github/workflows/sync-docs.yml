@@ -1,0 +1,88 @@
+name: Sync Docs to Documentation Site
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'user-guide/**'
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout srs-writer-plugin
+        uses: actions/checkout@v4
+
+      - name: Checkout testany_docs_for_user
+        uses: actions/checkout@v4
+        with:
+          repository: TestAny-io/testany_docs_for_user
+          token: ${{ secrets.DOCS_SYNC_TOKEN }}
+          path: docs-site
+
+      - name: Sync documentation files
+        run: |
+          # Create target directories if they don't exist
+          mkdir -p docs-site/public/docs/srs-writer/en
+          mkdir -p docs-site/public/docs/srs-writer/zh
+          mkdir -p docs-site/public/docs/srs-writer/images/en
+          mkdir -p docs-site/public/docs/srs-writer/images/zh
+
+          # Sync English docs (all .md files, filenames are now clean)
+          if [ -d "user-guide/drafts/en" ]; then
+            for f in user-guide/drafts/en/*.md; do
+              if [ -f "$f" ]; then
+                cp "$f" "docs-site/public/docs/srs-writer/en/"
+                echo "Copied: $f"
+              fi
+            done
+          fi
+
+          # Sync Chinese docs
+          if [ -d "user-guide/drafts/zh" ]; then
+            for f in user-guide/drafts/zh/*.md; do
+              if [ -f "$f" ]; then
+                cp "$f" "docs-site/public/docs/srs-writer/zh/"
+                echo "Copied: $f"
+              fi
+            done
+          fi
+
+          # Sync English images
+          if [ -d "user-guide/drafts/images/en" ]; then
+            cp -r user-guide/drafts/images/en/* docs-site/public/docs/srs-writer/images/en/ 2>/dev/null || true
+            echo "Synced English images"
+          fi
+
+          # Sync Chinese images
+          if [ -d "user-guide/drafts/images/zh" ]; then
+            cp -r user-guide/drafts/images/zh/* docs-site/public/docs/srs-writer/images/zh/ 2>/dev/null || true
+            echo "Synced Chinese images"
+          fi
+
+      - name: Add frontmatter and regenerate navigation config
+        run: |
+          cd docs-site
+          npm ci
+          # Add frontmatter to synced docs (idempotent - skips files with existing frontmatter)
+          node scripts/add-srs-writer-frontmatter.cjs
+          # Regenerate navigation config from frontmatter
+          node scripts/generate-srs-writer-nav-config.cjs
+
+      - name: Commit and push changes
+        run: |
+          cd docs-site
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "docs: sync SRS Writer docs from srs-writer-plugin
+
+            Automated sync triggered by changes to user-guide/ in srs-writer-plugin.
+
+            🤖 Generated with GitHub Actions"
+            git push
+          fi
