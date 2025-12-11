@@ -51,6 +51,7 @@ If your documents are in unsupported formats, you must convert them first.
 
 1. Open VSCode Extensions view (`Cmd+Shift+X` / `Ctrl+Shift+X`)
 2. Search: `Office to Markdown Converter`
+![Converter install](../images/zh/image-20251211-142601_0001.png)
 3. Click **Install**
 4. Publisher: **Testany**
 
