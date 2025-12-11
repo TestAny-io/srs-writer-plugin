@@ -21,6 +21,8 @@ For each new project, SRS Writer creates a folder under your workspace root with
 └── srs-writer-session_*.json
 ```
 
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000001.jpg)
+
 ---
 
 ## 📄 SRS.md (main document)
@@ -81,6 +83,7 @@ For each new project, SRS Writer creates a folder under your workspace root with
 - Location: workspace root, not inside the project folder
 - Purpose: tracks current session, project switching, and sync status
 - Note: do not edit manually; use Control Panel → Project Management for rename/delete operations
+![image-20251211-215721.gif](../images/zh/image-20251211-215721_00000002.gif)
 
 ---
 

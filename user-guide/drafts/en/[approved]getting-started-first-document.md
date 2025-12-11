@@ -17,6 +17,7 @@ You’ll summon `@srs-writer` in chat. The orchestrator will plan and execute an
 - Windows/Linux: `Ctrl+Shift+I`
 
 Or click the chat icon in the top-right of VS Code.
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000003.jpg)
 
 ---
 
@@ -29,6 +30,7 @@ Start your message with `@srs-writer`.
 @srs-writer Need a task management system: create/assign tasks,
 due dates, comments, email notifications, team size ~20.
 ```
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000004.jpg)
 
 **Example (brownfield with a draft)**
 ```
@@ -51,6 +53,7 @@ Typical log snippets:
 📝 summary_writer / fr_writer / nfr_writer ... -> write chapters to SRS.md
 ✅ srs_reviewer     -> quality review and fixes
 ```
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000005.jpg)
 
 Timing guide: small projects 5–10 minutes; medium 10–20 minutes.
 
@@ -118,6 +121,7 @@ A new project folder is created under your workspace root (name comes from the c
 
 - **Git branch is off?**  
   Use **Sync Status Check** or **Force Sync Context** from the Control Panel. Default working branch is `wip`.
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000006.jpg)
 
 ---
 

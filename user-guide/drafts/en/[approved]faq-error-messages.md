@@ -25,16 +25,19 @@
 - The workspace isn’t initialized or has no sessions.  
 - Run **SRS Writer: Control Panel → Create Workspace & Initialize**, or start a new project in chat.  
 - Make sure the opened folder is the initialized workspace root.
+![image-20251211-215721.jpg](../images/zh/image-20251211-215721_00000013.jpg)
 
 ### “BaseDir validation failed” / “Project directory missing”
 - The project folder was moved/renamed.  
 - Use Control Panel **Project Management → Rename Project** to fix paths, or move the folder back to the workspace root.  
 - After manual renames, run **Sync Status Check** or **Force Sync Context**.
+![image-20251211-215721.gif](../images/zh/image-20251211-215721_00000002.gif)
 
 ### Out-of-sync / stuck progress
 - Use Control Panel **Sync Status Check** to diagnose.  
 - Run **Force Sync Context** (command palette) to reload sessions/files.  
 - If needed, switch to another project and back.
+![image-20251211-215721.jpg](../images/zh/image-20251211-215721_00000014.jpg)
 
 ---
 

@@ -8,23 +8,22 @@
 
 安装前请确认：
 
-- ✅ **VSCode 1.102.0+**
+- ✅ **VSCode 1.102.0及以上+**
   - 打开 VSCode → `帮助` → `关于`（macOS：`Code` → `关于 Visual Studio Code`）查看版本
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000007.jpg)
 - ✅ **Git 已安装**
   - 在终端运行 `git --version` 验证；用于初始化仓库与分支
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000008.jpg)
 - ✅ **GitHub Copilot 订阅**
   - SRS Writer 依赖 VS Code LM API，需有效的 Copilot 账号
   - 右下角 Copilot 图标需处于登录状态，异常时点击登录
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000009.jpg)
 
 > SRS Writer 免费，但 AI 能力由 Copilot 提供。
 
 ---
 
-## 第 1 步：安装 SRS Writer 扩展
-
-### 通过 VSCode 应用商店
-
-**方式 A：在 VSCode 中搜索**
+## 第 1 步：通过 VSCode 应用商店安装 SRS Writer 扩展
 
 1. 打开 VSCode
 2. 点击左侧边栏的**扩展**图标
@@ -33,26 +32,7 @@
 4. 找到 Testany 发布的 "SRS Writer"
 5. 点击**安装**按钮
 
-![从应用商店安装](../../materials/screenshots/marketplace-install.png)
-
-**方式 B：直接链接**
-
-在浏览器中打开：
-```
-https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin
-```
-点击 "Install"，会自动在 VSCode 中打开。
-
----
-
-### 通过 VSIX 文件安装（离线安装）
-
-如果无法访问应用商店：
-
-1. 从 [GitHub Releases](https://github.com/Testany-io/srs-writer-plugin/releases) 下载 `.vsix` 文件
-2. 在 VSCode 中按 `Cmd+Shift+P` / `Ctrl+Shift+P`
-3. 输入：**`Extensions: Install from VSIX`**
-4. 选择下载的 `.vsix` 文件
+![从应用商店安装](../images/zh/image-20251211-215721_00000010.gif)
 
 ---
 
@@ -65,6 +45,7 @@ https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin
 3. 选择 **Create Workspace & Initialize**
 4. 选择父目录 → 输入工作区名称（仅限字母/数字/`-`/`_`）
 5. 等待完成，VS Code 会自动打开新工作区
+![image-20251211-215721.gif](../images/zh/image-20251211-215721_00000011.gif)
 
 完成后，工作区包含：
 - `.templates/`（SRS 章节与原型模板）
@@ -84,7 +65,7 @@ https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin
 1. 按 `Cmd+Shift+I`（Mac）/ `Ctrl+Shift+I`（Windows/Linux）
 2. 输入 `@srs-writer`，应能看到图标和提示
 
-![在聊天中提及 SRS Writer](../../materials/screenshots/chat-srs-writer-mention.png)
+![在聊天中提及 SRS Writer](../images/zh/image-20251211-215721_00000012.jpg)
 
 ### 选择 AI 模型
 1. 聊天面板顶部选择可用模型（来自 Copilot）

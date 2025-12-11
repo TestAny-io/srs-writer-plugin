@@ -8,36 +8,28 @@
 
 Make sure the following are ready:
 
-- ✅ **VS Code 1.102.0+**  
+- ✅ **VS Code 1.102.0 or above+**  
   Check via `Help` → `About` (macOS: `Code` → `About Visual Studio Code`).
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000007.jpg)
 - ✅ **Git installed**  
   Run `git --version` in a terminal.
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000008.jpg)
 - ✅ **GitHub Copilot subscription**  
   SRS Writer uses VS Code LM APIs provided by Copilot. Ensure the Copilot icon in the bottom-right is logged in and healthy.
+![image-20251211-215721.png](../images/zh/image-20251211-215721_00000009.jpg)
 
 > SRS Writer is free; Copilot provides the AI.
 
 ---
 
-## Step 1: Install SRS Writer
-
-### Via VS Code Marketplace
+## Step 1: Install SRS Writer Via VS Code Marketplace
 
 1. Open VS Code
 2. Extensions view (`Cmd+Shift+X` / `Ctrl+Shift+X`)
 3. Search **`SRS Writer`**
 4. Install "SRS Writer" by Testany
 
-![Install from Marketplace](../../materials/screenshots/marketplace-install.png)
-
-**Direct link**  
-https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin
-
-### Via VSIX (offline)
-
-1. Download `.vsix` from [GitHub Releases](https://github.com/Testany-io/srs-writer-plugin/releases)
-2. Run `Extensions: Install from VSIX` in the command palette
-3. Select the downloaded file
+![Install from Marketplace](../images/zh/image-20251211-215721_00000010.gif)
 
 ---
 
@@ -50,6 +42,7 @@ https://marketplace.visualstudio.com/items?itemName=Testany.srs-writer-plugin
 3. Pick **Create Workspace & Initialize**
 4. Choose a parent folder → enter workspace name (letters/numbers/`-`/`_`)
 5. VS Code will open the new workspace when finished
+![image-20251211-215721.gif](../images/zh/image-20251211-215721_00000011.gif)
 
 You’ll get:
 - `.templates/` (chapter and prototype templates)
@@ -65,8 +58,7 @@ You’ll get:
 2. Open Chat panel (`Cmd+Shift+I` / `Ctrl+Shift+I`) and type `@srs-writer` → icon should appear
 3. Choose an AI model from the chat header (Copilot-provided; premium model recommended for quality)
 
-![SRS Writer in Chat](../../materials/screenshots/chat-srs-writer-mention.png)
-
+![SRS Writer in Chat](../images/zh/image-20251211-215721_00000011.gif)
 ---
 
 ## Troubleshooting
