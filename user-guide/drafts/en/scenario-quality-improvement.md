@@ -16,6 +16,8 @@
 ## Run a quality review
 
 In chat:
+Press `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
+![srs in CLI](../images/zh/image-20251210-101516_0001.png)
 ```
 @srs-writer Run a quality check and list issues by severity
 ```

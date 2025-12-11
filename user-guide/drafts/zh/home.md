@@ -87,12 +87,20 @@ SID 定位 + 语义编辑引擎，支持章节级插入/替换/删除和 YAML Ke
 - ✅ Git 与 GitHub Copilot 订阅（VS Code LM 能力必需）
 
 **第 2 步：安装并初始化工作区**
-- 安装扩展后，在命令面板运行 **SRS Writer: Control Panel**
-- 选择 **Create Workspace & Initialize**：复制 `.templates/`、生成 `.vscode/settings.json`、初始化 Git（`main` 与 `wip` 分支）、创建 `.session-log/` 会话文件
+- 安装扩展后，在命令面板（`Cmd+Shift+P` / `Ctrl+Shift+P`）运行 **SRS Writer: Control Panel**
+![srs命令行配置](../images/zh/image-20251210-132901_0001.png)
+- 或者在VS Code界面的右下角，点击**SRS Writer**，弹出对话框
+![srs面板](../images/zh/image-20251210-130301_0001.png)
 
+- 在对话框中，选择 **Create Workspace & Initialize**：
+![srs配置目录](../images/zh/image-20251210-133501_0001.png)
+- 在新弹出对话框中，选择放置项目的父目录，然后会自动的复制 `.templates/`、生成 `.vscode/settings.json`、初始化 Git（`main` 与 `wip` 分支）、创建 `.session-log/` 会话文件
+
+![srs配置目录](../images/zh/image-20251210-133901_0001.png)
 **第 3 步：生成文档**
-- 打开聊天面板（`Cmd+Shift+I` / `Ctrl+Shift+I`）
-- 输入：`@srs-writer [描述项目或粘贴草稿]`
+- 配置完成后，打开聊天面板（`Cmd+Shift+I` / `Ctrl+Shift+I`）
+- 输入：`@srs-writer [描述项目或粘贴草稿]`，就可以进行对话来生成文档了
+![srs命令行](../images/zh/image-20251210-101516_0001.png)
 - 按提示补充信息，等待专家团队写入 `SRS.md`、`requirements.yaml`、`prototype/`
 
 ⏱️ **总耗时**：约 10 分钟

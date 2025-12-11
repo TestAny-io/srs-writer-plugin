@@ -88,15 +88,20 @@ Ships with `.templates/` for chapters and IDs, `requirements.yaml` schema at `co
 - **Git** and a **GitHub Copilot subscription** (uses VS Code LM APIs)
 
 **Step 2: Install & Initialize a Workspace**
-- After installing, run **SRS Writer: Control Panel**
-- Choose **Create Workspace & Initialize** to copy `.templates/`, create `.vscode/settings.json`, init Git (`main` + `wip`), and create `.session-log/` session files
-
+- After installing, Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)run **SRS Writer: Control Panel**
+![srs CLI config](../images/zh/image-20251210-132901_0001.png)
+- Or, click the **SRS Writer:** button located in the Status Bar to trigger the popup.
+![srs statusbar config](../images/zh/image-20251210-130301_0001.png)
+- Choose **Create Workspace & Initialize** 
+![srs config Directory 1](../images/zh/image-20251210-133501_0001.png)
+- Choose the parent directory in the prompt to initialize the project. The extension will automatically copy `.templates/`, create `.vscode/settings.json`, init Git (`main` + `wip`), and create `.session-log/` session files
+![srs config Directory 2](../images/zh/image-20251210-133901_0001.png)
 **Step 3: Generate the Docs**
 
 **Open Chat Panel**
 
 Press `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
-
+![srs in CLI](../images/zh/image-20251210-101516_0001.png)
 **Start Conversation**
 ```
 @srs-writer Build a requirements spec for a task management system...

@@ -27,6 +27,8 @@ SRS Writer understands change requests in natural language and uses SID-based se
 ## Making Changes
 
 ### Type 1: Add New Features
+Press `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
+![srs in CLI](../images/zh/image-20251210-101516_0001.png)
 
 **Simple addition**:
 ```

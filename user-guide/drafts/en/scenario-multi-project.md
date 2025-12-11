@@ -15,8 +15,10 @@
 
 ## Switch projects quickly
 
-1. Open **SRS Writer: Control Panel**  
+1. Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)run **SRS Writer: Control Panel**.Open **SRS Writer: Control Panel**  
+![srs CLI config](../images/zh/image-20251210-132901_0001.png)
 2. Choose **Switch Project**  
+![srs config Directory 1](../images/zh/image-20251210-133501_0001.png)
 3. Pick the target project (you’ll see session status, last modified, and path validity)  
 4. If a plan is running, confirm stopping it; the switch then completes
 
@@ -28,8 +30,9 @@ After switching:
 ---
 
 ## Create a new project
-
-**Recommended: via chat**
+**Recommended: via chat** :
+Press `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
+![srs in CLI](../images/zh/image-20251210-101516_0001.png)
 ```
 @srs-writer Create a new project called "MobileAppBackend";
 this is the backend API for a mobile app—start with the skeleton docs.
@@ -54,6 +57,7 @@ this is the backend API for a mobile app—start with the skeleton docs.
 ### Migrating/renaming
 - Control Panel → **Project Management → Rename Project** atomically updates the folder and session  
 - Avoid manual folder renames; they trigger path validation errors
+![srs Project](../images/zh/image-20251211-144901_0001.png)
 
 ### Cleaning up
 - Control Panel → **Project Management → Delete Project**  
