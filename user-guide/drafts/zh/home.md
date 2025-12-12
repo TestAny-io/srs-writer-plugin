@@ -85,6 +85,8 @@ SID 定位 + 语义编辑引擎，支持章节级插入/替换/删除和 YAML Ke
 - ✅ Git 与 GitHub Copilot 订阅（VS Code LM 能力必需）
 
 **第 2 步：安装并初始化工作区**
+- 在插件市场中（`Cmd+Shift+X` / `Ctrl+Shift+X`），搜索 **SRS Writer**，并安装
+![srs install](../images/zh/image-20251212-141701_0001.png)
 - 安装扩展后，在命令面板（`Cmd+Shift+P` / `Ctrl+Shift+P`）运行 **SRS Writer: Control Panel**
 ![srs命令行配置](../images/zh/image-20251210-132901_0001.png)
 - 或者在VS Code界面的右下角，点击**SRS Writer**，弹出对话框
