@@ -85,6 +85,6 @@ You’ll get:
 
 ## Next steps
 
-- 👉 Try your first run: [Create Your First Document]([approved]getting-started-first-document.md)
-- 👉 See the structure SRS Writer generates: [Document Structure]([approved]getting-started-document-structure.md)
-- 👉 Stuck? Check [Troubleshooting]([approved]faq-error-messages.md)
+- 👉 Try your first run: [Create Your First Document](getting-started-first-document)
+- 👉 See the structure SRS Writer generates: [Document Structure](getting-started-document-structure)
+- 👉 Stuck? Check [Troubleshooting](faq-error-messages)

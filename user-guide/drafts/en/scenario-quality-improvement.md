@@ -81,6 +81,3 @@ Re-run checks when needed:
 - Markdown/YAML checks pass  
 - On `wip` branch, `git diff` reviewed before committing
 
----
-
-[⬅️ Back: Multi-Project Management](scenario-multi-project.md) | [Next: FAQ ➡️]([approved]faq-common-questions.md)

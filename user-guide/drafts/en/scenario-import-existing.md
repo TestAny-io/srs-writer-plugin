@@ -700,16 +700,13 @@ Security:
 **You've successfully imported existing content!**
 
 **Continue refining**:
-👉 [Update Requirements](scenario-update-requirements.md)
-👉 [Improve Quality](scenario-quality-improvement.md)
+👉 [Update Requirements](scenario-update-requirements)
+👉 [Improve Quality](scenario-quality-improvement)
 
 **Learn more**:
-👉 [Conversation Tips]([approved]getting-started-conversation-tips.md)
+👉 [Conversation Tips](getting-started-conversation-tips)
 
 ---
 
-**Have questions?** [Visit our FAQ]([approved]faq-common-questions.md) or [ask the community](https://github.com/Testany-io/srs-writer-plugin/discussions).
+**Have questions?** [Visit our FAQ](faq-common-questions) or [ask the community](https://github.com/Testany-io/srs-writer-plugin/discussions).
 
----
-
-[⬅️ Back: Control Panel & Status Checks]([approved]scenario-control-panel.md) | [Next: Update Requirements ➡️](scenario-update-requirements.md)

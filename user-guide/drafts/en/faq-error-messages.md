@@ -55,6 +55,3 @@
 - Copy the full message and file a report at [GitHub Issues](https://github.com/Testany-io/srs-writer-plugin/issues).  
 - Include VS Code version, SRS Writer version (0.8.2), repro steps, and relevant logs.
 
----
-
-[⬅️ Back: FAQ](faq-common-questions.md) | [Next: Get Help ➡️]([approved]faq-getting-help.md)

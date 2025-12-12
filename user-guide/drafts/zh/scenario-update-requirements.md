@@ -552,13 +552,10 @@ FR-015 要求存储 10MB 文件，但 NFR-003 限制上传为 5MB。
 **你已掌握更新需求！**
 
 **探索相关场景**：
-👉 [多项目管理](scenario-multi-project.md)  
-👉 [提升质量](scenario-quality-improvement.md)
+👉 [多项目管理](scenario-multi-project)
+👉 [提升质量](scenario-quality-improvement)
 
 ---
 
-**有问题？** [查看常见问题](faq-common-questions.md) 或 [社区讨论](https://github.com/Testany-io/srs-writer-plugin/discussions)
+**有问题？** [查看常见问题](faq-common-questions) 或 [社区讨论](https://github.com/Testany-io/srs-writer-plugin/discussions)
 
----
-
-[⬅️ 上一篇：导入现有文档](scenario-import-existing.md) | [下一篇：多项目管理 ➡️](scenario-multi-project.md)

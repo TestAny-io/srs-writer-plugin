@@ -699,16 +699,13 @@ SRS Writer 会：
 **你已成功导入现有内容！**
 
 **继续完善**：
-👉 [更新需求](scenario-update-requirements.md)
-👉 [提升质量](scenario-quality-improvement.md)
+👉 [更新需求](scenario-update-requirements)
+👉 [提升质量](scenario-quality-improvement)
 
 **了解更多**：
-👉 [对话技巧](getting-started-conversation-tips.md)
+👉 [对话技巧](getting-started-conversation-tips)
 
 ---
 
-**有问题？** [查看常见问题](faq-common-questions.md) 或 [社区讨论](https://github.com/Testany-io/srs-writer-plugin/discussions)
+**有问题？** [查看常见问题](faq-common-questions) 或 [社区讨论](https://github.com/Testany-io/srs-writer-plugin/discussions)
 
----
-
-[⬅️ 上一篇：控制面板与状态检查](scenario-control-panel.md) | [下一篇：更新需求 ➡️](scenario-update-requirements.md)

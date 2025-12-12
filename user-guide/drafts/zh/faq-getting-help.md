@@ -42,6 +42,3 @@
 - 复制错误文本在 Issues/Discussions 中搜索；通常已有解决方案。  
 - 无法自行解决时，在 Issue 中附上步骤、日志和版本信息。
 
----
-
-[⬅️ 上一篇：错误与故障排除](faq-error-messages.md) | [返回首页](home.md)

@@ -106,9 +106,9 @@
 
 ✅ 安装与初始化完成
 
-- 👉 首次体验：[创建第一个文档](getting-started-first-document.md)
-- 👉 了解结构与示例：[文档结构](getting-started-document-structure.md)
-- 👉 常见问题：[故障与错误处理](faq-error-messages.md)
+- 👉 首次体验：[创建第一个文档](getting-started-first-document)
+- 👉 了解结构与示例：[文档结构](getting-started-document-structure)
+- 👉 常见问题：[故障与错误处理](faq-error-messages)
 
 ---
 
@@ -119,8 +119,5 @@
 
 ---
 
-**有问题？** [查看常见问题](faq-common-questions.md) 或 [社区讨论](https://github.com/Testany-io/srs-writer-plugin/discussions)
+**有问题？** [查看常见问题](faq-common-questions) 或 [社区讨论](https://github.com/Testany-io/srs-writer-plugin/discussions)
 
----
-
-[⬅️ 返回首页](home.md) | [下一篇：创建第一个文档 ➡️](getting-started-first-document.md)

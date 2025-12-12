@@ -124,6 +124,3 @@
 1. 控制面板 → **同步状态检查（Sync Status Check）**
 2. 如有问题，选择 **Force Sync Context**（命令面板）或切换项目再切回
 
----
-
-[⬅️ 返回对话技巧](getting-started-conversation-tips.md) | [下一篇：导入现有草稿 ➡️](scenario-import-existing.md)

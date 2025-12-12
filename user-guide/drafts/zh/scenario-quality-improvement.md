@@ -80,6 +80,3 @@
 - Markdown/YAML 语法检查通过  
 - Git 处于 `wip` 分支，变更已 `git diff` 自检
 
----
-
-[⬅️ 上一篇：多项目管理](scenario-multi-project.md) | [下一篇：常见问题 ➡️](faq-common-questions.md)

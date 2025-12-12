@@ -618,13 +618,10 @@ For response time:
 4. Check quality and improve
 
 **Continue learning**:
-👉 [Understanding Document Structure]([approved]getting-started-document-structure.md)
-👉 [Common Scenarios]([approved]scenario-import-existing.md)
+👉 [Understanding Document Structure](getting-started-document-structure)
+👉 [Common Scenarios](scenario-import-existing)
 
 ---
 
-**Have questions?** [Visit our FAQ](../faq/common-questions.md) or [ask the community](https://github.com/Testany-io/srs-writer-plugin/discussions).
+**Have questions?** [Visit our FAQ](faq-common-questions) or [ask the community](https://github.com/Testany-io/srs-writer-plugin/discussions).
 
----
-
-[⬅️ Back: Document Structure & Examples]([approved]getting-started-document-structure.md) | [Next: Control Panel & Status Checks ➡️]([approved]scenario-control-panel.md)

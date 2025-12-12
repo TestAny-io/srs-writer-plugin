@@ -554,13 +554,10 @@ Please resolve this conflict - increase NFR-003 limit to 10MB.
 **You've mastered updating requirements!**
 
 **Explore related scenarios**:
-👉 [Multi-Project Management](scenario-multi-project.md)
-👉 [Quality Improvement](scenario-quality-improvement.md)
+👉 [Multi-Project Management](scenario-multi-project)
+👉 [Quality Improvement](scenario-quality-improvement)
 
 ---
 
-**Have questions?** [Visit our FAQ]([approved]faq-common-questions.md) or [ask the community](https://github.com/Testany-io/srs-writer-plugin/discussions).
+**Have questions?** [Visit our FAQ](faq-common-questions) or [ask the community](https://github.com/Testany-io/srs-writer-plugin/discussions).
 
----
-
-[⬅️ Back: Import Existing]([approved]scenario-import-existing.md) | [Next: Multi-Project Management ➡️](scenario-multi-project.md)

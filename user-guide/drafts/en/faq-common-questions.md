@@ -62,6 +62,3 @@
 - Yes. Each project has its own folder/session; switching clears chat context and enforces the `wip` branch.  
 - Avoid manual folder renames—use Control Panel → **Project Management → Rename Project**.
 
----
-
-[⬅️ Back: Quality Improvement](scenario-quality-improvement.md) | [Next: Errors & Troubleshooting ➡️]([approved]faq-error-messages.md)
