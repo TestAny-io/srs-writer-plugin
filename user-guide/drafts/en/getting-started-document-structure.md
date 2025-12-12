@@ -101,6 +101,3 @@ For each new project, SRS Writer creates a folder under your workspace root with
 - **Keep IDs stable**: FR/NFR/IFR/DAR/UC IDs anchor traceability—avoid renumbering.
 - **Inspect diffs**: use VS Code SCM or `git diff` to confirm changes before committing.
 
----
-
-[⬅️ Previous: Create Your First Document]([approved]getting-started-first-document.md) | [Next: Conversation & Prompt Tips ➡️]([approved]getting-started-conversation-tips.md)

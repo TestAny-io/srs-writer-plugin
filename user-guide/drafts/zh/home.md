@@ -105,7 +105,7 @@ SID 定位 + 语义编辑引擎，支持章节级插入/替换/删除和 YAML Ke
 
 ⏱️ **总耗时**：约 10 分钟
 
-📖 **[安装与初始化指南 →](getting-started-installation.md)**
+📖 **[安装与初始化指南 →](getting-started-installation)**
 
 ---
 
@@ -130,7 +130,7 @@ SID 定位 + 语义编辑引擎，支持章节级插入/替换/删除和 YAML Ke
 
 ## 🌐 语言 / Language
 
-📖 [English Documentation](../en/[approved]home.md) | [中文文档](home.md)
+📖 [English Documentation](home) | [中文文档](home)
 
 ---
 
@@ -146,13 +146,13 @@ SID 定位 + 语义编辑引擎，支持章节级插入/替换/删除和 YAML Ke
 ## 🎯 下一步
 
 **初次使用？**
-👉 从 [安装与初始化](getting-started-installation.md) 开始
+👉 从 [安装与初始化](getting-started-installation) 开始
 
 **已安装完成？**
-👉 直接尝试 [创建第一个文档](getting-started-first-document.md)
+👉 直接尝试 [创建第一个文档](getting-started-first-document)
 
 **需要细化输出？**
-👉 阅读 [对话与提示词技巧](getting-started-conversation-tips.md)
+👉 阅读 [对话与提示词技巧](getting-started-conversation-tips)
 
 ---
 

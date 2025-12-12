@@ -592,10 +592,7 @@ MyProject/
 
 ## 相关主题
 
-- [理解文档结构](getting-started-document-structure.md)
-- [提升质量](scenario-quality-improvement.md)
-- [多项目管理](scenario-multi-project.md)
+- [理解文档结构](getting-started-document-structure)
+- [提升质量](scenario-quality-improvement)
+- [多项目管理](scenario-multi-project)
 
----
-
-[⬅️ 上一篇：提升质量](scenario-quality-improvement.md) | [下一篇：获取帮助 ➡️](faq-getting-help.md)

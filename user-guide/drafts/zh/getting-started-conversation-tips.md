@@ -617,13 +617,10 @@ SRS Writer 会解释它的思路。
 4. 检查质量并改进
 
 **继续学习**：
-👉 [理解文档结构](getting-started-document-structure.md)
-👉 [常见场景](scenario-import-existing.md)
+👉 [理解文档结构](getting-started-document-structure)
+👉 [常见场景](scenario-import-existing)
 
 ---
 
-**有问题？** [查看常见问题](faq-common-questions.md) 或 [社区讨论](https://github.com/Testany-io/srs-writer-plugin/discussions)
+**有问题？** [查看常见问题](faq-common-questions) 或 [社区讨论](https://github.com/Testany-io/srs-writer-plugin/discussions)
 
----
-
-[⬅️ 上一篇：文档结构与示例](getting-started-document-structure.md) | [下一篇：控制面板与状态检查 ➡️](scenario-control-panel.md)

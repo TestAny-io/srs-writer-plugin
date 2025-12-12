@@ -101,6 +101,3 @@
 - **保持 ID 稳定**：ID（FR/NFR/IFR/DAR/UC 等）是追踪关系的锚点，不建议随意重编号。
 - **查看 diff**：使用 VS Code 的源代码管理或 `git diff` 检查变更，确认后再提交。
 
----
-
-[⬅️ 上一篇：创建第一个文档](getting-started-first-document.md) | [下一篇：对话与提示词技巧 ➡️](getting-started-conversation-tips.md)

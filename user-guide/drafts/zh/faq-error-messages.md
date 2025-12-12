@@ -55,6 +55,3 @@
 - 截图/复制完整错误信息，在 [GitHub Issues](https://github.com/Testany-io/srs-writer-plugin/issues) 提交。  
 - 说明 VS Code 版本、SRS Writer 版本（0.8.2）、触发步骤和日志片段。
 
----
-
-[⬅️ 返回常见问题](faq-common-questions.md) | [下一篇：获取帮助 ➡️](faq-getting-help.md)

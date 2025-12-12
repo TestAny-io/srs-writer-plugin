@@ -112,7 +112,7 @@ Press `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
 
 **⏱️ Total Time: ~10 minutes**
 
-**[Full Installation & Init Guide →]([approved]getting-started-installation.md)**
+**[Full Installation & Init Guide →](getting-started-installation)**
 
 ---
 
@@ -137,7 +137,7 @@ Need project isolation, Git branch discipline, enterprise RAG, or MCP tool onboa
 
 ## 🌐 Language / 语言
 
-📖 [English Documentation](home.md) | [中文文档](../zh/home.md)
+📖 [English Documentation](home) | [中文文档](home)
 
 ---
 
@@ -153,13 +153,13 @@ Need project isolation, Git branch discipline, enterprise RAG, or MCP tool onboa
 ## 🎯 What's Next?
 
 **New here?**
-👉 Start with [Installation & Initialization]([approved]getting-started-installation.md)
+👉 Start with [Installation & Initialization](getting-started-installation)
 
 **Already installed?**
-👉 Try [Create Your First Document]([approved]getting-started-first-document.md)
+👉 Try [Create Your First Document](getting-started-first-document)
 
 **Want sharper outputs?**
-👉 Read [Conversation & Prompt Tips]([approved]getting-started-conversation-tips.md)
+👉 Read [Conversation & Prompt Tips](getting-started-conversation-tips)
 
 ---
 

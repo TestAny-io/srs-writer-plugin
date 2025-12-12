@@ -131,6 +131,3 @@ A new project folder is created under your workspace root (name comes from the c
 - Paste drafts/notes when available; use relative paths like `./docs/draft.md`.
 - Send one clear set of changes at a time to reduce ambiguity.
 
----
-
-[⬅️ Back to Home](home.md) | [Next: Document Structure & Examples ➡️]([approved]getting-started-document-structure.md)

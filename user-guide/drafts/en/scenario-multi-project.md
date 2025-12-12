@@ -72,6 +72,3 @@ this is the backend API for a mobile app—start with the skeleton docs.
 - **Small commits**: commit per project to avoid mixed changes.  
 - **Check sync regularly**: after manual file moves or git pulls, run **Sync Status Check** to catch issues early.
 
----
-
-[⬅️ Back: Update Requirements](scenario-update-requirements.md) | [Next: Quality Improvement ➡️](scenario-quality-improvement.md)

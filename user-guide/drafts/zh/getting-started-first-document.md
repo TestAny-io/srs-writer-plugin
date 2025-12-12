@@ -132,6 +132,3 @@
 - 有草稿/笔记就粘贴，路径引用使用相对路径（如 `./docs/draft.md`）。
 - 一次只提出一组明确的修改点，减少歧义。
 
----
-
-[⬅️ 返回首页](home.md) | [下一篇：文档结构与示例 ➡️](getting-started-document-structure.md)

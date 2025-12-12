@@ -42,6 +42,3 @@
 - Search the exact error text in Issues/Discussions; a fix often exists.  
 - If blocked, open an Issue with steps, logs, and version details.
 
----
-
-[⬅️ Back: Errors & Troubleshooting](faq-error-messages.md) | [Return Home](home.md)

@@ -121,6 +121,3 @@ Opens VS Code settings filtered to SRS Writer. Key entries:
 1. Control Panel → **Sync Status Check**
 2. If issues exist, run **Force Sync Context** (command palette) or switch away and back
 
----
-
-[⬅️ Back: Conversation & Prompt Tips]([approved]getting-started-conversation-tips.md) | [Next: Import Existing Drafts ➡️]([approved]scenario-import-existing.md)

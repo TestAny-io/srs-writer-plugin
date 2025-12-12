@@ -580,10 +580,7 @@ MyProject/
 
 ## Related Topics
 
-- [Understanding Document Structure](getting-started-document-structure.md)
-- [Quality Improvement](scenario-quality-improvement.md)
-- [Multi-Project Management](scenario-multi-project.md)
+- [Understanding Document Structure](getting-started-document-structure)
+- [Quality Improvement](scenario-quality-improvement)
+- [Multi-Project Management](scenario-multi-project)
 
----
-
-[⬅️ Back: Quality Improvement](scenario-quality-improvement.md) | [Next: Getting Help ➡️](faq-getting-help.md)
