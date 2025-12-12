@@ -39,10 +39,15 @@ jobs:
             done
           fi
 
-          # Sync Chinese docs
+          # Sync Chinese docs (exclude content-writer-media-guide.md - maintained separately in docs repo)
           if [ -d "user-guide/drafts/zh" ]; then
             for f in user-guide/drafts/zh/*.md; do
               if [ -f "$f" ]; then
+                filename=$(basename "$f")
+                if [ "$filename" = "content-writer-media-guide.md" ]; then
+                  echo "Skipped (excluded): $f"
+                  continue
+                fi
                 cp "$f" "docs-site/public/docs/srs-writer/zh/"
                 echo "Copied: $f"
               fi
