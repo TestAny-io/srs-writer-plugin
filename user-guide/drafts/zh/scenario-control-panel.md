@@ -39,11 +39,11 @@
 ⚙️ 插件设置            → 打开 SRS Writer 设置页
 ```
 
-下面逐项说明。
 ![srs配置目录1](../images/zh/image-20251210-133501_0001.png)
+下面逐项说明。
 ---
 
-### 📁 创建工作区并初始化
+### 📁 创建工作区并初始化 Create Workspace & Initialize
 
 - 复制 `.templates/` 到新工作区  
 - 生成 `.vscode/settings.json`（随扩展打包）  
@@ -55,7 +55,7 @@
 
 ---
 
-### 🔄 切换项目
+### 🔄 切换项目 Switch Project
 
 - 列出 `.session-log/` 中的项目会话并校验目录有效性  
 - 若有执行中的计划，会提示停止后再切换  
@@ -65,7 +65,7 @@
 
 ---
 
-### 📂 项目管理
+### 📂 项目管理 Project Management
 
 **重命名项目**
 - 原子更新：项目名、项目目录、会话文件路径、`baseDir`  
@@ -78,7 +78,7 @@
 
 ---
 
-### ✓ 同步状态检查
+### ✓ 同步状态检查 Sync Status Check
 
 检查当前项目的：
 - 会话状态（`baseDir`、会话文件存在性）
@@ -89,7 +89,7 @@
 
 ---
 
-### 🔧 MCP 工具管理
+### 🔧 MCP 工具管理 MCP Tool Management
 
 - **查看工具状态**：显示已注册工具数量、来源（VS Code/MCP）、当前排除关键词；可打开用户级 `mcp.json`  
 - **管理排除关键词**：添加/删除关键字以过滤不需要的 MCP 工具（大小写不敏感）  
@@ -97,7 +97,7 @@
 
 ---
 
-### ⚙️ 插件设置
+### ⚙️ 插件设置 Plugin Setting
 
 打开已过滤到 SRS Writer 的 VS Code 设置，常用项：
 - `srs-writer.projectSwitching.excludeDirectories`：项目选择时忽略的目录名
