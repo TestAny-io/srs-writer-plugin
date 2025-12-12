@@ -1,6 +1,6 @@
 # SRS Writer - AI-Powered Requirements Engineering
 
-> **Turn conversations into a deliverable requirements package in hours, not weeks.**
+> **Turn conversations into a deliverable requirements package in hours, not weeks!**
 
 ---
 
