@@ -135,35 +135,6 @@ Need project isolation, Git branch discipline, enterprise RAG, or MCP tool onboa
 
 ---
 
-## 📚 Documentation
-
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-
-### 🚀 Getting Started
-**10 minutes to your first doc**
-- [Installation & Initialization]([approved]getting-started-installation.md)
-- [First Document]([approved]getting-started-first-document.md)
-- [Document Structure & Examples]([approved]getting-started-document-structure.md)
-- [Conversation & Prompt Tips]([approved]getting-started-conversation-tips.md)
-
-### 📖 Scenarios
-**Handle real workflows**
-- [Control Panel & Status Checks]([approved]scenario-control-panel.md)
-- [Import Existing Drafts]([approved]scenario-import-existing.md)
-- [Update Requirements](scenario-update-requirements.md)
-- [Multi-Project Switching](scenario-multi-project.md)
-- [Quality Improvement](scenario-quality-improvement.md)
-
-### ❓ Help & Support
-**Find answers quickly**
-- [FAQ]([approved]faq-common-questions.md)
-- [Troubleshooting]([approved]faq-error-messages.md)
-- [Get Help]([approved]faq-getting-help.md)
-
-</div>
-
----
-
 ## 🌐 Language / 语言
 
 📖 [English Documentation](home.md) | [中文文档](../zh/home.md)
@@ -181,8 +152,6 @@ Need project isolation, Git branch discipline, enterprise RAG, or MCP tool onboa
 
 ## 🎯 What's Next?
 
-<div style="background: #f0f7ff; padding: 20px; border-radius: 8px; border-left: 4px solid #0066cc;">
-
 **New here?**
 👉 Start with [Installation & Initialization]([approved]getting-started-installation.md)
 
@@ -191,8 +160,6 @@ Need project isolation, Git branch discipline, enterprise RAG, or MCP tool onboa
 
 **Want sharper outputs?**
 👉 Read [Conversation & Prompt Tips]([approved]getting-started-conversation-tips.md)
-
-</div>
 
 ---
 

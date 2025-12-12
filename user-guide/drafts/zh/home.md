@@ -128,35 +128,6 @@ SID 定位 + 语义编辑引擎，支持章节级插入/替换/删除和 YAML Ke
 
 ---
 
-## 📚 文档导航
-
-<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-
-### 🚀 入门
-**10 分钟完成首个文档**
-- [安装与初始化](getting-started-installation.md)
-- [创建第一个文档](getting-started-first-document.md)
-- [文档结构与示例](getting-started-document-structure.md)
-- [对话与提示词技巧](getting-started-conversation-tips.md)
-
-### 📖 常见场景
-**针对真实工作流**
-- [控制面板与状态检查](scenario-control-panel.md)
-- [导入现有草稿](scenario-import-existing.md)
-- [更新需求与变更](scenario-update-requirements.md)
-- [多项目切换与会话管理](scenario-multi-project.md)
-- [质量提升与校验](scenario-quality-improvement.md)
-
-### ❓ 帮助与支持
-**快速定位答案**
-- [常见问题](faq-common-questions.md)
-- [错误与故障排除](faq-error-messages.md)
-- [获取帮助](faq-getting-help.md)
-
-</div>
-
----
-
 ## 🌐 语言 / Language
 
 📖 [English Documentation](../en/[approved]home.md) | [中文文档](home.md)
@@ -174,8 +145,6 @@ SID 定位 + 语义编辑引擎，支持章节级插入/替换/删除和 YAML Ke
 
 ## 🎯 下一步
 
-<div style="background: #f0f7ff; padding: 20px; border-radius: 8px; border-left: 4px solid #0066cc;">
-
 **初次使用？**
 👉 从 [安装与初始化](getting-started-installation.md) 开始
 
@@ -184,8 +153,6 @@ SID 定位 + 语义编辑引擎，支持章节级插入/替换/删除和 YAML Ke
 
 **需要细化输出？**
 👉 阅读 [对话与提示词技巧](getting-started-conversation-tips.md)
-
-</div>
 
 ---
 
