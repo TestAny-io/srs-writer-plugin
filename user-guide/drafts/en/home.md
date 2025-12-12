@@ -6,9 +6,7 @@
 
 ## 🎬 See It In Action
 
-[📺 Watch 2-Minute Demo Video](#) *(Recording in progress)*
-
-![SRS Writer Demo](../../materials/screenshots/demo-overview.png) *(Screenshot placeholder)*
+*(Demo video coming soon)*
 
 ---
 
