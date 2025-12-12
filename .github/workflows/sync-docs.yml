@@ -20,6 +20,7 @@ jobs:
           repository: TestAny-io/testany_docs_for_user
           token: ${{ secrets.DOCS_SYNC_TOKEN }}
           path: docs-site
+          fetch-depth: 0  # Full history needed for changelog generation
 
       - name: Sync documentation files
         run: |
