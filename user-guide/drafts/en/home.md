@@ -88,6 +88,8 @@ Ships with `.templates/` for chapters and IDs, `requirements.yaml` schema at `co
 - **Git** and a **GitHub Copilot subscription** (uses VS Code LM APIs)
 
 **Step 2: Install & Initialize a Workspace**
+- Open the Extensions view (`Cmd+Shift+X` / `Ctrl+Shift+X`).Search for **SRS Writer**.Click **Install**.
+![srs install](../images/zh/image-20251212-141701_0001.png)
 - After installing, Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (macOS)run **SRS Writer: Control Panel**
 ![srs CLI config](../images/zh/image-20251210-132901_0001.png)
 - Or, click the **SRS Writer:** button located in the Status Bar to trigger the popup.
