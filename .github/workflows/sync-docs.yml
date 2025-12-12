@@ -20,7 +20,6 @@ jobs:
           repository: TestAny-io/testany_docs_for_user
           token: ${{ secrets.DOCS_SYNC_TOKEN }}
           path: docs-site
-          fetch-depth: 0  # Full history needed for changelog generation
 
       - name: Sync documentation files
         run: |
@@ -62,7 +61,7 @@ jobs:
             echo "Synced Chinese images"
           fi
 
-      - name: Add frontmatter, regenerate configs, and update changelog
+      - name: Add frontmatter and regenerate navigation config
         run: |
           cd docs-site
           npm ci
@@ -70,8 +69,6 @@ jobs:
           node scripts/add-srs-writer-frontmatter.cjs
           # Regenerate navigation config from frontmatter
           node scripts/generate-srs-writer-nav-config.cjs
-          # Regenerate changelog (requires full git history)
-          node scripts/generate-changelog.js
 
       - name: Create Pull Request
         env:
@@ -116,7 +113,6 @@ jobs:
           - Synced documentation from \`user-guide/\` directory
           - Added frontmatter to markdown files
           - Regenerated navigation config
-          - Updated changelog
 
           ### Preview
           Once CI completes, a Cloudflare Pages preview will be available for testing.
